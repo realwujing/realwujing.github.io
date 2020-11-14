@@ -8,4 +8,4 @@ include_directories(.)
 add_executable(C__Project
         main.cpp
         name.cpp
-        name.h Box.cpp Box.h Shape.cpp Shape.h Rectangle.cpp Rectangle.h)
+        name.h Box.cpp Box.h Shape.cpp Shape.h Rectangle.cpp Rectangle.h test/test1.cpp test/test1.h test/test2.cpp test/test2.h)
