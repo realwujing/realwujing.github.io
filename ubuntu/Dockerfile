@@ -7,7 +7,9 @@ COPY sources.list /etc/apt/
 RUN apt update && apt install -y \
     sudo && \
     useradd --create-home --no-log-init --shell /bin/bash wujing && \
-    adduser wujing sudoRUN echo "wujing:2988" | chpasswd && \
+    echo 'wujing ALL=(ALL) ALL' >> /etc/sudoers && \
+    echo 'wujing:2988' | chpasswd && \
+    echo 'root:2988' | chpasswd && \
     mkdir /home/wujing/.pip
 
 USER wujing
