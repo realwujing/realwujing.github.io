@@ -4,11 +4,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 SHELL ["/bin/bash", "-c"]
 
-COPY sources.list /etc/apt/
-COPY .condarc ~/
-COPY condainit ~/
+WORKDIR /root
 
-WORKDIR ~/
+COPY sources.list /etc/apt/
+COPY .condarc /root
+COPY condainit /root
 
 RUN apt update && apt install -y \
     sudo \
@@ -46,7 +46,7 @@ RUN apt update && apt install -y \
     echo "set completion-ignore-case on" >> /home/wujing/.inputrc && \
     source /etc/profile && \
     cp .condarc /home/wujing && \
-    cp -r ~/.config /home/wujing/
+    cp -r .config /home/wujing/
 
 USER wujing
 WORKDIR /home/wujing
