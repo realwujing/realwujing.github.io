@@ -1,7 +1,7 @@
 <!--
  * @Author: wujing
  * @Date: 2021-04-02 20:14:30
- * @LastEditTime: 2021-04-03 23:20:29
+ * @LastEditTime: 2021-04-03 23:39:36
  * @LastEditors: wujing
  * @Description: 
  * @FilePath: /DockerProject/ubuntu/README.md
@@ -17,6 +17,7 @@
 ## 3、启动镜像
     # bash    
     docker run -itd --name ubuntu-wujing ubuntu:wujing /bin/bash
+    docker run -itd --name ubuntu-ai ubuntu:ai /bin/bash
     # dash
     docker run -itd --name ubuntu-wujing ubuntu:wujing
     # 端口映射
@@ -54,7 +55,7 @@
     
 ## AI环境
     # 新建ai python环境
-    conda create -n ai python=3.6
+    conda create -y -n ai python=3.6
     # 激活环境
     conda activate ai
     # 安装tensorflow pytorch等
