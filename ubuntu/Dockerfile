@@ -23,6 +23,7 @@ RUN apt update && apt install -y \
     nginx \
     openssh-server \
     net-tools \
+    iputils-ping \
     lsb-core \
     wget && \
     wget https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-2020.02-Linux-x86_64.sh && \
