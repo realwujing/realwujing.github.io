@@ -40,11 +40,14 @@ RUN apt update && apt install -y \
     echo 'wujing:2988' | chpasswd && \
     echo 'root:2988' | chpasswd && \
     cat condainit >> /etc/profile && \
+    echo "set completion-ignore-case on" >> ~/.inputrc && \
     echo -e >> /home/wujing/.bashrc && \
     echo 'source /etc/profile' >> /home/wujing/.bashrc && \
+    echo "set completion-ignore-case on" >> /home/wujing/.inputrc && \
     source /etc/profile && \
     cp .condarc /home/wujing && \
     cp -r /root/.config /home/wujing/
+    
 
 USER wujing
 WORKDIR /home/wujing
