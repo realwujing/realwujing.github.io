@@ -1,7 +1,7 @@
 <!--
  * @Author: wujing
  * @Date: 2021-04-02 20:14:30
- * @LastEditTime: 2021-04-03 22:45:40
+ * @LastEditTime: 2021-04-03 23:20:29
  * @LastEditors: wujing
  * @Description: 
  * @FilePath: /DockerProject/ubuntu/README.md
@@ -51,3 +51,11 @@
 
     # https://mirrors.bfsu.edu.cn/help/pypi/
     pip config set global.index-url https://mirrors.bfsu.edu.cn/pypi/web/simple
+    
+## AI环境
+    # 新建ai python环境
+    conda create -n ai python=3.6
+    # 激活环境
+    conda activate ai
+    # 安装tensorflow pytorch等
+    conda install -y tensorflow pytorch pandas matplotlib
