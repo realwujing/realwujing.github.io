@@ -1,7 +1,7 @@
 <!--
  * @Author: wujing
  * @Date: 2021-04-02 20:14:30
- * @LastEditTime: 2021-04-03 21:38:22
+ * @LastEditTime: 2021-04-03 22:29:44
  * @LastEditors: wujing
  * @Description: 
  * @FilePath: /DockerProject/ubuntu/README.md
@@ -38,10 +38,10 @@
 
     
 ## 5、ssh
-    # 启动 ssh
-    sudo service ssh start
     # 配置ssh客户端，去掉PasswordAuthentication yes前面的#号，保存退出
     sudo vi /etc/ssh/ssh_config
+    # 启动 ssh
+    sudo service ssh start
 
 ## 6、anaconda
     # 安装包
