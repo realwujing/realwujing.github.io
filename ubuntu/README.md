@@ -1,7 +1,7 @@
 <!--
  * @Author: wujing
  * @Date: 2021-04-02 20:14:30
- * @LastEditTime: 2021-04-03 12:41:26
+ * @LastEditTime: 2021-04-03 21:38:22
  * @LastEditors: wujing
  * @Description: 
  * @FilePath: /DockerProject/ubuntu/README.md
@@ -20,7 +20,7 @@
     # dash
     docker run -itd --name ubuntu-wujing ubuntu:wujing
     # 端口映射
-    docker run -p 22222:22 -itd --name ubuntu-wujing-ssh ubuntu:wujing  /bin/bash
+    docker run -p 22222:22 -itd --name ubuntu-wujing ubuntu:wujing  /bin/bash
     docker run -p 22223:22 -itd --name ubuntu-ai ubuntu:ai  /bin/bash
     
 
