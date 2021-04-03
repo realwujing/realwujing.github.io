@@ -1,21 +1,48 @@
-FROM ubuntu:20.04
+FROM ubuntu:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+SHELL ["/bin/bash", "-c"]
+
 COPY sources.list /etc/apt/
+COPY .condarc ~/
+COPY condainit ~/
+
+WORKDIR ~/
 
 RUN apt update && apt install -y \
-    sudo && \
+    sudo \
+    vim \
+    git \
+    g++ \
+    gdb \
+    cmake \
+    openjdk-11-jdk \
+    mysql-server \
+    redis \
+    nginx \
+    openssh-server \
+    net-tools \
+    lsb-core \
+    wget && \
+    wget https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-2020.02-Linux-x86_64.sh && \
+    bash Anaconda3-2020.02-Linux-x86_64.sh -b -p /usr/local/anaconda3/ && \
+    rm Anaconda3-2020.02-Linux-x86_64.sh && \
+    source /usr/local/anaconda3/bin/activate && \
+    conda init && \
+    conda clean -i && \
+    pip config set global.index-url https://mirrors.bfsu.edu.cn/pypi/web/simple && \
+    usermod -d /var/lib/mysql/ mysql && \
     useradd --create-home --no-log-init --shell /bin/bash wujing && \
     echo 'wujing ALL=(ALL) ALL' >> /etc/sudoers && \
     echo 'wujing:2988' | chpasswd && \
     echo 'root:2988' | chpasswd && \
-    mkdir /home/wujing/.pip
+    cat condainit >> /etc/profile && \
+    echo -e >> /home/wujing/.bashrc && \
+    echo 'source /etc/profile' >> /home/wujing/.bashrc && \
+    source /etc/profile && \
+    cp .condarc /home/wujing && \
+    cp -r /root/.config /home/wujing/
 
 USER wujing
 WORKDIR /home/wujing
-
-COPY .condarc ~/
-COPY pip.conf ~/.pip
-
-CMD ["/bin/bash"]
