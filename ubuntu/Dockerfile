@@ -26,6 +26,7 @@ RUN apt update && apt install -y \
     iputils-ping \
     telnet \
     lsb-core \
+    iptables \
     wget && \
     wget https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-2020.02-Linux-x86_64.sh && \
     bash Anaconda3-2020.02-Linux-x86_64.sh -b -p /usr/local/anaconda3/ && \
