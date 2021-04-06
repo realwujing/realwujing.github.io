@@ -14,6 +14,7 @@ RUN apt update && apt install -y \
     sudo \
     vim \
     git \
+    subversion \
     g++ \
     gdb \
     cmake \
