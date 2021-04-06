@@ -42,7 +42,7 @@
     # 启动 ssh
     sudo service ssh start
     # 配置ssh客户端，去掉PasswordAuthentication yes前面的#号，保存退出
-    sudo vi /etc/ssh/ssh_config
+    sudo vim /etc/ssh/ssh_config
 
 ## 6、anaconda
     # 安装包
