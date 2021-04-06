@@ -54,7 +54,8 @@ RUN apt update && apt install -y \
     echo "set completion-ignore-case on" >> /home/wujing/.inputrc && \
     source /etc/profile && \
     cp .condarc /home/wujing && \
-    cp -r .config /home/wujing/
+    cp -r .config /home/wujing/ && \
+    chmod 777 -R /home/wujing/.config/
 
 USER wujing
 WORKDIR /home/wujing
