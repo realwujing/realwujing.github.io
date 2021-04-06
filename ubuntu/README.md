@@ -19,7 +19,7 @@
     # dash
     docker run -itd --name ubuntu-wujing ubuntu:wujing
     # 端口映射
-    docker run -p 22223:22 -p 33306:3306 -itd --name ubuntu-ai ubuntu:ai /bin/bash
+    docker run -p 22222:22 -p 33306:3306 -itd --name ubuntu-ai ubuntu:ai /bin/bash
     
 
 ## 4、mysql
