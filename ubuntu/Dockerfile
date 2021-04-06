@@ -41,6 +41,7 @@ RUN apt update && apt install -y \
     conda activate ai && \
     conda install -y tensorflow pytorch pandas matplotlib && \
     conda deactivate && \
+    chmod 777 -R /usr/local/anaconda3/ && \
     usermod -d /var/lib/mysql/ mysql && \
     useradd --create-home --no-log-init --shell /bin/bash wujing && \
     echo 'wujing ALL=(ALL) ALL' >> /etc/sudoers && \
