@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -10,6 +10,7 @@ COPY sources.list /etc/apt/
 COPY mysql_secure.sh /root/
 COPY mysql.sql /root/
 COPY ssh_keygen.sh /root/
+COPY start.sh /root/
 
 RUN apt update && apt install -y \
     sudo \
@@ -32,11 +33,23 @@ RUN apt update && apt install -y \
     iptables \
     expect \
     wget && \
+    wget https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-2020.02-Linux-x86_64.sh && \
+    bash Anaconda3-2020.02-Linux-x86_64.sh -b -p /usr/local/anaconda3/ && \
+    rm Anaconda3-2020.02-Linux-x86_64.sh && \
+    source /usr/local/anaconda3/bin/activate && \
+    conda init && \
+    conda clean -i && \
+    pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
+    source .bashrc && \
+    conda create -y -n ai python=3.6 && \
+    conda activate ai && \
+    conda install -y tensorflow pytorch pandas matplotlib && \
+    conda deactivate && \
+    chmod 777 -R /usr/local/anaconda3/ && \
     usermod -d /var/lib/mysql/ mysql && \
     chmod +x /root/mysql_secure.sh && \
     expect /root/mysql_secure.sh && \
     sed -i "s/bind-address.*= 127.0.0.1/bind-address            = 0.0.0.0/g" /etc/mysql/mysql.conf.d/mysqld.cnf && \
-    service mysql restart && \
     mysql -P 3306 -uroot -p2988 < /root/mysql.sql && \
     sed -i "s/#   PasswordAuthentication yes/    PasswordAuthentication yes/g" /etc/ssh/ssh_config && \
     chmod +x /root/ssh_keygen.sh && \
@@ -46,7 +59,7 @@ RUN apt update && apt install -y \
     chmod 600 authorized_keys && \
     chmod 700 /root/.ssh && \
     sed -i "s/#PubkeyAuthentication yes/RSAAuthentication yes\nPubkeyAuthentication yes/g" /etc/ssh/sshd_config && \
-    service ssh restart && \
+    chmod 777 /root/start.sh && \
     useradd --create-home --no-log-init --shell /bin/bash wujing && \
     echo 'wujing ALL=(ALL) ALL' >> /etc/sudoers && \
     echo 'wujing:2988' | chpasswd && \
@@ -56,6 +69,8 @@ RUN apt update && apt install -y \
     echo 'source /etc/profile' >> /home/wujing/.bashrc && \
     echo "set completion-ignore-case on" >> /home/wujing/.inputrc && \
     source /etc/profile 
+
+CMD ["/bin/bash","/root/start.sh"]
 
 USER wujing
 WORKDIR /home/wujing
