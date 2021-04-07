@@ -70,7 +70,7 @@ RUN apt update && apt install -y \
     echo "set completion-ignore-case on" >> /home/wujing/.inputrc && \
     source /etc/profile 
 
-CMD ["/bin/bash","/root/start.sh"]
+ENTRYPOINT ["/bin/bash","/root/start.sh"]
 
 USER wujing
 WORKDIR /home/wujing
