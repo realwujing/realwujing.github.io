@@ -35,7 +35,7 @@ RUN apt update && apt install -y \
     source /usr/local/anaconda3/bin/activate && \
     conda init && \
     conda clean -i && \
-    pip config set global.index-url https://mirrors.bfsu.edu.cn/pypi/web/simple && \
+    pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
     source .bashrc && \
     conda create -y -n ai python=3.6 && \
     conda activate ai && \
