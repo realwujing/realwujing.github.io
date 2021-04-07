@@ -1,7 +1,7 @@
 <!--
  * @Author: wujing
  * @Date: 2021-04-02 20:14:30
- * @LastEditTime: 2021-04-03 23:39:36
+ * @LastEditTime: 2021-04-08 01:40:29
  * @LastEditors: wujing
  * @Description: 
  * @FilePath: /DockerProject/ubuntu/README.md
@@ -22,7 +22,7 @@
     # 端口映射
     docker run -p 22222:22 -p 33306:3306 -itd --name ubuntu-ai ubuntu:ai
     docker run -p 22222:22 -p 33306:3306 -itd --name ubuntu-ai ubuntu:ai /bin/bash
-    docker run -p 22223:22 -p 33307:3306 -itd --name ubuntu-ai2 ubuntu:ai2 /bin/bash
+    docker run -p 22224:22 -p 33307:3306 -itd --name ubuntu-ai2 ubuntu:ai2 /bin/bash
     
 
 ## 4、mysql
