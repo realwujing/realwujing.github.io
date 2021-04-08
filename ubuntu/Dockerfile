@@ -64,7 +64,7 @@ RUN apt update && apt install -y \
     chmod 600 authorized_keys && \
     chmod 700 /root/.ssh && \
     sed -i "s/#PubkeyAuthentication yes/PubkeyAuthentication yes/g" /etc/ssh/sshd_config && \
-    service ssh start && \
+    service ssh restart && \
     chmod 777 /usr/local/start.sh && \
     touch /usr/local/start.log && \
     chmod 777 /usr/local/start.log && \
