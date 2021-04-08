@@ -1,6 +1,7 @@
 FROM ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG C.UTF-8
 
 SHELL ["/bin/bash", "-c"]
 
@@ -34,6 +35,7 @@ RUN apt update && apt install -y \
     lsb-core \
     iptables \
     expect \
+    tzdata \
     wget && \
     wget https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-2020.02-Linux-x86_64.sh && \
     bash Anaconda3-2020.02-Linux-x86_64.sh -b -p /usr/local/anaconda3/ && \
@@ -65,6 +67,8 @@ RUN apt update && apt install -y \
     chmod 700 /root/.ssh && \
     sed -i "s/#PubkeyAuthentication yes/PubkeyAuthentication yes/g" /etc/ssh/sshd_config && \
     service ssh restart && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     chmod 777 /usr/local/start.sh && \
     touch /usr/local/start.log && \
     chmod 777 /usr/local/start.log && \
@@ -74,6 +78,7 @@ RUN apt update && apt install -y \
     echo 'root:2988' | chpasswd && \
     cd /root && \
     cat condainit >> /etc/profile && \
+    echo -e >> /etc/profile && \
     echo "set completion-ignore-case on" >> ~/.inputrc && \
     echo -e >> /home/wujing/.bashrc && \
     echo 'source /etc/profile' >> /home/wujing/.bashrc && \
@@ -93,5 +98,7 @@ RUN expect /home/wujing/ssh_keygen.sh && \
     chmod 600 authorized_keys && \
     chmod 700 /home/wujing/.ssh && \
     cd /home/wujing/
+    
+ENV DEBIAN_FRONTEND=dialog
 
 ENTRYPOINT ["/bin/bash", "/usr/local/start.sh"]
