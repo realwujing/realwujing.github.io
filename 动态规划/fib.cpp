@@ -1,6 +1,8 @@
 #include <iostream>
 using namespace std;
 
+int fib(int N);
+
 int fib(int N)
 {
     if (N == 1 || N == 2)
