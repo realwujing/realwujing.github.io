@@ -6,10 +6,10 @@ using namespace std;
 vector<vector<string>> res;
 void backtrack(vector<string> &board, int row);
 bool isValid(vector<string> &board, int row, int col);
-vector<vector<string>> solveNQueens(int n);
+vector<vector<string>> sloveNQueens(int n);
 
 /* 输入棋盘边长 n，返回所有合法的放置 */
-vector<vector<string>> solveNQueens(int n)
+vector<vector<string>> sloveNQueens(int n)
 {
     // '.' 表示空，'Q'表示皇后，初始化空棋盘。
     vector<string> board(n, string(n, '.'));
