@@ -79,7 +79,7 @@ int main()
     int n;
     cout << "请输入皇后数：";
     cin >> n;
-    vector<vector<string>> vSloveNQueens = sloveNQueens(n);
+    vector<vector<string>> vSloveNQueens = solveNQueens(n);
     for (size_t i = 0; i < vSloveNQueens.size(); i++)
     {
         cout << i << ' ' << string(50, '*') << endl;
