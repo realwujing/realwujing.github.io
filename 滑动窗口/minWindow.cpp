@@ -1,7 +1,10 @@
+// LeetCode 76 题，Minimum Window Substring，难度 Hard：
+
 #include <iostream>
 #include<string>
 #include<unordered_map>
 #include <climits>
+#include <fstream>
 using namespace std;
 
 string minWindow(string s, string t)
@@ -73,5 +76,10 @@ string minWindow(string s, string t)
 
 int main()
 {
-    cout << minWindow("ADOBECODEBANC", "ABC") << endl;
+    static ofstream g_log("out.log"); //指定到out.log文件夹
+    cout.rdbuf(g_log.rdbuf());
+
+    string s = minWindow("ADOBECODEBANC", "ABC");
+
+    cout << __LINE__ << " " << s << endl;
 }
