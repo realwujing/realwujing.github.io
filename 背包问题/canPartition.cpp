@@ -34,7 +34,7 @@ bool canPartition(vector<int> &nums)
             else
             {
                 // 装入或不装入背包
-                dp[i][j] = dp[i - 1][j] | dp[i - 1][j - nums[i - 1]];
+                dp[i][j] = dp[i - 1][j] || dp[i - 1][j - nums[i - 1]];
                 FLOG("canPartition") << dp[i][j] << endl;
             }
         }
