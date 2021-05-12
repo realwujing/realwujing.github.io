@@ -1,13 +1,3 @@
-/*** 
- * @Author: wujing
- * @Date: 2021-02-23 23:47:34
- * @LastEditTime: 2021-02-23 23:47:51
- * @LastEditors: wujing
- * @Description: 
- * @FilePath: /code/CPlusPlusProject/pthread/sync/pthread_cond_t2.cpp
- * @可以输入预定的版权声明、个性签名、空行等
- */
-
 #include <iostream>
 #include <pthread.h>
 #include <stdio.h>
@@ -20,13 +10,10 @@ using namespace std;
 pthread_cond_t taxi_cond = PTHREAD_COND_INITIALIZER;    //taix arrive cond
 pthread_mutex_t taxi_mutex = PTHREAD_MUTEX_INITIALIZER; // sync mutex
 
-int traveler_num = 0;
-
 void *traveler_arrive(void *name)
 {
     cout << "Traveler:" << (char *)name << " needs a taxi now!" << endl;
     pthread_mutex_lock(&taxi_mutex);
-    traveler_num++;
     pthread_cond_wait(&taxi_cond, &taxi_mutex);
     pthread_mutex_unlock(&taxi_mutex);
     cout << "Traveler:" << (char *)name << " now got a taxi!" << endl;
@@ -36,18 +23,7 @@ void *traveler_arrive(void *name)
 void *taxi_arrive(void *name)
 {
     cout << "Taxi:" << (char *)name << " arriver." << endl;
-
-    while (1)
-    {
-        pthread_mutex_lock(&taxi_mutex);
-        if (traveler_num > 0)
-        {
-            pthread_cond_signal(&taxi_cond);
-            pthread_mutex_unlock(&taxi_mutex);
-            break;
-        }
-        pthread_mutex_unlock(&taxi_mutex);
-    }
+    pthread_cond_signal(&taxi_cond);
     pthread_exit((void *)0);
 }
 

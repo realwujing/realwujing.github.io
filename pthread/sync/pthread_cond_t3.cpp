@@ -1,13 +1,3 @@
-/*** 
- * @Author: wujing
- * @Date: 2021-02-24 04:07:00
- * @LastEditTime: 2021-02-24 04:07:09
- * @LastEditors: wujing
- * @Description: 
- * @FilePath: /code/CPlusPlusProject/pthread/sync/pthread_cond_t3.cpp
- * @可以输入预定的版权声明、个性签名、空行等
- */
-
 #include <iostream>
 #include <pthread.h>
 #include <stdio.h>
@@ -35,6 +25,7 @@ void *traveler_arrive(void *name)
 void *taxi_arrive(void *name)
 {
     cout << "Taxi:" << (char *)name << " arriver." << endl;
+
     while (1)
     {
         pthread_mutex_lock(&taxi_mutex);
