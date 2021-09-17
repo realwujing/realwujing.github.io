@@ -12,5 +12,6 @@ printf("\n [%c]\n",c);
 
 free(p); //释放
 c = *p; //取值
+printf("\n [%c]\n",c);
 return 0;
 }
