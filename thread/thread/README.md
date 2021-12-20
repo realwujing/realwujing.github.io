@@ -1,3 +1,3 @@
-# std::thread "Hello world"
+# std::thread
 
-[std::thread hello world](hello_world)
+## [std::thread hello_world](hello_world)

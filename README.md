@@ -1,3 +1,3 @@
 # cpp-learning
 
-[C++11 std::thread](thread/thread/README.md)
+## [C++11 thread 教程](thread/README.md)
