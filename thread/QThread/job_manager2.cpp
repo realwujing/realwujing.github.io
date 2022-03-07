@@ -1,15 +1,15 @@
-#include "job_manager.h"
+#include "job_manager2.h"
 
-JobManager::JobManager(QObject *parent)
+JobManager2::JobManager2(QObject *parent)
 {
 
 }
 
-JobManager::~JobManager()
+JobManager2::~JobManager2()
 {
 }
 
-int JobManager::removeJob()
+int JobManager2::removeJob()
 {
     for(auto iter=jobs.begin(); iter!=jobs.end(); ++iter)
     {

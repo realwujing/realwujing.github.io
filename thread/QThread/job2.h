@@ -7,12 +7,12 @@
 #include <QDebug>
 #include <QDateTime>
 
-class Job : public QThread
+class Job2 : public QThread
 {
     Q_OBJECT
 public:
-    Job(QObject *parent = nullptr);
-    ~Job() override;
+    Job2(QObject *parent = nullptr);
+    ~Job2() override;
 
     enum State
     {

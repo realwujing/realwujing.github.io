@@ -1,6 +1,6 @@
-#include "job.h"
+#include "job2.h"
 
-Job::Job(QObject *parent)
+Job2::Job2(QObject *parent)
     : QThread(parent),
       pauseFlag(false),
       stopFlag(false)
@@ -8,13 +8,13 @@ Job::Job(QObject *parent)
 
 }
 
-Job::~Job()
+Job2::~Job2()
 {
     qInfo() << "~Thread";
     stop();
 }
 
-Job::State Job::state() const
+Job2::State Job2::state() const
 {
     State s = Stoped;
     if (!QThread::isRunning())
@@ -32,12 +32,12 @@ Job::State Job::state() const
     return s;
 }
 
-void Job::start(Priority pri)
+void Job2::start(Priority pri)
 {
     QThread::start(pri);
 }
 
-void Job::stop()
+void Job2::stop()
 {
     if (QThread::isRunning())
     {
@@ -48,7 +48,7 @@ void Job::stop()
     }
 }
 
-void Job::pause()
+void Job2::pause()
 {
     if (QThread::isRunning())
     {
@@ -56,7 +56,7 @@ void Job::pause()
     }
 }
 
-void Job::resume()
+void Job2::resume()
 {
     if (QThread::isRunning())
     {
@@ -65,7 +65,7 @@ void Job::resume()
     }
 }
 
-void Job::run()
+void Job2::run()
 {
     qInfo() << "enter thread : " << QThread::currentThreadId();
     while (!stopFlag)
@@ -84,7 +84,7 @@ void Job::run()
     qInfo() << "exit thread : " << QThread::currentThreadId();
 }
 
-void Job::process(std::function<void()> func)
+void Job2::process(std::function<void()> func)
 {
     func();
     stop();

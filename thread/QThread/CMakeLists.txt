@@ -15,7 +15,7 @@ SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
 
 find_package(Qt5 REQUIRED COMPONENTS Core)
 
-add_executable(job main.cpp job.cpp job_manager.cpp)
+add_executable(job main.cpp job2.cpp job_manager2.cpp)
 
 target_link_libraries(job Qt5::Core)
 
