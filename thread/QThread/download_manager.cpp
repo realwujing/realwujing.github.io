@@ -1,15 +1,15 @@
-#include "job_manager2.h"
+#include "download_manager.h"
 
-JobManager2::JobManager2(QObject *parent)
+DownloadManager::DownloadManager(QObject *parent)
 {
 
 }
 
-JobManager2::~JobManager2()
+DownloadManager::~DownloadManager()
 {
 }
 
-int JobManager2::removeJob()
+int DownloadManager::removeJob()
 {
     for(auto iter=jobs.begin(); iter!=jobs.end(); ++iter)
     {
@@ -21,6 +21,5 @@ int JobManager2::removeJob()
             return 0;
         }
     }
-
     return -1;
 }
