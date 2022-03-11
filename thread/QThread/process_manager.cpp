@@ -1,15 +1,15 @@
-#include "download_manager.h"
+#include "process_manager.h"
 
-DownloadManager::DownloadManager(QObject *parent)
+ProcessManager::ProcessManager(QObject *parent)
 {
 
 }
 
-DownloadManager::~DownloadManager()
+ProcessManager::~ProcessManager()
 {
 }
 
-int DownloadManager::removeJob()
+int ProcessManager::removeJob()
 {
     for(auto iter=jobs.begin(); iter!=jobs.end(); ++iter)
     {

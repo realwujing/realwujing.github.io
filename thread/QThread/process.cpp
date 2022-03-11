@@ -1,36 +1,38 @@
-#include "download.h"
+#include "process.h"
 
-Download::Download(QObject *parent)
+Process::Process(QObject *parent)
     : QThread(parent),
       state(STOPED),
       processId(-1)
 {
 }
 
-Download::~Download()
+Process::~Process()
 {
     qInfo() << "~Thread";
     stop();
 }
 
-Download::State Download::getState() const
+Process::State Process::getState() const
 {
     qInfo() << "state:" << state;
     return state;
 }
 
-void Download::start(Priority pri)
+void Process::start(Priority pri)
 {
     QThread::start(pri);
     state = RUNNING;
 }
 
-int Download::stop()
+int Process::stop()
 {
     if (QThread::isRunning())
     {
         QProcess process;
         process.start("kill", {"-9", QString::number(processId)});
+        process.waitForStarted();
+        process.waitForFinished();
         if (QProcess::NormalExit != process.exitCode())
         {
             qCritical() << "kill -9 pid:" << processId << "failed";
@@ -43,12 +45,25 @@ int Download::stop()
     return -1;
 }
 
-int Download::pause()
+int Process::pause()
 {
     if (QThread::isRunning())
     {
+        qInfo() << QDateTime::currentDateTime().toString("yyyy.MM.dd hh:mm:ss.zzz ddd") << " pause process:" << processId;
+
         QProcess process;
-        process.start("kill", {"-STOP", QString::number(processId)});
+        QStringList argStrList = {"-STOP", QString::number(processId)};
+        process.start("kill", argStrList);
+        if (!process.waitForStarted())
+        {
+            qCritical() << "kill init failed!";
+            return -1;
+        }
+        if (!process.waitForFinished())
+        {
+            qCritical() << " run finish failed!";
+            return -1;
+        }
         if (QProcess::NormalExit != process.exitCode())
         {
             qCritical() << "kill -STOP pid:" << processId << "failed";
@@ -60,12 +75,14 @@ int Download::pause()
     return -1;
 }
 
-int Download::resume()
+int Process::resume()
 {
     if (QThread::isRunning())
     {
         QProcess process;
         process.start("kill", {"-CONT", QString::number(processId)});
+        process.waitForStarted(3000);
+        process.waitForFinished(3000);
         if (QProcess::NormalExit != process.exitCode())
         {
             qCritical() << "kill -CONT pid:" << processId << "failed";
@@ -77,7 +94,7 @@ int Download::resume()
     return -1;
 }
 
-void Download::run()
+void Process::run()
 {
     qInfo() << "enter thread : " << QThread::currentThreadId();
 
@@ -86,7 +103,7 @@ void Download::run()
     qInfo() << "exit thread : " << QThread::currentThreadId();
 }
 
-void Download::process(std::function<int()> func)
+void Process::process(std::function<int()> func)
 {
     processId = func();
     qInfo() << "processId:" << processId << QDateTime::currentDateTime().toString("yyyy.MM.dd hh:mm:ss.zzz ddd");

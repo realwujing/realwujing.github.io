@@ -15,9 +15,13 @@ SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
 
 find_package(Qt5 REQUIRED COMPONENTS Core)
 
-add_executable(downlaod main.cpp download.cpp download_manager.cpp)
+add_executable(process main.cpp process.cpp process_manager.cpp)
 
-target_link_libraries(downlaod Qt5::Core)
+target_link_libraries(process Qt5::Core)
+
+add_executable(test test.cpp)
+
+target_link_libraries(test Qt5::Core)
 
 
 

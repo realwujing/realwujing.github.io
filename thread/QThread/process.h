@@ -8,12 +8,12 @@
 #include <QDateTime>
 #include <QProcess>
 
-class Download : public QThread
+class Process : public QThread
 {
     Q_OBJECT
 public:
-    Download(QObject *parent = nullptr);
-    ~Download() override;
+    Process(QObject *parent = nullptr);
+    ~Process() override;
 
     enum State
     {
