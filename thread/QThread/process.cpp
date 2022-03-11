@@ -32,10 +32,7 @@ int Process::stop()
     {
         QProcess process;
         process.start("kill", {"-9", QString::number(processId)});
-<<<<<<< HEAD:thread/QThread/process.cpp
-        process.waitForStarted();
-=======
->>>>>>> add qthread:thread/QThread/download.cpp
+
         process.waitForFinished();
         if (QProcess::NormalExit != process.exitCode())
         {
@@ -100,6 +97,7 @@ int Process::resume()
         return 0;
     }
     return -1;
+<<<<<<< HEAD:thread/QThread/process.cpp
 }
 
 void Process::run()
@@ -126,3 +124,5 @@ void Download::exit(int , QProcess::ExitStatus )
 {
     qInfo() << "void Download::exit(int , QProcess::ExitStatus )";
 }
+=======
+>>>>>>> refactor: rename class:thread/QThread/process.cpp

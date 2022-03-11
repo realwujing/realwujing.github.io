@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
 
     // test();
 <<<<<<< HEAD
+<<<<<<< HEAD
     ProcessManager processManager;
     processManager.jobs["test"] = new Process;
     processManager.jobs["test"]->func = processId;
@@ -36,6 +37,8 @@ int main(int argc, char *argv[])
     processManager.jobs["test"]->start();
     processManager.jobs["test"]->getState();
 =======
+=======
+>>>>>>> refactor: rename class
     DownloadManager downloadManager;
     downloadManager.jobs["test"] = new Download;
     downloadManager.jobs["test"]->func = processId;
@@ -54,7 +57,7 @@ int main(int argc, char *argv[])
     sleep(5);
     downloadManager.jobs["test"]->resume();
     downloadManager.jobs["test"]->getState();
->>>>>>> add qthread
+
     sleep(3);
     processManager.jobs["test"]->pause();
     processManager.jobs["test"]->getState();
