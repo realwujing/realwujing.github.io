@@ -4,6 +4,15 @@ set history save on
 # 保存已经设置的断点
 save breakpoints file-name-to-save
 
+# 记录执行gdb的过程
+set logging on
+
+# 覆盖之前的日志文件
+# set logging overwrite on
+
+# 让gdb的日志不会打印在终端
+set logging redirect on
+
 # 进入不带调试信息的函数
 # set step-mode on
 
@@ -39,12 +48,3 @@ set print array-indexes on
 
 # 只允许一个线程运行
 # set scheduler-locking on
-
-# 记录执行gdb的过程
-set logging on
-
-# 覆盖之前的日志文件
-# set logging overwrite on
-
-# 让gdb的日志不会打印在终端
-set logging redirect on
