@@ -11,7 +11,7 @@ set logging on
 # set logging overwrite on
 
 # 让gdb的日志不会打印在终端
-set logging redirect on
+# set logging redirect on
 
 # 进入不带调试信息的函数
 # set step-mode on
@@ -48,3 +48,6 @@ set print array-indexes on
 
 # 只允许一个线程运行
 # set scheduler-locking on
+
+# 调试个别的线程，并且不想在调试过程中，影响其它线程的运行
+# set non-stop mode on
