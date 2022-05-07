@@ -27,11 +27,15 @@ void Process::start(Priority pri)
 
 int Process::stop()
 {
+    qInfo() << "hhhhhhhhhhhhhhhhhhhhhhhhhhhh:" << processId << "failed";
     if (QThread::isRunning())
     {
         QProcess process;
         process.start("kill", {"-9", QString::number(processId)});
+<<<<<<< HEAD:thread/QThread/process.cpp
         process.waitForStarted();
+=======
+>>>>>>> add qthread:thread/QThread/download.cpp
         process.waitForFinished();
         if (QProcess::NormalExit != process.exitCode())
         {
@@ -81,8 +85,12 @@ int Process::resume()
     {
         QProcess process;
         process.start("kill", {"-CONT", QString::number(processId)});
+<<<<<<< HEAD:thread/QThread/process.cpp
         process.waitForStarted(3000);
         process.waitForFinished(3000);
+=======
+        process.waitForFinished();
+>>>>>>> add qthread:thread/QThread/download.cpp
         if (QProcess::NormalExit != process.exitCode())
         {
             qCritical() << "kill -CONT pid:" << processId << "failed";
@@ -107,4 +115,14 @@ void Process::process(std::function<int()> func)
 {
     processId = func();
     qInfo() << "processId:" << processId << QDateTime::currentDateTime().toString("yyyy.MM.dd hh:mm:ss.zzz ddd");
+    while (true)
+    {
+        /* code */
+    }
+    
+}
+
+void Download::exit(int , QProcess::ExitStatus )
+{
+    qInfo() << "void Download::exit(int , QProcess::ExitStatus )";
 }

@@ -28,6 +28,7 @@ public slots:
     int pause();
     int resume();
     State getState() const;
+    void exit(int , QProcess::ExitStatus );
 
 protected:
     virtual void run() override final;

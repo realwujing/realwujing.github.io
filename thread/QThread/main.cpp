@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <unistd.h>
 
+
 auto processId = []()
 {
     qInfo() << QDateTime::currentDateTime().toString("yyyy.MM.dd hh:mm:ss.zzz ddd");
@@ -25,6 +26,7 @@ int main(int argc, char *argv[])
     qInfo() << "main thread : " << QThread::currentThreadId();
 
     // test();
+<<<<<<< HEAD
     ProcessManager processManager;
     processManager.jobs["test"] = new Process;
     processManager.jobs["test"]->func = processId;
@@ -33,6 +35,26 @@ int main(int argc, char *argv[])
     // QObject::connect(processManager.jobs["test"], &Process::finished, processManager.jobs["test"], &QObject::deleteLater);
     processManager.jobs["test"]->start();
     processManager.jobs["test"]->getState();
+=======
+    DownloadManager downloadManager;
+    downloadManager.jobs["test"] = new Download;
+    downloadManager.jobs["test"]->func = processId;
+
+    // downloadManager.jobs["test2"] = new Job2;
+    // downloadManager.jobs["test2"]->func = test;
+    QObject::connect(downloadManager.jobs["test"], SIGNAL(finished()), &downloadManager, SLOT(removeJob()));
+    // QObject::connect(downloadManager.jobs["test2"], SIGNAL(finished()), &jobManager, SLOT(removeJob()));
+    QObject::connect(downloadManager.jobs["test"], &Download::finished, downloadManager.jobs["test"], &QObject::deleteLater);
+    // connect(downloadManager.jobs["test2"], &Download::finished, downloadManager.jobs["test2"], &QObject::deleteLater);
+    downloadManager.jobs["test"]->start();
+    downloadManager.jobs["test"]->getState();
+    sleep(5);
+    downloadManager.jobs["test"]->pause();
+    downloadManager.jobs["test"]->getState();
+    sleep(5);
+    downloadManager.jobs["test"]->resume();
+    downloadManager.jobs["test"]->getState();
+>>>>>>> add qthread
     sleep(3);
     processManager.jobs["test"]->pause();
     processManager.jobs["test"]->getState();

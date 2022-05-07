@@ -60,7 +60,7 @@ int main()
     (new Student("李磊", 16, 80.5))->show();
     (new Student("张华", 16, 99.0))->show();
     (new Student("王康", 14, 60.8))->show();
-
+    29
     int total = Student::getTotal();
     float points = Student::getPoints();
     cout << "当前共有" << total << "名学生，总成绩是" << points << "，平均分是" << points / total << endl;
