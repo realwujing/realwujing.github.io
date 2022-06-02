@@ -21,7 +21,10 @@ int main(int argc, char *argv[])
     struct iovec iov[1];
     int ret;
     char buf[BUFFER_SIZE];
+    char buf2[BUFFER_SIZE];
     char ctrl_data[CMSG_SPACE(sizeof(cli_fd))];
+
+    char *test_msg = (char *)"client send msg.\n";
 
     /* create socket */
     cli_fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -51,6 +54,21 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    int write_len = write(cli_fd, test_msg, strlen(test_msg) + 1);
+
+    // if (write_len)
+    // {
+    //     printf("client write success!\n");
+    // }
+
+    ret = read(cli_fd, buf2, BUFFER_SIZE);
+    if (ret < 0)
+    {
+        printf("client: read failed!\n");
+        return ret;
+    }
+    printf("client read: %s\n", buf2);
+
     socket_msg.msg_name = NULL;
     socket_msg.msg_namelen = 0;
     iov[0].iov_base = buf;
@@ -74,10 +92,14 @@ int main(int argc, char *argv[])
         return ret;
     }
     printf("client: ret = %d.\n", ret);
-    while (true)
+
+    ret = read(cli_fd, buf2, BUFFER_SIZE);
+    if (ret < 0)
     {
-        /* code */
+        printf("client: read failed!\n");
+        return ret;
     }
-    
+    printf("client read: %s\n", buf2);
+
     return 0;
 }

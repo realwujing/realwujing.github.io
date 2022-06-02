@@ -20,7 +20,8 @@ int main(int argc, char *argv[])
     socklen_t cli_len;
     int ret;
     char buf[BUFFER_SIZE];
-    char *test_msg = "msg for test.\n";
+    char buf2[BUFFER_SIZE];
+    char *test_msg = (char *)"server send msg.\n";
     char ctrl_data[CMSG_SPACE(sizeof(listen_fd))];
 
     /* remove socket file fisrtly */
@@ -69,6 +70,20 @@ int main(int argc, char *argv[])
             continue;
         }
 
+        int read_len = read(cli_fd, buf2, BUFFER_SIZE);
+
+        if (read_len)
+        {
+            printf("server read: %s\n", buf2);
+
+            int writelen = write(cli_fd, test_msg, strlen(test_msg) + 1);
+            if (writelen)
+            {
+                printf("server write success!\n");
+            }
+        }
+        
+
         socket_msg.msg_name = NULL;
         socket_msg.msg_namelen = 0;
         iov[0].iov_base = buf;
@@ -103,6 +118,12 @@ int main(int argc, char *argv[])
             printf("result: recv fd = %d\n", rev_fd);
 
             write(rev_fd, test_msg, strlen(test_msg) + 1);
+
+            int writelen = write(cli_fd, test_msg, strlen(test_msg) + 1);
+            if (writelen)
+            {
+                printf("server write success!\n");
+            }
         }
     }
 
