@@ -29,13 +29,20 @@
 每台主机都要关闭
 
     ```bash
+    # 临时关闭
     swapoff -a
-    #临时关闭
+    # 永久关闭(老版本)
     sed -i '/swap/s/^\(.*\)$/#\1/g' /etc/fstab
-    #永久关闭，注释/ext/fstab/的/dev/mapper/centos-swap
+    # 永久关闭(新版本)
+    只需要编辑 /etc/fstab 文件，不要注释掉 swap 那一行
+    而是在其后面默认的挂载选项 defaults 后面加上 noauto 变成 defaults,noauto。
+    
     cat /etc/fstab
-    #查看是否注释
+    # 查看是否注释
     ```
+    
+    * [https://www.freedesktop.org/software/systemd/man/systemd.swap.html](https://www.freedesktop.org/software/systemd/man/systemd.swap.html)
+    * [openSUSE Tumbleweed 中禁用 SWAP](https://cnzhx.net/blog/disable-swap-in-opensuse-tumbleweed/)
 
 5. 安装docker
 
