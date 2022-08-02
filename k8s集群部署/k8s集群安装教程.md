@@ -152,6 +152,8 @@
     --discovery-token-ca-cert-hash sha256:a4b764099ac50a152d8d9a7640c16380297bae8c7ffafd6e3ca76144bfde9f6c
     ```
 
+    * [kubernetes忘记token或者token过期怎么加入k8s集群](https://www.cnblogs.com/linyouyi/p/10850904.html)
+
 13. k8s dashboard
     * [部署和访问 Kubernetes 仪表板（Dashboard）
 ](https://kubernetes.io/zh-cn/docs/tasks/access-application-cluster/web-ui-dashboard/)
