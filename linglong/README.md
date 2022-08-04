@@ -6,6 +6,17 @@
 kubectl create ns linglong
 ```
 
+## 在Kubernetes集群如何支持私有镜像
+
+```bash
+kubectl create secret docker-registry hub-deepin-token --docker-server=hub.deepin.com \
+--docker-username=ut004487 --docker-password=Wujing2988. -n linglong
+```
+
+```bash
+kubectl patch serviceaccount default -n linglong -p '{"imagePullSecrets": [{"name": "hub-deepin-token"}]}'
+```
+
 ## linglong-homepage
 
 ```bash
@@ -86,6 +97,12 @@ kubectl expose -n linglong deployment linglong-webstore --type=NodePort --port=1
 kubectl create configmap config.yaml --from-file=config.yaml -n linglong
 ```
 
+- 挂载config.yaml文件到pod中
+
+```text
+具体教程参考linglong-server.yaml
+```
+
 - 创建pv
 
 ```bash
@@ -96,6 +113,12 @@ kubectl apply -f linglong-server-pv.yaml
 
 ```bash
 kubectl apply -f linglong-server-pvc.yaml
+```
+
+- 挂载pvc到pod中
+
+```text
+具体教程参考linglong-server.yaml
 ```
 
 - linglong-server部署
@@ -132,4 +155,14 @@ kubectl apply -f linglong-server.yaml
 
 ```bash
 kubectl expose -n linglong deployment linglong-server --type=NodePort --port=18888 --target-port=8888
+```
+
+- 更新镜像
+
+```bash
+kubectl -n linglong set image deployment linglong-server linglong-server=hub.deepin.com/wuhan_v23_linglong/linglong-server:develop-snipe
+```
+
+```bash
+kubectl -n linglong rollout restart deployment linglong-server
 ```
