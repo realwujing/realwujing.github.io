@@ -48,6 +48,16 @@ This is a collection of notes and resources for learning Linux.
         git submodule foreach --recursive 'git push' && git push
         ```
 
+- 更改submodule分支
+
+    ```bash
+    git config -f .gitmodules submodule.assembly.branch main
+    ```
+
+    ```bash
+    git submodule update --remote
+    ```
+
 - 在你拉取的提交中， 可能 .gitmodules 文件中记录的子模块的 URL 发生了改变。 比如，若子模块项目改变了它的托管平台，就会发生这种情况
 
     ```bash
