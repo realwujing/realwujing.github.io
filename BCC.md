@@ -2,7 +2,13 @@
 
 [BPF Compiler Collection (BCC)](https://github.com/iovisor/bcc.git)
 
-## ubuntu18安装BCC教程
+## BCC安装教程
+
+- 本教程在以下系统测试过
+
+  - ubuntu18.04
+  - ubuntu20.04
+  - Deepin 20.6
 
 - Install build dependencies
 
@@ -66,3 +72,4 @@
 - [https://github.com/iovisor/bcc/blob/master/INSTALL.md#ubuntu---source](https://github.com/iovisor/bcc/blob/master/INSTALL.md#ubuntu---source)
 - [BCC在ubuntu18.04源码安装](https://blog.csdn.net/qq_33344148/article/details/123255679)
 - [解决 sudo 执行命令时找不到命令问题](https://www.cnblogs.com/lfri/p/16277069.html)
+- [linux系统下将python3设置为默认的python](https://blog.51cto.com/u_15351425/3727453)
