@@ -40,6 +40,4 @@ sleek - todo manager based on the todo.txt syntax for Linux, free and open-sourc
 Minder - Create, develop and visualize your ideas                                 com.github.phase1geo.minder      1.14.0       stable flathub
 Gnome Next Meeting Applet - Show your next events in your panel                   ….chmouel.gnomeNextMeetingApplet 2.8.1        stable flathub
 wavbreaker - GUI tool to split WAV, MP2 and MP3 files 
-
-
 ```
