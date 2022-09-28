@@ -185,6 +185,8 @@ qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -hda
 qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -drive format=raw,file=/home/wujing/code/tmp/bionic.img -append "root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr" -nographic
 ```
 
+- [Linux aarch64 编译 & qemu 搭建实验平台 initrd initramfs](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609)
+
 ### 加载内核调试工具
 
 然后切换到内核源码目录，启动 gdb，不过在启动之前，请向 ~/linux-5.3.7/.gdbinit 添加如下内容：
