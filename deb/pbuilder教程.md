@@ -29,7 +29,11 @@
     sudo pbuilder create --distribution eagle --debootstrapopts --no-check-gpg
     ```
 
-    如果报错 distribution 不对
+    如果报错如下：
+    E: No such script: /usr/share/debootstrap/scripts/eagle
+    E: debootstrap failed
+    E: debootstrap.log not present
+    W: Aborting with an error
 
     ```bash
     cd /usr/share/debootstrap/scripts/
