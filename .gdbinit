@@ -51,3 +51,11 @@ set print array-indexes on
 
 # 调试个别的线程，并且不想在调试过程中，影响其它线程的运行
 # set non-stop mode on
+
+# https://github.com/Lekensteyn/qt5printers
+python
+import sys, os.path
+sys.path.insert(0, os.path.expanduser('~/.gdb'))
+import qt5printers
+qt5printers.register_printers(gdb.current_objfile())
+end
