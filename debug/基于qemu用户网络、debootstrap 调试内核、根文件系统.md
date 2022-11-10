@@ -146,7 +146,7 @@ echo "iface enp0s3 inet dhcp" >> /etc/network/interfaces
 
 ```bash
 exit
-./ch-mount -u linux-rootfs
+./ch-mount.sh -u linux-rootfs
 ```
 
 ### 制作文件系统镜像(initrd)
