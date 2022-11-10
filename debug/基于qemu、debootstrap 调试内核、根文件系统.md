@@ -20,7 +20,7 @@ sudo apt-get install build-essential libncurses-dev bison flex libssl-dev libelf
 
 ```bash
 cd linux
-git checkout -b v5.3-rc7 v5.3-rc7
+git checkout -b v5.10-rc7 v5.10-rc7
 make menuconfig
 ```
 
@@ -149,7 +149,7 @@ exit
 ./ch-mount -u linux-rootfs
 ```
 
-### 制作文件系统镜像
+### 制作文件系统镜像(initrd)
 
 ```bash
 dd if=/dev/zero of=bionic.img bs=1M seek=2047 count=1
@@ -189,7 +189,7 @@ qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -dri
 
 ### 加载内核调试工具
 
-然后切换到内核源码目录，启动 gdb，不过在启动之前，请向 ~/linux-5.3.7/.gdbinit 添加如下内容：
+然后切换到内核源码目录，启动 gdb，不过在启动之前，请向 ~/code/linux/.gdbinit 添加如下内容：
 
 ```bash
 cd linux
