@@ -1,4 +1,4 @@
-# 基于qemu、debootstrap 调试内核、根文件系统
+# 基于qemu用户网络、debootstrap 调试内核、根文件系统
 
 ## 1. 编译调试版linux内核
 
