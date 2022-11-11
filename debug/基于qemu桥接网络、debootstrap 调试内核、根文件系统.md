@@ -317,7 +317,7 @@ apt update
 sudo apt install nfs-kernel-server
 id
 sudo su
-export "/home/wujing/code 192.168.2.0/24(rw,sync,all_squash,anonuid=1000,anongid=1000,no_subtree_check)" >> /etc/exports # 创建共享目录
+echo "/home/wujing/code 192.168.2.0/24(rw,sync,all_squash,anonuid=1000,anongid=1000,no_subtree_check)" >> /etc/exports # 创建共享目录
 exportfs -arv # 更新exports配置
 showmount -e # 查看NFS共享情况
 ```
