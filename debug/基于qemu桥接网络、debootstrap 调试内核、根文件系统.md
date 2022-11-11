@@ -340,6 +340,7 @@ sudo mount -t nfs 192.168.2.128:/home/wujing/code /home/wujing/code # 临时挂�
 上述输出仅为warning，请忽略。
 
 - [挂载NFS网络文件系统教程](https://www.cnblogs.com/lizhuming/p/13946107.html)
+- [NFS原理详解](https://blog.51cto.com/atong/1343950)
 
 ## More
 
