@@ -77,7 +77,7 @@ sudo debootstrap --arch [平台] [发行版本代号] [构建目录] [镜像地�
 以在Deepin 20.7 amd64上构建ubuntu18(bionic) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：
 
 ```bash
-sudo debootstrap --arch=amd64 --include=ifupdown,net-tools,build-essential,gdb,cmake,openssh-server,vim bionic linux-rootfs http://mirrors.aliyun.com/ubuntu/
+sudo debootstrap --arch=amd64 --include=ifupdown,net-tools,build-essential,gdb,cmake,openssh-server,vim,bash-completion bionic linux-rootfs http://mirrors.aliyun.com/ubuntu/
 ```
 
 - [ubuntu 下安装C/C++ 开发编译环境](https://blog.csdn.net/houxian1103/article/details/121886365)
