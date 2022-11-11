@@ -309,6 +309,40 @@ PING baidu.com (110.242.68.66) 56(84) bytes of data.
 apt update
 ```
 
+## 虚拟机挂载NFS网络文件系统
+
+在宿主机上安装 NFS 服务：
+
+```bash
+sudo apt install nfs-kernel-server
+id
+sudo su
+export "/home/wujing/code 192.168.2.0/24(rw,sync,all_squash,anonuid=1000,anongid=1000,no_subtree_check)" >> /etc/exports # 创建共享目录
+exportfs -arv # 更新exports配置
+showmount -e # 查看NFS共享情况
+```
+
+在虚拟机上安装 NFS 客户端：
+
+```bash
+sudo apt install nfs-common
+showmount -e 192.168.2.128 # 查看NFS服务器共享目录
+sudo mount -t nfs 192.168.2.128:/home/wujing/code /home/wujing/code # 临时挂载 NFS 文件系统
+```
+
+临时挂载 NFS 文件系统输出如下：
+
+```text
+[ 7990.116497] NFS4: Couldn't follow remote path
+[ 7990.118433] NFS4: Couldn't follow remote path
+```
+
+上述输出仅为warning，请忽略。
+
+- [挂载NFS网络文件系统教程](https://www.cnblogs.com/lizhuming/p/13946107.html)
+
+## More
+
 - [详解QEMU网络配置的方法](https://www.jb51.net/article/97216.htm)
 - [QEMU的网络配置方法解析](https://js.aizhan.com/server/jishu/6594.html)
 - [在qemu-kvm配置桥接网络](https://www.shuzhiduo.com/A/xl56Dmq0zr/)
