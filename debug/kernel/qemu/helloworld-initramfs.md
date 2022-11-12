@@ -41,7 +41,7 @@ find . | cpio -o -H newc | gzip > ../helloworld-initramfs.cpio.gz
 ## 在qemu中启动编译好的内核，把helloworld-initramfs.cpio.gz指定为initrd
 
 ```bash
-qemu-system-x86_64 -kernel ~/code/linux/arch/x86/boot/bzImage -initrd ~/code/linux-learning/debug/helloword/helloworld-initramfs.cpio.gz -append "console=ttyS0" -nographic
+qemu-system-x86_64 -kernel ~/code/linux/arch/x86/boot/bzImage -initrd ~/code/linux-learning/debug/helloworld/helloworld-initramfs.cpio.gz -append "console=ttyS0" -nographic
 ```
 
 系统能成功启动到输出"Hello World!"，并且在用户态停住。结合前文“在qemu环境中用gdb调试Linux内核”，可以看到qemu虚机中运行的Linux系统已经成功挂载了initramfs, 在console日志中也能看到“Unpacking initramfs...”。
