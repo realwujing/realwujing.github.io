@@ -56,18 +56,18 @@ int main(int argc, char *argv[])
 
     int write_len = write(cli_fd, test_msg, strlen(test_msg) + 1);
 
-    // if (write_len)
-    // {
-    //     printf("client write success!\n");
-    // }
-
-    ret = read(cli_fd, buf2, BUFFER_SIZE);
-    if (ret < 0)
+    if (write_len)
     {
-        printf("client: read failed!\n");
-        return ret;
+        printf("client write success!\n");
     }
-    printf("client read: %s\n", buf2);
+
+    // ret = read(cli_fd, buf2, BUFFER_SIZE);
+    // if (ret < 0)
+    // {
+    //     printf("client: read failed!\n");
+    //     return ret;
+    // }
+    // printf("client read: %s\n", buf2);
 
     socket_msg.msg_name = NULL;
     socket_msg.msg_namelen = 0;
@@ -93,13 +93,13 @@ int main(int argc, char *argv[])
     }
     printf("client: ret = %d.\n", ret);
 
-    ret = read(cli_fd, buf2, BUFFER_SIZE);
-    if (ret < 0)
-    {
-        printf("client: read failed!\n");
-        return ret;
-    }
-    printf("client read: %s\n", buf2);
+    // ret = read(cli_fd, buf2, BUFFER_SIZE);
+    // if (ret < 0)
+    // {
+    //     printf("client: read failed!\n");
+    //     return ret;
+    // }
+    // printf("client read: %s\n", buf2);
 
     return 0;
 }

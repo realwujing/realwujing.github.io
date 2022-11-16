@@ -70,19 +70,20 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        int read_len = read(cli_fd, buf2, BUFFER_SIZE);
+        sleep(1);
+
+        int read_len = read(cli_fd, buf2, 18);
 
         if (read_len)
         {
-            printf("server read: %s\n", buf2);
+            printf("server read: %s %d\n", buf2, read_len);
 
-            int writelen = write(cli_fd, test_msg, strlen(test_msg) + 1);
-            if (writelen)
-            {
-                printf("server write success!\n");
-            }
+            // int writelen = write(cli_fd, test_msg, strlen(test_msg) + 1);
+            // if (writelen)
+            // {
+            //     printf("server write success!\n");
+            // }
         }
-        
 
         socket_msg.msg_name = NULL;
         socket_msg.msg_namelen = 0;
@@ -119,11 +120,11 @@ int main(int argc, char *argv[])
 
             write(rev_fd, test_msg, strlen(test_msg) + 1);
 
-            int writelen = write(cli_fd, test_msg, strlen(test_msg) + 1);
-            if (writelen)
-            {
-                printf("server write success!\n");
-            }
+            // int writelen = write(cli_fd, test_msg, strlen(test_msg) + 1);
+            // if (writelen)
+            // {
+            //     printf("server write success!\n");
+            // }
         }
     }
 
