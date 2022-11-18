@@ -217,3 +217,8 @@
 14. kubeadm reset
 
 - [Reset Kubernetes Cluster using kubeadm](https://sandeepnkulkarni.wordpress.com/2020/07/11/reset-kubernetes-cluster-using-kubeadm/)
+
+15. master节点
+
+- [k8s允许master节点参与调度的设置方法](https://www.cnblogs.com/panw/p/16643652.html)
+- [k8s节点调度](https://blog.csdn.net/omaidb/article/details/121930341)
