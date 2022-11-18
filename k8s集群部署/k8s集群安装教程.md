@@ -175,25 +175,12 @@
 
         3. 创建配置文件 dashboard-adminuser.yaml
 
-        ```plain
-        apiVersion: v1
-        kind: ServiceAccount
-        metadata:
-          name: admin-user
-          namespace: kubernetes-dashboard
-        apiVersion: rbac.authorization.k8s.io/v1
-        kind: ClusterRoleBinding
-        metadata:
-          name: admin-user
-        roleRef:
-          apiGroup: rbac.authorization.k8s.io
-          kind: ClusterRole
-          name: cluster-admin
-        subjects:
-        - kind: ServiceAccount
-          name: admin-user
-          namespace: kubernetes-dashboard
+        ```bash
+        wget https://github.com/realwujing/k8s-learning/blob/dff12f0c9f2cf74ee13e0aa44babbd2786279bf2/k8s%E9%9B%86%E7%BE%A4%E9%83%A8%E7%BD%B2/dashboard-adminuser.yaml
         ```
+
+        - [k8s入门：kubernetes-dashboard 安装
+](https://blog.csdn.net/qq_41538097/article/details/125561769)
 
         4. 执行
 
