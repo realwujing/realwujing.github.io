@@ -44,6 +44,16 @@
     sudo make install
     ```
 
+4. add /usr/local/share/bpftrace/tools to /etc/sudoers
+
+    ```bash
+    visudo
+    ```
+
+    ```text
+    Defaults        secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/bpftrace/tools"
+    ```
+
 ## ubuntu package install
 
 - Should work on Ubuntu 19.04 and later.
