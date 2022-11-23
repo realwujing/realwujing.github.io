@@ -53,7 +53,7 @@ set print array-indexes on
 # set print sevenbit-strings on
 
 # 设置反汇编格式为 intel汇编
-set disassembly-flavor intel
+# set disassembly-flavor intel
 
 # https://github.com/Lekensteyn/qt5printers
 python
