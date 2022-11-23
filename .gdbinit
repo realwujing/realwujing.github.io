@@ -25,6 +25,12 @@ set logging on
 # 让父子进程都同时运行
 # set schedule-multiple on
 
+# 只允许一个线程运行
+# set scheduler-locking on
+
+# 调试个别的线程，并且不想在调试过程中，影响其它线程的运行
+# set non-stop mode on
+
 #每行打印一个结构体成员
 set print pretty on
 
@@ -46,11 +52,8 @@ set print array-indexes on
 # 设置字符显示，是否按“/nnn”的格式显示，如果打开，则字符串或字符数据按/nnn显示，如“/065”
 # set print sevenbit-strings on
 
-# 只允许一个线程运行
-# set scheduler-locking on
-
-# 调试个别的线程，并且不想在调试过程中，影响其它线程的运行
-# set non-stop mode on
+# 设置反汇编格式为 intel汇编
+set disassembly-flavor intel
 
 # https://github.com/Lekensteyn/qt5printers
 python
