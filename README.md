@@ -4,6 +4,8 @@ This is a collection of notes and resources for learning Linux.
 
 ## git submodules
 
+### 更新 submodule
+
 - 自动初始化并更新仓库中的每一个子模块， 包括可能存在的嵌套子模块。
 
     1. 方式1
@@ -34,6 +36,8 @@ This is a collection of notes and resources for learning Linux.
         git submodule update --init --recursive
         ```
 
+### 推送 submodule
+
 - 推送当前仓库中的每一个子模块， 包括可能存在的嵌套子模块。
 
     1. 方式1
@@ -47,6 +51,8 @@ This is a collection of notes and resources for learning Linux.
         ```bash
         git submodule foreach --recursive 'git push' && git push
         ```
+
+### 更改submodule分支
 
 - 更改submodule分支
 
@@ -70,6 +76,24 @@ This is a collection of notes and resources for learning Linux.
     git submodule update --init --recursive
     ```
 
+- 删除 submodule
+
+    ```bash
+    # 卸载子模块
+    git submodule deinit [submodule_folder]
+    # 如果想移除子库的本地修改,可使用--force标签
+    git submodule deinit [submodule_folder] --force
+
+
+    # 删除文件夹
+    git rm [submodule_folder]
+
+    # 提交代码
+    git commit -m "delete submodule xxxxx"
+
+    ```
+
 ## More
 
 - [7.11 Git 工具 - 子模块](https://git-scm.com/book/zh/v2/Git-%E5%B7%A5%E5%85%B7-%E5%AD%90%E6%A8%A1%E5%9D%97)
+- [git中子模块/子仓库的使用](https://blog.csdn.net/weixin_43455581/article/details/120174578)
