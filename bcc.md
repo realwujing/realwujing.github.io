@@ -1,24 +1,33 @@
-# BCC
+# bcc
 
 [BPF Compiler Collection (BCC)](https://github.com/iovisor/bcc.git)
 
-## BCC安装教程
+本教程适用于Deepin 20.6、Deepin 20.7。
 
-### ubuntu18.04、ubuntu20.04、Deepin 20.6
-
-#### 依赖安装
+## 安装依赖
 
 ```bash
-sudo apt-get -y install bison build-essential cmake flex git libedit-dev \
-libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev libfl-dev python3-distutils
+sudo apt -y install bison \
+build-essential \
+cmake \
+flex \
+git \
+libedit-dev \
+llvm-11-dev \
+libclang-11-dev \
+python \
+zlib1g-dev \
+libelf-dev \
+libfl-dev \
+python3-distutils
 ```
 
-#### 代码下载
+## 源码下载
 
 1. 代码下载方式一(推荐使用)
 
     ```bash
-    wget https://github.com/iovisor/bcc/releases/download/v0.24.0/bcc-src-with-submodule.tar.gz
+    wget https://github.com/iovisor/bcc/releases/download/v0.25.0/bcc-src-with-submodule.tar.gz
     tar -zxvf bcc-src-with-submodule.tar.gz
     ```
 
@@ -26,35 +35,10 @@ libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev libfl-dev 
 
     ```bash
     git clone https://github.com/iovisor/bcc.git
-    git checkout -b v0.24.0
+    git checkout -b v0.25.0
     ```
 
-### Deepin 20.7
-
-#### 依赖安装
-
-```bash
-sudo apt-get -y install bison build-essential cmake flex git libedit-dev \
-llvm-13-dev libclang-13-dev python zlib1g-dev libelf-dev libfl-dev python3-distutils
-```
-
-#### 代码下载
-
-1. 代码下载方式一(推荐使用)
-
-    ```bash
-    wget https://github.com/iovisor/bcc/releases/download/v0.6.1/bcc-src-with-submodule.tar.gz
-    tar -zxvf bcc-src-with-submodule.tar.gz
-    ```
-
-2. 代码下载方式二
-
-    ```bash
-    git clone https://github.com/iovisor/bcc.git
-    git checkout -b v0.6.1
-    ```
-
-### 编译安装bcc
+## 编译安装bcc
 
 ```bash
 set -ex
@@ -70,7 +54,7 @@ sudo make install
 popd
 ```
 
-### Environment variable configuration
+## Environment variable configuration
 
 ```bash
 echo "export PATH=$PATH:/usr/share/bcc/tools" >> /etc/profile
@@ -85,7 +69,7 @@ Defaults        secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
 source /etc/profile
 ```
 
-### Get started
+## Get started
 
 ```bash
 sudo execsnoop
