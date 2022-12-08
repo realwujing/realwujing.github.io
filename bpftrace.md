@@ -6,6 +6,8 @@ git clone bpftrace:
 
 ```bash
 https://github.com/iovisor/bpftrace.git
+git checkout -b v0.16.0
+git submodule update --init --recursive
 ```
 
 ## depends

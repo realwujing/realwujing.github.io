@@ -50,6 +50,7 @@ python3-distutils
     ```bash
     git clone https://github.com/iovisor/bcc.git
     git checkout -b v0.25.0
+    git submodule update --init --recursive
     ```
 
 ## 编译安装bcc
