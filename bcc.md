@@ -84,6 +84,23 @@ Defaults        secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
 source /etc/profile
 ```
 
+## 将python3设置为默认的python
+
+直接执行这两个命令即可：
+
+```bash
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python2 100
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python3 150
+```
+
+上述命令执行后，python3已被设置为默认的python。
+
+切换到Python2，执行：
+
+```bash
+sudo update-alternatives --config python
+```
+
 ## Get started
 
 ```bash
