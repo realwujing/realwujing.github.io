@@ -6,6 +6,20 @@
 
 ## 安装依赖
 
+查看宿主机已安装llvm版本：
+
+```bash
+dpkg -l | grep libllvm
+```
+
+结果输出如下：
+
+```text
+ii  libllvm11:amd64                               1:11.0.1-2                                 amd64        Modular compiler and toolchain technologies, runtime library
+```
+
+下方安装llvm、clang时版本需要选定为11。
+
 ```bash
 sudo apt -y install bison \
 build-essential \
