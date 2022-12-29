@@ -121,7 +121,7 @@ sudo cp ​​/etc/resolv.conf​​​ ​​linux-rootfs/etc/resolv.conf
 apt install apt-transport-https
 cp /etc/apt/sources.list /etc/apt/sources.list.bak
 # 把文件内容所有替换为对应阿里源，参见：https://developer.aliyun.com/mirror/?spm=a2c6h.12873639.J_5404914170.29.2feb6235F6x30d
-vim /etc/apt/source.list
+vim /etc/apt/sources.list
 echo "deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ bionic main restricted universe multiverse" >> /etc/apt/sources.list
 ```
 
