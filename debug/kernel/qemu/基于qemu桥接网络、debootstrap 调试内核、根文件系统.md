@@ -77,7 +77,39 @@ sudo debootstrap --arch [平台] [发行版本代号] [构建目录] [镜像地�
 以在Deepin 20.7 amd64上构建ubuntu18(bionic) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：
 
 ```bash
-sudo debootstrap --arch=amd64 --include=ifupdown,net-tools,build-essential,gdb,cmake,openssh-server,vim,bash-completion bionic linux-rootfs http://mirrors.aliyun.com/ubuntu/
+sudo su
+cd /usr/share/debootstrap/scripts/
+cp sid bionic
+exit
+```
+
+```bash
+sudo debootstrap --no-check-gpg \
+--arch=amd64 \
+--include=ifupdown,net-tools,build-essential,gdb,cmake,openssh-server,vim,bash-completion \
+bionic \
+linux-rootfs \
+http://mirrors.aliyun.com/ubuntu/
+```
+
+以在Deepin 20.7 amd64上构建uos-v20-1054(eagle/1054) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：
+
+```bash
+sudo su
+cd /usr/share/debootstrap/scripts/
+rm eagle -rf
+mkdir eagle
+cp sid eagle/1054
+exit
+```
+
+```bash
+sudo debootstrap --no-check-gpg \
+--arch=amd64 \
+--include=ifupdown,net-tools,build-essential,gdb,cmake,openssh-server,vim,bash-completion \
+eagle/1054 \
+linux-rootfs \
+https://pools.uniontech.com/desktop-professional/
 ```
 
 - [ubuntu 下安装C/C++ 开发编译环境](https://blog.csdn.net/houxian1103/article/details/121886365)
@@ -99,7 +131,7 @@ chmod 777 ch-mount.sh
 debootstrap/debootstrap --second-stage # 交叉编译时执行第二步，初始化文件系统，会把一个系统的基础包初始化
 exit
 ./ch-mount.sh -u linux-rootfs/
-./ch-mount.sh -m linux-rootfs/
+# ./ch-mount.sh -m linux-rootfs/
 # 再次进入时，执行如下命令即可
 # sudo chroot linux-rootfs
 ```
@@ -118,6 +150,7 @@ sudo cp ​​/etc/resolv.conf​​​ ​​linux-rootfs/etc/resolv.conf
 
 ```bash
 # 若是遇到没法拉取 https 源的状况，请先使用 http 源并安装
+sudo chroot linux-rootfs
 apt install apt-transport-https
 cp /etc/apt/sources.list /etc/apt/sources.list.bak
 # 把文件内容所有替换为对应阿里源，参见：https://developer.aliyun.com/mirror/?spm=a2c6h.12873639.J_5404914170.29.2feb6235F6x30d
@@ -150,7 +183,17 @@ exit
 
 ### 制作文件系统镜像(initrd)
 
+当文件系统是`uos-v20-1054(eagle/1054)`时，将下方`bionic`替换为`eagle-1054`。
+
 ```bash
+vim bionic.sh
+```
+
+将下方内容追加到bionic.sh:
+
+```text
+#! /bin/bash
+
 dd if=/dev/zero of=bionic.img bs=1M seek=2047 count=1
 sudo mkfs.ext4 -F bionic.img
 sudo mkdir -p /mnt/bionic
@@ -158,6 +201,11 @@ sudo mount -o loop bionic.img /mnt/bionic
 sudo cp -a linux-rootfs/. /mnt/bionic/.
 sudo umount /mnt/bionic
 sudo chmod 666 bionic.img
+```
+
+```bash
+chmod +x bionic.sh
+sudo ./bionic.sh
 ```
 
 - [内核调试环境：buildroot/debootstrap制作文件系统、编译内核、QEMU模拟](https://blog.csdn.net/weixin_49393427/article/details/126435589)
@@ -198,6 +246,8 @@ sudo apt install qemu qemu-system qemu-kvm
 ### qemu启动内核并挂载文件系统调试
 
 下方两个命令都行，第一个报warning，第二个file=后面要使用绝对路径。
+
+当文件系统是`uos-v20-1054(eagle/1054)`时，将下方`bionic`替换为`eagle-1054`。
 
 ```bash
 qemu-system-x86_64 \
