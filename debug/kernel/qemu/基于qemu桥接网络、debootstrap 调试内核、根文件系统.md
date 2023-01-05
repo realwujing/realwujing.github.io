@@ -146,7 +146,7 @@ exit
 sudo cp ​​/etc/resolv.conf​​​ ​​linux-rootfs/etc/resolv.conf
 ```
 
-#### 更换国内镜像源
+#### ubuntu18(bionic)更换国内镜像源
 
 ```bash
 # 若是遇到没法拉取 https 源的状况，请先使用 http 源并安装
