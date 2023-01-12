@@ -2,16 +2,26 @@
 
 ## 1. 编译调试版linux内核
 
-### 下载源码
-
-```bash
-git clone https://github.com/torvalds/linux.git
-```
-
 ### 安装编译依赖
 
 ```bash
 sudo apt-get install build-essential libncurses-dev bison flex libssl-dev libelf-dev
+```
+
+### 下载源码
+
+调试标准版内核，下载github代码即可，本文选择tag v5.10-rc7分支：
+
+```bash
+git clone https://github.com/torvalds/linux.git
+git checkout -b v5.10-rc7 v5.10-rc7
+```
+
+调试uos-v20-1054-2内核，下载gerrit代码即可：
+
+```bash
+git clone "ssh://ut004487@gerrit.uniontech.com:29418/kernel/x86-kernel" && scp -p -P 29418 ut004487@gerrit.uniontech.com:hooks/commit-msg "x86-kernel/.git/hooks/"
+git checkout -b 1054-2 499e91c36f62c1790063cabdacff94fd8220f145
 ```
 
 ### 内核编译选项配置
@@ -20,7 +30,6 @@ sudo apt-get install build-essential libncurses-dev bison flex libssl-dev libelf
 
 ```bash
 cd linux
-git checkout -b v5.10-rc7 v5.10-rc7
 make menuconfig
 ```
 
