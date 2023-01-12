@@ -5,6 +5,12 @@
     ```bash
     sudo apt install dh-make
     ```
+    根据debbian/control安装依赖：
+    ```bash
+    cd linglong-repo
+    sudo apt build-deb .
+    cd ..
+    ```
 
 2. 根据版本号创建符合dh_make规范的<package>-<version>格式
 
