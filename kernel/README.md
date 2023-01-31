@@ -6,6 +6,8 @@
 
 ## UNIX 环境高级编程
 
+- [UNIX环境高级编程中文版.pdf](download.eeworld.com.cn_UNIX环境高级编程中文版.pdf)
+- [UNIX环境高级编程中文版-文字版（非扫描）](http://download.eeworld.com.cn/detail/genping2008/550957)
 - [UNIX 环境高级编程 第3版.pdf](download.eeworld.com.cn_UNIX\ 环境高级编程\ 第3版.pdf)
 - [UNIX 环境高级编程 第3版](http://download.eeworld.com.cn/detail/%E5%A4%AA%E7%99%BD%E9%87%91%E6%98%9F/619878)
 
