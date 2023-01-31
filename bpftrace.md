@@ -88,3 +88,6 @@ sudo execsnoop.bt
 
 - [https://github.com/iovisor/bpftrace.git](https://github.com/iovisor/bpftrace.git)
 - [bpftrace Install](https://github.com/iovisor/bpftrace/blob/master/INSTALL.md)
+- [BPF之巅--洞悉Linux系统和应用性能](http://1.117.71.82/os/bpf%E4%B9%8B%E5%B7%85-%E6%B4%9E%E6%82%89linux%E7%B3%BB%E7%BB%9F%E5%92%8C%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD/)
+- [BPF之巅--洞悉Linux系统和应用性能 Brendan Gregg](https://blog.csdn.net/qq_31220203/article/details/118686482)
+- [BPF.Performance.Tools.2019.12.pdf](https://pan.baidu.com/disk/pdfview?path=%2F%E6%88%91%E7%9A%84%E8%B5%84%E6%BA%90%2FBPF.Performance.Tools.2019.12.pdf&fsid=947754417850329&size=8414043)
