@@ -1,4 +1,4 @@
-# ebpf-learning
+# bpf-learning
 
 ## 安装教程
 
