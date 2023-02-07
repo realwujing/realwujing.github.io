@@ -5,3 +5,4 @@
 ## GDB Pretty printers for Qt5
 
 - [GDB Pretty printers for Qt5](https://github.com/Lekensteyn/qt5printers)
+- [Debugging.with.gdb 中文.pdf](https://github.com/shihyu/MyTool/blob/master/GDB/Debugging.with.gdb%20%E4%B8%AD%E6%96%87.pdf)
