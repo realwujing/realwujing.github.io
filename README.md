@@ -2,6 +2,10 @@
 
 ## 安装教程
 
+```bash
+sudo apt install bpfcc-tools linux-headers-$(uname -r) bpftrace
+```
+
 - [BPF Compiler Collection (BCC)](bcc.md)
 - [bpftrace](bpftrace.md)
 
