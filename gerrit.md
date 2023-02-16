@@ -41,3 +41,7 @@ sudo apt install git-review
 ```bash
 git review branch(当前分支) -r origin
 ```
+
+## More
+
+- [Gerrit 提交模板](https://wikidev.uniontech.com/Gerrit_%E6%8F%90%E4%BA%A4%E6%A8%A1%E6%9D%BF)
