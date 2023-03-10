@@ -25,3 +25,7 @@
 ## Linux内核安全模块深入剖析
 
 - [Linux内核安全模块深入剖析.pdf](Linux%E5%86%85%E6%A0%B8%E5%AE%89%E5%85%A8%E6%A8%A1%E5%9D%97%E6%B7%B1%E5%85%A5%E5%89%96%E6%9E%90.pdf)
+
+## Debug Hacks中文版：深入调试的技术和工具
+
+- [Debug Hacks中文版：深入调试的技术和工具](https://www.wenjiangs.com/pdf-ebook/debug-hacks.html)
