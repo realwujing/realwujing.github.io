@@ -29,3 +29,8 @@
 ## Debug Hacks中文版：深入调试的技术和工具
 
 - [Debug Hacks中文版：深入调试的技术和工具](https://www.wenjiangs.com/pdf-ebook/debug-hacks.html)
+
+## PCI_Express_体系结构导读
+
+- [PCI_Express_体系结构导读.pdf](https://www.123pan.com/Weboffice/?type=f&id=1641382&FileName=PCI_Express_%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84%E5%AF%BC%E8%AF%BB.pdf&Size=31777886&Etag=7d823eed57dad308392d512270c729fc&S3KeyFlag=1640083-0&CreateAt=1647394917&UpdateAt=1648172199&from=2&shareKey=y8zA-syTe)
+
