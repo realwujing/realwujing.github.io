@@ -19,8 +19,8 @@ wget https://cdimage.uniontech.com/daily-iso/1060/professional/daily-stable/2023
 ### 创建虚拟盘
 
 ```bash
-mkdir -p ~/code/tmp/1060
-cd ~/code/tmp/1060
+mkdir -p ~/code/qemu/arm64/
+cd ~/code/qemu/arm64/
 qemu-img create -f qcow2 1060.img 64G
 ```
 
