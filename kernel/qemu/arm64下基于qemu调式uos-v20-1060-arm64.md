@@ -150,20 +150,18 @@ git checkout -b develop/need_merge need_merge
 内核编译完成后启动虚拟机：
 
 ```bash
-qemu-system-x86_64 \
--smp 2 \
--enable-kvm \
--cpu host \
--m 2G \
--kernel ~/code/x86-kernel/arch/x86/boot/bzImage \
--initrd ~/code/tmp/1060/initrd.img-4.19.0-amd64-desktop \
--hda ~/code/tmp/1060/1060.img \
--append "root=/dev/sda5 ro splash quiet DEEPIN_GFXMODE= ima_appraise=off security=selinux checkreqprot=1 libahci.ignore_sss=1 nokaslr" \
--net user,hostfwd=tcp::2222-:22 -net nic \
--S -s
+qemu-system-aarch64 -name guest=uos-v20-1060-arm64,debug-threads=on -machine virt-3.1,accel=kvm,usb=off,dump-guest-core=off,gic-version=3 -cpu host \
+      -smp 4 -m 4096 \
+      -bios /usr/share/qemu-efi-aarch64/QEMU_EFI.fd \
+      -kernel ~/code/x86-kernel/arch/x86/boot/bzImage \
+      -initrd ~/code/tmp/1060/initrd.img-4.19.0-amd64-desktop \
+      -hda ~/code/tmp/1060/1060.img \
+      -append "root=/dev/sda5 ro splash quiet DEEPIN_GFXMODE= ima_appraise=off security=selinux checkreqprot=1 libahci.ignore_sss=1 nokaslr" \
+      -net user,hostfwd=tcp::2222-:22 -net nic \
+      -S -s
 ```
 
-在`~/code/x86-kernel`目录下启动gdb：
+在`~/code/arm-kernel`目录下启动gdb：
 
 ```bash
 aarch64-linux-gdb vmlinux
