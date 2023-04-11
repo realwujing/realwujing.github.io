@@ -67,8 +67,8 @@ public:
 
 int main(int argc, char const *argv[])
 {
-    int numCourses = 2;
-    vector<vector<int>> prerequisites = {{1, 0}};
+    int numCourses = 4;
+    vector<vector<int>> prerequisites = {{1, 0}, {2, 1}, {2, 3}};
     Solution solution;
     vector<int> res = solution.findOrder(numCourses, prerequisites);
     return 0;
