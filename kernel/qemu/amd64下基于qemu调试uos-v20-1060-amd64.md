@@ -54,7 +54,7 @@ scp /boot/config-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060
 sudo qemu-system-x86_64 \
     -accel kvm \
     -cpu host \
-    -m 2048 \
+    -m 4G \
     -smp 8 \
     -kernel /home/wujing/code/qemu/amd64/1060/vmlinuz-4.19.0-amd64-desktop \
     -initrd /home/wujing/code/qemu/amd64/1060/initrd.img-4.19.0-amd64-desktop \
@@ -154,7 +154,7 @@ make -j16
 sudo qemu-system-x86_64 \
     -accel kvm \
     -cpu host \
-    -m 2048 \
+    -m 4G \
     -smp 8 \
     -kernel /home/wujing/code/x86-kernel/arch/x86/boot/bzImage \
     -initrd /home/wujing/code/qemu/amd64/1060/initrd.img-4.19.0-amd64-desktop \
