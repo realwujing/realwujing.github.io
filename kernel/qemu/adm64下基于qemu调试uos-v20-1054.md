@@ -1,4 +1,4 @@
-# 基于qemu调试uos-v20-1054
+# amd64下基于qemu调试uos-v20-1054
 
 ## 安装环境
 
@@ -34,7 +34,7 @@ qemu-system-x86_64 \
 -cdrom ~/Downloads/iso/uniontechos-desktop-20-professional-1050-update4-amd64.iso
 ```
 
-如需调试`bios`，添加下方参数即可，启动时也需要附带此参数：
+如需调试 `bios`，添加下方参数即可，启动时也需要附带此参数：
 `-bios /usr/share/ovmf/OVMF.fd`
 
 ## 启动虚拟机
@@ -91,9 +91,9 @@ qemu-system-x86_64 \
 -S -s
 ```
 
-上方`-append`传递给内核的参数可以通过在启动时，访问 GRUB 启动菜单，按`e`键编辑引导参数可以看到参数，也可虚拟机启动后通过`cat /proc/cmdline`查看。
+上方 `-append`传递给内核的参数可以通过在启动时，访问 GRUB 启动菜单，按 `e`键编辑引导参数可以看到参数，也可虚拟机启动后通过 `cat /proc/cmdline`查看。
 
-在`~/code/tmp/1054`目录下启动gdb：
+在 `~/code/tmp/1054`目录下启动gdb：
 
 ```bash
 gdb vmlinux
@@ -112,7 +112,7 @@ Cannot access memory at address 0xffffffff824bbb8d
 Command aborted.
 ```
 
-敲`c`命令输出如下：
+敲 `c`命令输出如下：
 
 ```text
 Thread 1 hit Breakpoint 1, start_kernel () at init/main.c:531
@@ -121,8 +121,8 @@ Thread 1 hit Breakpoint 1, start_kernel () at init/main.c:531
 
 很明显找不到源码，解决方案有两种：
 
-1. `gdb`中使用`dir`命令或`set substitute-path`命令指定和修改搜素源码文件的路径
-2. 基于源码编译出内核，在源码目录执行`gdb vmlinux`命令。
+1. `gdb`中使用 `dir`命令或 `set substitute-path`命令指定和修改搜素源码文件的路径
+2. 基于源码编译出内核，在源码目录执行 `gdb vmlinux`命令。
 
 下文采用方案2：
 
@@ -151,7 +151,7 @@ qemu-system-x86_64 \
 -S -s
 ```
 
-在`~/code/x86-kernel`目录下启动gdb：
+在 `~/code/x86-kernel`目录下启动gdb：
 
 ```bash
 gdb vmlinux
@@ -160,17 +160,17 @@ hb start_kernel
 c
 ```
 
-敲`c`命令输出如下：
+敲 `c`命令输出如下：
 
 ```text
 Thread 1 hit Breakpoint 1, start_kernel () at init/main.c:531
 531     {  
 ```
 
-可以看到断点正常命中，继续敲`c`命令可以看到虚拟机正常启动到登录界面。
+可以看到断点正常命中，继续敲 `c`命令可以看到虚拟机正常启动到登录界面。
 
 ## More
 
 - [使用Qemu在Mac上安装虚拟机](https://blog.csdn.net/weixin_39759247/article/details/126569448)
-- [Qemu&KVM 第一篇（2） qemu kvm 相关知识](https://blog.csdn.net/weixin_34253539/article/details/93084893)
+- [Qemu&amp;KVM 第一篇（2） qemu kvm 相关知识](https://blog.csdn.net/weixin_34253539/article/details/93084893)
 - [如何开机进入Linux命令行](https://www.linuxprobe.com/boot-into-linuxcli.html)

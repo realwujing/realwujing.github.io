@@ -1,4 +1,4 @@
-# 基于qemu用户网络、debootstrap 调试内核、根文件系统
+# amd64下基于qemu用户网络、debootstrap 调试内核、根文件系统
 
 ## 1. 编译调试版linux内核
 
@@ -99,10 +99,10 @@ exit
 
 #### 配置网络
 
-要确保进入文件系统后有网络，可以将 ​​/etc/resolv.conf​​​ 文件拷贝到 ​​linux-rootfs/etc/resolv.conf​​。
+要确保进入文件系统后有网络，可以将 /etc/resolv.conf 文件拷贝到 linux-rootfs/etc/resolv.conf。
 
 ```bash
-sudo cp ​​/etc/resolv.conf​​​ ​​linux-rootfs/etc/resolv.conf
+sudo cp /etc/resolv.conf linux-rootfs/etc/resolv.conf
 ```
 
 #### 更换国内镜像源
@@ -185,7 +185,7 @@ qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -hda
 qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -drive format=raw,file=/home/wujing/code/tmp/bionic.img -append "root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr" -nographic
 ```
 
-- [Linux aarch64 编译 & qemu 搭建实验平台 initrd initramfs](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609)
+- [Linux aarch64 编译 &amp; qemu 搭建实验平台 initrd initramfs](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609)
 
 ### 加载内核调试工具
 
