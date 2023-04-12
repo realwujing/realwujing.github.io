@@ -26,10 +26,6 @@ qemu-img create -f qcow2 1060.img 64G
 
 ### 安装镜像到虚拟盘
 
-```
-
-```
-
 ```bash
 qemu-system-aarch64 -name guest=uos-v20-1060-arm64,debug-threads=on -machine virt-3.1,accel=kvm,usb=off,dump-guest-core=off,gic-version=3 -cpu host \
       -smp 4 -m 4096 \
