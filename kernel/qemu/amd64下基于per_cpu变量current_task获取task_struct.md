@@ -31,7 +31,7 @@
 3. 获取进程号
 
     ```bash
-    p ((struct task_struct*)(*(unsigned long*)((char*)__per_cpu_offset[4] + 0x15cc0)))->id
+    p ((struct task_struct*)(*(unsigned long*)((char*)__per_cpu_offset[4] + 0x15cc0)))->pid
     ```
 
 4. 获取进程名
