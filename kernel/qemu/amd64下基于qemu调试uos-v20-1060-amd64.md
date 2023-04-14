@@ -150,6 +150,19 @@ make -j16
 
 此种方式方式可以加快调试内核bug，此时更改`-kernel /home/wujing/code/qemu/amd64/1060/vmlinuz-4.19.0-amd64-desktop`为`-kernel /home/wujing/code/x86-kernel/arch/x86/boot/bzImage`选项即可，具体命令如下：
 
+如果是在虚拟机上编译，需要将将虚拟机上的`bzImage`等复制到宿主机对应目录：
+
+```bash
+scp ~/code/x86-kernel/arch/x86/boot/bzImage wujing@10.20.42.43:~/code/x86-kernel/arch/x86/boot/
+scp /boot/initrd.img-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060
+scp /boot/vmlinuz-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060
+scp ~/code/x86-kernel/vmlinux wujing@10.20.42.43:~/code/qemu/amd64/1060
+scp ~/code/x86-kernel/vmlinux wujing@10.20.42.43:~/code/x86-kernel
+scp /boot/config-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060
+```
+
+宿主机上执行qemu：
+
 ```bash
 sudo qemu-system-x86_64 \
     -accel kvm \
