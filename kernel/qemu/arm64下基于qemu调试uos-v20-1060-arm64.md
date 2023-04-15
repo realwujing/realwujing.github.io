@@ -6,7 +6,7 @@
 sudo apt-get install qemu qemu-system-arm qemu-efi qemu-efi-aarch64 virtinst virt-manager virt-viewer
 ```
 
-![qemu-system-aarch64](qemu-system-aarch64.png)
+![qemu-system-aarch64](images/qemu-system-aarch64.png)
 
 ## 制作启动盘
 

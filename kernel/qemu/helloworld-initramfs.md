@@ -46,7 +46,7 @@ qemu-system-x86_64 -kernel ~/code/linux/arch/x86/boot/bzImage -initrd ~/code/lin
 
 系统能成功启动到输出"Hello World!"，并且在用户态停住。结合前文“在qemu环境中用gdb调试Linux内核”，可以看到qemu虚机中运行的Linux系统已经成功挂载了initramfs, 在console日志中也能看到“Unpacking initramfs...”。
 
-![helloworld](helloworld.png)
+![helloworld](images/helloworld.png)
 
 - [Initramfs 原理和实践](https://www.cnblogs.com/wipan/p/9269505.html)
 - [initramfs的使用方法](https://blog.csdn.net/u010444107/article/details/79427542)
