@@ -6,7 +6,8 @@
     nm vmlinux | grep current_task
     ```
 
-    ![current_task.png](images/current_task.png)
+    <!-- ![current_task.png](images/current_task.png) -->
+    ![current_task](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/current_task.png)
 
 2. 获取task_struct指针
 
@@ -16,7 +17,8 @@
     info threads
     ```
 
-    ![current_task2.png](images/current_task2.png)
+    <!-- ![current_task2.png](images/current_task2.png) -->
+    ![current_task2](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/current_task2.png)
 
     从上图看到有8个cpu，可以改动qemu虚拟化时`-smp 8`参数调整cpu个数。
 
@@ -40,11 +42,13 @@
     p ((struct task_struct*)(*(unsigned long*)((char*)__per_cpu_offset[4] + 0x15cc0)))->comm
     ```
 
-    ![current_task3.png](images/current_task3.png)
+    <!-- ![current_task3.png](images/current_task3.png) -->
+    ![current_task3](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/current_task3.png)
 
     如果上述`__per_cpu_offset[4]`下标不对，获取的都是内核0号idle进程。
 
-    ![current_task4.png](images/current_task4.png)
+    <!-- ![current_task4.png](images/current_task4.png) -->
+    ![current_task4](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/current_task4.png)
 
 ## More
 

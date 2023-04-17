@@ -16,7 +16,8 @@ wget https://cdimage.uniontech.com/daily-iso/1060/professional/daily-stable/2023
 
 ### 安装镜像到虚拟盘
 
-![qemu-system-x86_64](images/qemu-system-x86_64.png)
+<!-- ![qemu-system-x86_64](images/qemu-system-x86_64.png) -->
+![qemu-system-x86_64](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/qemu-system-x86_64.png)
 
 直接利用virt-manager图形界面安装镜像更快。
 
