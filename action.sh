@@ -8,7 +8,7 @@ set -aex
 
 # rm -rf source/_posts/*
 
-rsync -avP --exclude='.git'--exclude='.github' --exclude='node_modules' --exclude='source' --exclude='scaffolds' --include='*/' --include='*.md' --exclude='*' ./ ./ ./source/_posts/
+rsync -avP --exclude='.git'--exclude='.github' --exclude='node_modules' --exclude='source' --exclude='scaffolds' --include='*/' --include='*.md' --exclude='*' ./ ./source/_posts/
 
 rm -rf source/_posts/.git source/_posts/.github source/_posts/.gitignore source/_posts/.DS_Store
 
