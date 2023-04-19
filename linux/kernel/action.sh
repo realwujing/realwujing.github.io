@@ -1,24 +1,22 @@
 #! /bin/bash
 
-file=kernel.md
+sed -i 's/^|/-/g' $1
 
-sed -i 's/^|/-/g' $file
+sed -i 's/ \{2,\}/ /g' $1
 
-sed -i 's/ \{2,\}/ /g' $file
+sed -i 's/ |$//g' $1
 
-sed -i 's/ |$//g' $file
-
-sed -i 's/^|/-/g' $file
+sed -i 's/^|/-/g' $1
 
 
-sed -i 's/ //g' $file
+sed -i 's/ //g' $1
 
-sed -i 's/- $//g' $file
+sed -i 's/- $//g' $1
 
-sed -i 's/--//g' $file
+sed -i 's/--//g' $1
 
-sed -i 's/- ://g' $file
+sed -i 's/- ://g' $1
 
-sed -i '/\[/!s/^-/##/g' $file
+sed -i '/\[/!s/^-/##/g' $1
 
-sed -i '/^##/{G;}' $file
+sed -i '/^##/{G;}' $1
