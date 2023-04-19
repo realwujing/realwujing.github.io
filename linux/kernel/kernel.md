@@ -13,7 +13,7 @@
 
 ## 内核
 
-- [Linux内核之旅](http://kerneltravel.net/)
+- [<font color=Red>Linux内核之旅</font>](http://kerneltravel.net/)
 - [30分钟读懂Linux五大模块内核源码，内核整体架构设计](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==\&mid=2247500232\&idx=2\&sn=9a81b4fa46e234192ae6fab97840026c\&chksm=f96bb33cce1c3a2a770760031fc58ebc6dc367695eebc5db6a08048774789cdee630f6c58d5f\&mpshare=1\&scene=1\&srcid=0407Gxo7W7KdCRYn2kb8WEsB\&sharer_sharetime=1649316737801\&sharer_shareid=2dfdf936388dba04865b3e883d5a3225\&version=3.1.12.6001\&platform=win#rd)
 - [Linux 内核概念和学习路线](https://mp.weixin.qq.com/s/RaNeUkveH_AdKnkzY70TEg)
 - [Linux系统内核概述](https://mp.weixin.qq.com/s/VJFXFs8430SrpnJTmUsIZg)
@@ -74,33 +74,36 @@
 - [linux内核源码在线阅读](https://www.cnblogs.com/igoodful/p/14081782.html)
 - [品读 Linux 0.11 核心代码](https://github.com/sunym1993/flash-linux0.11-talk)
 - [Linux内核完全注释(修正版v3.0).pdf](https://github.com/realwujing/Linux-0.11?organization=realwujing\&organization=realwujing)
-- [调试 Linux 最早期的代码](https://mp.weixin.qq.com/s/cx_vaRTcC29h0pWkJPpqQQ)
+- [<font color=Red>调试 Linux 最早期的代码</font>](https://mp.weixin.qq.com/s/cx_vaRTcC29h0pWkJPpqQQ)
 - [Linux-0.11操作系统源码调试-在 Ubuntu22 上](https://blog.csdn.net/chaoguo1234/article/details/128613219)
-- [https://github.com/yuan-xy/Linux-0.11](https://github.com/yuan-xy/Linux-0.11)
+- [<font color=Red>https://github.com/yuan-xy/Linux-0.11</font>](https://github.com/yuan-xy/Linux-0.11)
 
 - [https://richardweiyang-2.gitbook.io/kernel-exploring/](https://richardweiyang-2.gitbook.io/kernel-exploring/)
 - [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
 
 ## 内核链表
 
-- [玩转内核链表list\_head，教你管理不同类型节点的实现，建议收藏](https://mp.weixin.qq.com/s/Ddonv6FdY4oroIT32IGxOw)
-- [Linux内核中经典链表 list\_head 常见使用方法解析](https://blog.csdn.net/wanshilun/article/details/79747710)
-- [Linux内核中的常用宏container\_of其实很简单](https://blog.csdn.net/npy_lp/article/details/7010752#:\~:text=Containe,%E4%BD%93%E5%8F%98%E9%87%8F%E7%9A%84%E9%A6%96%E5%9C%B0%E5%9D%80%E3%80%82)
-- [Linux内核中container\_of的原理及其使用详解](https://blog.csdn.net/u010632165/article/details/107523477)
+- [玩转内核链表list_head，教你管理不同类型节点的实现，建议收藏](https://mp.weixin.qq.com/s/Ddonv6FdY4oroIT32IGxOw)
+- [Linux内核中经典链表 list_head 常见使用方法解析](https://blog.csdn.net/wanshilun/article/details/79747710)
+- [Linux内核中的常用宏container_of其实很简单](https://blog.csdn.net/npy_lp/article/details/7010752#:\~:text=Containe,%E4%BD%93%E5%8F%98%E9%87%8F%E7%9A%84%E9%A6%96%E5%9C%B0%E5%9D%80%E3%80%82)
+- [<font color=Red>Linux内核中container_of的原理及其使用详解</font>](https://blog.csdn.net/u010632165/article/details/107523477)
 - [Linux 内核 hlist 详解](https://blog.csdn.net/hs794502825/article/details/24597773)
-- [hlist用法以及hlist\_for\_each\_entry 使用举例](https://blog.csdn.net/oHeHui1/article/details/128176831)
-- [内核模块开发中\_\_init和\_\_exit的作用](https://blog.csdn.net/bhniunan/article/details/104082581)
+- [hlist用法以及hlist_for_each_entry 使用举例](https://blog.csdn.net/oHeHui1/article/details/128176831)
+- [内核模块开发中__init和__exit的作用](https://blog.csdn.net/bhniunan/article/details/104082581)
 - [linux内核中6个经典C语言函数代码赏析](https://www.toutiao.com/article/7222172647486964258)
-- [C关键字section的作用](https://mp.weixin.qq.com/s/sglxUkdboT4epiJOH5z7pg)
+
+## 内核section
+
+- [<font color=Red>C关键字section的作用</font>](https://mp.weixin.qq.com/s/sglxUkdboT4epiJOH5z7pg)
 
 ## initramfs
 
 - [initramfs详解-初识initramfs](https://blog.csdn.net/zyqash/article/details/126041951)
 - [linux initramfs启动原理](https://blog.csdn.net/oqqYuJi12345678/article/details/103218438)
-- [Linux内核Ramdisk(initrd)机制【转】](https://www.cnblogs.com/sky-heaven/p/13856545.html)
+- [<font color=Red>Linux内核Ramdisk(initrd)机制【转】</font>](https://www.cnblogs.com/sky-heaven/p/13856545.html)
 - [Initramfs 原理和实践](https://www.cnblogs.com/wipan/p/9269505.html)
-- [关于initrd和initramfs](https://blog.csdn.net/u012787604/article/details/121685547)
-- [Linux aarch64 编译 & qemu 搭建实验平台 initrd initramfs](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609)
+- [<font color=Red>关于initrd和initramfs</font>](https://blog.csdn.net/u012787604/article/details/121685547)
+- [<font color=Red>Linux aarch64 编译 & qemu 搭建实验平台 initrd initramfs</font>](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609)
 - [initramfs详解-初识initramfs](https://huaweicloud.csdn.net/6356178ed3efff3090b59d10.html)
 - [linux 内核启动Initramfs与initrd 及其挂载](https://blog.csdn.net/u012332571/article/details/121906322)
 - [精通initramfs构建step by step](http://t.zoukankan.com/FullStack-p-8041964.html)
@@ -109,12 +112,12 @@
 
 ## 启动流程
 
-- [kernel启动流程-start\_kernel的执行\_8.cpio initrd解包](https://blog.csdn.net/jasonactions/article/details/114080652)
-- [kernel启动流程-start\_kernel的执行\_7.arch\_call\_rest\_init](https://blog.csdn.net/jasonactions/article/details/114007646)
-- [linux内核中do\_initcalls函数的执行逻辑分析](https://m.elecfans.com/article/1980482.html)
+- [kernel启动流程-start_kernel的执行_8.cpio initrd解包](https://blog.csdn.net/jasonactions/article/details/114080652)
+- [kernel启动流程-start_kernel的执行_7.arch_call_rest_init](https://blog.csdn.net/jasonactions/article/details/114007646)
+- [linux内核中do_initcalls函数的执行逻辑分析](https://m.elecfans.com/article/1980482.html)
 - [Linux0号进程，1号进程，2号进程](https://www.cnblogs.com/MrLiuZF/p/15187310.html)
-- [Linux下0号进程的前世(init\_task进程)今生(idle进程)](https://blog.csdn.net/21cnbao/article/details/105885390)
-- [Linux \| Kernel 启动流程源码分析](https://mp.weixin.qq.com/s/umB4mgMUtAvL52AcjDq55g)
+- [Linux下0号进程的前世(init_task进程)今生(idle进程)](https://blog.csdn.net/21cnbao/article/details/105885390)
+- [Linux | Kernel 启动流程源码分析](https://mp.weixin.qq.com/s/umB4mgMUtAvL52AcjDq55g)
 
 - [Linux 实现原理 — 网卡驱动程序初始化流程](https://mp.weixin.qq.com/s/jcolfo4bvKPS-eRdeCkRCg)
 
@@ -127,6 +130,7 @@
 
 - [一张图看懂linux内核中percpu变量的实现 KING.YT](https://zhuanlan.zhihu.com/p/340985476)
 - [一张图看懂linux内核中percpu变量的实现](https://cloud.tencent.com/developer/article/1769514)
+- [<font color=Red>amd64下基于per_cpu变量current_task获取task_struct</font>](https://github.com/realwujing/realwujing.github.io/blob/main/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eper_cpu%E5%8F%98%E9%87%8Fcurrent_task%E8%8E%B7%E5%8F%96task_struct.md)
 
     ```text
     p ((struct task_struct*)(*(unsigned long*)((char*)__per_cpu_offset[0] + 0x15d00)))->comm
@@ -134,8 +138,8 @@
 
 ## 系统调用
 
-- [linux系统调用函数大全\_Linux架构](https://blog.csdn.net/weixin_39852688/article/details/110815377)
-- [介绍Linux系统调用（值得收藏）](https://blog.csdn.net/m0_74282605/article/details/128097944)
+- [<font color=Red>linux系统调用函数大全_Linux架构</font>](https://blog.csdn.net/weixin_39852688/article/details/110815377)
+- [<font color=Red>介绍Linux系统调用（值得收藏）</font>](https://blog.csdn.net/m0_74282605/article/details/128097944)
 - [linux系统下的各种hook方式\Linux内核hook系统调用](https://m.dandelioncloud.cn/article/details/1567859018796593153)
 - [Linux系统调用Hook姿势总结](https://m.dandelioncloud.cn/article/details/1552321452504739842)
 - [没有open的手册页条目](https://blog.csdn.net/yuechuxuan/article/details/70308126)
