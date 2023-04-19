@@ -673,139 +673,6 @@
   
   
   <entry>
-    <title>uts_namespace</title>
-    <link href="/kernel/namespace/uts_namespace/uts_namespace/"/>
-    <url>/kernel/namespace/uts_namespace/uts_namespace/</url>
-    
-    <content type="html"><![CDATA[<h1 id="uts_namespace内核实现">uts_namespace内核实现</h1><p>本次调试基于linux v5.10-rc7，具体参加下方链接：</p><ul><li><a href="https://github.com/realwujing/linux-learning/blob/main/debug/kernel/qemu/%E5%9F%BA%E4%BA%8Eqemu%E6%A1%A5%E6%8E%A5%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%20%E8%B0%83%E8%AF%95%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F.md">基于qemu桥接网络、debootstrap 调试内核、根文件系统</a></li></ul><h2 id="断点">断点</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) save breakpoints ust_namespace.breakpoint<br>Saved to file &#x27;ust_namespace.breakpoint&#x27;.<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">break fs/exec.c:do_execveat_common<br>break kernel/fork.c:2573<br>break kernel/fork.c:kernel_clone<br>break kernel/fork.c:2456<br>break kernel/fork.c:copy_process<br>break kernel/fork.c:1929<br>break kernel/fork.c:2098<br>break kernel/nsproxy.c:copy_namespaces<br>break kernel/nsproxy.c:162<br>break include/linux/nsproxy.h:109<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">source</span> ust_namespace.breakpoint<br>i b<br></code></pre></td></tr></table></figure><h2 id="uts_namespace_demo">uts_namespace_demo</h2><p>通过qemu进入系统后：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> build<br>./uts_namespace_demo<br></code></pre></td></tr></table></figure><h2 id="命名空间复制">命名空间复制</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">14      breakpoint     keep y   0xffffffff8105ea0d in copy_process at kernel/fork.c:2098<br>retval = copy_namespaces(clone_flags, p);<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">b kernel/nsproxy.c:copy_namespaces <br>Breakpoint 15 at 0xffffffff81084c50: file kernel/nsproxy.c, line 153.<br></code></pre></td></tr></table></figure><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">copy_namespaces</span><span class="hljs-params">(<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags, <span class="hljs-keyword">struct</span> task_struct *tsk)</span>   <span class="hljs-comment">// kernel/nsproxy.c:151</span><br>&#123;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> *<span class="hljs-title">old_ns</span> =</span> tsk-&gt;nsproxy;  <span class="hljs-comment">// task_struct有namespace相关数据结构</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">user_namespace</span> *<span class="hljs-title">user_ns</span> =</span> task_cred_xxx(tsk, user_ns); <span class="hljs-comment">// user_namespace</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> *<span class="hljs-title">new_ns</span>;</span><br><span class="hljs-type">int</span> ret;<br><br><span class="hljs-keyword">if</span> (likely(!(flags &amp; (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |<br>      CLONE_NEWPID | CLONE_NEWNET |<br>      CLONE_NEWCGROUP | CLONE_NEWTIME)))) &#123;         <span class="hljs-comment">// CLONE_NEWUTS符合条件，此处为true</span><br><span class="hljs-keyword">if</span> (likely(old_ns-&gt;time_ns_for_children == old_ns-&gt;time_ns)) &#123;  <span class="hljs-comment">// 此处也为true</span><br>get_nsproxy(old_ns);<br><span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;   <span class="hljs-comment">// 此处函数返回</span><br>&#125;<br>&#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!ns_capable(user_ns, CAP_SYS_ADMIN))     <span class="hljs-comment">// 根据usernamesapce鉴权</span><br><span class="hljs-keyword">return</span> -EPERM;<br>...<br>&#125;<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) b kernel/nsproxy.c:162<br>Breakpoint 16 at 0xffffffff81084c90: file kernel/nsproxy.c, line 163.<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) b include/linux/nsproxy.h:109<br>Breakpoint 17 at 0xffffffff81229df2: file ./include/linux/nsproxy.h, line 109.<br></code></pre></td></tr></table></figure><h2 id="nsproxy数据结构">nsproxy数据结构</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> &#123;</span>    <span class="hljs-comment">// include/linux/nsproxy.h:31</span><br><span class="hljs-type">atomic_t</span> count;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">uts_namespace</span> *<span class="hljs-title">uts_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ipc_namespace</span> *<span class="hljs-title">ipc_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mnt_namespace</span> *<span class="hljs-title">mnt_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">pid_namespace</span> *<span class="hljs-title">pid_ns_for_children</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">net</span>      *<span class="hljs-title">net_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">time_namespace</span> *<span class="hljs-title">time_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">time_namespace</span> *<span class="hljs-title">time_ns_for_children</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">cgroup_namespace</span> *<span class="hljs-title">cgroup_ns</span>;</span><br>&#125;;<br><span class="hljs-keyword">extern</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> <span class="hljs-title">init_nsproxy</span>;</span><br></code></pre></td></tr></table></figure><h2 id="unshare系统调用加入新的namespace">unshare系统调用加入新的namespace</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/*</span><br><span class="hljs-comment"> * Called from unshare. Unshare all the namespaces part of nsproxy.</span><br><span class="hljs-comment"> * On success, returns the new nsproxy.</span><br><span class="hljs-comment"> */</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">unshare_nsproxy_namespaces</span><span class="hljs-params">(<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> unshare_flags,</span><br><span class="hljs-params"><span class="hljs-keyword">struct</span> nsproxy **new_nsp, <span class="hljs-keyword">struct</span> cred *new_cred, <span class="hljs-keyword">struct</span> fs_struct *new_fs)</span>  <span class="hljs-comment">// kernel/nsproxy.c:262</span><br>&#123;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">user_namespace</span> *<span class="hljs-title">user_ns</span>;</span><br><span class="hljs-type">int</span> err = <span class="hljs-number">0</span>;<br><br><span class="hljs-keyword">if</span> (!(unshare_flags &amp; (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |<br>       CLONE_NEWNET | CLONE_NEWPID | CLONE_NEWCGROUP |<br>       CLONE_NEWTIME)))<br><span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br><br>user_ns = new_cred ? new_cred-&gt;user_ns : current_user_ns();<br><span class="hljs-keyword">if</span> (!ns_capable(user_ns, CAP_SYS_ADMIN))<br><span class="hljs-keyword">return</span> -EPERM;<br><br>*new_nsp = create_new_namespaces(unshare_flags, current, user_ns,<br> new_fs ? new_fs : current-&gt;fs);<br><span class="hljs-keyword">if</span> (IS_ERR(*new_nsp)) &#123;<br>err = PTR_ERR(*new_nsp);<br><span class="hljs-keyword">goto</span> out;<br>&#125;<br><br>out:<br><span class="hljs-keyword">return</span> err;<br>&#125;<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>kernel</category>
-      
-      <category>namespace</category>
-      
-      <category>uts_namespace</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>qemu</tag>
-      
-      <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>namespace</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>16位汇编语言</title>
-    <link href="/assembly-learning/16%E4%BD%8D%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80/"/>
-    <url>/assembly-learning/16%E4%BD%8D%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80/</url>
-    
-    <content type="html"><![CDATA[<h1 id="位汇编语言">16位汇编语言</h1><h2 id="寄存器">寄存器</h2><p>8086CPU有14个寄存器，所有寄存器都是16位的，可以存放2个字节：</p><ul><li>AX</li><li>BX</li><li>CX</li><li>DX</li><li>SI</li><li>DI</li><li>SP</li><li>BP</li><li>CS</li><li>SS</li><li>DS</li><li>ES</li><li>PSW</li></ul><p>这 14 个寄存器有可能进行具体的划分，按照功能可以分为三种：</p><ul><li>通用寄存器</li><li>段寄存器</li><li>控制寄存器</li></ul><h3 id="通用寄存器">通用寄存器</h3><p>8086CPU有4个通用寄存器，用来存放一般性的数据：</p><ul><li><p>AX(Accumulator Register) ：累加寄存器，它主要用于输入/输出和大规模的指令运算。</p></li><li><p>BX(Base Register)：基址寄存器，用来存储基础访问地址。</p></li><li><p>CX(Count Register)：计数寄存器，CX 寄存器在迭代的操作中会循环计数。</p></li><li><p>DX(Data Register)：数据寄存器，它也用于输入/输出操作。它还与 AX 寄存器以及 DX 一起使用，用于涉及大数值的乘法和除法运算。</p></li></ul><p>8086CPU的<code>AX</code>、<code>BX</code>、<code>CX</code>、<code>DX</code>这4个通用寄存器都可以分为两个可独立使用的8位寄存器来用：</p><table><thead><tr class="header"><th>寄存器</th><th>高位</th><th>低位</th></tr></thead><tbody><tr class="odd"><td>AX</td><td>AH</td><td>AL</td></tr><tr class="even"><td>BX</td><td>BH</td><td>BL</td></tr><tr class="odd"><td>CX</td><td>CH</td><td>CL</td></tr><tr class="even"><td>DX</td><td>DH</td><td>DL</td></tr></tbody></table><p>除了<code>AX</code>、<code>BX</code>、<code>CX</code>、<code>DX</code> 寄存器以外，其他寄存器均不可以分为两个独立的 8 位寄存器。</p><p>寄存器的存储方式是先存储低位，如果低位满足不了就存储高位，如果低位能够满足，高位用 0 补全，在其他低位能满足的情况下，其余位也用 0 补全。</p><p>8086 CPU 可以一次存储两种类型的数据：</p><ul><li><p>字节(byte)： 一个字节由 8 bit 组成，这是一种恒定不变的存储方式</p></li><li><p>字(word)：字是由指令集或处理器硬件作为单元处理的固定大小的数据，对于 intel 来说，一个字长就是两个字节。</p></li></ul><p>字是计算机一个非常重要的特征，针对不同的指令集架构来说，计算机一次处理的数据也是不同的。也就是说，针对不同指令集的机器，一次能处理不用的字长，有字、双字（32位）、四字（64位）等。</p><h3 id="段寄存器">段寄存器</h3><p>8086CPU有4个段寄存器：</p><ul><li>CS(Code Segment)：代码段寄存器，程序代码的基础位置。</li><li>DS(Data Segment)：数据段寄存器，变量的基本位置。</li><li>SS(Stack Segment)：堆栈段寄存器，栈的基础位置。</li><li>ES(Extra Segment)：附加段寄存器，内存中变量的其他基本位置。</li></ul><h4 id="代码段寄存器">代码段寄存器</h4><ul><li>CS</li></ul><h4 id="数据段寄存器">数据段寄存器</h4><ul><li>DS</li></ul><p>8086CPU不支持将数据直接送入段寄存器，需要先将数据送入一个一般的寄存器，如<code>BX</code>，再将<code>BX</code>中的内容送入<code>DS</code>。</p><h4 id="堆栈段寄存器">堆栈段寄存器</h4><ul><li>SS</li></ul><p>8086CPU中，有两个寄存器，堆栈段寄存器<code>SS</code>和栈指针寄存器<code>SP</code>，栈顶的段地址存放在<code>SS</code>中，偏移地址存放在<code>SP</code>中。</p><p>任意时刻，<code>SS:SP</code>指向栈顶元素。</p><p><code>push</code>指令和<code>pop</code>指令执行时，CPU从<code>SS</code>和<code>SP</code>中得到栈顶的地址。</p><h5 id="栈顶超界的问题">栈顶超界的问题</h5><p>当栈满的时候，使用<code>push</code>指令入栈，或栈空的时候使用<code>pop</code>指令出栈，都将发生栈顶超界的问题。</p><p>8086CPU不保证我们对栈的操作不会越界，8086CPU只知道栈顶在何处（由<code>SS:SP</code>指示），而不知道我们安排的栈空间有多大。</p><p>编程时要根据可能用到的最大栈空间，来安排栈的大小，防止入栈的数据太多而导致超界；执行出栈操作的时候也要注意，以防栈空的时候继续出栈而导致的超界。</p><h4 id="索引寄存器">索引寄存器</h4><p>索引寄存器主要包含段地址的偏移量，索引寄存器主要分为：</p><ul><li>BP(Base Pointer)：基础指针，它是栈寄存器上的偏移量，用来定位栈上变量。</li><li>SP(Stack Pointer)：栈指针，它是栈寄存器上的偏移量，用来定位栈顶。</li><li>SI(Source Index)：变址寄存器，用来拷贝源字符串。</li><li>DI(Destination Index)：目标变址寄存器，用来复制到目标字符串。</li></ul><h3 id="控制寄存器">控制寄存器</h3><ul><li>IP(Instruction Pointer)：指令指针寄存器，它是从 Code Segment 代码寄存器处的偏移来存储执行的下一条指令.</li><li>FLAG(EFLAGS Register)：标志寄存器用于存储当前进程的状态。</li></ul><h4 id="指令指针寄存器">指令指针寄存器</h4><p>指令指针寄存器（Instruction Pointer）</p><ul><li>IP</li></ul><p>在8086PC机中，任意时刻，设<code>CS</code>中的内容为<code>M</code>，<code>IP</code>中的内容为<code>N</code>，8086CPU将从内存<code>M*16+N</code>单元开始，读取一条指令并执行。</p><p>也可以这样表述：8086机中，任意时刻，CPU将<code>CS:IP</code>指向的内容当做指令执行。</p><p><code>mov</code>指令不能用于设置<code>CS</code>、<code>IP</code>寄存器的值，原因很简单，因为8086CPU没有提供这样的功能。</p><p>使用<code>jmp 段地址:偏移地址</code>指令可以同时修改<code>CS:IP</code>寄存器的值：</p><ul><li><code>jmp 2AE3:3</code>，执行后：<code>CS=2AE3H</code>， <code>IP=0003H</code>，CPU将从<code>2AE33H</code>处读取指令。</li><li><code>jmp 3:0B16</code>，执行后：<code>CS=0003H</code>， <code>IP=0B16H</code>，CPU将从<code>00B46H</code>处读取指令。</li></ul><p>若想仅修改<code>IP</code>寄存器的内容，可用<code>jmp 某一合法寄存器</code>的指令完成，如：</p><ul><li><code>jmp ax</code>，指令执行前，<code>ax=1000H</code>，<code>CS=2000H</code>，<code>IP=0003H</code> 指令执行后，<code>ax=1000H</code>，<code>CS=2000H</code>，<code>IP=1000H</code></li></ul><h4 id="标志寄存器">标志寄存器</h4><p>FLAG(EFLAGS Register)：标志寄存器用于存储当前进程的状态。</p><p>标志寄存器，又称程序状态寄存器（它的内容是Program Status Word，PSW）。</p><p>这是一个，控制标志和系统标志的寄存器。</p><p>标志寄存器EFLAGS中的系统标志和IOPL字段用于控制I/O访问、可屏蔽硬件中断、调试、任务切换以及虚拟8086模式。</p><p>FLAG : Flag 寄存器用于存储当前进程的状态，这些状态有：</p><ul><li><p>位置 (Direction)：用于数据块的传输方向，是向上传输还是向下传输</p></li><li><p>中断标志位 (Interrupt) ：1 - 允许；0 - 禁止</p></li><li><p>陷入位 (Trap) ：确定每条指令执行完成后，CPU 是否应该停止。1 - 开启，0 - 关闭</p></li><li><p>进位 (Carry) : 设置最后一个无符号算术运算是否带有进位</p></li><li><p>溢出 (Overflow) : 设置最后一个有符号运算是否溢出</p></li><li><p>符号 (Sign) : 如果最后一次算术运算为负，则设置 1 =负，0 =正</p></li><li><p>零位 (Zero) : 如果最后一次算术运算结果为零，1 = 零</p></li><li><p>辅助进位 (Aux Carry) ：用于第三位到第四位的进位</p></li><li><p>奇偶校验 (Parity) : 用于奇偶校验</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.jb51.net/article/230062.htm">图文详解通俗易懂的汇编语言寄存器</a></li><li><a href="https://www.toutiao.com/article/7039892076707807748">二进制分析实战：x86汇编快速入门</a></li><li><a href="https://baike.baidu.com/item/cs/19501238">硬件CPU中的代码段寄存器</a></li><li><a href="https://blog.csdn.net/weixin_42240667/article/details/104503184">8086cpu中的寄存器（cs、ds、es、ss、ip、sp、bp、si、di）</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>assembly-learning</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/assembly-learning/README/"/>
-    <url>/assembly-learning/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="assembly-learning">assembly-learning</h1><ul><li><a href="https://cmsblogs.cn/3358.html">汇编语言（第4版）PDF下载</a></li><li><a href="https://pan.baidu.com/s/1BUWnerHO20rkMlesAesEFQ">链接: https://pan.baidu.com/s/1BUWnerHO20rkMlesAesEFQ 密码: wdd7</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>assembly-learning</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>assembly</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/binaryanalysis/README/"/>
-    <url>/binaryanalysis/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>binaryanalysis</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/bpf-learning/README/"/>
-    <url>/bpf-learning/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="bpf-learning">bpf-learning</h1><h2 id="安装教程">安装教程</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install bpfcc-tools linux-headers-$(<span class="hljs-built_in">uname</span> -r) bpftrace<br></code></pre></td></tr></table></figure><ul><li><a href="bcc.md">BPF Compiler Collection (BCC)</a></li><li><a href="bpftrace.md">bpftrace</a></li></ul><h2 id="动态追踪">动态追踪</h2><p>可以通过探针机制，来采集内核或者应用程序的运行信息。所谓动态，表示他可以不用修改内核和应用程序的代码，就获得丰富的信息。因为在以往的排查和调试性能问题过程中，我们往往会先给应用程序设置一系列的断点(gdb),然后以手动或者脚本(GDB的Python扩展)的方式，在断点处去分析程序状态，或者增加一系列的日志，在日志中寻找线索。相比以往的进程及追踪方法(ptrace)，动态追踪往往只需要消耗很小的性能消耗（5%甚至更少）。</p><p>根据类型不同，动态追踪所使用的事件源，可以分为静态探针，动态探针，硬件事件这三类。</p><h3 id="硬件事件">硬件事件</h3><p>其中硬件事件通常由性能监控计数器PMC(Performance Monitoring Counter)产生，他包括了各种硬件的性能指标，比如CPU的缓存，指令周期，分支预测等等。</p><h3 id="静态探针">静态探针</h3><p>静态探针，指事先在代码中定义好，并编译到应用程序和内核中的探针。这些探针只有在开启探测功能时，才会被执行到。未开启时，不会执行。常见的静态探针包括内核中的跟踪点(tracepoints)和USDT(Userland Statically Defined Tracing)探针：</p><ul><li><p>跟踪点(tracepoints) - 在源码中插入一些带控制条件的探测点，这些探测点允许事后添加处理函数，比如在内核中，最常见的静态追踪方法就是printk(),输出日志，Linux内核定义了大量的跟踪点，可以通过内核编译选项来开启和关闭。</p></li><li><p>USDT探针，全称是用户级静态定义跟踪，需要在源码中插入DTRACE_PROBE()代码，并编译到应用程序中。不过在很多应用程序内置了USDT探针，比如MySQL, PostgreSQL等。</p></li></ul><h3 id="动态探针">动态探针</h3><p>动态探针，是指没有实现在代码定义，但却可以在运行时动态添加的探针。比如函数的调用和返回等，动态探针支持按需在内核或者应用程序中添加探测点，具有更高的灵活性，常见的动态探针有两种，即用于内核态的kprobes以及用户态的uprobes:</p><ul><li><p>kprobes - 用来跟踪内核态的函数，包括用于函数调用的kprobe和用于函数返回的kretprobe。</p></li><li><p>uprobes - 用来跟踪用户态的函数，包括用于函数调用的uprobe以及用于函数返回的uretprobe。</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.toutiao.com/article/7077801491347833374">Linux动态追踪技术概念介绍</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>bpf-learning</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>bpf</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>bcc</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>bcc</title>
     <link href="/bpf-learning/bcc/"/>
     <url>/bpf-learning/bcc/</url>
@@ -1531,6 +1398,43 @@
   
   
   <entry>
+    <title>uts_namespace</title>
+    <link href="/kernel/namespace/uts_namespace/uts_namespace/"/>
+    <url>/kernel/namespace/uts_namespace/uts_namespace/</url>
+    
+    <content type="html"><![CDATA[<h1 id="uts_namespace内核实现">uts_namespace内核实现</h1><p>本次调试基于linux v5.10-rc7，具体参加下方链接：</p><ul><li><a href="https://github.com/realwujing/linux-learning/blob/main/debug/kernel/qemu/%E5%9F%BA%E4%BA%8Eqemu%E6%A1%A5%E6%8E%A5%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%20%E8%B0%83%E8%AF%95%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F.md">基于qemu桥接网络、debootstrap 调试内核、根文件系统</a></li></ul><h2 id="断点">断点</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) save breakpoints ust_namespace.breakpoint<br>Saved to file &#x27;ust_namespace.breakpoint&#x27;.<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">break fs/exec.c:do_execveat_common<br>break kernel/fork.c:2573<br>break kernel/fork.c:kernel_clone<br>break kernel/fork.c:2456<br>break kernel/fork.c:copy_process<br>break kernel/fork.c:1929<br>break kernel/fork.c:2098<br>break kernel/nsproxy.c:copy_namespaces<br>break kernel/nsproxy.c:162<br>break include/linux/nsproxy.h:109<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">source</span> ust_namespace.breakpoint<br>i b<br></code></pre></td></tr></table></figure><h2 id="uts_namespace_demo">uts_namespace_demo</h2><p>通过qemu进入系统后：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> build<br>./uts_namespace_demo<br></code></pre></td></tr></table></figure><h2 id="命名空间复制">命名空间复制</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">14      breakpoint     keep y   0xffffffff8105ea0d in copy_process at kernel/fork.c:2098<br>retval = copy_namespaces(clone_flags, p);<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">b kernel/nsproxy.c:copy_namespaces <br>Breakpoint 15 at 0xffffffff81084c50: file kernel/nsproxy.c, line 153.<br></code></pre></td></tr></table></figure><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">copy_namespaces</span><span class="hljs-params">(<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags, <span class="hljs-keyword">struct</span> task_struct *tsk)</span>   <span class="hljs-comment">// kernel/nsproxy.c:151</span><br>&#123;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> *<span class="hljs-title">old_ns</span> =</span> tsk-&gt;nsproxy;  <span class="hljs-comment">// task_struct有namespace相关数据结构</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">user_namespace</span> *<span class="hljs-title">user_ns</span> =</span> task_cred_xxx(tsk, user_ns); <span class="hljs-comment">// user_namespace</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> *<span class="hljs-title">new_ns</span>;</span><br><span class="hljs-type">int</span> ret;<br><br><span class="hljs-keyword">if</span> (likely(!(flags &amp; (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |<br>      CLONE_NEWPID | CLONE_NEWNET |<br>      CLONE_NEWCGROUP | CLONE_NEWTIME)))) &#123;         <span class="hljs-comment">// CLONE_NEWUTS符合条件，此处为true</span><br><span class="hljs-keyword">if</span> (likely(old_ns-&gt;time_ns_for_children == old_ns-&gt;time_ns)) &#123;  <span class="hljs-comment">// 此处也为true</span><br>get_nsproxy(old_ns);<br><span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;   <span class="hljs-comment">// 此处函数返回</span><br>&#125;<br>&#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!ns_capable(user_ns, CAP_SYS_ADMIN))     <span class="hljs-comment">// 根据usernamesapce鉴权</span><br><span class="hljs-keyword">return</span> -EPERM;<br>...<br>&#125;<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) b kernel/nsproxy.c:162<br>Breakpoint 16 at 0xffffffff81084c90: file kernel/nsproxy.c, line 163.<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) b include/linux/nsproxy.h:109<br>Breakpoint 17 at 0xffffffff81229df2: file ./include/linux/nsproxy.h, line 109.<br></code></pre></td></tr></table></figure><h2 id="nsproxy数据结构">nsproxy数据结构</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> &#123;</span>    <span class="hljs-comment">// include/linux/nsproxy.h:31</span><br><span class="hljs-type">atomic_t</span> count;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">uts_namespace</span> *<span class="hljs-title">uts_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ipc_namespace</span> *<span class="hljs-title">ipc_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mnt_namespace</span> *<span class="hljs-title">mnt_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">pid_namespace</span> *<span class="hljs-title">pid_ns_for_children</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">net</span>      *<span class="hljs-title">net_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">time_namespace</span> *<span class="hljs-title">time_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">time_namespace</span> *<span class="hljs-title">time_ns_for_children</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">cgroup_namespace</span> *<span class="hljs-title">cgroup_ns</span>;</span><br>&#125;;<br><span class="hljs-keyword">extern</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> <span class="hljs-title">init_nsproxy</span>;</span><br></code></pre></td></tr></table></figure><h2 id="unshare系统调用加入新的namespace">unshare系统调用加入新的namespace</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/*</span><br><span class="hljs-comment"> * Called from unshare. Unshare all the namespaces part of nsproxy.</span><br><span class="hljs-comment"> * On success, returns the new nsproxy.</span><br><span class="hljs-comment"> */</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">unshare_nsproxy_namespaces</span><span class="hljs-params">(<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> unshare_flags,</span><br><span class="hljs-params"><span class="hljs-keyword">struct</span> nsproxy **new_nsp, <span class="hljs-keyword">struct</span> cred *new_cred, <span class="hljs-keyword">struct</span> fs_struct *new_fs)</span>  <span class="hljs-comment">// kernel/nsproxy.c:262</span><br>&#123;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">user_namespace</span> *<span class="hljs-title">user_ns</span>;</span><br><span class="hljs-type">int</span> err = <span class="hljs-number">0</span>;<br><br><span class="hljs-keyword">if</span> (!(unshare_flags &amp; (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |<br>       CLONE_NEWNET | CLONE_NEWPID | CLONE_NEWCGROUP |<br>       CLONE_NEWTIME)))<br><span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br><br>user_ns = new_cred ? new_cred-&gt;user_ns : current_user_ns();<br><span class="hljs-keyword">if</span> (!ns_capable(user_ns, CAP_SYS_ADMIN))<br><span class="hljs-keyword">return</span> -EPERM;<br><br>*new_nsp = create_new_namespaces(unshare_flags, current, user_ns,<br> new_fs ? new_fs : current-&gt;fs);<br><span class="hljs-keyword">if</span> (IS_ERR(*new_nsp)) &#123;<br>err = PTR_ERR(*new_nsp);<br><span class="hljs-keyword">goto</span> out;<br>&#125;<br><br>out:<br><span class="hljs-keyword">return</span> err;<br>&#125;<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>kernel</category>
+      
+      <category>namespace</category>
+      
+      <category>uts_namespace</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>qemu</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>namespace</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>README</title>
     <link href="/cpp-learning/qt-learning/dbus/proxy/README/"/>
     <url>/cpp-learning/qt-learning/dbus/proxy/README/</url>
@@ -1670,6 +1574,102 @@
       <tag>C++</tag>
       
       <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>16位汇编语言</title>
+    <link href="/assembly-learning/16%E4%BD%8D%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80/"/>
+    <url>/assembly-learning/16%E4%BD%8D%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80/</url>
+    
+    <content type="html"><![CDATA[<h1 id="位汇编语言">16位汇编语言</h1><h2 id="寄存器">寄存器</h2><p>8086CPU有14个寄存器，所有寄存器都是16位的，可以存放2个字节：</p><ul><li>AX</li><li>BX</li><li>CX</li><li>DX</li><li>SI</li><li>DI</li><li>SP</li><li>BP</li><li>CS</li><li>SS</li><li>DS</li><li>ES</li><li>PSW</li></ul><p>这 14 个寄存器有可能进行具体的划分，按照功能可以分为三种：</p><ul><li>通用寄存器</li><li>段寄存器</li><li>控制寄存器</li></ul><h3 id="通用寄存器">通用寄存器</h3><p>8086CPU有4个通用寄存器，用来存放一般性的数据：</p><ul><li><p>AX(Accumulator Register) ：累加寄存器，它主要用于输入/输出和大规模的指令运算。</p></li><li><p>BX(Base Register)：基址寄存器，用来存储基础访问地址。</p></li><li><p>CX(Count Register)：计数寄存器，CX 寄存器在迭代的操作中会循环计数。</p></li><li><p>DX(Data Register)：数据寄存器，它也用于输入/输出操作。它还与 AX 寄存器以及 DX 一起使用，用于涉及大数值的乘法和除法运算。</p></li></ul><p>8086CPU的<code>AX</code>、<code>BX</code>、<code>CX</code>、<code>DX</code>这4个通用寄存器都可以分为两个可独立使用的8位寄存器来用：</p><table><thead><tr class="header"><th>寄存器</th><th>高位</th><th>低位</th></tr></thead><tbody><tr class="odd"><td>AX</td><td>AH</td><td>AL</td></tr><tr class="even"><td>BX</td><td>BH</td><td>BL</td></tr><tr class="odd"><td>CX</td><td>CH</td><td>CL</td></tr><tr class="even"><td>DX</td><td>DH</td><td>DL</td></tr></tbody></table><p>除了<code>AX</code>、<code>BX</code>、<code>CX</code>、<code>DX</code> 寄存器以外，其他寄存器均不可以分为两个独立的 8 位寄存器。</p><p>寄存器的存储方式是先存储低位，如果低位满足不了就存储高位，如果低位能够满足，高位用 0 补全，在其他低位能满足的情况下，其余位也用 0 补全。</p><p>8086 CPU 可以一次存储两种类型的数据：</p><ul><li><p>字节(byte)： 一个字节由 8 bit 组成，这是一种恒定不变的存储方式</p></li><li><p>字(word)：字是由指令集或处理器硬件作为单元处理的固定大小的数据，对于 intel 来说，一个字长就是两个字节。</p></li></ul><p>字是计算机一个非常重要的特征，针对不同的指令集架构来说，计算机一次处理的数据也是不同的。也就是说，针对不同指令集的机器，一次能处理不用的字长，有字、双字（32位）、四字（64位）等。</p><h3 id="段寄存器">段寄存器</h3><p>8086CPU有4个段寄存器：</p><ul><li>CS(Code Segment)：代码段寄存器，程序代码的基础位置。</li><li>DS(Data Segment)：数据段寄存器，变量的基本位置。</li><li>SS(Stack Segment)：堆栈段寄存器，栈的基础位置。</li><li>ES(Extra Segment)：附加段寄存器，内存中变量的其他基本位置。</li></ul><h4 id="代码段寄存器">代码段寄存器</h4><ul><li>CS</li></ul><h4 id="数据段寄存器">数据段寄存器</h4><ul><li>DS</li></ul><p>8086CPU不支持将数据直接送入段寄存器，需要先将数据送入一个一般的寄存器，如<code>BX</code>，再将<code>BX</code>中的内容送入<code>DS</code>。</p><h4 id="堆栈段寄存器">堆栈段寄存器</h4><ul><li>SS</li></ul><p>8086CPU中，有两个寄存器，堆栈段寄存器<code>SS</code>和栈指针寄存器<code>SP</code>，栈顶的段地址存放在<code>SS</code>中，偏移地址存放在<code>SP</code>中。</p><p>任意时刻，<code>SS:SP</code>指向栈顶元素。</p><p><code>push</code>指令和<code>pop</code>指令执行时，CPU从<code>SS</code>和<code>SP</code>中得到栈顶的地址。</p><h5 id="栈顶超界的问题">栈顶超界的问题</h5><p>当栈满的时候，使用<code>push</code>指令入栈，或栈空的时候使用<code>pop</code>指令出栈，都将发生栈顶超界的问题。</p><p>8086CPU不保证我们对栈的操作不会越界，8086CPU只知道栈顶在何处（由<code>SS:SP</code>指示），而不知道我们安排的栈空间有多大。</p><p>编程时要根据可能用到的最大栈空间，来安排栈的大小，防止入栈的数据太多而导致超界；执行出栈操作的时候也要注意，以防栈空的时候继续出栈而导致的超界。</p><h4 id="索引寄存器">索引寄存器</h4><p>索引寄存器主要包含段地址的偏移量，索引寄存器主要分为：</p><ul><li>BP(Base Pointer)：基础指针，它是栈寄存器上的偏移量，用来定位栈上变量。</li><li>SP(Stack Pointer)：栈指针，它是栈寄存器上的偏移量，用来定位栈顶。</li><li>SI(Source Index)：变址寄存器，用来拷贝源字符串。</li><li>DI(Destination Index)：目标变址寄存器，用来复制到目标字符串。</li></ul><h3 id="控制寄存器">控制寄存器</h3><ul><li>IP(Instruction Pointer)：指令指针寄存器，它是从 Code Segment 代码寄存器处的偏移来存储执行的下一条指令.</li><li>FLAG(EFLAGS Register)：标志寄存器用于存储当前进程的状态。</li></ul><h4 id="指令指针寄存器">指令指针寄存器</h4><p>指令指针寄存器（Instruction Pointer）</p><ul><li>IP</li></ul><p>在8086PC机中，任意时刻，设<code>CS</code>中的内容为<code>M</code>，<code>IP</code>中的内容为<code>N</code>，8086CPU将从内存<code>M*16+N</code>单元开始，读取一条指令并执行。</p><p>也可以这样表述：8086机中，任意时刻，CPU将<code>CS:IP</code>指向的内容当做指令执行。</p><p><code>mov</code>指令不能用于设置<code>CS</code>、<code>IP</code>寄存器的值，原因很简单，因为8086CPU没有提供这样的功能。</p><p>使用<code>jmp 段地址:偏移地址</code>指令可以同时修改<code>CS:IP</code>寄存器的值：</p><ul><li><code>jmp 2AE3:3</code>，执行后：<code>CS=2AE3H</code>， <code>IP=0003H</code>，CPU将从<code>2AE33H</code>处读取指令。</li><li><code>jmp 3:0B16</code>，执行后：<code>CS=0003H</code>， <code>IP=0B16H</code>，CPU将从<code>00B46H</code>处读取指令。</li></ul><p>若想仅修改<code>IP</code>寄存器的内容，可用<code>jmp 某一合法寄存器</code>的指令完成，如：</p><ul><li><code>jmp ax</code>，指令执行前，<code>ax=1000H</code>，<code>CS=2000H</code>，<code>IP=0003H</code> 指令执行后，<code>ax=1000H</code>，<code>CS=2000H</code>，<code>IP=1000H</code></li></ul><h4 id="标志寄存器">标志寄存器</h4><p>FLAG(EFLAGS Register)：标志寄存器用于存储当前进程的状态。</p><p>标志寄存器，又称程序状态寄存器（它的内容是Program Status Word，PSW）。</p><p>这是一个，控制标志和系统标志的寄存器。</p><p>标志寄存器EFLAGS中的系统标志和IOPL字段用于控制I/O访问、可屏蔽硬件中断、调试、任务切换以及虚拟8086模式。</p><p>FLAG : Flag 寄存器用于存储当前进程的状态，这些状态有：</p><ul><li><p>位置 (Direction)：用于数据块的传输方向，是向上传输还是向下传输</p></li><li><p>中断标志位 (Interrupt) ：1 - 允许；0 - 禁止</p></li><li><p>陷入位 (Trap) ：确定每条指令执行完成后，CPU 是否应该停止。1 - 开启，0 - 关闭</p></li><li><p>进位 (Carry) : 设置最后一个无符号算术运算是否带有进位</p></li><li><p>溢出 (Overflow) : 设置最后一个有符号运算是否溢出</p></li><li><p>符号 (Sign) : 如果最后一次算术运算为负，则设置 1 =负，0 =正</p></li><li><p>零位 (Zero) : 如果最后一次算术运算结果为零，1 = 零</p></li><li><p>辅助进位 (Aux Carry) ：用于第三位到第四位的进位</p></li><li><p>奇偶校验 (Parity) : 用于奇偶校验</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.jb51.net/article/230062.htm">图文详解通俗易懂的汇编语言寄存器</a></li><li><a href="https://www.toutiao.com/article/7039892076707807748">二进制分析实战：x86汇编快速入门</a></li><li><a href="https://baike.baidu.com/item/cs/19501238">硬件CPU中的代码段寄存器</a></li><li><a href="https://blog.csdn.net/weixin_42240667/article/details/104503184">8086cpu中的寄存器（cs、ds、es、ss、ip、sp、bp、si、di）</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>assembly-learning</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/assembly-learning/README/"/>
+    <url>/assembly-learning/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="assembly-learning">assembly-learning</h1><ul><li><a href="https://cmsblogs.cn/3358.html">汇编语言（第4版）PDF下载</a></li><li><a href="https://pan.baidu.com/s/1BUWnerHO20rkMlesAesEFQ">链接: https://pan.baidu.com/s/1BUWnerHO20rkMlesAesEFQ 密码: wdd7</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>assembly-learning</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>assembly</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/binaryanalysis/README/"/>
+    <url>/binaryanalysis/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>binaryanalysis</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/bpf-learning/README/"/>
+    <url>/bpf-learning/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="bpf-learning">bpf-learning</h1><h2 id="安装教程">安装教程</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install bpfcc-tools linux-headers-$(<span class="hljs-built_in">uname</span> -r) bpftrace<br></code></pre></td></tr></table></figure><ul><li><a href="bcc.md">BPF Compiler Collection (BCC)</a></li><li><a href="bpftrace.md">bpftrace</a></li></ul><h2 id="动态追踪">动态追踪</h2><p>可以通过探针机制，来采集内核或者应用程序的运行信息。所谓动态，表示他可以不用修改内核和应用程序的代码，就获得丰富的信息。因为在以往的排查和调试性能问题过程中，我们往往会先给应用程序设置一系列的断点(gdb),然后以手动或者脚本(GDB的Python扩展)的方式，在断点处去分析程序状态，或者增加一系列的日志，在日志中寻找线索。相比以往的进程及追踪方法(ptrace)，动态追踪往往只需要消耗很小的性能消耗（5%甚至更少）。</p><p>根据类型不同，动态追踪所使用的事件源，可以分为静态探针，动态探针，硬件事件这三类。</p><h3 id="硬件事件">硬件事件</h3><p>其中硬件事件通常由性能监控计数器PMC(Performance Monitoring Counter)产生，他包括了各种硬件的性能指标，比如CPU的缓存，指令周期，分支预测等等。</p><h3 id="静态探针">静态探针</h3><p>静态探针，指事先在代码中定义好，并编译到应用程序和内核中的探针。这些探针只有在开启探测功能时，才会被执行到。未开启时，不会执行。常见的静态探针包括内核中的跟踪点(tracepoints)和USDT(Userland Statically Defined Tracing)探针：</p><ul><li><p>跟踪点(tracepoints) - 在源码中插入一些带控制条件的探测点，这些探测点允许事后添加处理函数，比如在内核中，最常见的静态追踪方法就是printk(),输出日志，Linux内核定义了大量的跟踪点，可以通过内核编译选项来开启和关闭。</p></li><li><p>USDT探针，全称是用户级静态定义跟踪，需要在源码中插入DTRACE_PROBE()代码，并编译到应用程序中。不过在很多应用程序内置了USDT探针，比如MySQL, PostgreSQL等。</p></li></ul><h3 id="动态探针">动态探针</h3><p>动态探针，是指没有实现在代码定义，但却可以在运行时动态添加的探针。比如函数的调用和返回等，动态探针支持按需在内核或者应用程序中添加探测点，具有更高的灵活性，常见的动态探针有两种，即用于内核态的kprobes以及用户态的uprobes:</p><ul><li><p>kprobes - 用来跟踪内核态的函数，包括用于函数调用的kprobe和用于函数返回的kretprobe。</p></li><li><p>uprobes - 用来跟踪用户态的函数，包括用于函数调用的uprobe以及用于函数返回的uretprobe。</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.toutiao.com/article/7077801491347833374">Linux动态追踪技术概念介绍</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>bpf-learning</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>bpf</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>bcc</tag>
       
     </tags>
     
