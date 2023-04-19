@@ -2,17 +2,17 @@
 
 ## 手册
 
-- [Linux学习教程，Linux入门教程（超详细）](http://c.biancheng.net/linux_tutorial/)
+- [<font color=Red>Linux学习教程，Linux入门教程（超详细）</font>](http://c.biancheng.net/linux_tutorial/)
 - [Linux教程\|菜鸟教程- RUNOOB.COM](https://www.runoob.com/linux/linux-tutorial.html)
 - [Linux面试题100道，看看会多少？](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==\&mid=2247489122\&idx=1\&sn=fcdc5f6be0478cd0f6205c304e972645\&chksm=f9686496ce1fed80bf5b31bcc6003c6ce0f57e6c3a388c75554778f9927bdbad55d927a77a4a\&scene=21#wechat_redirect)
 - [所有文章汇总-截止2021年11月3日](https://mp.weixin.qq.com/s/Lk0EM8BUTa3Q4y2d-h86rg)
-- [Debian 参考手册](https://www.debian.org/doc/manuals/debian-reference/)
-- [Debian 管理员手册](https://debian-handbook.info/browse/zh-CN/stable/)
+- [<font color=Red>Debian 参考手册</font>](https://www.debian.org/doc/manuals/debian-reference/)
+- [<font color=Red>Debian 管理员手册</font>](https://debian-handbook.info/browse/zh-CN/stable/)
 - [Linux系列文章](https://www.junmajinlong.com/linux/index/)
 - [Linux最强总结！](https://mp.weixin.qq.com/s/oyl3sin3tEODDPq3Spzd5w)
 - [令人拍手叫绝的运维小技巧](https://mp.weixin.qq.com/s/uavyYSfpSy4v1ovmZLE1hw)
 
-- [Linux基础知识汇总，收藏！](https://mp.weixin.qq.com/s/0kyyki6IrmojiUnzGVlUzA)
+- [<font color=Red>Linux基础知识汇总，收藏！</font>](https://mp.weixin.qq.com/s/0kyyki6IrmojiUnzGVlUzA)
 - [Linux基础总结，这一篇就够了](https://mp.weixin.qq.com/s/zUKmA3sh-uzdyThEG6e1qA)
 - [计算机操作系统知识点总结（相当到位！！）](https://mp.weixin.qq.com/s/OLrN2irwzjCI937iDW4XJg)
 
@@ -20,7 +20,7 @@
 - [Linux命令大全(手册)](https://www.linuxcool.com/)
 - [Linux 操作必备 150 个命令，速度收藏～](https://mp.weixin.qq.com/s/RVaE5xBdhAUfMwuiWo2FiQ)
 - [干货：Linux 文件和目录操作命令](https://mp.weixin.qq.com/s/7y_0daHyBObsyTwVjJiORg)
-- [Linux命令大全\|https://wangchujiang.com/linux-command/hot.html](https://wangchujiang.com/linux-command/hot.html)
+- [<font color=Red>Linux命令大全\|https://wangchujiang.com/linux-command/hot.html</font>](https://wangchujiang.com/linux-command/hot.html)
 - [面试常问的 25+ 个 Linux 命令](https://mp.weixin.qq.com/s/3Fsuv2pTaxrOPUU03Zm9ZA)
 
 - [汇总了89个系统相关的基本概念！](https://mp.weixin.qq.com/s/UN7lbdp6OardlqFUfyY-nQ)
@@ -32,11 +32,11 @@
 
 ## shell
 
-- [#!/bin/bash 和 #!/usr/bin/env bash 的区别](https://blog.csdn.net/qq_37164975/article/details/106181500)
+- [<font color=Red>#!/bin/bash 和 #!/usr/bin/env bash 的区别</font>](https://blog.csdn.net/qq_37164975/article/details/106181500)
 - [「Linux」shell命令以及运行原理和Linux权限详解](https://mp.weixin.qq.com/s/SSC83ut0TfPiF0o5sBcUxQ)
 - [Linux基础-shell脚本编程](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==\&mid=2247503952\&idx=1\&sn=a942522821acdc84013cde9b89664ff3\&chksm=f96ba2a4ce1c2bb241da260ed4e93f33dcb72eab0b5135d8b46e985c25e8b45b199f148ef218\&mpshare=1\&scene=1\&srcid=0418Vy2K7AtdrVGYDNAFHATp\&sharer_sharetime=1650256598611\&sharer_shareid=2dfdf936388dba04865b3e883d5a3225\&version=3.1.12.6001\&platform=win#rd)
 - [一篇教会你写90%的shell脚本 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/264346586)
-- [shell教程(二) 四种工作模式](https://blog.csdn.net/xdlmost/article/details/110475880)
+- [<font color=Red>shell教程(二) 四种工作模式</font>](https://blog.csdn.net/xdlmost/article/details/110475880)
 - [linux之登录式shell和非登录式shell](https://cloud.tencent.com/developer/article/1883601)
 - [linux之登录式shell和非登录式shell](https://zhuanlan.zhihu.com/p/415152910)
 
@@ -60,7 +60,7 @@
 ## rsync
 
 - [rsync(一):基础命令和用法(精)](https://www.cnblogs.com/f-ck-need-u/p/7220009.html#auto_id_0)
-- [rsync断点续传](https://blog.51cto.com/u_12922638/2678436)
+- [<font color=Red>rsync断点续传</font>](https://blog.51cto.com/u_12922638/2678436)
 - [rsync断点续传方式进行本地或远程文件拷贝](https://blog.csdn.net/sunny05296/article/details/103881588)
 - [rsync+inotify数据实时同步介绍](https://mp.weixin.qq.com/s/8r0lYjGvARzJt6OdCiwe1Q)
 
@@ -68,6 +68,9 @@
 
 - [Linux终端忽略大小写自动补全\_、moddemod-CSDN博客\_ubuntu 终端忽略大小写 ](https://blog.csdn.net/weixin_43833642/article/details/104712175)
 
+  ```bash
+  echo "set completion-ignore-case on" >> ~/.inputrc
+  ```
 
 ## 时间
 
@@ -91,7 +94,7 @@
 
 - [Shell nohup 命令详解\_shadow\_zed的博客-CSDN博客](https://blog.csdn.net/shadow_zed/article/details/102812261)
 - [你知道2>&1 >/dev/null是什么意思么？](https://www.toutiao.com/i7052566294952329765/)
-- [linux 2>&1和&的意思](https://www.cnblogs.com/x9mars/p/14964113.html)
+- [<font color=Red>linux 2>&1和&的意思</font>](https://www.cnblogs.com/x9mars/p/14964113.html)
 - [Linux 任务后台运行（总结）](https://blog.csdn.net/aboutmn/article/details/87778008)
 - [Linux 编辑启动、停止与重启 jar 包脚本](https://juejin.cn/post/6844904007480131591)
 - [stdbuf让nohup实时输出日志](https://blog.csdn.net/v6543210/article/details/104636198)
@@ -106,19 +109,19 @@
 
 - [正则表达式 – 元字符 \| 菜鸟教程 (runoob.com)](https://www.runoob.com/regexp/regexp-metachar.html)
 - [正则表达式在线测试 \| 菜鸟工具 (runoob.com)](https://c.runoob.com/front-end/854)
-- [关于正则表达式中的.\*，.\*?，.+?的理解](https://blog.csdn.net/sinat_32336967/article/details/94761771)
+- [<font color=Red>关于正则表达式中的.\*，.\*?，.+?的理解</font>](https://blog.csdn.net/sinat_32336967/article/details/94761771)
 - [正则表达式中的 .\*和.\*?的区别](https://blog.csdn.net/qq_34172780/article/details/104954879)
 - [正则表达式和扩展正则表达式](https://www.cnblogs.com/yan888/p/16137904.html)
 - [C语言中的正则表达式使用](https://www.cnblogs.com/xiaojiu/archive/2013/11/19/3430875.html)
 
 ## find
 
-- [Linux下which、whereis、locate、find命令的区别](https://www.cnblogs.com/MrLiuZF/p/15196373.html)
+- [<font color=Red>Linux下which、whereis、locate、find命令的区别</font>](https://www.cnblogs.com/MrLiuZF/p/15196373.html)
 - [find 命令的 7 种用法](https://mp.weixin.qq.com/s/zSjyZyFaBkS38henxVf9zg)
 - [linux shell find命令 查找多种文件后缀](https://blog.csdn.net/whatday/article/details/98471778)
 - [Linux copy时排除某文件/目录 - 简书 (jianshu.com)](https://www.jianshu.com/p/bf9eba9f4e97)
 - [linux find grep组合使用](https://blog.csdn.net/cupidove/article/details/8767450)
-- [find命令详解](https://www.cnblogs.com/andy0816/p/16969729.html)
+- [<font color=Red>find命令详解</font>](https://www.cnblogs.com/andy0816/p/16969729.html)
 - [Linux 中如何获取文件的绝对路径](https://blog.csdn.net/FL63Zv9Zou86950w/article/details/126945089)
 
 ## xargs
@@ -143,11 +146,11 @@
 ### sed
 
 - [在Bash脚本中完成变量替换和指定文件内容替换的方法](https://blog.csdn.net/Howard_Liu/article/details/5891110)
-- [sed 模式分隔符](https://www.twle.cn/c/yufei/sed/sed-basic-strings-delimiter.html)
+- [<font color=Red>sed 模式分隔符</font>](https://www.twle.cn/c/yufei/sed/sed-basic-strings-delimiter.html)
 - [sed 字符串替换 - Amei1314 - 博客园 (cnblogs.com)](https://www.cnblogs.com/linux-wangkun/p/5745584.html)
 - [sed 功能强大的流式文本编辑器](https://wangchujiang.com/linux-command/c/sed.html)
-- [linux sed查找文件中某个值,linux查找文件中间某几行之sed用法小结](https://blog.csdn.net/weixin_28937395/article/details/116575070)
-- [linux使用sed命令批量替换某个目录下文件的内容](https://blog.51cto.com/u_4048786/3204245)
+- [<font color=Red>linux sed查找文件中某个值,linux查找文件中间某几行之sed用法小结</font>](https://blog.csdn.net/weixin_28937395/article/details/116575070)
+- [<font color=Red>linux使用sed命令批量替换某个目录下文件的内容</font>](https://blog.51cto.com/u_4048786/3204245)
 - [sed 脚本分隔符引起的问题unknown option to \`s'](https://www.cnblogs.com/cheyunhua/p/14265690.html?share_token=F2D59D56-74A1-4732-8825-FEDA8A7D2A2B\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
 - [SED命令](https://www.cnblogs.com/zhutao-niuniu2014/p/10865076.html?share_token=FBC78752-752B-4B70-8DEC-9B8F4E47ED8A\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
 
@@ -198,7 +201,7 @@
 ### 终端复用
 
 - [Linux笔记：终端复用与管理工具screen和tmux](https://blog.csdn.net/Naisu_kun/article/details/119567566)
-- [Tmux 使用教程](https://www.ruanyifeng.com/blog/2019/10/tmux.html)
+- [<font color=Red>Tmux 使用教程</font>](https://www.ruanyifeng.com/blog/2019/10/tmux.html)
 - [Tmux如何让滚屏起飞](https://cloud.tencent.com/developer/article/1656074)
 - [在tmux缓冲区中搜索](https://www.cnblogs.com/lovesKey/p/12151317.html)
 - [tmux常用命令及快捷键](https://blog.51cto.com/u_6997825/3748023)
@@ -219,11 +222,11 @@
 
 ## 系统状态
 
-- [第10章统计和查看Linux的系统状态](https://www.cnblogs.com/f-ck-need-u/p/7059074.html)
-- [61秒，摸透Linux的健康状态！](https://mp.weixin.qq.com/s/Fv64jRXmAe-H81Qh8RJK7w)
+- [<font color=Red>第10章统计和查看Linux的系统状态</font>](https://www.cnblogs.com/f-ck-need-u/p/7059074.html)
+- [<font color=Red>61秒，摸透Linux的健康状态！</font>](https://mp.weixin.qq.com/s/Fv64jRXmAe-H81Qh8RJK7w)
 - [Linux命令系列之top——里面藏着很多鲜为人知的宝藏知识](https://www.toutiao.com/article/7152513156642816519)
 - [Linux 进程管理之四大名捕](https://mp.weixin.qq.com/s/XzoekOLtREOUftHhGE3FLQ)
-- [top命令里内存参数 VIRT, RES 和 SHR 分别是什么意思](https://segmentfault.com/a/1190000013504502)
+- [<font color=Red>top命令里内存参数 VIRT, RES 和 SHR 分别是什么意思</font>](https://segmentfault.com/a/1190000013504502)
 - [linux 实际可用内存\_beyond\_zb的博客-CSDN博客\_linux 可用内存](https://blog.csdn.net/u014265442/article/details/90211142)
 - [linux找出占用内存，占用CPU资源最多的前10个进程\_huangbaokang的博客-CSDN博客\_linux查看内存占用前十](https://blog.csdn.net/huangbaokang/article/details/84934957)
 - [界面酷炫，功能强大！这款Linux性能实时监控工具超好用！](https://www.toutiao.com/article/7195829422606467587/?app=news_article\&timestamp=1675420354\&use_new_style=1\&req_id=20230203183233A3244BA3BFA4FC047011\&group_id=7195829422606467587\&share_token=50E41DB4-5F5D-4FF0-9050-979EBEBF9C06\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1\&source=m_redirect)
@@ -269,7 +272,7 @@
 
 ## net-tools iproute2
 
-- [Iproute2命令集提供完整的底层网络配置能力。有个从旧的net-tools命令集到新的iproute2命令集的转换表。](https://www.debian.org/doc/manuals/debian-reference/ch05.zh-cn.html#_iproute2_commands)
+- [<font color=Red>Iproute2命令集提供完整的底层网络配置能力。有个从旧的net-tools命令集到新的iproute2命令集的转换表。</font>](https://www.debian.org/doc/manuals/debian-reference/ch05.zh-cn.html#_iproute2_commands)
 - [ifconfig命令–显示或设置网络设备参数信息](https://www.linuxcool.com/ifconfig)
 - [ip命令是Linux加强版的的网络配置工具，用于代替ifconfig命令。](https://www.runoob.com/linux/linux-comm-ip.html)
 - [ip命令图文详解- Linux系统和网络管理员必备工具](https://mp.weixin.qq.com/s/Qu2yxgdeXdWasY0lZ1TEjQ)
@@ -289,7 +292,7 @@
 - [Iptables 介绍与使用](https://mp.weixin.qq.com/s/XRL1io-cGeljgU7880MB1A)
 - [防火墙和iptables](https://www.cnblogs.com/f-ck-need-u/p/7397146.html)
 - [深入理解 netfilter 和 iptables](https://blog.csdn.net/daocaokafei/article/details/124976257)
-- [不会用 Linux 防火墙软件 IPtables！你算啥网工人](https://www.toutiao.com/article/7201649634798830132)
+- [<font color=Red>不会用 Linux 防火墙软件 IPtables！你算啥网工人</font>](https://www.toutiao.com/article/7201649634798830132)
 
 - [CentOS 7关闭防火墙命令](https://blog.csdn.net/weixin_45151960/article/details/125407907)
 
@@ -317,7 +320,7 @@
 ## Linux 权限
 
 - [Linux 中的权限（0755或0644或-rwxr-xr-x）](https://blog.csdn.net/dengjili/article/details/90735669)
-- [Linux 特殊权限 SUID,SGID,SBIT](https://www.cnblogs.com/sparkdev/p/9651622.html)
+- [<font color=Red>Linux 特殊权限 SUID,SGID,SBIT</font>](https://www.cnblogs.com/sparkdev/p/9651622.html)
 - [Linux chmod命令](https://www.runoob.com/linux/linux-comm-chmod.html)
 - [chmod 命令——chmod 755与chmod 4755区别（转）](https://blog.csdn.net/weixin_30376453/article/details/99780980?utm_medium=distribute.pc_relevant.none-task-blog-2\~default\~baidujs_title\~default-0.no_search_link\&spm=1001.2101.3001.4242.1)
 - [Linux权限详解（chmod、600、644、666、700、711、755、777、4755、6755、7755）](https://blog.csdn.net/u013197629/article/details/73608613)
@@ -346,7 +349,7 @@
 
 - [linux里创建快捷方式和查看快捷方式的指向](https://blog.csdn.net/ljw_jiawei/article/details/91044595)
 - [【Linux】：Linux下创建软链接（快捷方式） - Geeksongs - 博客园 (cnblogs.com)](https://www.cnblogs.com/geeksongs/p/13517072.html)
-- [「来道题」Linux的软链接](https://www.toutiao.com/article/7156875262477566500)
+- [<font color=Red>「来道题」Linux的软链接</font>](https://www.toutiao.com/article/7156875262477566500)
 - [5分钟让你明白“软链接”和“硬链接”的区别](https://www.cnblogs.com/fqnb001/p/8778790.html?share_token=E7B5C44A-2154-4FD8-A6C5-BBBBCCAE9B03\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
 - [一文搞懂 Linux 的 inode！](https://www.cnblogs.com/qinlulu/p/13204813.html?share_token=A44BDA4E-3AA1-4ECC-AAD9-4A0A92099507\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
 - [linux文件－link函数(文件硬链接和软连接)](https://blog.csdn.net/andrewgithub/article/details/82026727)
@@ -368,9 +371,9 @@
 
 - [Linux PATH环境变量及作用（初学者必读）](http://c.biancheng.net/view/5876.html)
 - [Environment variables (简体中文)](https://wiki.archlinux.org/title/Environment_variables_\(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87\))
-- [Linux设置PATH环境变量的几个地方和设置方法](https://blog.csdn.net/Kruck/article/details/50977880)
+- [<font color=Red>Linux设置PATH环境变量的几个地方和设置方法</font>](https://blog.csdn.net/Kruck/article/details/50977880)
 - [Ubuntu环境变量——添加与删除\_Beanocean-CSDN博客\_ubuntu删除环境变量](https://blog.csdn.net/beanocean/article/details/14677833)
-- [Linux添加路径到PATH环境变量](https://www.cnblogs.com/windyvalley/p/linux_path_append.html)
+- [<font color=Red>Linux添加路径到PATH环境变量</font>](https://www.cnblogs.com/windyvalley/p/linux_path_append.html)
 - [Ubuntu下设置环境变量\_莫一剑\_新浪博客 (sina.com.cn)](http://blog.sina.com.cn/s/blog_6405313801012pxw.html)
 - [Linux export、set、env和source作用详解](https://blog.csdn.net/weixin_39060517/article/details/116325845)
 - [Linux环境变量总结](https://mp.weixin.qq.com/s/uE2pW44JZNyaaQAlrV0c1g)
@@ -386,10 +389,10 @@
 - [vscode remote ssh多重跳接配置内网穿透](https://blog.csdn.net/qq_38476684/article/details/100028507?utm_medium=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-2.nonecase\&depth_1-utm_source=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-2.nonecase)
 - [ssh key一键自动化生成公钥私钥，并自动分发上百服务器免密码交互](https://blog.csdn.net/weixin_34364071/article/details/93802213)
 - [ubuntu设置 SSH 通过密钥登录](https://blog.csdn.net/permike/article/details/52386868)
-- [ubuntu设置 SSH 通过密钥登录 - 盘思动 - 博客园 (cnblogs.com)](https://www.cnblogs.com/pansidong/p/12248278.html)
-- [ssh-copy-id命令 – 复制公钥到远程主机](https://www.linuxcool.com/ssh-copy-id)
-- [Linux配置SSH免用户免密码登陆](https://www.cnblogs.com/jhao/p/12917598.html?share_token=B863D5C4-FCA0-42E3-A884-4EA9A33238E9\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
-- [SSH的config配置之多账号简单管理](https://jingwei.link/2018/12/15/ssh-config-multi-app-manager.html)
+- [<font color=Red>ubuntu设置 SSH 通过密钥登录 - 盘思动 - 博客园 (cnblogs.com)</font>](https://www.cnblogs.com/pansidong/p/12248278.html)
+- [<font color=Red>ssh-copy-id命令 – 复制公钥到远程主机</font>](https://www.linuxcool.com/ssh-copy-id)
+- [<font color=Red>Linux配置SSH免用户免密码登陆</font>](https://www.cnblogs.com/jhao/p/12917598.html?share_token=B863D5C4-FCA0-42E3-A884-4EA9A33238E9\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [<font color=Red>SSH的config配置之多账号简单管理</font>](https://jingwei.link/2018/12/15/ssh-config-multi-app-manager.html)
 - [Win10怎么配置ssh密钥免密连接Linux服务器\_windows10\_Windows系列\_操作系统\_脚本之家 (jb51.net)](https://www.jb51.net/os/win10/680687.html)
 - [Win10配置ssh密钥免密连接Linux服务器 - 大白的攻城狮 - 博客园 (cnblogs.com)](https://www.cnblogs.com/dabai56/p/11057127.html)
 - [Mac使用ssh密钥登录Linux - 简书 (jianshu.com)](https://www.jianshu.com/p/7990ca55da69)
