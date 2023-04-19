@@ -296,45 +296,6 @@
   
   
   <entry>
-    <title>adm64下基于qemu tap(NAT网络)、debootstrap 调试内核、根文件系统</title>
-    <link href="/kernel/qemu/adm64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%20tap(NAT%E7%BD%91%E7%BB%9C)%E3%80%81debootstrap%20%E8%B0%83%E8%AF%95%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/"/>
-    <url>/kernel/qemu/adm64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%20tap(NAT%E7%BD%91%E7%BB%9C)%E3%80%81debootstrap%20%E8%B0%83%E8%AF%95%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/</url>
-    
-    <content type="html"><![CDATA[<h1 id="amd64下基于qemu-tapnat网络debootstrap-调试内核根文件系统">amd64下基于qemu tap(NAT网络)、debootstrap 调试内核、根文件系统</h1><h2 id="编译调试版linux内核">1. 编译调试版linux内核</h2><h3 id="安装编译依赖">安装编译依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install build-essential libncurses-dev bison flex libssl-dev libelf-dev<br></code></pre></td></tr></table></figure><h3 id="下载源码">下载源码</h3><p>调试标准版内核，下载github代码即可，本文选择tag v5.10-rc7分支：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/torvalds/linux.git<br>git checkout -b v5.10-rc7 v5.10-rc7<br></code></pre></td></tr></table></figure><p>调试uos-v20-1054-2内核，下载gerrit代码即可：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> <span class="hljs-string">&quot;ssh://ut004487@gerrit.uniontech.com:29418/kernel/x86-kernel&quot;</span> &amp;&amp; scp -p -P 29418 ut004487@gerrit.uniontech.com:hooks/commit-msg <span class="hljs-string">&quot;x86-kernel/.git/hooks/&quot;</span><br>git checkout -b 1054-2 499e91c36f62c1790063cabdacff94fd8220f145<br></code></pre></td></tr></table></figure><h3 id="内核编译选项配置">内核编译选项配置</h3><p>进入源码目录，配置编译选项：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br>make menuconfig<br></code></pre></td></tr></table></figure><p>比较重要的配置项有：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">首先内核中支持tap/tuns设备：<br>Device Drivers  ---&gt; <br>     Networking support  ---&gt;<br>        [M] Universal TUN/TAP device driver support<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Kernel hacking  ---&gt;<br>    [*] Kernel debugging<br>    Compile-time checks and compiler options  ---&gt;<br>        [*] Compile the kernel with debug info<br>        [*]   Provide GDB scripts for kernel debugging<br></code></pre></td></tr></table></figure><p>一定要打开。 还有下面的选项会导致打断点失败，一定要关闭：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">Processor type and features ----&gt;<br>    [] Randomize the address of the kernel image (KASLR)<br></code></pre></td></tr></table></figure><p>保存并退出 menuconfig，开始编译之旅：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make -j`<span class="hljs-built_in">expr</span> $(<span class="hljs-built_in">nproc</span>) / 2`<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/eydwyz/article/details/114019532">使用 VSCode + qemu 搭建 Linux 内核调试环境</a></li></ul><h2 id="debootstrap制作根文件系统">2. debootstrap制作根文件系统</h2><h3 id="安装依赖">安装依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install debian-archive-keyring<br>sudo apt-get install  qemu qemu-user-static  binfmt-support debootstrap<br></code></pre></td></tr></table></figure><h3 id="制作文件系统">制作文件系统</h3><p>使用也十分简单，命令格式为：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --<span class="hljs-built_in">arch</span> [平台] [发行版本代号] [构建目录] [镜像地址]<br></code></pre></td></tr></table></figure><p>以在Deepin 20.7 amd64上构建ubuntu18(bionic) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su<br><span class="hljs-built_in">cd</span> /usr/share/debootstrap/scripts/<br><span class="hljs-built_in">cp</span> sid bionic<br><span class="hljs-built_in">exit</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --no-check-gpg \<br>--<span class="hljs-built_in">arch</span>=amd64 \<br>--include=ifupdown,net-tools,build-essential,gdb,cmake,openssh-server,vim,bash-completion \<br>bionic \<br>linux-rootfs \<br>http://mirrors.aliyun.com/ubuntu/<br></code></pre></td></tr></table></figure><p>以在Deepin 20.7 amd64上构建uos-v20-1054(eagle/1054) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su<br><span class="hljs-built_in">cd</span> /usr/share/debootstrap/scripts/<br><span class="hljs-built_in">rm</span> eagle -rf<br><span class="hljs-built_in">mkdir</span> eagle<br><span class="hljs-built_in">cp</span> sid eagle/1054<br><span class="hljs-built_in">exit</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --no-check-gpg \<br>--<span class="hljs-built_in">arch</span>=amd64 \<br>--include=ifupdown,net-tools,build-essential,gdb,cmake,openssh-server,vim,bash-completion \<br>eagle/1054 \<br>linux-rootfs \<br>https://pools.uniontech.com/desktop-professional/<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/houxian1103/article/details/121886365">ubuntu 下安装C/C++ 开发编译环境</a></li></ul><p>arm64下构建adm64需要执行下方命令，当前可以省略</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> -a /usr/bin/qemu-x86_64-static linux-rootfs/usr/bin/qemu-x86_64-static<br></code></pre></td></tr></table></figure><h3 id="进入文件系统">进入文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://raw.githubusercontent.com/ywhs/linux-software/master/ch-mount.sh<br><span class="hljs-built_in">chmod</span> 777 ch-mount.sh<br><span class="hljs-comment"># 执行脚本后，没有报错会进入文件系统，交叉编译时显示 I have no name ，这是因为还没有初始化。</span><br>./ch-mount.sh -m linux-rootfs/<br><br>debootstrap/debootstrap --second-stage <span class="hljs-comment"># 交叉编译时执行第二步，初始化文件系统，会把一个系统的基础包初始化</span><br><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs/<br><span class="hljs-comment"># ./ch-mount.sh -m linux-rootfs/</span><br><span class="hljs-comment"># 再次进入时，执行如下命令即可</span><br><span class="hljs-comment"># sudo chroot linux-rootfs</span><br></code></pre></td></tr></table></figure><h3 id="定制文件系统">定制文件系统</h3><h4 id="配置网络">配置网络</h4><p>要确保进入文件系统后有网络，可以将 ​​/etc/resolv.conf​​​ 文件拷贝到 ​​linux-rootfs/etc/resolv.conf​​。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> ​​/etc/resolv.conf​​​ ​​linux-rootfs/etc/resolv.conf<br></code></pre></td></tr></table></figure><h4 id="ubuntu18bionic更换国内镜像源">ubuntu18(bionic)更换国内镜像源</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 若是遇到没法拉取 https 源的状况，请先使用 http 源并安装</span><br>sudo <span class="hljs-built_in">chroot</span> linux-rootfs<br>apt install apt-transport-https<br><span class="hljs-built_in">cp</span> /etc/apt/sources.list /etc/apt/sources.list.bak<br><span class="hljs-comment"># 把文件内容所有替换为对应阿里源，参见：https://developer.aliyun.com/mirror/?spm=a2c6h.12873639.J_5404914170.29.2feb6235F6x30d</span><br>vim /etc/apt/sources.list<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ bionic main restricted universe multiverse&quot;</span> &gt;&gt; /etc/apt/sources.list<br></code></pre></td></tr></table></figure><h4 id="配置-root-用户密码">配置 root 用户密码</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">passwd<br></code></pre></td></tr></table></figure><h4 id="建立一个普通用户">建立一个普通用户</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 这两个环境变量能够自行修改</span><br>USER=wujing<br>HOST=wujing<br>useradd -G sudo -m -s /bin/bash <span class="hljs-variable">$USER</span><br>passwd <span class="hljs-variable">$USER</span><br></code></pre></td></tr></table></figure><h3 id="退出文件系统">退出文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs<br></code></pre></td></tr></table></figure><h3 id="制作文件系统镜像initrd">制作文件系统镜像(initrd)</h3><p>当文件系统是<code>uos-v20-1054(eagle/1054)</code>时，将下方<code>bionic</code>替换为<code>eagle-1054</code>。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">vim bionic.sh<br></code></pre></td></tr></table></figure><p>将下方内容追加到bionic.sh:</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">#! /bin/bash<br><br>dd if=/dev/zero of=bionic.img bs=1M seek=2047 count=1<br>sudo mkfs.ext4 -F bionic.img<br>sudo mkdir -p /mnt/bionic<br>sudo mount -o loop bionic.img /mnt/bionic<br>sudo cp -a linux-rootfs/. /mnt/bionic/.<br>sudo umount /mnt/bionic<br>sudo chmod 666 bionic.img<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">chmod</span> +x bionic.sh<br>sudo ./bionic.sh<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/weixin_49393427/article/details/126435589">内核调试环境：buildroot/debootstrap制作文件系统、编译内核、QEMU模拟</a></li><li><a href="https://www.cnblogs.com/huaibovip/p/debootstrap-fs.html">debootstrap 制作根文件系统</a></li><li><a href="https://blog.51cto.com/u_13731941/5399257">使用 debootstrap 制作 ARM64 rootfs.cpio</a></li></ul><h2 id="创建-tap0-虚拟网卡">3. 创建 tap0 虚拟网卡</h2><p>宿主机上执行：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">ifconfig<br>sudo ip tuntap add dev tap0 mode tap<br>sudo ip <span class="hljs-built_in">link</span> <span class="hljs-built_in">set</span> dev tap0 up<br>sudo ip address add dev tap0 192.168.2.128/24<br>ifconfig<br></code></pre></td></tr></table></figure><p>宿主机需要为虚拟机开启IP数据包转发，即在192.168.2.*网段转发数据：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su<br><span class="hljs-built_in">echo</span> 1 &gt; /proc/sys/net/ipv4/ip_forward   <span class="hljs-comment">#可能sudo也会权限不够，在su以后执行即可</span><br>iptables -t nat -A POSTROUTING -j MASQUERADE<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/OnlyLove_/article/details/124536607">Linux 内核调试 七：qemu网络配置</a></li><li><a href="https://www.shuzhiduo.com/A/xl56Dmq0zr/">在qemu-kvm配置桥接网络</a></li></ul><h2 id="启动内核并调试">4. 启动内核并调试</h2><h3 id="依赖安装">依赖安装</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install qemu qemu-system qemu-kvm<br></code></pre></td></tr></table></figure><h3 id="qemu启动内核并挂载文件系统调试">qemu启动内核并挂载文件系统调试</h3><p>下方两个命令都行，第一个报warning，第二个file=后面要使用绝对路径。</p><p>当文件系统是<code>uos-v20-1054(eagle/1054)</code>时，将下方<code>bionic</code>替换为<code>eagle-1054</code>。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 \<br>-m 2048 \<br>-kernel ~/code/linux/arch/x86/boot/bzImage \<br>-hda ~/code/tmp/bionic.img \<br>-append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> \<br>-nographic \<br>-net nic -net tap,ifname=tap0,script=no,downscript=no \<br>-s -S<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 \<br>-m 2048 \<br>-kernel ~/code/linux/arch/x86/boot/bzImage \<br>-drive format=raw,file=/home/wujing/code/tmp/bionic.img \<br>-append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> \<br>-nographic \<br>-net nic -net tap,ifname=tap0,script=no,downscript=no \<br>-s -S<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609">Linux aarch64 编译 &amp; qemu 搭建实验平台 initrd initramfs</a></li></ul><h3 id="加载内核调试工具">加载内核调试工具</h3><p>然后切换到内核源码目录，启动 gdb，不过在启动之前，请向 ~/code/linux/.gdbinit 添加如下内容：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;add-auto-load-safe-path ./scripts/gdb/vmlinux-gdb.py&quot;</span> &gt;&gt; .gdbinit<br></code></pre></td></tr></table></figure><p>加载内核调试工具，然后执行：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">gdb vmlinux<br>target remote :1234<br>c<br></code></pre></td></tr></table></figure><p>来连接到虚拟机上的 gdb 服务。</p><p>到这里，你就可以像调试普通程序一样调试 Linux 内核了。Linux 的内核入口函数是位于 init/main.c 中的 start_kernel ，在这里完成各种内核数据结构的初始化。</p><h2 id="虚拟机中配置网络">5. 虚拟机中配置网络</h2><p>输入用户密码登录。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ip addr<br></code></pre></td></tr></table></figure><p>假设网卡名为<code>enp0s3</code>。</p><p>执行如下命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo ip addr add 192.168.2.129/24 dev enp0s3<br>ip addr<br>sudo ip <span class="hljs-built_in">link</span> <span class="hljs-built_in">set</span> enp0s3 up<br>ping 192.168.2.128 <span class="hljs-comment"># 192.168.2.128为宿主机虚拟网卡tap0地址，可以ping通</span><br></code></pre></td></tr></table></figure><p>此刻在宿主机上<code>ping 192.168.2.129</code>发现也能ping通了，但是此时，虚拟机还不能上外网，因为虚拟机缺少网关。</p><p>现在把虚拟机的tap0的地址，192.168.2.128，设置为虚拟机的网关：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo route add default gw 192.168.2.128<br></code></pre></td></tr></table></figure><p>这样，也可以ping通外网了，比如<code>ping 10.20.52.86</code>，<code>10.20.52.86</code>是宿主机真实网卡<code>ip</code>。</p><p>但是<code>ping www.baidu.com</code>却不行，因为缺少DNS服务器！</p><p>查看宿主机<code>/etc/resolv.conf</code>内容：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /etc/resolv.conf<br></code></pre></td></tr></table></figure><p>输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text"># Generated by NetworkManager<br>nameserver 10.20.0.10<br></code></pre></td></tr></table></figure><p>现在就把<code>10.20.0.10</code>指定为虚拟机的DNS服务器：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;nameserver 10.20.0.10&quot;</span> &gt;&gt; /etc/resolv.conf<br></code></pre></td></tr></table></figure><p>写入文件之后，DNS立即生效了。现在，虚拟机既能上外网，又能与宿主机通信了。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">root@wujing-PC:# ping baidu.com<br>PING baidu.com (110.242.68.66) 56(84) bytes of data.<br>64 bytes from 110.242.68.66 (110.242.68.66): icmp_seq=1 ttl=52 time=27.2 ms<br></code></pre></td></tr></table></figure><p>现在可以使用apt安装依赖：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt update<br></code></pre></td></tr></table></figure><h2 id="虚拟机挂载nfs网络文件系统">6. 虚拟机挂载NFS网络文件系统</h2><p>在宿主机上安装 NFS 服务：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install nfs-kernel-server<br><span class="hljs-built_in">id</span><br>sudo su<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;/home/wujing/code 192.168.2.0/24(rw,sync,all_squash,anonuid=1000,anongid=1000,no_subtree_check)&quot;</span> &gt;&gt; /etc/exports <span class="hljs-comment"># 创建共享目录</span><br>exportfs -arv <span class="hljs-comment"># 更新exports配置</span><br>showmount -e <span class="hljs-comment"># 查看NFS共享情况</span><br></code></pre></td></tr></table></figure><p>在虚拟机上安装 NFS 客户端：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install nfs-common<br>showmount -e 192.168.2.128 <span class="hljs-comment"># 查看NFS服务器共享目录</span><br>sudo mount -t nfs 192.168.2.128:/home/wujing/code /home/wujing/code <span class="hljs-comment"># 临时挂载 NFS 文件系统</span><br></code></pre></td></tr></table></figure><p>临时挂载 NFS 文件系统输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">[ 7990.116497] NFS4: Couldn&#x27;t follow remote path<br>[ 7990.118433] NFS4: Couldn&#x27;t follow remote path<br></code></pre></td></tr></table></figure><p>上述输出仅为warning，请忽略。</p><ul><li><a href="https://www.cnblogs.com/lizhuming/p/13946107.html">挂载NFS网络文件系统教程</a></li><li><a href="https://blog.51cto.com/atong/1343950">NFS原理详解</a></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.jb51.net/article/97216.htm">详解QEMU网络配置的方法</a></li><li><a href="https://js.aizhan.com/server/jishu/6594.html">QEMU的网络配置方法解析</a></li><li><a href="https://www.shuzhiduo.com/A/xl56Dmq0zr/">在qemu-kvm配置桥接网络</a></li><li><a href="https://blog.csdn.net/m0_43406494/article/details/124827927">QEMU--用户模式网络</a></li><li><a href="https://tomwei7.com/2021/10/09/qemu-network-config/">QEMU 网络配置</a></li><li><a href="https://blog.csdn.net/OnlyLove_/article/details/124536607">Linux 内核调试 七：qemu网络配置</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>kernel</category>
-      
-      <category>qemu</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>qemu</tag>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-      <tag>initramfs</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>adm64下基于qemu用户网络、debootstrap 调试内核、根文件系统</title>
     <link href="/kernel/qemu/adm64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E7%94%A8%E6%88%B7%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%20%E8%B0%83%E8%AF%95%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/"/>
     <url>/kernel/qemu/adm64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E7%94%A8%E6%88%B7%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%20%E8%B0%83%E8%AF%95%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/</url>
@@ -673,6 +634,422 @@
   
   
   <entry>
+    <title>submodule</title>
+    <link href="/git-learning/submodule/"/>
+    <url>/git-learning/submodule/</url>
+    
+    <content type="html"><![CDATA[<h1 id="git-submodules">git submodules</h1><h2 id="更新-submodule">更新 submodule</h2><ul><li><p>自动初始化并更新仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> --recurse-submodules https://github.com/realwujing/linux-learning.git<br></code></pre></td></tr></table></figure></p></li><li><p>方式2</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/realwujing/linux-learning.git<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ol></li><li><p>递归地抓取子模块的更改并更新当前仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull --recurse-submodules<br></code></pre></td></tr></table></figure></p></li><li><p>方式2</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ol></li></ul><h2 id="推送-submodule">推送 submodule</h2><ul><li><p>推送当前仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git push --recurse-submodules=on-demand<br></code></pre></td></tr></table></figure></p></li><li><p>方式2(方式1报错情况下使用)</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git submodule foreach --recursive <span class="hljs-string">&#x27;git push&#x27;</span> &amp;&amp; git push<br></code></pre></td></tr></table></figure></p></li></ol></li></ul><h2 id="更改submodule分支">更改submodule分支</h2><ul><li><p>更改submodule分支</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config -f .gitmodules submodule.assembly.branch main<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git submodule update --remote<br></code></pre></td></tr></table></figure></p></li><li><p>在你拉取的提交中， 可能 .gitmodules 文件中记录的子模块的 URL 发生了改变。 比如，若子模块项目改变了它的托管平台，就会发生这种情况</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 将新的 URL 复制到本地配置中</span><br>git submodule <span class="hljs-built_in">sync</span> --recursive<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 从新 URL 更新子模块</span><br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ul><h2 id="删除-submodule">删除 submodule</h2><ul><li><p>删除 submodule</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 卸载子模块</span><br>git submodule deinit [submodule_folder]<br><span class="hljs-comment"># 如果想移除子库的本地修改,可使用--force标签</span><br>git submodule deinit [submodule_folder] --force<br><br><br><span class="hljs-comment"># 删除文件夹</span><br>git <span class="hljs-built_in">rm</span> [submodule_folder]<br><br><span class="hljs-comment"># 提交代码</span><br>git commit -m <span class="hljs-string">&quot;delete submodule xxxxx&quot;</span><br><br></code></pre></td></tr></table></figure></p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.jianshu.com/p/f8a55b972972/">git submodule 使用小结</a></li><li><a href="https://www.cnblogs.com/hustcpp/p/13092625.html">git 添加submodule 以及更名</a></li><li><a href="https://blog.csdn.net/weixin_45115705/article/details/104303730">Git 修改.Submodule文件 url 生效</a></li><li><a href="https://git-scm.com/book/zh/v2/Git-%E5%B7%A5%E5%85%B7-%E5%AD%90%E6%A8%A1%E5%9D%97">7.11 Git 工具 - 子模块</a></li><li><a href="https://blog.csdn.net/weixin_43455581/article/details/120174578">git中子模块/子仓库的使用</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>git-learning</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>git</tag>
+      
+      <tag>assembly</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/k8s-learning/README/"/>
+    <url>/k8s-learning/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="k8s-learning">k8s-learning</h1><h2 id="k8s-集群部署">k8s 集群部署</h2><h2 id="kubectl-教程">kubectl 教程</h2>]]></content>
+    
+    
+    <categories>
+      
+      <category>k8s-learning</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>k8s</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/kernel/README/"/>
+    <url>/kernel/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="linux内核">Linux内核</h1><h2 id="linux内核完全注释">Linux内核完全注释</h2><ul><li><a href="Linux-0.11-zhaojiong/Linux内核完全注释(修正版v3.0).pdf">Linux内核完全注释(修正版v3.0).pdf</a></li></ul><h2 id="unix-环境高级编程">UNIX 环境高级编程</h2><ul><li><a href="download.eeworld.com.cn_UNIX环境高级编程中文版.pdf">UNIX环境高级编程中文版.pdf</a></li><li><a href="http://download.eeworld.com.cn/detail/genping2008/550957">UNIX环境高级编程中文版-文字版（非扫描）</a></li><li><a href="download.eeworld.com.cn_UNIX%20环境高级编程%20第3版.pdf">UNIX 环境高级编程 第3版.pdf</a></li><li><a href="http://download.eeworld.com.cn/detail/%E5%A4%AA%E7%99%BD%E9%87%91%E6%98%9F/619878">UNIX 环境高级编程 第3版</a></li></ul><h2 id="linux内核深度解析">Linux内核深度解析</h2><ul><li><a href="download.eeworld.com.cn_Linux内核深度解析_余华兵著_北京：人民邮电出版社%20,%202019.05_P622.pdf">Linux内核深度解析.pdf</a></li><li><a href="http://download.eeworld.com.cn/detail/%E9%97%B2%E9%B1%BC%E8%9C%A1%E8%95%89/624239">Linux内核深度解析（文字版PDF带目目录）</a></li></ul><h2 id="linux内核设计与实现">LINUX内核设计与实现</h2><ul><li><a href="Linux内核设计与实现(第三版中文高清带目录).pdf">Linux内核设计与实现(第三版中文高清带目录).pdf</a></li><li><a href="https://awesome-programming-books.github.io/linux/Linux%E5%86%85%E6%A0%B8%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0%EF%BC%88%E7%AC%AC%E4%B8%89%E7%89%88%EF%BC%89.pdf">Linux内核设计与实现（第三版）.pdf</a></li><li><a href="http://kerneltravel.net/note/">《LINUX内核设计与实现》读书笔记</a></li></ul><h2 id="linux内核安全模块深入剖析">Linux内核安全模块深入剖析</h2><ul><li><a href="Linux%E5%86%85%E6%A0%B8%E5%AE%89%E5%85%A8%E6%A8%A1%E5%9D%97%E6%B7%B1%E5%85%A5%E5%89%96%E6%9E%90.pdf">Linux内核安全模块深入剖析.pdf</a></li></ul><h2 id="debug-hacks中文版深入调试的技术和工具">Debug Hacks中文版：深入调试的技术和工具</h2><ul><li><a href="https://www.wenjiangs.com/pdf-ebook/debug-hacks.html">Debug Hacks中文版：深入调试的技术和工具</a></li></ul><h2 id="pci_express_体系结构导读">PCI_Express_体系结构导读</h2><ul><li><a href="https://www.123pan.com/Weboffice/?type=f&amp;id=1641382&amp;FileName=PCI_Express_%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84%E5%AF%BC%E8%AF%BB.pdf&amp;Size=31777886&amp;Etag=7d823eed57dad308392d512270c729fc&amp;S3KeyFlag=1640083-0&amp;CreateAt=1647394917&amp;UpdateAt=1648172199&amp;from=2&amp;shareKey=y8zA-syTe">PCI_Express_体系结构导读.pdf</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>kernel</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>fluid主题自定义标签页小图标</title>
+    <link href="/hexo/fluid/fluid%E4%B8%BB%E9%A2%98%E8%87%AA%E5%AE%9A%E4%B9%89%E6%A0%87%E7%AD%BE%E9%A1%B5%E5%B0%8F%E5%9B%BE%E6%A0%87/"/>
+    <url>/hexo/fluid/fluid%E4%B8%BB%E9%A2%98%E8%87%AA%E5%AE%9A%E4%B9%89%E6%A0%87%E7%AD%BE%E9%A1%B5%E5%B0%8F%E5%9B%BE%E6%A0%87/</url>
+    
+    <content type="html"><![CDATA[<h1 id="fluid主题自定义标签页小图标">fluid主题自定义标签页小图标</h1><h2 id="制作favicon图标">制作favicon图标</h2><p>准备好用作标签页/网页小图标favicon的图片。</p><p>在线<a href="https://www.bitbug.net/">制作ico图标</a>。</p><p>推荐16<em>16、32</em>32。</p><p>将下载后的图标复制到<code>source/images</code>目录下。</p><h2 id="配置_config.fluid.yml">配置_config.fluid.yml</h2><p>增加如下配置：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text"># 用于浏览器标签的图标<br># Icon for browser tab<br>favicon: /img/favicon.png<br><br># 用于苹果设备的图标<br># Icon for Apple touch<br>apple_touch_icon: /img/favicon.png<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://github.com/Cenergy/blog-dev/blob/dev/_config.fluid.yml">https://github.com/Cenergy/blog-dev/blob/dev/_config.fluid.yml</a></li><li><a href="https://blog.csdn.net/qq_39181839/article/details/109477357">Hexo攻略-更换网页图标</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>hexo</category>
+      
+      <category>fluid</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>git</tag>
+      
+      <tag>Hexo</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>k8s集群安装教程</title>
+    <link href="/k8s-learning/k8s%E9%9B%86%E7%BE%A4%E9%83%A8%E7%BD%B2/k8s%E9%9B%86%E7%BE%A4%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/"/>
+    <url>/k8s-learning/k8s%E9%9B%86%E7%BE%A4%E9%83%A8%E7%BD%B2/k8s%E9%9B%86%E7%BE%A4%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/</url>
+    
+    <content type="html"><![CDATA[<h1 id="k8s集群安装教程">k8s集群安装教程</h1><h2 id="masternode节点安装">master、node节点安装</h2><ol type="1"><li><p>切换到root用户</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su -<br></code></pre></td></tr></table></figure></p></li><li><p>配置host</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs plain">cat &lt;&lt; EOF &gt;&gt; /etc/hosts<br>192.169.1.210 k8s-master<br>192.169.1.211 k8s-node1<br>192.169.1.212 k8s-node2<br>EOF<br></code></pre></td></tr></table></figure></p></li><li><p>修改主机名 每台主机都要修改</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">hostnamectl set-hostname k8s-master<br>hostnamectl set-hostname k8s-node1<br>hostnamectl set-hostname k8s-node2<br></code></pre></td></tr></table></figure></p></li><li><p>关闭swap分区 每台主机都要关闭</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 临时关闭</span><br>swapoff -a<br><span class="hljs-comment"># 永久关闭(老版本)</span><br>sed -i <span class="hljs-string">&#x27;/swap/s/^\(.*\)$/#\1/g&#x27;</span> /etc/fstab<br><span class="hljs-comment"># 永久关闭(新版本)</span><br>只需要编辑 /etc/fstab 文件，不要注释掉 swap 那一行<br>而是在其后面默认的挂载选项 defaults 后面加上 noauto 变成 defaults,noauto。<br><br><span class="hljs-built_in">cat</span> /etc/fstab<br><span class="hljs-comment"># 查看是否注释</span><br></code></pre></td></tr></table></figure></p><ul><li><a href="https://www.freedesktop.org/software/systemd/man/systemd.swap.html">https://www.freedesktop.org/software/systemd/man/systemd.swap.html</a></li><li><a href="https://cnzhx.net/blog/disable-swap-in-opensuse-tumbleweed/">openSUSE Tumbleweed 中禁用 SWAP</a></li></ul></li><li><p>安装docker</p><ul><li><a href="https://mirrors.tuna.tsinghua.edu.cn/help/docker-ce/">参考清华Docker Community Edition 镜像使用帮助安装docker</a></li></ul></li><li><p>修改docker Cgroup驱动</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> &lt;&lt;<span class="hljs-string">EOF&gt; /etc/docker/daemon.json</span><br><span class="hljs-string">&#123;</span><br><span class="hljs-string">&quot;exec-opts&quot;:[&quot;native.cgroupdriver=systemd&quot;]</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure></p></li><li><p>安装k8s</p><ul><li><p><a href="https://developer.aliyun.com/mirror/kubernetes?spm=a2c6h.13651102.0.0.73bf1b11EI1d2X">添加阿里云 Kubernetes 镜像仓库</a></p></li><li><p><a href="https://blog.csdn.net/u012069313/article/details/125561711">【Kubernetes系列】K8s由1.24.1降级为1.23.8</a></p></li><li><p><a href="https://www.51cto.com/article/707507.html">Kubernetes 1.24 将结束对dockershim 的支持</a></p></li><li><p><a href="https://kubernetes.io/zh-cn/blog/2022/04/07/upcoming-changes-in-kubernetes-1-24/">Kubernetes 1.24 的删除和弃用</a></p></li></ul><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt-get install -y kubelet=1.23.8-00 kubeadm=1.23.8-00 kubectl=1.23.8-00<br></code></pre></td></tr></table></figure></p></li><li><p>设置kubectl命令补全</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt-get install bash-completion<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;source /usr/share/bash-completion/bash_completion&#x27;</span> &gt;&gt;~/.bashrc<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;source &lt;(kubectl completion bash)&#x27;</span> &gt;&gt;~/.bashrc<br></code></pre></td></tr></table></figure></p></li><li><p>初始化k8s-master节点</p><p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">–apiserver-advertise-address 192.168.2.248 填写你自己k8s-master的IP地址<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubeadm init \<br>--apiserver-advertise-address 192.168.2.248 \<br>--image-repository registry.aliyuncs.com/google_containers \<br>--pod-network-cidr=10.244.0.0/16 \<br>--service-cidr=10.1.0.0/16<br></code></pre></td></tr></table></figure></p></li><li><p>拷贝 kubectl 使用的连接 k8s 认证文件到默认路径</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">exit</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">mkdir</span> -p <span class="hljs-variable">$HOME</span>/.kube<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> -i /etc/kubernetes/admin.conf <span class="hljs-variable">$HOME</span>/.kube/config<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chown</span> $(<span class="hljs-built_in">id</span> -u):$(<span class="hljs-built_in">id</span> -g) <span class="hljs-variable">$HOME</span>/.kube/config<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;export KUBECONFIG=$HOME/.kube/config&#x27;</span> &gt;&gt;~/.bashrc<br></code></pre></td></tr></table></figure><ul><li>初始化成功之后记录以下信息，添加node节点时使用。</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubeadm <span class="hljs-built_in">join</span> 192.169.1.210:6443 --token s2zrot.578bgfdqcr44aivw \<br>--discovery-token-ca-cert-hash sha256:a4b764099ac50a152d8d9a7640c16380297bae8c7ffafd6e3ca76144bfde9f6c<br></code></pre></td></tr></table></figure></li><li><p>安装Pod网络插件 calico</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f https://docs.projectcalico.org/v3.18/manifests/calico.yaml<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/w849593893/article/details/119883531">k8s master节点状态为 NotReady问题解决</a></li></ul></li><li><p>添加node节点</p><ul><li>以下操作在Node节点上执行</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su -<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubeadm <span class="hljs-built_in">join</span> 192.169.1.210:6443 --token s2zrot.578bgfdqcr44aivw \<br>--discovery-token-ca-cert-hash sha256:a4b764099ac50a152d8d9a7640c16380297bae8c7ffafd6e3ca76144bfde9f6c<br></code></pre></td></tr></table></figure><ul><li><a href="https://www.cnblogs.com/linyouyi/p/10850904.html">kubernetes忘记token或者token过期怎么加入k8s集群</a></li></ul></li></ol><h2 id="k8s-dashboard">k8s dashboard</h2><ul><li><a href="https://kubernetes.io/zh-cn/docs/tasks/access-application-cluster/web-ui-dashboard/">部署和访问 Kubernetes 仪表板（Dashboard）</a></li></ul><ol type="1"><li><p>部署 Dashboard UI</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.5.0/aio/deploy/recommended.yaml<br></code></pre></td></tr></table></figure></p><ul><li><p><a href="https://github.com/kubernetes/dashboard/blob/master/docs/user/accessing-dashboard/README.md">https://github.com/kubernetes/dashboard/blob/master/docs/user/accessing-dashboard/README.md</a></p></li><li><p><a href="https://github.com/kubernetes/dashboard/blob/master/docs/user/access-control/creating-sample-user.md">https://github.com/kubernetes/dashboard/blob/master/docs/user/access-control/creating-sample-user.md</a></p></li></ul></li><li><p>更改ClusterIP为NodePort</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl -n kubernetes-dashboard edit service kubernetes-dashboard<br></code></pre></td></tr></table></figure></p></li><li><p>创建配置文件 dashboard-adminuser.yaml</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://github.com/realwujing/k8s-learning/blob/dff12f0c9f2cf74ee13e0aa44babbd2786279bf2/k8s%E9%9B%86%E7%BE%A4%E9%83%A8%E7%BD%B2/dashboard-adminuser.yaml<br></code></pre></td></tr></table></figure></p><p>具体参考：</p><ul><li><a href="https://blog.csdn.net/qq_41538097/article/details/125561769">k8s入门：kubernetes-dashboard 安装</a></li></ul></li><li><p>执行</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f dashboard-adminuser.yaml<br></code></pre></td></tr></table></figure></p></li><li><p>k8s忘记dashboard密码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl -n kubernetes-dashboard get secret<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl describe secret admin-user-token-76rq7 -n kubernetes-dashboard<br></code></pre></td></tr></table></figure></p><p>也可通过下方一行命令获取token：</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl -n kubernetes-dashboard describe secret $(kubectl -n kubernetes-dashboard get secret | grep admin-user | awk <span class="hljs-string">&#x27;&#123;print $1&#125;&#x27;</span>)<br></code></pre></td></tr></table></figure></p></li><li><p>获取 kubernetes-dashboard 对外暴露端口</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl get svc --all-namespaces<br></code></pre></td></tr></table></figure></p></li><li><p>访问k8s dashboard</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">https://192.169.1.210:32188<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.jianshu.com/p/1719a27137e3">Chrome您的连接不是私密连接解决办法</a></p><p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">thisisunsafe<br></code></pre></td></tr></table></figure></p></li></ol><h2 id="kubeadm-reset">kubeadm reset</h2><ul><li><a href="https://sandeepnkulkarni.wordpress.com/2020/07/11/reset-kubernetes-cluster-using-kubeadm/">Reset Kubernetes Cluster using kubeadm</a></li></ul><h2 id="master节点">master节点</h2><ul><li><a href="https://www.cnblogs.com/panw/p/16643652.html">k8s允许master节点参与调度的设置方法</a></li><li><a href="https://blog.csdn.net/omaidb/article/details/121930341">k8s节点调度</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>k8s-learning</category>
+      
+      <category>k8s集群部署</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>git</tag>
+      
+      <tag>k8s</tag>
+      
+      <tag>HTML</tag>
+      
+      <tag>namespace</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/k8s-learning/linglong/README/"/>
+    <url>/k8s-learning/linglong/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="k8s部署玲珑服务">k8s部署玲珑服务</h1><h2 id="创建namespace">创建namespace</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create ns linglong<br></code></pre></td></tr></table></figure><h2 id="在kubernetes集群如何支持私有镜像">在Kubernetes集群如何支持私有镜像</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create secret docker-registry hub-deepin-token --docker-server=hub.deepin.com \<br>--docker-username=ut004487 --docker-password=Wujing2988. -n linglong<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl patch serviceaccount default -n linglong -p <span class="hljs-string">&#x27;&#123;&quot;imagePullSecrets&quot;: [&#123;&quot;name&quot;: &quot;hub-deepin-token&quot;&#125;]&#125;&#x27;</span><br></code></pre></td></tr></table></figure><h2 id="linglong-homepage">linglong-homepage</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker build -t hub.deepin.com/wuhan_v23_linglong/linglong-homepage:develop-snipe .<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker run --<span class="hljs-built_in">rm</span> -it -p 18080:80/tcp hub.deepin.com/wuhan_v23_linglong/linglong-homepage:develop-snipe<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create -n linglong deployment linglong-homepage --image=hub.deepin.com/wuhan_v23_linglong/linglong-homepage:develop-snipe<br></code></pre></td></tr></table></figure><!-- <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl get deployments.apps linglong-homepage -o yaml &gt; linglong-homepage.yaml<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl delete -f linglong-homepage.yaml<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">vim linglong-homepage.yaml 将 namespace 从 default改为 linglong<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f linglong-homepage.yaml<br>``` --&gt;<br><br>- 使用 18080 端口提供服务，连接到容器的 80 端口<br><br>```bash<br>kubectl expose -n linglong deployment linglong-homepage --<span class="hljs-built_in">type</span>=NodePort --port=18080 --target-port=80<br></code></pre></td></tr></table></figure><h2 id="linglong-webstore">linglong-webstore</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker build -t hub.deepin.com/wuhan_v23_linglong/linglong-webstore:develop-snipe .<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker run --<span class="hljs-built_in">rm</span> -it  -p 18081:80/tcp hub.deepin.com/wuhan_v23_linglong/linglong-webstore:develop-snipe<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create -n linglong deployment linglong-webstore --image=hub.deepin.com/wuhan_v23_linglong/linglong-webstore:develop-snipe<br></code></pre></td></tr></table></figure><!-- ```bashkubectl get deployments.apps linglong-webstore -o yaml > linglong-webstore.yaml<figure class="highlight autohotkey"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs autohotkey"><br>```bash<br>kubectl delete -f linglong-webstore.yaml<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">vim linglong-webstore.yaml 将 namespace 从 default改为 linglong<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f linglong-webstore.yaml<br>``` --&gt;<br><br>- 使用 18081 端口提供服务，连接到容器的 80 端口<br><br>```bash<br>kubectl expose -n linglong deployment linglong-webstore --<span class="hljs-built_in">type</span>=NodePort --port=18081 --target-port=80<br></code></pre></td></tr></table></figure><h2 id="linglong-server">linglong-server</h2><ul><li>创建configmap</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create configmap config.yaml --from-file=config.yaml -n linglong<br></code></pre></td></tr></table></figure><ul><li>挂载config.yaml文件到pod中</li></ul><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">具体教程参考linglong-server.yaml<br></code></pre></td></tr></table></figure><ul><li>创建pv</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f linglong-server-pv.yaml<br></code></pre></td></tr></table></figure><ul><li>创建pvc</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f linglong-server-pvc.yaml<br></code></pre></td></tr></table></figure><ul><li>挂载pvc到pod中</li></ul><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">具体教程参考linglong-server.yaml<br></code></pre></td></tr></table></figure><ul><li>linglong-server部署</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker build -t hub.deepin.com/wuhan_v23_linglong/linglong-server:develop-snipe .<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker run --<span class="hljs-built_in">rm</span> -it  -p 18888:8888/tcp hub.deepin.com/wuhan_v23_linglong/linglong-server:develop-snipe<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create -n linglong deployment linglong-server --image=hub.deepin.com/wuhan_v23_linglong/linglong-server:develop-snipe<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl get deployments.apps linglong-server -o yaml &gt; linglong-server.yaml<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl delete -f linglong-server.yaml<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">vim linglong-server.yaml 更改volumeMounts、volumes节点，挂载linglong-server-pvc<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f linglong-server.yaml<br></code></pre></td></tr></table></figure><ul><li>使用 18888 端口提供服务，连接到容器的 8888 端口</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl expose -n linglong deployment linglong-server --<span class="hljs-built_in">type</span>=NodePort --port=18888 --target-port=8888<br></code></pre></td></tr></table></figure><ul><li>更新镜像</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl -n linglong <span class="hljs-built_in">set</span> image deployment linglong-server linglong-server=hub.deepin.com/wuhan_v23_linglong/linglong-server:develop-snipe<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl -n linglong rollout restart deployment linglong-server<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>k8s-learning</category>
+      
+      <category>linglong</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>k8s</tag>
+      
+      <tag>namespace</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/kernel/Linux-0.11-yuan-xy/README/"/>
+    <url>/kernel/Linux-0.11-yuan-xy/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="linux-0.11">Linux-0.11</h1><p>The old Linux kernel source ver 0.11 which has been tested under modern Linux, Mac OSX and Windows.</p><h2 id="build-on-linux">1. Build on Linux</h2><h3 id="linux-setup">1.1. Linux Setup</h3><ul><li>a linux distribution: debian , ubuntu and mint are recommended</li><li>some tools: gcc gdb qemu</li><li>a linux-0.11 hardware image file: hdc-0.11.img, please download it from http://www.oldlinux.org, or http://mirror.lzu.edu.cn/os/oldlinux.org/, ant put it in the root directory.</li><li>Now, This version already support the Ubuntu 16.04, enjoy it.</li></ul><h3 id="hack-linux-0.11">1.2. hack linux-0.11</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">$ make <span class="hljs-built_in">help</span>// get <span class="hljs-built_in">help</span><br>$ make  // compile<br>$ make start// boot it on qemu<br>$ make debug// debug it via qemu &amp; gdb, you<span class="hljs-string">&#x27;d start gdb to connect it.</span><br></code></pre></td></tr></table></figure><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs gdb">$ gdb tools/system<br>(gdb) target remote :1234<br>(gdb) b main<br>(gdb) c<br></code></pre></td></tr></table></figure><h2 id="build-on-mac-os-x">2. Build on Mac OS X</h2><h3 id="mac-os-x-setup">2.1. Mac OS X Setup</h3><ul><li>install cross compiler gcc and binutils</li><li>install qemu</li><li>install gdb. you need download the gdb source and compile it to use gdb because port doesn't provide i386-elf-gdb, or you can use the pre-compiled gdb in the tools directory.</li><li>a linux-0.11 hardware image file: hdc-0.11.img</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">$ sudo port install qemu<br>$ sudo port install i386-elf-binutils i386-elf-gcc<br></code></pre></td></tr></table></figure><p>optional <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">$ wget ftp://ftp.gnu.org/gnu/gdb/gdb-7.4.tar.bz2<br>$ tar -xzvf gdb-7.4.tar.bz2<br>$ <span class="hljs-built_in">cd</span> gdb-7.4<br>$ ./configure --target=i386-elf<br>$ make<br></code></pre></td></tr></table></figure></p><h3 id="hack-linux-0.11-1">2.2. hack linux-0.11</h3><p>same as section 1.2</p><h2 id="build-on-windows">3. Build on Windows</h2><p>todo...</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>kernel</category>
+      
+      <category>Linux-0.11-yuan-xy</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>qemu</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/kernel/namespace/README/"/>
+    <url>/kernel/namespace/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="namespace">namespace</h1>]]></content>
+    
+    
+    <categories>
+      
+      <category>kernel</category>
+      
+      <category>namespace</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>namespace</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>adm64下基于qemu tap(NAT网络)、debootstrap 调试内核、根文件系统</title>
+    <link href="/kernel/qemu/adm64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%20tap(NAT%E7%BD%91%E7%BB%9C)%E3%80%81debootstrap%20%E8%B0%83%E8%AF%95%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/"/>
+    <url>/kernel/qemu/adm64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%20tap(NAT%E7%BD%91%E7%BB%9C)%E3%80%81debootstrap%20%E8%B0%83%E8%AF%95%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/</url>
+    
+    <content type="html"><![CDATA[<h1 id="amd64下基于qemu-tapnat网络debootstrap-调试内核根文件系统">amd64下基于qemu tap(NAT网络)、debootstrap 调试内核、根文件系统</h1><h2 id="编译调试版linux内核">1. 编译调试版linux内核</h2><h3 id="安装编译依赖">安装编译依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install build-essential libncurses-dev bison flex libssl-dev libelf-dev<br></code></pre></td></tr></table></figure><h3 id="下载源码">下载源码</h3><p>调试标准版内核，下载github代码即可，本文选择tag v5.10-rc7分支：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/torvalds/linux.git<br>git checkout -b v5.10-rc7 v5.10-rc7<br></code></pre></td></tr></table></figure><p>调试uos-v20-1054-2内核，下载gerrit代码即可：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> <span class="hljs-string">&quot;ssh://ut004487@gerrit.uniontech.com:29418/kernel/x86-kernel&quot;</span> &amp;&amp; scp -p -P 29418 ut004487@gerrit.uniontech.com:hooks/commit-msg <span class="hljs-string">&quot;x86-kernel/.git/hooks/&quot;</span><br>git checkout -b 1054-2 499e91c36f62c1790063cabdacff94fd8220f145<br></code></pre></td></tr></table></figure><h3 id="内核编译选项配置">内核编译选项配置</h3><p>进入源码目录，配置编译选项：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br>make menuconfig<br></code></pre></td></tr></table></figure><p>比较重要的配置项有：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">首先内核中支持tap/tuns设备：<br>Device Drivers  ---&gt; <br>     Networking support  ---&gt;<br>        [M] Universal TUN/TAP device driver support<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Kernel hacking  ---&gt;<br>    [*] Kernel debugging<br>    Compile-time checks and compiler options  ---&gt;<br>        [*] Compile the kernel with debug info<br>        [*]   Provide GDB scripts for kernel debugging<br></code></pre></td></tr></table></figure><p>一定要打开。 还有下面的选项会导致打断点失败，一定要关闭：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">Processor type and features ----&gt;<br>    [] Randomize the address of the kernel image (KASLR)<br></code></pre></td></tr></table></figure><p>保存并退出 menuconfig，开始编译之旅：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make -j`<span class="hljs-built_in">expr</span> $(<span class="hljs-built_in">nproc</span>) / 2`<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/eydwyz/article/details/114019532">使用 VSCode + qemu 搭建 Linux 内核调试环境</a></li></ul><h2 id="debootstrap制作根文件系统">2. debootstrap制作根文件系统</h2><h3 id="安装依赖">安装依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install debian-archive-keyring<br>sudo apt-get install  qemu qemu-user-static  binfmt-support debootstrap<br></code></pre></td></tr></table></figure><h3 id="制作文件系统">制作文件系统</h3><p>使用也十分简单，命令格式为：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --<span class="hljs-built_in">arch</span> [平台] [发行版本代号] [构建目录] [镜像地址]<br></code></pre></td></tr></table></figure><p>以在Deepin 20.7 amd64上构建ubuntu18(bionic) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su<br><span class="hljs-built_in">cd</span> /usr/share/debootstrap/scripts/<br><span class="hljs-built_in">cp</span> sid bionic<br><span class="hljs-built_in">exit</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --no-check-gpg \<br>--<span class="hljs-built_in">arch</span>=amd64 \<br>--include=ifupdown,net-tools,build-essential,gdb,cmake,openssh-server,vim,bash-completion \<br>bionic \<br>linux-rootfs \<br>http://mirrors.aliyun.com/ubuntu/<br></code></pre></td></tr></table></figure><p>以在Deepin 20.7 amd64上构建uos-v20-1054(eagle/1054) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su<br><span class="hljs-built_in">cd</span> /usr/share/debootstrap/scripts/<br><span class="hljs-built_in">rm</span> eagle -rf<br><span class="hljs-built_in">mkdir</span> eagle<br><span class="hljs-built_in">cp</span> sid eagle/1054<br><span class="hljs-built_in">exit</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --no-check-gpg \<br>--<span class="hljs-built_in">arch</span>=amd64 \<br>--include=ifupdown,net-tools,build-essential,gdb,cmake,openssh-server,vim,bash-completion \<br>eagle/1054 \<br>linux-rootfs \<br>https://pools.uniontech.com/desktop-professional/<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/houxian1103/article/details/121886365">ubuntu 下安装C/C++ 开发编译环境</a></li></ul><p>arm64下构建adm64需要执行下方命令，当前可以省略</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> -a /usr/bin/qemu-x86_64-static linux-rootfs/usr/bin/qemu-x86_64-static<br></code></pre></td></tr></table></figure><h3 id="进入文件系统">进入文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://raw.githubusercontent.com/ywhs/linux-software/master/ch-mount.sh<br><span class="hljs-built_in">chmod</span> 777 ch-mount.sh<br><span class="hljs-comment"># 执行脚本后，没有报错会进入文件系统，交叉编译时显示 I have no name ，这是因为还没有初始化。</span><br>./ch-mount.sh -m linux-rootfs/<br><br>debootstrap/debootstrap --second-stage <span class="hljs-comment"># 交叉编译时执行第二步，初始化文件系统，会把一个系统的基础包初始化</span><br><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs/<br><span class="hljs-comment"># ./ch-mount.sh -m linux-rootfs/</span><br><span class="hljs-comment"># 再次进入时，执行如下命令即可</span><br><span class="hljs-comment"># sudo chroot linux-rootfs</span><br></code></pre></td></tr></table></figure><h3 id="定制文件系统">定制文件系统</h3><h4 id="配置网络">配置网络</h4><p>要确保进入文件系统后有网络，可以将 ​​/etc/resolv.conf​​​ 文件拷贝到 ​​linux-rootfs/etc/resolv.conf​​。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> ​​/etc/resolv.conf​​​ ​​linux-rootfs/etc/resolv.conf<br></code></pre></td></tr></table></figure><h4 id="ubuntu18bionic更换国内镜像源">ubuntu18(bionic)更换国内镜像源</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 若是遇到没法拉取 https 源的状况，请先使用 http 源并安装</span><br>sudo <span class="hljs-built_in">chroot</span> linux-rootfs<br>apt install apt-transport-https<br><span class="hljs-built_in">cp</span> /etc/apt/sources.list /etc/apt/sources.list.bak<br><span class="hljs-comment"># 把文件内容所有替换为对应阿里源，参见：https://developer.aliyun.com/mirror/?spm=a2c6h.12873639.J_5404914170.29.2feb6235F6x30d</span><br>vim /etc/apt/sources.list<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ bionic main restricted universe multiverse&quot;</span> &gt;&gt; /etc/apt/sources.list<br></code></pre></td></tr></table></figure><h4 id="配置-root-用户密码">配置 root 用户密码</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">passwd<br></code></pre></td></tr></table></figure><h4 id="建立一个普通用户">建立一个普通用户</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 这两个环境变量能够自行修改</span><br>USER=wujing<br>HOST=wujing<br>useradd -G sudo -m -s /bin/bash <span class="hljs-variable">$USER</span><br>passwd <span class="hljs-variable">$USER</span><br></code></pre></td></tr></table></figure><h3 id="退出文件系统">退出文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs<br></code></pre></td></tr></table></figure><h3 id="制作文件系统镜像initrd">制作文件系统镜像(initrd)</h3><p>当文件系统是<code>uos-v20-1054(eagle/1054)</code>时，将下方<code>bionic</code>替换为<code>eagle-1054</code>。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">vim bionic.sh<br></code></pre></td></tr></table></figure><p>将下方内容追加到bionic.sh:</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">#! /bin/bash<br><br>dd if=/dev/zero of=bionic.img bs=1M seek=2047 count=1<br>sudo mkfs.ext4 -F bionic.img<br>sudo mkdir -p /mnt/bionic<br>sudo mount -o loop bionic.img /mnt/bionic<br>sudo cp -a linux-rootfs/. /mnt/bionic/.<br>sudo umount /mnt/bionic<br>sudo chmod 666 bionic.img<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">chmod</span> +x bionic.sh<br>sudo ./bionic.sh<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/weixin_49393427/article/details/126435589">内核调试环境：buildroot/debootstrap制作文件系统、编译内核、QEMU模拟</a></li><li><a href="https://www.cnblogs.com/huaibovip/p/debootstrap-fs.html">debootstrap 制作根文件系统</a></li><li><a href="https://blog.51cto.com/u_13731941/5399257">使用 debootstrap 制作 ARM64 rootfs.cpio</a></li></ul><h2 id="创建-tap0-虚拟网卡">3. 创建 tap0 虚拟网卡</h2><p>宿主机上执行：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">ifconfig<br>sudo ip tuntap add dev tap0 mode tap<br>sudo ip <span class="hljs-built_in">link</span> <span class="hljs-built_in">set</span> dev tap0 up<br>sudo ip address add dev tap0 192.168.2.128/24<br>ifconfig<br></code></pre></td></tr></table></figure><p>宿主机需要为虚拟机开启IP数据包转发，即在192.168.2.*网段转发数据：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su<br><span class="hljs-built_in">echo</span> 1 &gt; /proc/sys/net/ipv4/ip_forward   <span class="hljs-comment">#可能sudo也会权限不够，在su以后执行即可</span><br>iptables -t nat -A POSTROUTING -j MASQUERADE<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/OnlyLove_/article/details/124536607">Linux 内核调试 七：qemu网络配置</a></li><li><a href="https://www.shuzhiduo.com/A/xl56Dmq0zr/">在qemu-kvm配置桥接网络</a></li></ul><h2 id="启动内核并调试">4. 启动内核并调试</h2><h3 id="依赖安装">依赖安装</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install qemu qemu-system qemu-kvm<br></code></pre></td></tr></table></figure><h3 id="qemu启动内核并挂载文件系统调试">qemu启动内核并挂载文件系统调试</h3><p>下方两个命令都行，第一个报warning，第二个file=后面要使用绝对路径。</p><p>当文件系统是<code>uos-v20-1054(eagle/1054)</code>时，将下方<code>bionic</code>替换为<code>eagle-1054</code>。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 \<br>-m 2048 \<br>-kernel ~/code/linux/arch/x86/boot/bzImage \<br>-hda ~/code/tmp/bionic.img \<br>-append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> \<br>-nographic \<br>-net nic -net tap,ifname=tap0,script=no,downscript=no \<br>-s -S<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 \<br>-m 2048 \<br>-kernel ~/code/linux/arch/x86/boot/bzImage \<br>-drive format=raw,file=/home/wujing/code/tmp/bionic.img \<br>-append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> \<br>-nographic \<br>-net nic -net tap,ifname=tap0,script=no,downscript=no \<br>-s -S<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609">Linux aarch64 编译 &amp; qemu 搭建实验平台 initrd initramfs</a></li></ul><h3 id="加载内核调试工具">加载内核调试工具</h3><p>然后切换到内核源码目录，启动 gdb，不过在启动之前，请向 ~/code/linux/.gdbinit 添加如下内容：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;add-auto-load-safe-path ./scripts/gdb/vmlinux-gdb.py&quot;</span> &gt;&gt; .gdbinit<br></code></pre></td></tr></table></figure><p>加载内核调试工具，然后执行：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">gdb vmlinux<br>target remote :1234<br>c<br></code></pre></td></tr></table></figure><p>来连接到虚拟机上的 gdb 服务。</p><p>到这里，你就可以像调试普通程序一样调试 Linux 内核了。Linux 的内核入口函数是位于 init/main.c 中的 start_kernel ，在这里完成各种内核数据结构的初始化。</p><h2 id="虚拟机中配置网络">5. 虚拟机中配置网络</h2><p>输入用户密码登录。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ip addr<br></code></pre></td></tr></table></figure><p>假设网卡名为<code>enp0s3</code>。</p><p>执行如下命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo ip addr add 192.168.2.129/24 dev enp0s3<br>ip addr<br>sudo ip <span class="hljs-built_in">link</span> <span class="hljs-built_in">set</span> enp0s3 up<br>ping 192.168.2.128 <span class="hljs-comment"># 192.168.2.128为宿主机虚拟网卡tap0地址，可以ping通</span><br></code></pre></td></tr></table></figure><p>此刻在宿主机上<code>ping 192.168.2.129</code>发现也能ping通了，但是此时，虚拟机还不能上外网，因为虚拟机缺少网关。</p><p>现在把虚拟机的tap0的地址，192.168.2.128，设置为虚拟机的网关：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo route add default gw 192.168.2.128<br></code></pre></td></tr></table></figure><p>这样，也可以ping通外网了，比如<code>ping 10.20.52.86</code>，<code>10.20.52.86</code>是宿主机真实网卡<code>ip</code>。</p><p>但是<code>ping www.baidu.com</code>却不行，因为缺少DNS服务器！</p><p>查看宿主机<code>/etc/resolv.conf</code>内容：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /etc/resolv.conf<br></code></pre></td></tr></table></figure><p>输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text"># Generated by NetworkManager<br>nameserver 10.20.0.10<br></code></pre></td></tr></table></figure><p>现在就把<code>10.20.0.10</code>指定为虚拟机的DNS服务器：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;nameserver 10.20.0.10&quot;</span> &gt;&gt; /etc/resolv.conf<br></code></pre></td></tr></table></figure><p>写入文件之后，DNS立即生效了。现在，虚拟机既能上外网，又能与宿主机通信了。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">root@wujing-PC:# ping baidu.com<br>PING baidu.com (110.242.68.66) 56(84) bytes of data.<br>64 bytes from 110.242.68.66 (110.242.68.66): icmp_seq=1 ttl=52 time=27.2 ms<br></code></pre></td></tr></table></figure><p>现在可以使用apt安装依赖：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt update<br></code></pre></td></tr></table></figure><h2 id="虚拟机挂载nfs网络文件系统">6. 虚拟机挂载NFS网络文件系统</h2><p>在宿主机上安装 NFS 服务：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install nfs-kernel-server<br><span class="hljs-built_in">id</span><br>sudo su<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;/home/wujing/code 192.168.2.0/24(rw,sync,all_squash,anonuid=1000,anongid=1000,no_subtree_check)&quot;</span> &gt;&gt; /etc/exports <span class="hljs-comment"># 创建共享目录</span><br>exportfs -arv <span class="hljs-comment"># 更新exports配置</span><br>showmount -e <span class="hljs-comment"># 查看NFS共享情况</span><br></code></pre></td></tr></table></figure><p>在虚拟机上安装 NFS 客户端：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install nfs-common<br>showmount -e 192.168.2.128 <span class="hljs-comment"># 查看NFS服务器共享目录</span><br>sudo mount -t nfs 192.168.2.128:/home/wujing/code /home/wujing/code <span class="hljs-comment"># 临时挂载 NFS 文件系统</span><br></code></pre></td></tr></table></figure><p>临时挂载 NFS 文件系统输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">[ 7990.116497] NFS4: Couldn&#x27;t follow remote path<br>[ 7990.118433] NFS4: Couldn&#x27;t follow remote path<br></code></pre></td></tr></table></figure><p>上述输出仅为warning，请忽略。</p><ul><li><a href="https://www.cnblogs.com/lizhuming/p/13946107.html">挂载NFS网络文件系统教程</a></li><li><a href="https://blog.51cto.com/atong/1343950">NFS原理详解</a></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.jb51.net/article/97216.htm">详解QEMU网络配置的方法</a></li><li><a href="https://js.aizhan.com/server/jishu/6594.html">QEMU的网络配置方法解析</a></li><li><a href="https://www.shuzhiduo.com/A/xl56Dmq0zr/">在qemu-kvm配置桥接网络</a></li><li><a href="https://blog.csdn.net/m0_43406494/article/details/124827927">QEMU--用户模式网络</a></li><li><a href="https://tomwei7.com/2021/10/09/qemu-network-config/">QEMU 网络配置</a></li><li><a href="https://blog.csdn.net/OnlyLove_/article/details/124536607">Linux 内核调试 七：qemu网络配置</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>kernel</category>
+      
+      <category>qemu</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>qemu</tag>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+      <tag>initramfs</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/kernel/namespace/uts_namespace/README/"/>
+    <url>/kernel/namespace/uts_namespace/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="uts-namespacenamespace">UTS namespacenamespace</h1>]]></content>
+    
+    
+    <categories>
+      
+      <category>kernel</category>
+      
+      <category>namespace</category>
+      
+      <category>uts_namespace</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>namespace</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>uts_namespace</title>
+    <link href="/kernel/namespace/uts_namespace/uts_namespace/"/>
+    <url>/kernel/namespace/uts_namespace/uts_namespace/</url>
+    
+    <content type="html"><![CDATA[<h1 id="uts_namespace内核实现">uts_namespace内核实现</h1><p>本次调试基于linux v5.10-rc7，具体参加下方链接：</p><ul><li><a href="https://github.com/realwujing/linux-learning/blob/main/debug/kernel/qemu/%E5%9F%BA%E4%BA%8Eqemu%E6%A1%A5%E6%8E%A5%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%20%E8%B0%83%E8%AF%95%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F.md">基于qemu桥接网络、debootstrap 调试内核、根文件系统</a></li></ul><h2 id="断点">断点</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) save breakpoints ust_namespace.breakpoint<br>Saved to file &#x27;ust_namespace.breakpoint&#x27;.<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">break fs/exec.c:do_execveat_common<br>break kernel/fork.c:2573<br>break kernel/fork.c:kernel_clone<br>break kernel/fork.c:2456<br>break kernel/fork.c:copy_process<br>break kernel/fork.c:1929<br>break kernel/fork.c:2098<br>break kernel/nsproxy.c:copy_namespaces<br>break kernel/nsproxy.c:162<br>break include/linux/nsproxy.h:109<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">source</span> ust_namespace.breakpoint<br>i b<br></code></pre></td></tr></table></figure><h2 id="uts_namespace_demo">uts_namespace_demo</h2><p>通过qemu进入系统后：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> build<br>./uts_namespace_demo<br></code></pre></td></tr></table></figure><h2 id="命名空间复制">命名空间复制</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">14      breakpoint     keep y   0xffffffff8105ea0d in copy_process at kernel/fork.c:2098<br>retval = copy_namespaces(clone_flags, p);<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">b kernel/nsproxy.c:copy_namespaces <br>Breakpoint 15 at 0xffffffff81084c50: file kernel/nsproxy.c, line 153.<br></code></pre></td></tr></table></figure><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">copy_namespaces</span><span class="hljs-params">(<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags, <span class="hljs-keyword">struct</span> task_struct *tsk)</span>   <span class="hljs-comment">// kernel/nsproxy.c:151</span><br>&#123;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> *<span class="hljs-title">old_ns</span> =</span> tsk-&gt;nsproxy;  <span class="hljs-comment">// task_struct有namespace相关数据结构</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">user_namespace</span> *<span class="hljs-title">user_ns</span> =</span> task_cred_xxx(tsk, user_ns); <span class="hljs-comment">// user_namespace</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> *<span class="hljs-title">new_ns</span>;</span><br><span class="hljs-type">int</span> ret;<br><br><span class="hljs-keyword">if</span> (likely(!(flags &amp; (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |<br>      CLONE_NEWPID | CLONE_NEWNET |<br>      CLONE_NEWCGROUP | CLONE_NEWTIME)))) &#123;         <span class="hljs-comment">// CLONE_NEWUTS符合条件，此处为true</span><br><span class="hljs-keyword">if</span> (likely(old_ns-&gt;time_ns_for_children == old_ns-&gt;time_ns)) &#123;  <span class="hljs-comment">// 此处也为true</span><br>get_nsproxy(old_ns);<br><span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;   <span class="hljs-comment">// 此处函数返回</span><br>&#125;<br>&#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!ns_capable(user_ns, CAP_SYS_ADMIN))     <span class="hljs-comment">// 根据usernamesapce鉴权</span><br><span class="hljs-keyword">return</span> -EPERM;<br>...<br>&#125;<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) b kernel/nsproxy.c:162<br>Breakpoint 16 at 0xffffffff81084c90: file kernel/nsproxy.c, line 163.<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) b include/linux/nsproxy.h:109<br>Breakpoint 17 at 0xffffffff81229df2: file ./include/linux/nsproxy.h, line 109.<br></code></pre></td></tr></table></figure><h2 id="nsproxy数据结构">nsproxy数据结构</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> &#123;</span>    <span class="hljs-comment">// include/linux/nsproxy.h:31</span><br><span class="hljs-type">atomic_t</span> count;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">uts_namespace</span> *<span class="hljs-title">uts_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ipc_namespace</span> *<span class="hljs-title">ipc_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mnt_namespace</span> *<span class="hljs-title">mnt_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">pid_namespace</span> *<span class="hljs-title">pid_ns_for_children</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">net</span>      *<span class="hljs-title">net_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">time_namespace</span> *<span class="hljs-title">time_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">time_namespace</span> *<span class="hljs-title">time_ns_for_children</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">cgroup_namespace</span> *<span class="hljs-title">cgroup_ns</span>;</span><br>&#125;;<br><span class="hljs-keyword">extern</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> <span class="hljs-title">init_nsproxy</span>;</span><br></code></pre></td></tr></table></figure><h2 id="unshare系统调用加入新的namespace">unshare系统调用加入新的namespace</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/*</span><br><span class="hljs-comment"> * Called from unshare. Unshare all the namespaces part of nsproxy.</span><br><span class="hljs-comment"> * On success, returns the new nsproxy.</span><br><span class="hljs-comment"> */</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">unshare_nsproxy_namespaces</span><span class="hljs-params">(<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> unshare_flags,</span><br><span class="hljs-params"><span class="hljs-keyword">struct</span> nsproxy **new_nsp, <span class="hljs-keyword">struct</span> cred *new_cred, <span class="hljs-keyword">struct</span> fs_struct *new_fs)</span>  <span class="hljs-comment">// kernel/nsproxy.c:262</span><br>&#123;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">user_namespace</span> *<span class="hljs-title">user_ns</span>;</span><br><span class="hljs-type">int</span> err = <span class="hljs-number">0</span>;<br><br><span class="hljs-keyword">if</span> (!(unshare_flags &amp; (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |<br>       CLONE_NEWNET | CLONE_NEWPID | CLONE_NEWCGROUP |<br>       CLONE_NEWTIME)))<br><span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br><br>user_ns = new_cred ? new_cred-&gt;user_ns : current_user_ns();<br><span class="hljs-keyword">if</span> (!ns_capable(user_ns, CAP_SYS_ADMIN))<br><span class="hljs-keyword">return</span> -EPERM;<br><br>*new_nsp = create_new_namespaces(unshare_flags, current, user_ns,<br> new_fs ? new_fs : current-&gt;fs);<br><span class="hljs-keyword">if</span> (IS_ERR(*new_nsp)) &#123;<br>err = PTR_ERR(*new_nsp);<br><span class="hljs-keyword">goto</span> out;<br>&#125;<br><br>out:<br><span class="hljs-keyword">return</span> err;<br>&#125;<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>kernel</category>
+      
+      <category>namespace</category>
+      
+      <category>uts_namespace</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>qemu</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>namespace</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/assembly-learning/README/"/>
+    <url>/assembly-learning/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="assembly-learning">assembly-learning</h1><ul><li><a href="https://cmsblogs.cn/3358.html">汇编语言（第4版）PDF下载</a></li><li><a href="https://pan.baidu.com/s/1BUWnerHO20rkMlesAesEFQ">链接: https://pan.baidu.com/s/1BUWnerHO20rkMlesAesEFQ 密码: wdd7</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>assembly-learning</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>assembly</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/binaryanalysis/README/"/>
+    <url>/binaryanalysis/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>binaryanalysis</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/bpf-learning/README/"/>
+    <url>/bpf-learning/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="bpf-learning">bpf-learning</h1><h2 id="安装教程">安装教程</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install bpfcc-tools linux-headers-$(<span class="hljs-built_in">uname</span> -r) bpftrace<br></code></pre></td></tr></table></figure><ul><li><a href="bcc.md">BPF Compiler Collection (BCC)</a></li><li><a href="bpftrace.md">bpftrace</a></li></ul><h2 id="动态追踪">动态追踪</h2><p>可以通过探针机制，来采集内核或者应用程序的运行信息。所谓动态，表示他可以不用修改内核和应用程序的代码，就获得丰富的信息。因为在以往的排查和调试性能问题过程中，我们往往会先给应用程序设置一系列的断点(gdb),然后以手动或者脚本(GDB的Python扩展)的方式，在断点处去分析程序状态，或者增加一系列的日志，在日志中寻找线索。相比以往的进程及追踪方法(ptrace)，动态追踪往往只需要消耗很小的性能消耗（5%甚至更少）。</p><p>根据类型不同，动态追踪所使用的事件源，可以分为静态探针，动态探针，硬件事件这三类。</p><h3 id="硬件事件">硬件事件</h3><p>其中硬件事件通常由性能监控计数器PMC(Performance Monitoring Counter)产生，他包括了各种硬件的性能指标，比如CPU的缓存，指令周期，分支预测等等。</p><h3 id="静态探针">静态探针</h3><p>静态探针，指事先在代码中定义好，并编译到应用程序和内核中的探针。这些探针只有在开启探测功能时，才会被执行到。未开启时，不会执行。常见的静态探针包括内核中的跟踪点(tracepoints)和USDT(Userland Statically Defined Tracing)探针：</p><ul><li><p>跟踪点(tracepoints) - 在源码中插入一些带控制条件的探测点，这些探测点允许事后添加处理函数，比如在内核中，最常见的静态追踪方法就是printk(),输出日志，Linux内核定义了大量的跟踪点，可以通过内核编译选项来开启和关闭。</p></li><li><p>USDT探针，全称是用户级静态定义跟踪，需要在源码中插入DTRACE_PROBE()代码，并编译到应用程序中。不过在很多应用程序内置了USDT探针，比如MySQL, PostgreSQL等。</p></li></ul><h3 id="动态探针">动态探针</h3><p>动态探针，是指没有实现在代码定义，但却可以在运行时动态添加的探针。比如函数的调用和返回等，动态探针支持按需在内核或者应用程序中添加探测点，具有更高的灵活性，常见的动态探针有两种，即用于内核态的kprobes以及用户态的uprobes:</p><ul><li><p>kprobes - 用来跟踪内核态的函数，包括用于函数调用的kprobe和用于函数返回的kretprobe。</p></li><li><p>uprobes - 用来跟踪用户态的函数，包括用于函数调用的uprobe以及用于函数返回的uretprobe。</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.toutiao.com/article/7077801491347833374">Linux动态追踪技术概念介绍</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>bpf-learning</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>bpf</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>bcc</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>bcc</title>
     <link href="/bpf-learning/bcc/"/>
     <url>/bpf-learning/bcc/</url>
@@ -928,95 +1305,6 @@
   
   
   <entry>
-    <title>submodule</title>
-    <link href="/git-learning/submodule/"/>
-    <url>/git-learning/submodule/</url>
-    
-    <content type="html"><![CDATA[<h1 id="git-submodules">git submodules</h1><h2 id="更新-submodule">更新 submodule</h2><ul><li><p>自动初始化并更新仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> --recurse-submodules https://github.com/realwujing/linux-learning.git<br></code></pre></td></tr></table></figure></p></li><li><p>方式2</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/realwujing/linux-learning.git<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ol></li><li><p>递归地抓取子模块的更改并更新当前仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull --recurse-submodules<br></code></pre></td></tr></table></figure></p></li><li><p>方式2</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ol></li></ul><h2 id="推送-submodule">推送 submodule</h2><ul><li><p>推送当前仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git push --recurse-submodules=on-demand<br></code></pre></td></tr></table></figure></p></li><li><p>方式2(方式1报错情况下使用)</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git submodule foreach --recursive <span class="hljs-string">&#x27;git push&#x27;</span> &amp;&amp; git push<br></code></pre></td></tr></table></figure></p></li></ol></li></ul><h2 id="更改submodule分支">更改submodule分支</h2><ul><li><p>更改submodule分支</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config -f .gitmodules submodule.assembly.branch main<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git submodule update --remote<br></code></pre></td></tr></table></figure></p></li><li><p>在你拉取的提交中， 可能 .gitmodules 文件中记录的子模块的 URL 发生了改变。 比如，若子模块项目改变了它的托管平台，就会发生这种情况</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 将新的 URL 复制到本地配置中</span><br>git submodule <span class="hljs-built_in">sync</span> --recursive<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 从新 URL 更新子模块</span><br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ul><h2 id="删除-submodule">删除 submodule</h2><ul><li><p>删除 submodule</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 卸载子模块</span><br>git submodule deinit [submodule_folder]<br><span class="hljs-comment"># 如果想移除子库的本地修改,可使用--force标签</span><br>git submodule deinit [submodule_folder] --force<br><br><br><span class="hljs-comment"># 删除文件夹</span><br>git <span class="hljs-built_in">rm</span> [submodule_folder]<br><br><span class="hljs-comment"># 提交代码</span><br>git commit -m <span class="hljs-string">&quot;delete submodule xxxxx&quot;</span><br><br></code></pre></td></tr></table></figure></p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.jianshu.com/p/f8a55b972972/">git submodule 使用小结</a></li><li><a href="https://www.cnblogs.com/hustcpp/p/13092625.html">git 添加submodule 以及更名</a></li><li><a href="https://blog.csdn.net/weixin_45115705/article/details/104303730">Git 修改.Submodule文件 url 生效</a></li><li><a href="https://git-scm.com/book/zh/v2/Git-%E5%B7%A5%E5%85%B7-%E5%AD%90%E6%A8%A1%E5%9D%97">7.11 Git 工具 - 子模块</a></li><li><a href="https://blog.csdn.net/weixin_43455581/article/details/120174578">git中子模块/子仓库的使用</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>git-learning</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>git</tag>
-      
-      <tag>assembly</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/k8s-learning/README/"/>
-    <url>/k8s-learning/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="k8s-learning">k8s-learning</h1><h2 id="k8s-集群部署">k8s 集群部署</h2><h2 id="kubectl-教程">kubectl 教程</h2>]]></content>
-    
-    
-    <categories>
-      
-      <category>k8s-learning</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>k8s</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/kernel/README/"/>
-    <url>/kernel/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="linux内核">Linux内核</h1><h2 id="linux内核完全注释">Linux内核完全注释</h2><ul><li><a href="Linux-0.11-zhaojiong/Linux内核完全注释(修正版v3.0).pdf">Linux内核完全注释(修正版v3.0).pdf</a></li></ul><h2 id="unix-环境高级编程">UNIX 环境高级编程</h2><ul><li><a href="download.eeworld.com.cn_UNIX环境高级编程中文版.pdf">UNIX环境高级编程中文版.pdf</a></li><li><a href="http://download.eeworld.com.cn/detail/genping2008/550957">UNIX环境高级编程中文版-文字版（非扫描）</a></li><li><a href="download.eeworld.com.cn_UNIX%20环境高级编程%20第3版.pdf">UNIX 环境高级编程 第3版.pdf</a></li><li><a href="http://download.eeworld.com.cn/detail/%E5%A4%AA%E7%99%BD%E9%87%91%E6%98%9F/619878">UNIX 环境高级编程 第3版</a></li></ul><h2 id="linux内核深度解析">Linux内核深度解析</h2><ul><li><a href="download.eeworld.com.cn_Linux内核深度解析_余华兵著_北京：人民邮电出版社%20,%202019.05_P622.pdf">Linux内核深度解析.pdf</a></li><li><a href="http://download.eeworld.com.cn/detail/%E9%97%B2%E9%B1%BC%E8%9C%A1%E8%95%89/624239">Linux内核深度解析（文字版PDF带目目录）</a></li></ul><h2 id="linux内核设计与实现">LINUX内核设计与实现</h2><ul><li><a href="Linux内核设计与实现(第三版中文高清带目录).pdf">Linux内核设计与实现(第三版中文高清带目录).pdf</a></li><li><a href="https://awesome-programming-books.github.io/linux/Linux%E5%86%85%E6%A0%B8%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0%EF%BC%88%E7%AC%AC%E4%B8%89%E7%89%88%EF%BC%89.pdf">Linux内核设计与实现（第三版）.pdf</a></li><li><a href="http://kerneltravel.net/note/">《LINUX内核设计与实现》读书笔记</a></li></ul><h2 id="linux内核安全模块深入剖析">Linux内核安全模块深入剖析</h2><ul><li><a href="Linux%E5%86%85%E6%A0%B8%E5%AE%89%E5%85%A8%E6%A8%A1%E5%9D%97%E6%B7%B1%E5%85%A5%E5%89%96%E6%9E%90.pdf">Linux内核安全模块深入剖析.pdf</a></li></ul><h2 id="debug-hacks中文版深入调试的技术和工具">Debug Hacks中文版：深入调试的技术和工具</h2><ul><li><a href="https://www.wenjiangs.com/pdf-ebook/debug-hacks.html">Debug Hacks中文版：深入调试的技术和工具</a></li></ul><h2 id="pci_express_体系结构导读">PCI_Express_体系结构导读</h2><ul><li><a href="https://www.123pan.com/Weboffice/?type=f&amp;id=1641382&amp;FileName=PCI_Express_%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84%E5%AF%BC%E8%AF%BB.pdf&amp;Size=31777886&amp;Etag=7d823eed57dad308392d512270c729fc&amp;S3KeyFlag=1640083-0&amp;CreateAt=1647394917&amp;UpdateAt=1648172199&amp;from=2&amp;shareKey=y8zA-syTe">PCI_Express_体系结构导读.pdf</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>kernel</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>README</title>
     <link href="/cpp-learning/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/"/>
     <url>/cpp-learning/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/</url>
@@ -1128,151 +1416,6 @@
   
   
   <entry>
-    <title>fluid主题自定义标签页小图标</title>
-    <link href="/hexo/fluid/fluid%E4%B8%BB%E9%A2%98%E8%87%AA%E5%AE%9A%E4%B9%89%E6%A0%87%E7%AD%BE%E9%A1%B5%E5%B0%8F%E5%9B%BE%E6%A0%87/"/>
-    <url>/hexo/fluid/fluid%E4%B8%BB%E9%A2%98%E8%87%AA%E5%AE%9A%E4%B9%89%E6%A0%87%E7%AD%BE%E9%A1%B5%E5%B0%8F%E5%9B%BE%E6%A0%87/</url>
-    
-    <content type="html"><![CDATA[<h1 id="fluid主题自定义标签页小图标">fluid主题自定义标签页小图标</h1><h2 id="制作favicon图标">制作favicon图标</h2><p>准备好用作标签页/网页小图标favicon的图片。</p><p>在线<a href="https://www.bitbug.net/">制作ico图标</a>。</p><p>推荐16<em>16、32</em>32。</p><p>将下载后的图标复制到<code>source/images</code>目录下。</p><h2 id="配置_config.fluid.yml">配置_config.fluid.yml</h2><p>增加如下配置：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text"># 用于浏览器标签的图标<br># Icon for browser tab<br>favicon: /img/favicon.png<br><br># 用于苹果设备的图标<br># Icon for Apple touch<br>apple_touch_icon: /img/favicon.png<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://github.com/Cenergy/blog-dev/blob/dev/_config.fluid.yml">https://github.com/Cenergy/blog-dev/blob/dev/_config.fluid.yml</a></li><li><a href="https://blog.csdn.net/qq_39181839/article/details/109477357">Hexo攻略-更换网页图标</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>hexo</category>
-      
-      <category>fluid</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>git</tag>
-      
-      <tag>Hexo</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>k8s集群安装教程</title>
-    <link href="/k8s-learning/k8s%E9%9B%86%E7%BE%A4%E9%83%A8%E7%BD%B2/k8s%E9%9B%86%E7%BE%A4%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/"/>
-    <url>/k8s-learning/k8s%E9%9B%86%E7%BE%A4%E9%83%A8%E7%BD%B2/k8s%E9%9B%86%E7%BE%A4%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/</url>
-    
-    <content type="html"><![CDATA[<h1 id="k8s集群安装教程">k8s集群安装教程</h1><h2 id="masternode节点安装">master、node节点安装</h2><ol type="1"><li><p>切换到root用户</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su -<br></code></pre></td></tr></table></figure></p></li><li><p>配置host</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs plain">cat &lt;&lt; EOF &gt;&gt; /etc/hosts<br>192.169.1.210 k8s-master<br>192.169.1.211 k8s-node1<br>192.169.1.212 k8s-node2<br>EOF<br></code></pre></td></tr></table></figure></p></li><li><p>修改主机名 每台主机都要修改</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">hostnamectl set-hostname k8s-master<br>hostnamectl set-hostname k8s-node1<br>hostnamectl set-hostname k8s-node2<br></code></pre></td></tr></table></figure></p></li><li><p>关闭swap分区 每台主机都要关闭</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 临时关闭</span><br>swapoff -a<br><span class="hljs-comment"># 永久关闭(老版本)</span><br>sed -i <span class="hljs-string">&#x27;/swap/s/^\(.*\)$/#\1/g&#x27;</span> /etc/fstab<br><span class="hljs-comment"># 永久关闭(新版本)</span><br>只需要编辑 /etc/fstab 文件，不要注释掉 swap 那一行<br>而是在其后面默认的挂载选项 defaults 后面加上 noauto 变成 defaults,noauto。<br><br><span class="hljs-built_in">cat</span> /etc/fstab<br><span class="hljs-comment"># 查看是否注释</span><br></code></pre></td></tr></table></figure></p><ul><li><a href="https://www.freedesktop.org/software/systemd/man/systemd.swap.html">https://www.freedesktop.org/software/systemd/man/systemd.swap.html</a></li><li><a href="https://cnzhx.net/blog/disable-swap-in-opensuse-tumbleweed/">openSUSE Tumbleweed 中禁用 SWAP</a></li></ul></li><li><p>安装docker</p><ul><li><a href="https://mirrors.tuna.tsinghua.edu.cn/help/docker-ce/">参考清华Docker Community Edition 镜像使用帮助安装docker</a></li></ul></li><li><p>修改docker Cgroup驱动</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> &lt;&lt;<span class="hljs-string">EOF&gt; /etc/docker/daemon.json</span><br><span class="hljs-string">&#123;</span><br><span class="hljs-string">&quot;exec-opts&quot;:[&quot;native.cgroupdriver=systemd&quot;]</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure></p></li><li><p>安装k8s</p><ul><li><p><a href="https://developer.aliyun.com/mirror/kubernetes?spm=a2c6h.13651102.0.0.73bf1b11EI1d2X">添加阿里云 Kubernetes 镜像仓库</a></p></li><li><p><a href="https://blog.csdn.net/u012069313/article/details/125561711">【Kubernetes系列】K8s由1.24.1降级为1.23.8</a></p></li><li><p><a href="https://www.51cto.com/article/707507.html">Kubernetes 1.24 将结束对dockershim 的支持</a></p></li><li><p><a href="https://kubernetes.io/zh-cn/blog/2022/04/07/upcoming-changes-in-kubernetes-1-24/">Kubernetes 1.24 的删除和弃用</a></p></li></ul><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt-get install -y kubelet=1.23.8-00 kubeadm=1.23.8-00 kubectl=1.23.8-00<br></code></pre></td></tr></table></figure></p></li><li><p>设置kubectl命令补全</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt-get install bash-completion<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;source /usr/share/bash-completion/bash_completion&#x27;</span> &gt;&gt;~/.bashrc<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;source &lt;(kubectl completion bash)&#x27;</span> &gt;&gt;~/.bashrc<br></code></pre></td></tr></table></figure></p></li><li><p>初始化k8s-master节点</p><p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">–apiserver-advertise-address 192.168.2.248 填写你自己k8s-master的IP地址<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubeadm init \<br>--apiserver-advertise-address 192.168.2.248 \<br>--image-repository registry.aliyuncs.com/google_containers \<br>--pod-network-cidr=10.244.0.0/16 \<br>--service-cidr=10.1.0.0/16<br></code></pre></td></tr></table></figure></p></li><li><p>拷贝 kubectl 使用的连接 k8s 认证文件到默认路径</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">exit</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">mkdir</span> -p <span class="hljs-variable">$HOME</span>/.kube<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> -i /etc/kubernetes/admin.conf <span class="hljs-variable">$HOME</span>/.kube/config<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chown</span> $(<span class="hljs-built_in">id</span> -u):$(<span class="hljs-built_in">id</span> -g) <span class="hljs-variable">$HOME</span>/.kube/config<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;export KUBECONFIG=$HOME/.kube/config&#x27;</span> &gt;&gt;~/.bashrc<br></code></pre></td></tr></table></figure><ul><li>初始化成功之后记录以下信息，添加node节点时使用。</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubeadm <span class="hljs-built_in">join</span> 192.169.1.210:6443 --token s2zrot.578bgfdqcr44aivw \<br>--discovery-token-ca-cert-hash sha256:a4b764099ac50a152d8d9a7640c16380297bae8c7ffafd6e3ca76144bfde9f6c<br></code></pre></td></tr></table></figure></li><li><p>安装Pod网络插件 calico</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f https://docs.projectcalico.org/v3.18/manifests/calico.yaml<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/w849593893/article/details/119883531">k8s master节点状态为 NotReady问题解决</a></li></ul></li><li><p>添加node节点</p><ul><li>以下操作在Node节点上执行</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su -<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubeadm <span class="hljs-built_in">join</span> 192.169.1.210:6443 --token s2zrot.578bgfdqcr44aivw \<br>--discovery-token-ca-cert-hash sha256:a4b764099ac50a152d8d9a7640c16380297bae8c7ffafd6e3ca76144bfde9f6c<br></code></pre></td></tr></table></figure><ul><li><a href="https://www.cnblogs.com/linyouyi/p/10850904.html">kubernetes忘记token或者token过期怎么加入k8s集群</a></li></ul></li></ol><h2 id="k8s-dashboard">k8s dashboard</h2><ul><li><a href="https://kubernetes.io/zh-cn/docs/tasks/access-application-cluster/web-ui-dashboard/">部署和访问 Kubernetes 仪表板（Dashboard）</a></li></ul><ol type="1"><li><p>部署 Dashboard UI</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.5.0/aio/deploy/recommended.yaml<br></code></pre></td></tr></table></figure></p><ul><li><p><a href="https://github.com/kubernetes/dashboard/blob/master/docs/user/accessing-dashboard/README.md">https://github.com/kubernetes/dashboard/blob/master/docs/user/accessing-dashboard/README.md</a></p></li><li><p><a href="https://github.com/kubernetes/dashboard/blob/master/docs/user/access-control/creating-sample-user.md">https://github.com/kubernetes/dashboard/blob/master/docs/user/access-control/creating-sample-user.md</a></p></li></ul></li><li><p>更改ClusterIP为NodePort</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl -n kubernetes-dashboard edit service kubernetes-dashboard<br></code></pre></td></tr></table></figure></p></li><li><p>创建配置文件 dashboard-adminuser.yaml</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://github.com/realwujing/k8s-learning/blob/dff12f0c9f2cf74ee13e0aa44babbd2786279bf2/k8s%E9%9B%86%E7%BE%A4%E9%83%A8%E7%BD%B2/dashboard-adminuser.yaml<br></code></pre></td></tr></table></figure></p><p>具体参考：</p><ul><li><a href="https://blog.csdn.net/qq_41538097/article/details/125561769">k8s入门：kubernetes-dashboard 安装</a></li></ul></li><li><p>执行</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f dashboard-adminuser.yaml<br></code></pre></td></tr></table></figure></p></li><li><p>k8s忘记dashboard密码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl -n kubernetes-dashboard get secret<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl describe secret admin-user-token-76rq7 -n kubernetes-dashboard<br></code></pre></td></tr></table></figure></p><p>也可通过下方一行命令获取token：</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl -n kubernetes-dashboard describe secret $(kubectl -n kubernetes-dashboard get secret | grep admin-user | awk <span class="hljs-string">&#x27;&#123;print $1&#125;&#x27;</span>)<br></code></pre></td></tr></table></figure></p></li><li><p>获取 kubernetes-dashboard 对外暴露端口</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl get svc --all-namespaces<br></code></pre></td></tr></table></figure></p></li><li><p>访问k8s dashboard</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">https://192.169.1.210:32188<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.jianshu.com/p/1719a27137e3">Chrome您的连接不是私密连接解决办法</a></p><p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">thisisunsafe<br></code></pre></td></tr></table></figure></p></li></ol><h2 id="kubeadm-reset">kubeadm reset</h2><ul><li><a href="https://sandeepnkulkarni.wordpress.com/2020/07/11/reset-kubernetes-cluster-using-kubeadm/">Reset Kubernetes Cluster using kubeadm</a></li></ul><h2 id="master节点">master节点</h2><ul><li><a href="https://www.cnblogs.com/panw/p/16643652.html">k8s允许master节点参与调度的设置方法</a></li><li><a href="https://blog.csdn.net/omaidb/article/details/121930341">k8s节点调度</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>k8s-learning</category>
-      
-      <category>k8s集群部署</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>git</tag>
-      
-      <tag>k8s</tag>
-      
-      <tag>HTML</tag>
-      
-      <tag>namespace</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/k8s-learning/linglong/README/"/>
-    <url>/k8s-learning/linglong/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="k8s部署玲珑服务">k8s部署玲珑服务</h1><h2 id="创建namespace">创建namespace</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create ns linglong<br></code></pre></td></tr></table></figure><h2 id="在kubernetes集群如何支持私有镜像">在Kubernetes集群如何支持私有镜像</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create secret docker-registry hub-deepin-token --docker-server=hub.deepin.com \<br>--docker-username=ut004487 --docker-password=Wujing2988. -n linglong<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl patch serviceaccount default -n linglong -p <span class="hljs-string">&#x27;&#123;&quot;imagePullSecrets&quot;: [&#123;&quot;name&quot;: &quot;hub-deepin-token&quot;&#125;]&#125;&#x27;</span><br></code></pre></td></tr></table></figure><h2 id="linglong-homepage">linglong-homepage</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker build -t hub.deepin.com/wuhan_v23_linglong/linglong-homepage:develop-snipe .<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker run --<span class="hljs-built_in">rm</span> -it -p 18080:80/tcp hub.deepin.com/wuhan_v23_linglong/linglong-homepage:develop-snipe<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create -n linglong deployment linglong-homepage --image=hub.deepin.com/wuhan_v23_linglong/linglong-homepage:develop-snipe<br></code></pre></td></tr></table></figure><!-- <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl get deployments.apps linglong-homepage -o yaml &gt; linglong-homepage.yaml<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl delete -f linglong-homepage.yaml<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">vim linglong-homepage.yaml 将 namespace 从 default改为 linglong<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f linglong-homepage.yaml<br>``` --&gt;<br><br>- 使用 18080 端口提供服务，连接到容器的 80 端口<br><br>```bash<br>kubectl expose -n linglong deployment linglong-homepage --<span class="hljs-built_in">type</span>=NodePort --port=18080 --target-port=80<br></code></pre></td></tr></table></figure><h2 id="linglong-webstore">linglong-webstore</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker build -t hub.deepin.com/wuhan_v23_linglong/linglong-webstore:develop-snipe .<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker run --<span class="hljs-built_in">rm</span> -it  -p 18081:80/tcp hub.deepin.com/wuhan_v23_linglong/linglong-webstore:develop-snipe<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create -n linglong deployment linglong-webstore --image=hub.deepin.com/wuhan_v23_linglong/linglong-webstore:develop-snipe<br></code></pre></td></tr></table></figure><!-- ```bashkubectl get deployments.apps linglong-webstore -o yaml > linglong-webstore.yaml<figure class="highlight autohotkey"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs autohotkey"><br>```bash<br>kubectl delete -f linglong-webstore.yaml<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">vim linglong-webstore.yaml 将 namespace 从 default改为 linglong<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f linglong-webstore.yaml<br>``` --&gt;<br><br>- 使用 18081 端口提供服务，连接到容器的 80 端口<br><br>```bash<br>kubectl expose -n linglong deployment linglong-webstore --<span class="hljs-built_in">type</span>=NodePort --port=18081 --target-port=80<br></code></pre></td></tr></table></figure><h2 id="linglong-server">linglong-server</h2><ul><li>创建configmap</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create configmap config.yaml --from-file=config.yaml -n linglong<br></code></pre></td></tr></table></figure><ul><li>挂载config.yaml文件到pod中</li></ul><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">具体教程参考linglong-server.yaml<br></code></pre></td></tr></table></figure><ul><li>创建pv</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f linglong-server-pv.yaml<br></code></pre></td></tr></table></figure><ul><li>创建pvc</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f linglong-server-pvc.yaml<br></code></pre></td></tr></table></figure><ul><li>挂载pvc到pod中</li></ul><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">具体教程参考linglong-server.yaml<br></code></pre></td></tr></table></figure><ul><li>linglong-server部署</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker build -t hub.deepin.com/wuhan_v23_linglong/linglong-server:develop-snipe .<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">docker run --<span class="hljs-built_in">rm</span> -it  -p 18888:8888/tcp hub.deepin.com/wuhan_v23_linglong/linglong-server:develop-snipe<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl create -n linglong deployment linglong-server --image=hub.deepin.com/wuhan_v23_linglong/linglong-server:develop-snipe<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl get deployments.apps linglong-server -o yaml &gt; linglong-server.yaml<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl delete -f linglong-server.yaml<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">vim linglong-server.yaml 更改volumeMounts、volumes节点，挂载linglong-server-pvc<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl apply -f linglong-server.yaml<br></code></pre></td></tr></table></figure><ul><li>使用 18888 端口提供服务，连接到容器的 8888 端口</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl expose -n linglong deployment linglong-server --<span class="hljs-built_in">type</span>=NodePort --port=18888 --target-port=8888<br></code></pre></td></tr></table></figure><ul><li>更新镜像</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl -n linglong <span class="hljs-built_in">set</span> image deployment linglong-server linglong-server=hub.deepin.com/wuhan_v23_linglong/linglong-server:develop-snipe<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl -n linglong rollout restart deployment linglong-server<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>k8s-learning</category>
-      
-      <category>linglong</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>k8s</tag>
-      
-      <tag>namespace</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/kernel/Linux-0.11-yuan-xy/README/"/>
-    <url>/kernel/Linux-0.11-yuan-xy/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="linux-0.11">Linux-0.11</h1><p>The old Linux kernel source ver 0.11 which has been tested under modern Linux, Mac OSX and Windows.</p><h2 id="build-on-linux">1. Build on Linux</h2><h3 id="linux-setup">1.1. Linux Setup</h3><ul><li>a linux distribution: debian , ubuntu and mint are recommended</li><li>some tools: gcc gdb qemu</li><li>a linux-0.11 hardware image file: hdc-0.11.img, please download it from http://www.oldlinux.org, or http://mirror.lzu.edu.cn/os/oldlinux.org/, ant put it in the root directory.</li><li>Now, This version already support the Ubuntu 16.04, enjoy it.</li></ul><h3 id="hack-linux-0.11">1.2. hack linux-0.11</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">$ make <span class="hljs-built_in">help</span>// get <span class="hljs-built_in">help</span><br>$ make  // compile<br>$ make start// boot it on qemu<br>$ make debug// debug it via qemu &amp; gdb, you<span class="hljs-string">&#x27;d start gdb to connect it.</span><br></code></pre></td></tr></table></figure><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs gdb">$ gdb tools/system<br>(gdb) target remote :1234<br>(gdb) b main<br>(gdb) c<br></code></pre></td></tr></table></figure><h2 id="build-on-mac-os-x">2. Build on Mac OS X</h2><h3 id="mac-os-x-setup">2.1. Mac OS X Setup</h3><ul><li>install cross compiler gcc and binutils</li><li>install qemu</li><li>install gdb. you need download the gdb source and compile it to use gdb because port doesn't provide i386-elf-gdb, or you can use the pre-compiled gdb in the tools directory.</li><li>a linux-0.11 hardware image file: hdc-0.11.img</li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">$ sudo port install qemu<br>$ sudo port install i386-elf-binutils i386-elf-gcc<br></code></pre></td></tr></table></figure><p>optional <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">$ wget ftp://ftp.gnu.org/gnu/gdb/gdb-7.4.tar.bz2<br>$ tar -xzvf gdb-7.4.tar.bz2<br>$ <span class="hljs-built_in">cd</span> gdb-7.4<br>$ ./configure --target=i386-elf<br>$ make<br></code></pre></td></tr></table></figure></p><h3 id="hack-linux-0.11-1">2.2. hack linux-0.11</h3><p>same as section 1.2</p><h2 id="build-on-windows">3. Build on Windows</h2><p>todo...</p>]]></content>
-    
-    
-    <categories>
-      
-      <category>kernel</category>
-      
-      <category>Linux-0.11-yuan-xy</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>qemu</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/kernel/namespace/README/"/>
-    <url>/kernel/namespace/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="namespace">namespace</h1>]]></content>
-    
-    
-    <categories>
-      
-      <category>kernel</category>
-      
-      <category>namespace</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>namespace</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>README</title>
     <link href="/cpp-learning/protobuf/protobuf_example/README/"/>
     <url>/cpp-learning/protobuf/protobuf_example/README/</url>
@@ -1363,72 +1506,6 @@
       
     </categories>
     
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/kernel/namespace/uts_namespace/README/"/>
-    <url>/kernel/namespace/uts_namespace/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="uts-namespacenamespace">UTS namespacenamespace</h1>]]></content>
-    
-    
-    <categories>
-      
-      <category>kernel</category>
-      
-      <category>namespace</category>
-      
-      <category>uts_namespace</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>namespace</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>uts_namespace</title>
-    <link href="/kernel/namespace/uts_namespace/uts_namespace/"/>
-    <url>/kernel/namespace/uts_namespace/uts_namespace/</url>
-    
-    <content type="html"><![CDATA[<h1 id="uts_namespace内核实现">uts_namespace内核实现</h1><p>本次调试基于linux v5.10-rc7，具体参加下方链接：</p><ul><li><a href="https://github.com/realwujing/linux-learning/blob/main/debug/kernel/qemu/%E5%9F%BA%E4%BA%8Eqemu%E6%A1%A5%E6%8E%A5%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%20%E8%B0%83%E8%AF%95%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F.md">基于qemu桥接网络、debootstrap 调试内核、根文件系统</a></li></ul><h2 id="断点">断点</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) save breakpoints ust_namespace.breakpoint<br>Saved to file &#x27;ust_namespace.breakpoint&#x27;.<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">break fs/exec.c:do_execveat_common<br>break kernel/fork.c:2573<br>break kernel/fork.c:kernel_clone<br>break kernel/fork.c:2456<br>break kernel/fork.c:copy_process<br>break kernel/fork.c:1929<br>break kernel/fork.c:2098<br>break kernel/nsproxy.c:copy_namespaces<br>break kernel/nsproxy.c:162<br>break include/linux/nsproxy.h:109<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">source</span> ust_namespace.breakpoint<br>i b<br></code></pre></td></tr></table></figure><h2 id="uts_namespace_demo">uts_namespace_demo</h2><p>通过qemu进入系统后：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> build<br>./uts_namespace_demo<br></code></pre></td></tr></table></figure><h2 id="命名空间复制">命名空间复制</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">14      breakpoint     keep y   0xffffffff8105ea0d in copy_process at kernel/fork.c:2098<br>retval = copy_namespaces(clone_flags, p);<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">b kernel/nsproxy.c:copy_namespaces <br>Breakpoint 15 at 0xffffffff81084c50: file kernel/nsproxy.c, line 153.<br></code></pre></td></tr></table></figure><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">copy_namespaces</span><span class="hljs-params">(<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags, <span class="hljs-keyword">struct</span> task_struct *tsk)</span>   <span class="hljs-comment">// kernel/nsproxy.c:151</span><br>&#123;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> *<span class="hljs-title">old_ns</span> =</span> tsk-&gt;nsproxy;  <span class="hljs-comment">// task_struct有namespace相关数据结构</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">user_namespace</span> *<span class="hljs-title">user_ns</span> =</span> task_cred_xxx(tsk, user_ns); <span class="hljs-comment">// user_namespace</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> *<span class="hljs-title">new_ns</span>;</span><br><span class="hljs-type">int</span> ret;<br><br><span class="hljs-keyword">if</span> (likely(!(flags &amp; (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |<br>      CLONE_NEWPID | CLONE_NEWNET |<br>      CLONE_NEWCGROUP | CLONE_NEWTIME)))) &#123;         <span class="hljs-comment">// CLONE_NEWUTS符合条件，此处为true</span><br><span class="hljs-keyword">if</span> (likely(old_ns-&gt;time_ns_for_children == old_ns-&gt;time_ns)) &#123;  <span class="hljs-comment">// 此处也为true</span><br>get_nsproxy(old_ns);<br><span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;   <span class="hljs-comment">// 此处函数返回</span><br>&#125;<br>&#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!ns_capable(user_ns, CAP_SYS_ADMIN))     <span class="hljs-comment">// 根据usernamesapce鉴权</span><br><span class="hljs-keyword">return</span> -EPERM;<br>...<br>&#125;<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) b kernel/nsproxy.c:162<br>Breakpoint 16 at 0xffffffff81084c90: file kernel/nsproxy.c, line 163.<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">(gdb) b include/linux/nsproxy.h:109<br>Breakpoint 17 at 0xffffffff81229df2: file ./include/linux/nsproxy.h, line 109.<br></code></pre></td></tr></table></figure><h2 id="nsproxy数据结构">nsproxy数据结构</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> &#123;</span>    <span class="hljs-comment">// include/linux/nsproxy.h:31</span><br><span class="hljs-type">atomic_t</span> count;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">uts_namespace</span> *<span class="hljs-title">uts_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ipc_namespace</span> *<span class="hljs-title">ipc_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mnt_namespace</span> *<span class="hljs-title">mnt_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">pid_namespace</span> *<span class="hljs-title">pid_ns_for_children</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">net</span>      *<span class="hljs-title">net_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">time_namespace</span> *<span class="hljs-title">time_ns</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">time_namespace</span> *<span class="hljs-title">time_ns_for_children</span>;</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">cgroup_namespace</span> *<span class="hljs-title">cgroup_ns</span>;</span><br>&#125;;<br><span class="hljs-keyword">extern</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nsproxy</span> <span class="hljs-title">init_nsproxy</span>;</span><br></code></pre></td></tr></table></figure><h2 id="unshare系统调用加入新的namespace">unshare系统调用加入新的namespace</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/*</span><br><span class="hljs-comment"> * Called from unshare. Unshare all the namespaces part of nsproxy.</span><br><span class="hljs-comment"> * On success, returns the new nsproxy.</span><br><span class="hljs-comment"> */</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">unshare_nsproxy_namespaces</span><span class="hljs-params">(<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> unshare_flags,</span><br><span class="hljs-params"><span class="hljs-keyword">struct</span> nsproxy **new_nsp, <span class="hljs-keyword">struct</span> cred *new_cred, <span class="hljs-keyword">struct</span> fs_struct *new_fs)</span>  <span class="hljs-comment">// kernel/nsproxy.c:262</span><br>&#123;<br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">user_namespace</span> *<span class="hljs-title">user_ns</span>;</span><br><span class="hljs-type">int</span> err = <span class="hljs-number">0</span>;<br><br><span class="hljs-keyword">if</span> (!(unshare_flags &amp; (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |<br>       CLONE_NEWNET | CLONE_NEWPID | CLONE_NEWCGROUP |<br>       CLONE_NEWTIME)))<br><span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br><br>user_ns = new_cred ? new_cred-&gt;user_ns : current_user_ns();<br><span class="hljs-keyword">if</span> (!ns_capable(user_ns, CAP_SYS_ADMIN))<br><span class="hljs-keyword">return</span> -EPERM;<br><br>*new_nsp = create_new_namespaces(unshare_flags, current, user_ns,<br> new_fs ? new_fs : current-&gt;fs);<br><span class="hljs-keyword">if</span> (IS_ERR(*new_nsp)) &#123;<br>err = PTR_ERR(*new_nsp);<br><span class="hljs-keyword">goto</span> out;<br>&#125;<br><br>out:<br><span class="hljs-keyword">return</span> err;<br>&#125;<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>kernel</category>
-      
-      <category>namespace</category>
-      
-      <category>uts_namespace</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>qemu</tag>
-      
-      <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>namespace</tag>
-      
-    </tags>
     
   </entry>
   
@@ -1595,83 +1672,6 @@
       
     </categories>
     
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/assembly-learning/README/"/>
-    <url>/assembly-learning/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="assembly-learning">assembly-learning</h1><ul><li><a href="https://cmsblogs.cn/3358.html">汇编语言（第4版）PDF下载</a></li><li><a href="https://pan.baidu.com/s/1BUWnerHO20rkMlesAesEFQ">链接: https://pan.baidu.com/s/1BUWnerHO20rkMlesAesEFQ 密码: wdd7</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>assembly-learning</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>assembly</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/binaryanalysis/README/"/>
-    <url>/binaryanalysis/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>binaryanalysis</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/bpf-learning/README/"/>
-    <url>/bpf-learning/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="bpf-learning">bpf-learning</h1><h2 id="安装教程">安装教程</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install bpfcc-tools linux-headers-$(<span class="hljs-built_in">uname</span> -r) bpftrace<br></code></pre></td></tr></table></figure><ul><li><a href="bcc.md">BPF Compiler Collection (BCC)</a></li><li><a href="bpftrace.md">bpftrace</a></li></ul><h2 id="动态追踪">动态追踪</h2><p>可以通过探针机制，来采集内核或者应用程序的运行信息。所谓动态，表示他可以不用修改内核和应用程序的代码，就获得丰富的信息。因为在以往的排查和调试性能问题过程中，我们往往会先给应用程序设置一系列的断点(gdb),然后以手动或者脚本(GDB的Python扩展)的方式，在断点处去分析程序状态，或者增加一系列的日志，在日志中寻找线索。相比以往的进程及追踪方法(ptrace)，动态追踪往往只需要消耗很小的性能消耗（5%甚至更少）。</p><p>根据类型不同，动态追踪所使用的事件源，可以分为静态探针，动态探针，硬件事件这三类。</p><h3 id="硬件事件">硬件事件</h3><p>其中硬件事件通常由性能监控计数器PMC(Performance Monitoring Counter)产生，他包括了各种硬件的性能指标，比如CPU的缓存，指令周期，分支预测等等。</p><h3 id="静态探针">静态探针</h3><p>静态探针，指事先在代码中定义好，并编译到应用程序和内核中的探针。这些探针只有在开启探测功能时，才会被执行到。未开启时，不会执行。常见的静态探针包括内核中的跟踪点(tracepoints)和USDT(Userland Statically Defined Tracing)探针：</p><ul><li><p>跟踪点(tracepoints) - 在源码中插入一些带控制条件的探测点，这些探测点允许事后添加处理函数，比如在内核中，最常见的静态追踪方法就是printk(),输出日志，Linux内核定义了大量的跟踪点，可以通过内核编译选项来开启和关闭。</p></li><li><p>USDT探针，全称是用户级静态定义跟踪，需要在源码中插入DTRACE_PROBE()代码，并编译到应用程序中。不过在很多应用程序内置了USDT探针，比如MySQL, PostgreSQL等。</p></li></ul><h3 id="动态探针">动态探针</h3><p>动态探针，是指没有实现在代码定义，但却可以在运行时动态添加的探针。比如函数的调用和返回等，动态探针支持按需在内核或者应用程序中添加探测点，具有更高的灵活性，常见的动态探针有两种，即用于内核态的kprobes以及用户态的uprobes:</p><ul><li><p>kprobes - 用来跟踪内核态的函数，包括用于函数调用的kprobe和用于函数返回的kretprobe。</p></li><li><p>uprobes - 用来跟踪用户态的函数，包括用于函数调用的uprobe以及用于函数返回的uretprobe。</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.toutiao.com/article/7077801491347833374">Linux动态追踪技术概念介绍</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>bpf-learning</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>bpf</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>bcc</tag>
-      
-    </tags>
     
   </entry>
   
