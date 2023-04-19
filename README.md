@@ -1,4 +1,8 @@
-# linux-learning
+---
+title: Stay hungry. Stay foolish.
+---
+
+# Stay hungry. Stay foolish.
 
 - [This is a collection of notes and resources for learning Linux.](https://github.com/realwujing/linux-learning)
 
