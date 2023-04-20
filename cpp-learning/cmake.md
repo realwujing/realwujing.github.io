@@ -98,3 +98,8 @@ make -j12 VERBOSE=1 CXX_FLAGS="$CXX_FLAGS -g -O3 -fPIC"
 - [使用 Google Test 测试框架](https://www.jianshu.com/p/2d3c2c44449a)
 - [GoogleTest测试框架介绍（一）](https://liitdar.blog.csdn.net/article/details/85712973)
 - [Ubuntu Google test 单元测试](https://blog.csdn.net/boy854456187/article/details/117165221)
+
+## cpack
+
+- [cmake(12)：使用cpack生成DEB二进制文件](https://blog.csdn.net/rangfei/article/details/122817575)
+- [将工程使用CPack工具打包成为一个deb包](https://www.cnblogs.com/mxnote/articles/16816354.html)
