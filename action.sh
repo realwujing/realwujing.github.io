@@ -12,6 +12,6 @@ find source/_posts -type f ! -name "*.md"
 git status
 git add -A .
 git branch -u origin/auto-pages
-git commit -m "feat: bot automatic update" --allow-empty
+git diff-index --quiet HEAD || git commit -m "feat: bot automatic update"
 # git push origin HEAD:auto-pages -f
 
