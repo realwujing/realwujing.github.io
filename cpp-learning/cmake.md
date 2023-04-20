@@ -89,3 +89,11 @@ make -j12 VERBOSE=1 CXX_FLAGS="$CXX_FLAGS -g -O3 -fPIC"
 - [target_link_libraries命令 PRIVATE|PUBLIC|INTERFACE的作用](https://its201.com/article/znsoft/119035578)
 - [CMake可以使用Graphviz图形可视化软件(http://www.graphviz.org )生成项目的依赖关系图:](https://www.bookstack.cn/read/CMake-Cookbook/content-chapter7-7.7-chinese.md)
 - [cmake：使用execute_process调用shell命令或脚本](https://blog.csdn.net/qq_28584889/article/details/97758450)
+
+## 测试
+
+- [C++语言的单元测试与代码覆盖率](https://paul.pub/gtest-and-coverage/)
+- [Gtest集成Lcov代码覆盖率测试](https://www.codeleading.com/article/93614362313/)
+- [使用 Google Test 测试框架](https://www.jianshu.com/p/2d3c2c44449a)
+- [GoogleTest测试框架介绍（一）](https://liitdar.blog.csdn.net/article/details/85712973)
+- [Ubuntu Google test 单元测试](https://blog.csdn.net/boy854456187/article/details/117165221)
