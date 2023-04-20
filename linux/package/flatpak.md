@@ -49,14 +49,9 @@ Flatpak原理-ostree
 
 xdg-dbus-proxy - D-Bus proxy 
 
- 
-
- 
-
 Figure 7. Example of successful EXTERNAL authentication with successful negotiation of Unix FD passing 
 
            C: AUTH EXTERNAL 31303030 
-
 
 S: OK 1234deadbeef
              
