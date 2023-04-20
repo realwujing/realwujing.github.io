@@ -2,8 +2,7 @@
 
 set -aex
 
-git fetch origin main
-git fetch origin auto-pages
+git fetch origin
 git checkout -b auto-pages origin/auto-pages
 git merge --strategy-option=theirs origin/main --allow-unrelated-histories --no-edit
 rsync -avP  --delete --exclude='.git'--exclude='.github' --exclude='node_modules' --exclude='public' --exclude='source' --exclude='scaffolds' --exclude='themes' --include='*/' --include='*.md' --exclude='*' ./ ./source/_posts/
