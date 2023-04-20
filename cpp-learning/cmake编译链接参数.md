@@ -6,7 +6,7 @@
 - [GCC编译选项参数](https://zhuanlan.zhihu.com/p/513148985)
 - [添加-O0 -g，生成gdb的调试信息和不进行代码优化](https://blog.51cto.com/u_15064646/3462077)
 - [【使用CMake组织C++工程】2：调试包不优化](https://elloop.github.io/tools/2016-04-10/learning-cmake-2-commands)
-- [CMake解决c++11的phread库问题：undefined reference to `pthread_create’](https://blog.csdn.net/sandalphon4869/article/details/102503224?utm_medium=distribute.pc_relevant_t0.none-task-blog-BlogCommendFromMachineLearnPai2-1.channel_param\&depth_1-utm_source=distribute.pc_relevant_t0.none-task-blog-BlogCommendFromMachineLearnPai2-1.channel_param)
+- [CMake解决c++11的phread库问题：undefined reference to `pthread_create’](https://blog.csdn.net/sandalphon4869/article/details/102503224)
 - [cmake编译缺失pthread_create等thread库解决方案](https://www.jianshu.com/p/10bf5d27dcfc)
 - [gcc -lpthread和gcc -pthread的区别](http://blog.chinaunix.net/uid-69906223-id-5817313.html)
 - [CMake: link options](https://www.5axxw.com/questions/content/ratnvg)
