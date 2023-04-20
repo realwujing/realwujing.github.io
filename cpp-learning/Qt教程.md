@@ -120,7 +120,7 @@
 
 ## qdbus
 
-- <<font color=Red>https://dbus.freedesktop.org/doc/dbus-specification.html</font>>
+- [<font color=Red>https://dbus.freedesktop.org/doc/dbus-specification.html</font>](https://dbus.freedesktop.org/doc/dbus-specification.html)
 
 - [<font color=Red>D-Bus 详解：从编译到应用</font>](https://blog.csdn.net/baidu_32237719/article/details/105749173)
 
