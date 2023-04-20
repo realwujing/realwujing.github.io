@@ -9,8 +9,9 @@ rsync -avP  --delete --exclude='.git'--exclude='.github' --exclude='node_modules
 rsync -avP README.md source/about/index.md
 rm -rf source/_posts/.git source/_posts/.github source/_posts/.gitignore source/_posts/.DS_Store
 find source/_posts -type f ! -name "*.md"
+git status
 git add -A .
 git branch -u origin/auto-pages
-git commit -m "feat: new pages" --allow-empty
+git commit -m "feat: bot automatic update" --allow-empty
 # git push origin HEAD:auto-pages -f
 
