@@ -27,7 +27,7 @@
 - [Mac安装Linux的KVM管理工具virt-manager](https://blog.csdn.net/weixin_30883777/article/details/95729678)
 - [homebrew-virt-manager](https://github.com/jeffreywildman/homebrew-virt-manager)
 - [macOS系统和mac装Windows系统开启虚拟化](https://blog.csdn.net/nbin_newby/article/details/120307866)
-- [macOS \| nvram boot-args的作用及设置方式](https://blog.csdn.net/MissMango0820/article/details/127398047)
+- [macOS | nvram boot-args的作用及设置方式](https://blog.csdn.net/MissMango0820/article/details/127398047)
 - [GitHub - kholia/OSX-KVM: Run macOS on QEMU/KVM. With OpenCore + Big Sur + Monterey + Ventura support now! Only commercial (paid) support is available now to avoid spammy issues. No Mac system is required.](https://github.com/kholia/OSX-KVM)
 - [Linux kernel debug on macOS 搭建可视化内核debug环境](https://zhuanlan.zhihu.com/p/399857241)
 
@@ -88,7 +88,7 @@
 ## arm64下qemu虚拟arm64
 
 - [ARM平台检测是否支持虚拟化的几种常见方法](https://blog.csdn.net/sinat_34833447/article/details/109765004)
-- [X86\_64 环境下使用 QEMU 虚拟机安装 ARM 版 EulerOS 小记](https://www.txisfine.cn/archives/a0d5fa12)
+- [X86_64 环境下使用 QEMU 虚拟机安装 ARM 版 EulerOS 小记](https://www.txisfine.cn/archives/a0d5fa12)
 - [利用qemu-system-aarch64调试Linux内核（arm64）](https://blog.csdn.net/Oliverlyn/article/details/105178832)
 - [QEMU搭建arm64 Linux调试环境](https://zhuanlan.zhihu.com/p/345232459)
 
