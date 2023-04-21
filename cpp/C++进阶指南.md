@@ -11,7 +11,7 @@
 - [interview (huihut.com)](https://interview.huihut.com/#/)
 - [interview -📚C/C++技术面试基础知识总结（一）](https://zhuanlan.zhihu.com/p/114311142)
 - [程序员如何写一份更好的简历 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/38431524)
-- [【C++工程师面试宝典】学习说明\_互联网校招面试真题面经汇总\_牛客网(nowcoder.com)](https://www.nowcoder.com/tutorial/93/8ba2828006dd42879f3a9029eabde9f1)
+- [【C++工程师面试宝典】学习说明_互联网校招面试真题面经汇总_牛客网(nowcoder.com)](https://www.nowcoder.com/tutorial/93/8ba2828006dd42879f3a9029eabde9f1)
 - <https://blog.codekissyoung.com/>
 
 ### C/C++学习，后端开发进阶指南
