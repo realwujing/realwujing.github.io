@@ -5,7 +5,7 @@
 - [设置默认文本编辑器](https://www.debian.org/doc/manuals/debian-reference/ch01.zh-cn.html#_setting_a_default_text_editor)
 - [<font color=Red>Linux vi/vim - 菜鸟教程</font>](https://www.runoob.com/linux/linux-vim.html)
 
-- [<font color=Red>vi 和vim 的区别</font>](https://blog.csdn.net/qq_34306360/article/details/78720090?share_token=5FBE186A-3BEA-4CA6-849A-C70A894A407C\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [<font color=Red>vi 和vim 的区别</font>](https://blog.csdn.net/qq_34306360/article/details/78720090)
 
 - [<font color=Red>VIM常用命令</font>](https://blog.csdn.net/weixin_44441367/article/details/124810525)
 
@@ -27,7 +27,7 @@
 
 - [【Linux基础】vim如何显示文件名称](http://t.zoukankan.com/happyamyhope-p-11906183.html)
 
-- [vim小技巧：多行行首插入、删除、替换](https://www.toutiao.com/article/7167342849502446114/?app=news_article\&timestamp=1668910930\&use_new_style=1\&req_id=202211201022090102112072041361D4B5\&group_id=7167342849502446114\&share_token=B2A5144D-3CC0-43A3-A8E2-D4509F141CC9\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1\&source=m_redirect)
+- [vim小技巧：多行行首插入、删除、替换](https://www.toutiao.com/article/7167342849502446114/)
 - [vim 基本命令查找和替换](https://www.cnblogs.com/woshimrf/p/vim.html)
 - [<font color=Red>vim 多行操作(7)</font>](https://waliblog.com/2019/05/06/vim-7.html)
 - [Linux——VIM学习选取多行（转）](https://blog.csdn.net/sinat_36053757/article/details/78183506)
