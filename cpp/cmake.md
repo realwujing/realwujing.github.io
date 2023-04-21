@@ -51,9 +51,8 @@ make -j12 VERBOSE=1 CXX_FLAGS="$CXX_FLAGS -g -O3 -fPIC"
 ## pkg-config
 
 - [cmake 使用pkg-config配置第三方库和头文件](https://blog.csdn.net/zxcasd11/article/details/104010621)
-- [cmake：pkg_check_modules](https://blog.csdn.net/zhizhengguan/article/details/111826697?utm_source=app\&app_version=4.18.0)
-- [使用 pkg-config 让 C++ 工程编译配置更灵活](https://zhuanlan.zhihu.com/p/417285806?utm_source=wechat_session\&utm_medium=social\&utm_oi=1234321010914365440)
-- [ubuntu 中的 pkg-config](https://blog.csdn.net/fancw/article/details/7386522)
+- [cmake：pkg_check_modules](https://blog.csdn.net/zhizhengguan/article/details/111826697)
+- [使用 pkg-config 让 C++ 工程编译配置更灵活](https://zhuanlan.zhihu.com/p/417285806)
 
 ## install
 
