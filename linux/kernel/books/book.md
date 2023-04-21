@@ -10,9 +10,9 @@
 - [计算机免费书籍,电子书,pdf电子书,电子书籍,网络书籍,电脑书籍下载,编程书籍,编程电子书下载 - 脚本之家 (jb51.net)](https://www.jb51.net/books/)
 - [Linux 多线程服务端编程：使用 muduo C++ 网络库 (chenshuo.com)](http://chenshuo.com/book/)
 - [Linux多线程服务端编程：使用muduo+C++网络库.pdf](file:///C:/Users/wujing/OneDrive/code/book/Linux%E5%A4%9A%E7%BA%BF%E7%A8%8B%E6%9C%8D%E5%8A%A1%E7%AB%AF%E7%BC%96%E7%A8%8B%EF%BC%9A%E4%BD%BF%E7%94%A8muduo+C++%E7%BD%91%E7%BB%9C%E5%BA%93.pdf)
-- [<font color=Red>UNIX环境高级编程(第三版).pdf</font>](https://awesome-programming-books.github.io/linux/UNIX%E7%8E%AF%E5%A2%83%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B\(%E7%AC%AC%E4%B8%89%E7%89%88\).pdf)
+- [<font color=Red>UNIX环境高级编程(第三版).pdf</font>](https://awesome-programming-books.github.io/linux/UNIX%E7%8E%AF%E5%A2%83%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B(%E7%AC%AC%E4%B8%89%E7%89%88).pdf)
 
 ## 计算机考研
 
 - [2021 天勤率辉计算机考研（附408）](https://blog.csdn.net/weixin_47312141/article/details/108910173)
-- [2022考研王道天勤PDF（数据结构、操作系统、计算机网络、计算机组成原理）](https://blog.csdn.net/qq_42724075/article/details/115498431?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromBaidu%7Edefault-12.control\&dist_request_id=1332024.8262.16189919894394197\&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromBaidu%7Edefault-12.control)
+- [2022考研王道天勤PDF（数据结构、操作系统、计算机网络、计算机组成原理）](https://blog.csdn.net/qq_42724075/article/details/115498431)
