@@ -8,8 +8,8 @@
 
 - [C语言typedef的用法详解](https://www.cnblogs.com/xkdn/p/14518465.html)
 - [C++typedef的详细用法](https://blog.csdn.net/hai008007/article/details/80651886)
-- [typedef的用法，C语言typedef详解 (biancheng.net)](http://c.biancheng.net/view/298.html?share_token=C99DF4BD-3D3D-4AF6-8B69-17B132650BDD\&tt_from=copy_link\&utm_source=copy_link\&utm_medium=toutiao_ios\&utm_campaign=client_share)
-- [C语言的不完整类型和前置声明](https://blog.csdn.net/astrotycoon/article/details/41286413?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-4.no_search_link\&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-4.no_search_link)
+- [typedef的用法，C语言typedef详解 (biancheng.net)](http://c.biancheng.net/view/298.html)
+- [C语言的不完整类型和前置声明](https://blog.csdn.net/astrotycoon/article/details/41286413)
 - [<font color=Red>forward declaration of a struct in C?</font>](https://stackoverflow.com/questions/9999512/forward-declaration-of-a-struct-in-c)
 
 ## const、define
@@ -30,20 +30,20 @@
 ## 指针
 
 - [C语言指针变量的定义和使用（精华）](http://c.biancheng.net/view/1991.html)
-- [第九章 指针\_只需一招，彻底攻克C语言指针，再复杂的指针都不怕](https://blog.csdn.net/qq_43205256/article/details/123097791)
+- [第九章 指针_只需一招，彻底攻克C语言指针，再复杂的指针都不怕](https://blog.csdn.net/qq_43205256/article/details/123097791)
 - [看完还不会指针，锤自己！](https://mp.weixin.qq.com/s/t7vomHGTMJ179XTmuJjDqQ)
 
 ## 数组
 
-- [C/C++ 关于一维或二维数组首地址表示含义](https://blog.csdn.net/qq_41574298/article/details/108873959?share_token=F0D47F2D-74D7-4F75-815E-9F7EF0F565D6\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [C/C++ 关于一维或二维数组首地址表示含义](https://blog.csdn.net/qq_41574298/article/details/108873959)
 - [C语言二维数组指针（指向二维数组的指针）详解](http://c.biancheng.net/view/2022.html)
-- [C/C++ 关于一维或二维数组首地址表示含义](https://blog.csdn.net/qq_41574298/article/details/108873959?share_token=F0D47F2D-74D7-4F75-815E-9F7EF0F565D6\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [C/C++ 关于一维或二维数组首地址表示含义](https://blog.csdn.net/qq_41574298/article/details/108873959)
 - [数组和指针绝不等价，数组是另外一种类型](https://blog.csdn.net/qq_38325803/article/details/102751865)
 
 ## Class
 
 - [面向对象究竟是什么鬼？该如何理解？](http://c.biancheng.net/view/9442.html)
-- [漫画 \| 因为用了C语言，Linux内核代码一团糟](https://mp.weixin.qq.com/s/93Z1QX5cMsN6888i8KFjWA)
+- [漫画 | 因为用了C语言，Linux内核代码一团糟](https://mp.weixin.qq.com/s/93Z1QX5cMsN6888i8KFjWA)
 - [C语言：春节回家过年，我发现只有我没有对象！](https://mp.weixin.qq.com/s/2ivQ9hcRvZnhk89jzAppSg)
 - [UML类图几种关系的总结](https://kb.cnblogs.com/page/129490/)
 
@@ -106,13 +106,13 @@
 
 - [C++ 初始化列表](https://www.cnblogs.com/shijingjing07/p/5550556.html)
 - [C++使用初始化列表提高效率（转）： - A-祥子 - 博客园 (cnblogs.com)](https://www.cnblogs.com/weizhixiang/p/6374430.html)
-- [2.2 在子类的构造函数中初始化基类中的成员变量](https://magodo.github.io/inheritance/#:\~:text=C%2B%2B%E4%B8%8D%E5%85%81%E8%AE%B8%E5%9C%A8%E5%88%9D,%E7%BB%A7%E6%89%BF%E7%9A%84%E6%88%90%E5%91%98%E5%8F%98%E9%87%8F%E3%80%82)
+- [2.2 在子类的构造函数中初始化基类中的成员变量](https://magodo.github.io/inheritance)
 - [C++日志（三十一）类继承时的构造函数](https://zhuanlan.zhihu.com/p/106920426)
 - [<font color=Red>C++ 子类继承带参的父类构造函数应该怎么写</font>](https://blog.csdn.net/qq_26728227/article/details/51332970)
 - [<font color=Red>C++11 继承构造函数</font>](https://blog.csdn.net/K346K346/article/details/81703914)
 - [C++基类和派生类的构造函数](http://c.biancheng.net/view/2275.html)
-- [为什么很多人禁用拷贝（复制）构造函数](https://blog.csdn.net/zhjixi495/article/details/103197312?utm_source=app\&app_version=4.17.0)
-- [C++中为什么需要将基类的析构函数设置为虚函数](https://blog.csdn.net/qq_34673519/article/details/101429799?utm_source=app\&app_version=4.17.0)
+- [为什么很多人禁用拷贝（复制）构造函数](https://blog.csdn.net/zhjixi495/article/details/103197312)
+- [C++中为什么需要将基类的析构函数设置为虚函数](https://blog.csdn.net/qq_34673519/article/details/101429799)
 - [<font color=Red>析构函数写成virtual的好处</font>](https://blog.csdn.net/heibao111728/article/details/80814313)
 - [C++继承 构造函数和析构函数的执行顺序](https://blog.csdn.net/qq_38393591/article/details/108997232)
 
@@ -139,7 +139,7 @@
 
 ## 继承多态
 
-- [C++中public、protected、private的区别\_SCOTT技术博客-CSDN博客\_private](https://blog.csdn.net/scottly1/article/details/24354489)
+- [C++中public、protected、private的区别_SCOTT技术博客-CSDN博客_private](https://blog.csdn.net/scottly1/article/details/24354489)
 - [C++ 多态 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/37340242)
 - [C++菱形继承问题 - Rogn - 博客园 (cnblogs.com)](https://www.cnblogs.com/lfri/p/12722086.html)
 - [C 语言实现面向对象编程_onlyshi的专栏-CSDN博客_c 面向对象](https://blog.csdn.net/onlyshi/article/details/81672279)
@@ -158,7 +158,7 @@
 
 - [C++ 从函数返回指针](https://www.runoob.com/cplusplus/cpp-return-pointer-from-functions.html)
 - [关于C++函数返回指针的情况](https://blog.csdn.net/u013700358/article/details/100941168)
-- [函数返回局部变量问题](https://blog.csdn.net/gogokongyin/article/details/51472062?utm_source=app\&app_version=4.17.0)
+- [函数返回局部变量问题](https://blog.csdn.net/gogokongyin/article/details/51472062)
 - [「C/C++」回调函数详解，拿捏住了](https://www.toutiao.com/i7054434692053090853)
 - [10张图让你彻底理解回调函数](https://mp.weixin.qq.com/s/eFYM4uOIF09t8b9tTD523A)
 - [C语言回调函数，提升C技巧必备](https://mp.weixin.qq.com/s/wq2Zwpx_V9JHvC81gN4hPA)
@@ -203,7 +203,7 @@
 
 - [预处理命令使用详解#if、#endif、#undef、#ifdef、#else、#elif - 蓝海人 - 博客园 (cnblogs.com)](https://www.cnblogs.com/lanhaicode/p/10546514.html)
 - [与c++握手言和：define宏定义遇上expected primary-expression before ' ' taken](https://blog.csdn.net/sinat_28752257/article/details/84989928)
-- [#pragma once用法总结](https://www.cnblogs.com/acec/p/14674448.html?ivk_sa=1024320u)
+- [#pragma once用法总结](https://www.cnblogs.com/acec/p/14674448.html)
 
 ## C++11 新特性
 
@@ -223,10 +223,10 @@
 ### 智能指针
 
 - [C++ 智能指针 - 全部用法详解](https://blog.csdn.net/cpp_learner/article/details/118912592)
-- [C++智能指针：std::auto\_ptr为什么被废弃 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/356627164)
+- [C++智能指针：std::auto_ptr为什么被废弃 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/356627164)
 - [现代 C++一文读懂智能指针](https://www.toutiao.com/article/6839870422234694156)
-- [智能指针auto\_ptr、unique\_ptr、shared\_ptr区别-知乎(zhihu.com)](https://zhuanlan.zhihu.com/p/63890916)
-- [C++智能指针——auto\_ptr详解\_yj\_android\_develop的博客-CSDN博客\_auto\_ptr](https://blog.csdn.net/yj_android_develop/article/details/87983707?ops_request_misc=%257B%2522request%255Fid%2522%253A%2522163082085216780262598696%2522%252C%2522scm%2522%253A%252220140713.130102334..%2522%257D\&request_id=163082085216780262598696\&biz_id=0\&utm_medium=distribute.pc_search_result.none-task-blog-2\~all\~top_positive\~default-1-87983707.pc_search_ecpm_flag\&utm_term=auto_ptr\&spm=1018.2226.3001.4187)
+- [智能指针auto_ptr、unique_ptr、shared_ptr区别-知乎(zhihu.com)](https://zhuanlan.zhihu.com/p/63890916)
+- [C++智能指针——auto_ptr详解_yj_android_develop的博客-CSDN博客_auto_ptr](https://blog.csdn.net/yj_android_develop/article/details/87983707)
 - [C++ 共享指针四宗罪](https://mp.weixin.qq.com/s/deG0GHRpz4Qgq4cLSiW6-g)
 
 ### constexpr
@@ -256,7 +256,7 @@
 
 - [C++STL详解](https://blog.csdn.net/qq_36779888/article/details/82220997)
 - [C++中map容器的说明和使用技巧 - anywei - 博客园](https://www.cnblogs.com/anywei/archive/2011/10/27/2226830.html)
-- [C++ priority\_queue(STL priority_queue)用法详解](http://c.biancheng.net/view/480.html)
+- [C++ priority_queue(STL priority_queue)用法详解](http://c.biancheng.net/view/480.html)
 - [C++：std::greater()、std::less()、自定义比较函数的规则](https://blog.csdn.net/sandalphon4869/article/details/105419706)
 - [<font color=Red>C++ STL无序容器（哈希容器）是什么？</font>](http://c.biancheng.net/view/7230.html)
 - [<font color=Red>哈希表（散列表）详解（包含哈希表处理冲突的方法）</font>](http://c.biancheng.net/view/3437.html)
@@ -281,7 +281,7 @@
 - [<font color=Red>理解C++右值引用和std::move-云+社区-腾讯云(tencent.com)</font>](https://cloud.tencent.com/developer/article/1868759)
 - [容器元素的深拷贝和浅拷贝问题](https://www.cnblogs.com/Manual-Linux/p/11087903.html)
 - [c++ 中容器元素深拷贝和浅拷贝的问题](https://blog.csdn.net/weixin_41874599/article/details/91444953)
-- [C++STL \| 容器元素浅拷贝深拷贝问题及容器共性和使用场景](https://www.jianshu.com/p/9d93ec48ae6a)
+- [C++STL | 容器元素浅拷贝深拷贝问题及容器共性和使用场景](https://www.jianshu.com/p/9d93ec48ae6a)
 - [vector内数据的深拷贝和浅拷贝](https://blog.csdn.net/earbao/article/details/44492185)
 
 ## Boost
@@ -299,7 +299,7 @@
 - [<font color=Red>C++日志库spdlog</font>](https://open.toutiao.com/a6965373694814224908/)
 - [<font color=Red>spdlog教程：创建loggers</font>](https://www.jianshu.com/p/ef2b4f68abba)
 - [基于C++ spdlog日志库的完善封装_踏莎行的博客-CSDN博客_spdlog 封装](https://blog.csdn.net/u012234115/article/details/111992209)
-- [c++日志库实战——spdlog，是不是感觉log4cxx有点笨重，不妨试一试spdlog\_xmcy001122的专栏-CSDN博客](https://blog.csdn.net/xmcy001122/article/details/105864473/)
+- [c++日志库实战——spdlog，是不是感觉log4cxx有点笨重，不妨试一试spdlog_xmcy001122的专栏-CSDN博客](https://blog.csdn.net/xmcy001122/article/details/105864473/)
 - [C++流：练习写一个“日志流”](https://zhuanlan.zhihu.com/p/339742121)
 - [一个轻量快速的C++日志库 - 小胖西瓜 - 博客园 (cnblogs.com)](https://www.cnblogs.com/shuqin/p/12103952.html)
 - [Ring Log是一个适用于C++的异步日志](https://github.com/LeechanX/Ring-Log)
@@ -340,7 +340,7 @@
 - [<font color=Red>一文读懂RPC/HTTP/TCP的区别</font>](https://www.toutiao.com/article/7171459285988753923/)
 - [<font color=Red>如果面试提到Protobuf，面试官问其原理怎么办？</font>](https://mp.weixin.qq.com/s/Pjuqq_ADpBIWljXVFoxIPA)
 - [Protocol Buffers C++入门教程](https://cloud.tencent.com/developer/article/1176660)
-- [CMake使用protobuf生成c++代码](https://blog.csdn.net/qq_37868450/article/details/113727764?utm_source=app\&app_version=4.18.0)
+- [CMake使用protobuf生成c++代码](https://blog.csdn.net/qq_37868450/article/details/113727764?utm_source=app&app_version=4.18.0)
 - [CMake笔记：add_custom_command不执行 编译.proto文件](https://blog.csdn.net/ZM_Yang/article/details/112992759)
 - [序列化和反序列化](https://tech.meituan.com/2015/02/26/serialization-vs-deserialization.html)
 - [序列化和反序列化及Protobuf 基本使用](https://www.cnblogs.com/dengchj/p/7453432.html)
