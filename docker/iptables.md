@@ -2,21 +2,21 @@
 
 - [docker容器启动后添加端口映射_realwujing的博客-CSDN博客](https://blog.csdn.net/qq_30013585/article/details/116191215)
 
-    ```bash
-    sudo iptables -t nat -A  DOCKER -p tcp --dport 8081 -j DNAT --to-destination 172.17.0.2:8080
+```bash
+sudo iptables -t nat -A  DOCKER -p tcp --dport 8081 -j DNAT --to-destination 172.17.0.2:8080
 
-    sudo iptables -t nat -A  DOCKER -p tcp --dport 8081 -j DNAT --to-destination 172.17.0.2:8080
-    ```
+sudo iptables -t nat -A  DOCKER -p tcp --dport 8081 -j DNAT --to-destination 172.17.0.2:8080
+```
 
 ## 1、PREROUTING链
 
-# 1.1 查看NAT表中的PREROUTING链
+### 1.1 查看NAT表中的PREROUTING链
 
-    ```
-    sudo iptables -t nat --list-rules PREROUTING
-    ```
+```bash
+sudo iptables -t nat --list-rules PREROUTING
+```
 
-# 结果
+### 结果
 
 ```bash
 -P PREROUTING ACCEPT
