@@ -26,29 +26,29 @@
 
 - [os-level版本控制工具_追寻神迹-CSDN博客_ostree](https://blog.csdn.net/halcyonbaby/article/details/43500231)
 
-- [atomic_在Atomic Host上运行容器的10个任务_cumo3681的博客-CSDN博客](https://blog.csdn.net/cumo3681/article/details/107416567?utm_medium=distribute.pc_relevant.none-task-blog-2\~default\~baidujs_baidulandingword\~default-0.no_search_link\&spm=1001.2101.3001.4242)
+- [atomic_在Atomic Host上运行容器的10个任务_cumo3681的博客-CSDN博客](https://blog.csdn.net/cumo3681/article/details/107416567)
 
 - [为你详细介绍Fedora Silverblue版本，包括常见问题解答](https://www.ywnz.com/linuxxw/5534.html)
 
 - [rpm-ostree - Man Page](https://www.mankier.com/1/rpm-ostree)
 
-- [atomic_在Atomic Host上运行容器的10个任务_cumo3681的博客-CSDN博客](https://blog.csdn.net/cumo3681/article/details/107416567?utm_medium=distribute.pc_relevant.none-task-blog-2\~default\~baidujs_baidulandingword\~default-0.no_search_link\&spm=1001.2101.3001.4242)
+- [atomic_在Atomic Host上运行容器的10个任务_cumo3681的博客-CSDN博客](https://blog.csdn.net/cumo3681/article/details/107416567)
 
 - [Silverblue 文件系统组织结构](https://docs.fedoraproject.org/zh_Hans/fedora-silverblue/technical-information/)
  
 - [【解决办法】升级Fedora33后，屏幕分辨率无法随着VMware窗口大小的改变而改变，设置里面也没有1920x1080分辨率的选项](https://blog.csdn.net/ZLK1214/article/details/113727039)
 
-- [关于编译安装提示No package \*\* found时可能需配置pkg-config](https://blog.csdn.net/lsg9012/article/details/106117895)
+- [关于编译安装提示No package ** found时可能需配置pkg-config](https://blog.csdn.net/lsg9012/article/details/106117895)
 
 - [Automake的使用](https://www.jianshu.com/p/17e777868d6b)
 
 - [解剖automake和autoconf(autoreconf)](https://www.jianshu.com/p/3f69197f9055)
 
-- [Pkgconfig(polkit-gobject-1) Download (RPM) (pkgs.org)](https://pkgs.org/download/pkgconfig\(polkit-gobject-1\))
+- [Pkgconfig(polkit-gobject-1) Download (RPM) (pkgs.org)](https://pkgs.org/download/pkgconfig(polkit-gobject-1))
 
 - [autotools自动编译系列之三---autogen.sh实例](https://blog.csdn.net/kongshuai19900505/article/details/79104442)
 
-- [Linux工具之autogen.sh](https://blog.csdn.net/asbhunan129/article/details/88109632#:\~:text=%E4%BB%8E%E6%A0%87%E9%A2%98%E5%B0%B1%E5%8F%AF%E4%BB%A5%E7%9C%8B%E5%87%BA%E4%BA%86%EF%BC%8C%20autogen.sh,%E6%98%AF%E4%B8%AAshell%E8%84%9A%E6%9C%AC%EF%BC%8C%E5%AE%83%E7%9A%84%E4%BD%9C%E7%94%A8%E5%B0%B1%E6%98%AF%E5%B0%86%E5%89%8D%E4%B8%80%E7%AF%87%20Linux%E5%B7%A5%E5%85%B7%E4%B9%8Bautoconf%E5%92%8Cautomake%20%E8%AE%B2%E7%9A%84%E8%87%AA%E5%8A%A8%E4%BA%A7%E7%94%9FMakefile%E7%9A%84%E8%BF%87%E7%A8%8B%E9%9B%86%E6%88%90%E5%88%B0%E8%84%9A%E6%9C%AC%E4%B8%AD%EF%BC%8C%E7%AE%80%E5%8C%96%E6%93%8D%E4%BD%9C%E3%80%82)
+- [Linux工具之autogen.sh](https://blog.csdn.net/asbhunan129/article/details/88109632)
 
 - <https://stepfunc.io/blog/bindings/>
 
