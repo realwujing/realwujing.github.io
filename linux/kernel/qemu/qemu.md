@@ -33,9 +33,10 @@
 
 ## qemu
 
-- [QEMU (简体中文)](https://wiki.archlinuxcn.org/wiki/QEMU?rdfrom=https%3A%2F%2Fwiki.archlinux.org%2Findex.php%3Ftitle%3DQEMU_%28%25E7%25AE%2580%25E4%25BD%2593%25E4%25B8%25AD%25E6%2596%2587%29%26redirect%3Dno#QEMU_%E7%9A%84%E5%9B%BE%E5%BD%A2%E5%89%8D%E7%AB%AF)
+- [QEMU (简体中文)](https://wiki.archlinuxcn.org/wiki/QEMUhttps://wiki.archlinuxcn.org/wiki/QEMU)
 - [QEMU-KVM基本原理](https://www.toutiao.com/article/7194721406406787623)
-## <https://www.qemu.org/docs/master/system/invocation.html>
+
+- <https://www.qemu.org/docs/master/system/invocation.html>
 
 - [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
 - [libvirt and QEMU 基础篇](https://www.toutiao.com/article/7187732563673432609)
