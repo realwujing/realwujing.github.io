@@ -3,8 +3,8 @@
 ## 手册
 
 - [<font color=Red>Linux学习教程，Linux入门教程（超详细）</font>](http://c.biancheng.net/linux_tutorial/)
-- [Linux教程\|菜鸟教程- RUNOOB.COM](https://www.runoob.com/linux/linux-tutorial.html)
-- [Linux面试题100道，看看会多少？](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==\&mid=2247489122\&idx=1\&sn=fcdc5f6be0478cd0f6205c304e972645\&chksm=f9686496ce1fed80bf5b31bcc6003c6ce0f57e6c3a388c75554778f9927bdbad55d927a77a4a\&scene=21#wechat_redirect)
+- [Linux教程|菜鸟教程- RUNOOB.COM](https://www.runoob.com/linux/linux-tutorial.html)
+- [Linux面试题100道，看看会多少？](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&mid=2247489122&idx=1&sn=fcdc5f6be0478cd0f6205c304e972645&chksm=f9686496ce1fed80bf5b31bcc6003c6ce0f57e6c3a388c75554778f9927bdbad55d927a77a4a&scene=21#wechat_redirect)
 - [所有文章汇总-截止2021年11月3日](https://mp.weixin.qq.com/s/Lk0EM8BUTa3Q4y2d-h86rg)
 - [<font color=Red>Debian 参考手册</font>](https://www.debian.org/doc/manuals/debian-reference/)
 - [<font color=Red>Debian 管理员手册</font>](https://debian-handbook.info/browse/zh-CN/stable/)
@@ -16,11 +16,11 @@
 - [Linux基础总结，这一篇就够了](https://mp.weixin.qq.com/s/zUKmA3sh-uzdyThEG6e1qA)
 - [计算机操作系统知识点总结（相当到位！！）](https://mp.weixin.qq.com/s/OLrN2irwzjCI937iDW4XJg)
 
-- [Linux 命令大全 \| 菜鸟教程 - RUNOOB.COM](https://www.runoob.com/linux/linux-command-manual.html)
+- [Linux 命令大全 | 菜鸟教程 - RUNOOB.COM](https://www.runoob.com/linux/linux-command-manual.html)
 - [Linux命令大全(手册)](https://www.linuxcool.com/)
 - [Linux 操作必备 150 个命令，速度收藏～](https://mp.weixin.qq.com/s/RVaE5xBdhAUfMwuiWo2FiQ)
 - [干货：Linux 文件和目录操作命令](https://mp.weixin.qq.com/s/7y_0daHyBObsyTwVjJiORg)
-- [<font color=Red>Linux命令大全\|https://wangchujiang.com/linux-command/hot.html</font>](https://wangchujiang.com/linux-command/hot.html)
+- [<font color=Red>Linux命令大全|https://wangchujiang.com/linux-command/hot.html</font>](https://wangchujiang.com/linux-command/hot.html)
 - [面试常问的 25+ 个 Linux 命令](https://mp.weixin.qq.com/s/3Fsuv2pTaxrOPUU03Zm9ZA)
 
 - [汇总了89个系统相关的基本概念！](https://mp.weixin.qq.com/s/UN7lbdp6OardlqFUfyY-nQ)
@@ -28,13 +28,13 @@
 
 ## history
 
-- [是否可以立即写入.bash\_history？](https://ubuntuqa.com/article/698.html)
+- [是否可以立即写入.bash_history？](https://ubuntuqa.com/article/698.html)
 
 ## shell
 
 - [<font color=Red>#!/bin/bash 和 #!/usr/bin/env bash 的区别</font>](https://blog.csdn.net/qq_37164975/article/details/106181500)
 - [「Linux」shell命令以及运行原理和Linux权限详解](https://mp.weixin.qq.com/s/SSC83ut0TfPiF0o5sBcUxQ)
-- [Linux基础-shell脚本编程](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==\&mid=2247503952\&idx=1\&sn=a942522821acdc84013cde9b89664ff3\&chksm=f96ba2a4ce1c2bb241da260ed4e93f33dcb72eab0b5135d8b46e985c25e8b45b199f148ef218\&mpshare=1\&scene=1\&srcid=0418Vy2K7AtdrVGYDNAFHATp\&sharer_sharetime=1650256598611\&sharer_shareid=2dfdf936388dba04865b3e883d5a3225\&version=3.1.12.6001\&platform=win#rd)
+- [Linux基础-shell脚本编程](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&mid=2247503952&idx=1&sn=a942522821acdc84013cde9b89664ff3&chksm=f96ba2a4ce1c2bb241da260ed4e93f33dcb72eab0b5135d8b46e985c25e8b45b199f148ef218&mpshare=1&scene=1&srcid=0418Vy2K7AtdrVGYDNAFHATp&sharer_sharetime=1650256598611&sharer_shareid=2dfdf936388dba04865b3e883d5a3225&version=3.1.12.6001&platform=win#rd)
 - [一篇教会你写90%的shell脚本 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/264346586)
 - [<font color=Red>shell教程(二) 四种工作模式</font>](https://blog.csdn.net/xdlmost/article/details/110475880)
 - [linux之登录式shell和非登录式shell](https://cloud.tencent.com/developer/article/1883601)
@@ -43,18 +43,18 @@
 
 ## 父子shell
 
-- [linux中父shell与子shell（脚本执行的几种方式）\_peacewind-CSDN博客](https://blog.csdn.net/NOStandby/article/details/82914930)
+- [linux中父shell与子shell（脚本执行的几种方式）_peacewind-CSDN博客](https://blog.csdn.net/NOStandby/article/details/82914930)
 - [Linux shell类型，shell父子关系，子shell用法](https://www.linuxidc.com/Linux/2018-09/154321.htm)
 - [Linux Shell中单引号、双引号、反引号的解释](https://blog.csdn.net/offer_N/article/details/126406297)
 
-- [你知道shell脚本中\$0 \$1 \$# \$@ \$\* \$? \$\$都是什么意思吗？](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==\&mid=2247498444\&idx=1\&sn=2150e8461c1d6a40cef8f9fe9d36013e\&chksm=f96b8838ce1c012ed600fcd1b4c5964b93f6b061343bc6e3d91bd9f45d0230838e3ce8666e4f\&scene=178\&cur_album_id=1507350615537025026#rd)
-- [Linux多命令顺序执行连接符(; \|\| && \|)\_Don't lost way-CSDN博客](https://blog.csdn.net/wang740209668/article/details/53152596)
-- [Linux中单引号和双引号的区别](https://www.cnblogs.com/yeyuzhuanjia/p/16407968.html?share_token=5F3D6C8B-E7C7-4087-8C0A-E0677AE9EC3C\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [你知道shell脚本中$0 $1 $# $@ $* $? $$都是什么意思吗？](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&mid=2247498444&idx=1&sn=2150e8461c1d6a40cef8f9fe9d36013e&chksm=f96b8838ce1c012ed600fcd1b4c5964b93f6b061343bc6e3d91bd9f45d0230838e3ce8666e4f&scene=178&cur_album_id=1507350615537025026#rd)
+- [Linux多命令顺序执行连接符(; || && |)_Don't lost way-CSDN博客](https://blog.csdn.net/wang740209668/article/details/53152596)
+- [Linux中单引号和双引号的区别](https://www.cnblogs.com/yeyuzhuanjia/p/16407968.html)
 
 
 ## 上传下载文件
 
-- [Linux上传下载文件的几种方式 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/141860859#:\~:text=Linux%E4%B8%8A%E4%BC%A0%E4%B8%8B%E8%BD%BD%E6%96%87%E4%BB%B6%E7%9A%84%E5%87%A0%E7%A7%8D%E6%96%B9%E5%BC%8F%201%20scp%202%20rcp%203%20wget%204,account%20required%20%2Flib64%2Fsecurity%2Fpam_unix.so%20session%20required%20%2Flib64%2Fsecurity%2Fpam_unix.so%209%20SecureCRT)
+- [Linux上传下载文件的几种方式 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/141860859#:~:text=Linux%E4%B8%8A%E4%BC%A0%E4%B8%8B%E8%BD%BD%E6%96%87%E4%BB%B6%E7%9A%84%E5%87%A0%E7%A7%8D%E6%96%B9%E5%BC%8F%201%20scp%202%20rcp%203%20wget%204,account%20required%20%2Flib64%2Fsecurity%2Fpam_unix.so%20session%20required%20%2Flib64%2Fsecurity%2Fpam_unix.so%209%20SecureCRT)
 - [Linux中使用sftp的常用命令](https://blog.csdn.net/jerrygaoling/article/details/115325671)
 
 ## rsync
@@ -66,7 +66,7 @@
 
 ## 忽略大小写
 
-- [Linux终端忽略大小写自动补全\_、moddemod-CSDN博客\_ubuntu 终端忽略大小写 ](https://blog.csdn.net/weixin_43833642/article/details/104712175)
+- [Linux终端忽略大小写自动补全_、moddemod-CSDN博客_ubuntu 终端忽略大小写 ](https://blog.csdn.net/weixin_43833642/article/details/104712175)
 
   ```bash
   echo "set completion-ignore-case on" >> ~/.inputrc
@@ -74,7 +74,7 @@
 
 ## 时间
 
-- [linux中通过date命令获取昨天或明天时间的方法\_花落花开，春去秋来！-CSDN博客](https://blog.csdn.net/GGxiaobai/article/details/53504629)
+- [linux中通过date命令获取昨天或明天时间的方法_花落花开，春去秋来！-CSDN博客](https://blog.csdn.net/GGxiaobai/article/details/53504629)
 
 ## 数组
 
@@ -87,12 +87,12 @@
 - [shell 中$() ` `，${}，$[] $(())，[ ] (( )) [[ ]]作用与区别](https://zhuanlan.zhihu.com/p/82112596)
 - [Shell [[]]详解：检测某个条件是否成立](http://c.biancheng.net/view/2751.html)
 - [使用shell 判断文件夹或文件是否存在](https://blog.51cto.com/888888hfer/2166233)
-- [Shell test命令（Shell \[\]）详解，附带所有选项及说明](http://c.biancheng.net/view/2742.html)
-- [linux shell中的case语句用法](https://blog.csdn.net/qq_33468857/article/details/104835761?share_token=855B794D-47D0-4339-B959-D237E7A6BE06\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [Shell test命令（Shell []）详解，附带所有选项及说明](http://c.biancheng.net/view/2742.html)
+- [linux shell中的case语句用法](https://blog.csdn.net/qq_33468857/article/details/104835761)
 
 ## 重定向、后台运行
 
-- [Shell nohup 命令详解\_shadow\_zed的博客-CSDN博客](https://blog.csdn.net/shadow_zed/article/details/102812261)
+- [Shell nohup 命令详解_shadow_zed的博客-CSDN博客](https://blog.csdn.net/shadow_zed/article/details/102812261)
 - [你知道2>&1 >/dev/null是什么意思么？](https://www.toutiao.com/i7052566294952329765/)
 - [<font color=Red>linux 2>&1和&的意思</font>](https://www.cnblogs.com/x9mars/p/14964113.html)
 - [Linux 任务后台运行（总结）](https://blog.csdn.net/aboutmn/article/details/87778008)
@@ -107,10 +107,10 @@
 
 ## 正则表达式
 
-- [正则表达式 – 元字符 \| 菜鸟教程 (runoob.com)](https://www.runoob.com/regexp/regexp-metachar.html)
-- [正则表达式在线测试 \| 菜鸟工具 (runoob.com)](https://c.runoob.com/front-end/854)
-- [<font color=Red>关于正则表达式中的.\*，.\*?，.+?的理解</font>](https://blog.csdn.net/sinat_32336967/article/details/94761771)
-- [正则表达式中的 .\*和.\*?的区别](https://blog.csdn.net/qq_34172780/article/details/104954879)
+- [正则表达式 – 元字符 | 菜鸟教程 (runoob.com)](https://www.runoob.com/regexp/regexp-metachar.html)
+- [正则表达式在线测试 | 菜鸟工具 (runoob.com)](https://c.runoob.com/front-end/854)
+- [<font color=Red>关于正则表达式中的.*，.*?，.+?的理解</font>](https://blog.csdn.net/sinat_32336967/article/details/94761771)
+- [正则表达式中的 .*和.*?的区别](https://blog.csdn.net/qq_34172780/article/details/104954879)
 - [正则表达式和扩展正则表达式](https://www.cnblogs.com/yan888/p/16137904.html)
 - [C语言中的正则表达式使用](https://www.cnblogs.com/xiaojiu/archive/2013/11/19/3430875.html)
 
@@ -151,8 +151,8 @@
 - [sed 功能强大的流式文本编辑器](https://wangchujiang.com/linux-command/c/sed.html)
 - [<font color=Red>linux sed查找文件中某个值,linux查找文件中间某几行之sed用法小结</font>](https://blog.csdn.net/weixin_28937395/article/details/116575070)
 - [<font color=Red>linux使用sed命令批量替换某个目录下文件的内容</font>](https://blog.51cto.com/u_4048786/3204245)
-- [sed 脚本分隔符引起的问题unknown option to \`s'](https://www.cnblogs.com/cheyunhua/p/14265690.html?share_token=F2D59D56-74A1-4732-8825-FEDA8A7D2A2B\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
-- [SED命令](https://www.cnblogs.com/zhutao-niuniu2014/p/10865076.html?share_token=FBC78752-752B-4B70-8DEC-9B8F4E47ED8A\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [sed 脚本分隔符引起的问题unknown option to `s'](https://www.cnblogs.com/cheyunhua/p/14265690.html)
+- [SED命令](https://www.cnblogs.com/zhutao-niuniu2014/p/10865076.html)
 
 ### awk
 
@@ -163,7 +163,7 @@
 ## tail
 
 - [tail -f 实时查看日志文件 linux查看日志后100行](https://blog.51cto.com/u_15072917/4047087)
-- [linux环境：查看日志的几种命令总结\_危险、的博客-CSDN博客](https://blog.csdn.net/weixin_43945983/article/details/109571105?ops_request_misc=%257B%2522request%255Fid%2522%253A%2522163037512216780265410669%2522%252C%2522scm%2522%253A%252220140713.130102334.pc%255Fall.%2522%257D\&request_id=163037512216780265410669\&biz_id=0\&utm_medium=distribute.pc_search_result.none-task-blog-2\~all\~first_rank_ecpm_v1\~rank_v29_ecpm-16-109571105.first_rank_v2_pc_rank_v29\&utm_term=%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8tail+-200f\&spm=1018.2226.3001.4187)
+- [linux环境：查看日志的几种命令总结_危险、的博客-CSDN博客](https://blog.csdn.net/weixin_43945983/article/details/109571105)
 
 ## cat EOF
 
@@ -184,7 +184,7 @@
 
 - [强大的Linux终端行为记录和回放工具：script命令详解](https://blog.csdn.net/Victor2code/article/details/103378542)
 - [linux情况屏幕一条命令是,Linux中通过script命令那个记录屏幕的输出](https://blog.csdn.net/weixin_29763641/article/details/116925273)
-- [linux下使用script命令生成^ \[和^ M个字符的原因和方法](https://blog.csdn.net/weixin_42096901/article/details/107922971)
+- [linux下使用script命令生成^ [和^ M个字符的原因和方法](https://blog.csdn.net/weixin_42096901/article/details/107922971)
 - [【Linux学习 】Linux使用Script命令来记录并回放终端会话](https://blog.csdn.net/ouyang_peng/article/details/78818492)
 - [终于知道保存SCP日志了](https://blog.csdn.net/reyleon/article/details/13999033)
 
@@ -212,7 +212,7 @@
 - [第9章Linux进程和信号超详细分析](https://www.cnblogs.com/f-ck-need-u/p/7058920.html)
 - [Linux 查看进程和删除进程 - lucyjiayou - 博客园](https://www.cnblogs.com/lucyjiayou/archive/2012/02/24/2366194.html)
 - [linux下grep查找进程](https://blog.csdn.net/shenhaiwen/article/details/75116602)
-- [linux 查看某进程 并杀死进程 ps grep kill](https://blog.csdn.net/beyondlpf/article/details/8065070?utm_medium=distribute.pc_relevant_t0.none-task-blog-BlogCommendFromBaidu-1.control\&depth_1-utm_source=distribute.pc_relevant_t0.none-task-blog-BlogCommendFromBaidu-1.control)
+- [linux 查看某进程 并杀死进程 ps grep kill](https://blog.csdn.net/beyondlpf/article/details/8065070)
 - [Linux 查找指定名称的进程并显示进程详细信息](https://blog.csdn.net/hongweigg/article/details/44828353)
 - [如何在Linux中查找父进程PPID](https://mp.weixin.qq.com/s/jL2bHl0WFzsgqS0MaasVWg)
 - [【转】linux下杀死进程（kill）的N种方法](https://blog.csdn.net/andy572633/article/details/7211546)
@@ -227,16 +227,16 @@
 - [Linux命令系列之top——里面藏着很多鲜为人知的宝藏知识](https://www.toutiao.com/article/7152513156642816519)
 - [Linux 进程管理之四大名捕](https://mp.weixin.qq.com/s/XzoekOLtREOUftHhGE3FLQ)
 - [<font color=Red>top命令里内存参数 VIRT, RES 和 SHR 分别是什么意思</font>](https://segmentfault.com/a/1190000013504502)
-- [linux 实际可用内存\_beyond\_zb的博客-CSDN博客\_linux 可用内存](https://blog.csdn.net/u014265442/article/details/90211142)
-- [linux找出占用内存，占用CPU资源最多的前10个进程\_huangbaokang的博客-CSDN博客\_linux查看内存占用前十](https://blog.csdn.net/huangbaokang/article/details/84934957)
-- [界面酷炫，功能强大！这款Linux性能实时监控工具超好用！](https://www.toutiao.com/article/7195829422606467587/?app=news_article\&timestamp=1675420354\&use_new_style=1\&req_id=20230203183233A3244BA3BFA4FC047011\&group_id=7195829422606467587\&share_token=50E41DB4-5F5D-4FF0-9050-979EBEBF9C06\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1\&source=m_redirect)
+- [linux 实际可用内存_beyond_zb的博客-CSDN博客_linux 可用内存](https://blog.csdn.net/u014265442/article/details/90211142)
+- [linux找出占用内存，占用CPU资源最多的前10个进程_huangbaokang的博客-CSDN博客_linux查看内存占用前十](https://blog.csdn.net/huangbaokang/article/details/84934957)
+- [界面酷炫，功能强大！这款Linux性能实时监控工具超好用！](https://www.toutiao.com/article/7195829422606467587/)
 - [Linux 中的负载高低和 CPU 开销并不完全对应](https://mp.weixin.qq.com/s/M_LYTVHQ8PV0y4oTW0uzEQ)
 - [怎么在Linux系统中查看CPU信息](https://m.elecfans.com/article/1893757.html)
 - [在Linux系统上如何将进程绑定在指定的CPU上运行？](https://www.toutiao.com/article/7215090382089110049)
 
 ## lsof
 
-- [技术\|Linux 命令神器：lsof 入门](https://linux.cn/article-4099-1.html)
+- [技术|Linux 命令神器：lsof 入门](https://linux.cn/article-4099-1.html)
 
 ## stat
 
@@ -268,7 +268,7 @@
 
 - [linux中/etc/hosts文件详解](https://blog.csdn.net/weibo1230123/article/details/82184353)
 - [Linux操作系统下/etc/hosts文件配置方法(域名映射)](https://blog.csdn.net/m0_45406092/article/details/118858102)
-- [hosts文件不可以这样修改吗(Ip可以加端口吗)](https://blog.51cto.com/u_15060515/4707834?abTest=51cto)
+- [hosts文件不可以这样修改吗(Ip可以加端口吗)](https://blog.51cto.com/u_15060515/4707834)
 
 ## net-tools iproute2
 
@@ -283,7 +283,7 @@
 - [brctl命令–管理以太网网桥](https://www.linuxcool.com/brctl)
 - [brctl命令用于设置、维护和检查linux内核中的以太网网桥配置。](https://ipcmen.com/brctl)
 
-- [2 0 Linux虚拟网络设备bridge你真搞懂了吗？](https://cloud.tencent.com/developer/article/1871867?shareByChannel=link)
+- [2 0 Linux虚拟网络设备bridge你真搞懂了吗？](https://cloud.tencent.com/developer/article/1871867)
 - [ubuntu 12.04下如何将物理网卡加入bridge连接外网](http://m.blog.chinaunix.net/uid-25739055-id-4486918.html)
 
 ## iptables
@@ -322,10 +322,10 @@
 - [Linux 中的权限（0755或0644或-rwxr-xr-x）](https://blog.csdn.net/dengjili/article/details/90735669)
 - [<font color=Red>Linux 特殊权限 SUID,SGID,SBIT</font>](https://www.cnblogs.com/sparkdev/p/9651622.html)
 - [Linux chmod命令](https://www.runoob.com/linux/linux-comm-chmod.html)
-- [chmod 命令——chmod 755与chmod 4755区别（转）](https://blog.csdn.net/weixin_30376453/article/details/99780980?utm_medium=distribute.pc_relevant.none-task-blog-2\~default\~baidujs_title\~default-0.no_search_link\&spm=1001.2101.3001.4242.1)
+- [chmod 命令——chmod 755与chmod 4755区别（转）](https://blog.csdn.net/weixin_30376453/article/details/99780980)
 - [Linux权限详解（chmod、600、644、666、700、711、755、777、4755、6755、7755）](https://blog.csdn.net/u013197629/article/details/73608613)
 
-- [文件权限管理  u+s、g+s、o+t/三种用户权限](https://blog.csdn.net/linting0909/article/details/82902196?spm=1001.2101.3001.6650.1\&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-1.no_search_link\&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-1.no_search_link)
+- [文件权限管理  u+s、g+s、o+t/三种用户权限](https://blog.csdn.net/linting0909/article/details/82902196)
 - [linux中文件的特殊权限(SetUID/SetGID/SBIT)](https://www.cnblogs.com/treeskyer/archive/2020/12/21/14166272.html)
 
 - [linux系统学习笔记：无死角理解保存的设置用户ID，设置用户ID位，有效用户ID，实际用户ID](https://www.cnblogs.com/stemon/p/5287631.html)
@@ -340,9 +340,9 @@
 
 ## mount
 
-- [linux mount (挂载命令)详解](https://blog.csdn.net/love3765/article/details/78604288?share_token=7B0025E9-C6E6-415A-9CBE-C3FE99ECECE4\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [linux mount (挂载命令)详解](https://blog.csdn.net/love3765/article/details/78604288)
 - [mount bind使用方法](https://www.cnblogs.com/xingmuxin/p/8446115.html)
-- [linux的mount bind命令](https://blog.csdn.net/langb2014/article/details/115454647?share_token=0E67E0E2-C458-457C-BCA7-C9B5CE307978\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [linux的mount bind命令](https://blog.csdn.net/langb2014/article/details/115454647)
 - [Linux 中列出挂载驱动器的 4 个命令](https://mp.weixin.qq.com/s/dbSZmESQmZaommTFd3-UPA)
 
 ## 软链接和硬链接
@@ -350,16 +350,16 @@
 - [linux里创建快捷方式和查看快捷方式的指向](https://blog.csdn.net/ljw_jiawei/article/details/91044595)
 - [【Linux】：Linux下创建软链接（快捷方式） - Geeksongs - 博客园 (cnblogs.com)](https://www.cnblogs.com/geeksongs/p/13517072.html)
 - [<font color=Red>「来道题」Linux的软链接</font>](https://www.toutiao.com/article/7156875262477566500)
-- [5分钟让你明白“软链接”和“硬链接”的区别](https://www.cnblogs.com/fqnb001/p/8778790.html?share_token=E7B5C44A-2154-4FD8-A6C5-BBBBCCAE9B03\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
-- [一文搞懂 Linux 的 inode！](https://www.cnblogs.com/qinlulu/p/13204813.html?share_token=A44BDA4E-3AA1-4ECC-AAD9-4A0A92099507\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [5分钟让你明白“软链接”和“硬链接”的区别](https://www.cnblogs.com/fqnb001/p/8778790.html)
+- [一文搞懂 Linux 的 inode！](https://www.cnblogs.com/qinlulu/p/13204813.html)
 - [linux文件－link函数(文件硬链接和软连接)](https://blog.csdn.net/andrewgithub/article/details/82026727)
 - [Linux中软链接、硬链接以及mount bind的区别](https://www.fenghome.top/post/80)
 
 ## 解压缩
 
-- [Linux命令之解压缩：tar、zip、rar 命令\_阿飞的博客-CSDN博客\_linux解压rar包命令](https://blog.csdn.net/afei__/article/details/82619843)
-- [Linux zip命令 \| 菜鸟教程 (runoob.com)](https://www.runoob.com/linux/linux-comm-zip.html)
-- [linux下tar.gz、tar、bz2、zip等解压缩、压缩命令小结\_LINUX\_操作系统\_脚本之家 (jb51.net)](https://www.jb51.net/LINUXjishu/43356.html)
+- [Linux命令之解压缩：tar、zip、rar 命令_阿飞的博客-CSDN博客_linux解压rar包命令](https://blog.csdn.net/afei__/article/details/82619843)
+- [Linux zip命令 | 菜鸟教程 (runoob.com)](https://www.runoob.com/linux/linux-comm-zip.html)
+- [linux下tar.gz、tar、bz2、zip等解压缩、压缩命令小结_LINUX_操作系统_脚本之家 (jb51.net)](https://www.jb51.net/LINUXjishu/43356.html)
 - [Linux下tar命令解压到指定的目录](https://blog.csdn.net/libing_zeng/article/details/73268032)
 - [想学Linux中的打包和压缩？看这一篇就够了](https://www.toutiao.com/article/7172630331697218059)
 
@@ -370,11 +370,11 @@
 ## 环境变量
 
 - [Linux PATH环境变量及作用（初学者必读）](http://c.biancheng.net/view/5876.html)
-- [Environment variables (简体中文)](https://wiki.archlinux.org/title/Environment_variables_\(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87\))
+- [Environment variables (简体中文)](https://wiki.archlinux.org/title/Environment_variables_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87))
 - [<font color=Red>Linux设置PATH环境变量的几个地方和设置方法</font>](https://blog.csdn.net/Kruck/article/details/50977880)
-- [Ubuntu环境变量——添加与删除\_Beanocean-CSDN博客\_ubuntu删除环境变量](https://blog.csdn.net/beanocean/article/details/14677833)
+- [Ubuntu环境变量——添加与删除_Beanocean-CSDN博客_ubuntu删除环境变量](https://blog.csdn.net/beanocean/article/details/14677833)
 - [<font color=Red>Linux添加路径到PATH环境变量</font>](https://www.cnblogs.com/windyvalley/p/linux_path_append.html)
-- [Ubuntu下设置环境变量\_莫一剑\_新浪博客 (sina.com.cn)](http://blog.sina.com.cn/s/blog_6405313801012pxw.html)
+- [Ubuntu下设置环境变量_莫一剑_新浪博客 (sina.com.cn)](http://blog.sina.com.cn/s/blog_6405313801012pxw.html)
 - [Linux export、set、env和source作用详解](https://blog.csdn.net/weixin_39060517/article/details/116325845)
 - [Linux环境变量总结](https://mp.weixin.qq.com/s/uE2pW44JZNyaaQAlrV0c1g)
 
@@ -386,17 +386,16 @@
 ## ssh
 
 - [ssh“权限太开放”错误](https://stackoom.com/question/ctjy/ssh-%E6%9D%83%E9%99%90%E5%A4%AA%E5%BC%80%E6%94%BE-%E9%94%99%E8%AF%AF)
-- [vscode remote ssh多重跳接配置内网穿透](https://blog.csdn.net/qq_38476684/article/details/100028507?utm_medium=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-2.nonecase\&depth_1-utm_source=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-2.nonecase)
-- [ssh key一键自动化生成公钥私钥，并自动分发上百服务器免密码交互](https://blog.csdn.net/weixin_34364071/article/details/93802213)
+- [vscode remote ssh多重跳接配置内网穿透](https://blog.csdn.net/qq_38476684/article/details/100028507)
 - [ubuntu设置 SSH 通过密钥登录](https://blog.csdn.net/permike/article/details/52386868)
 - [<font color=Red>ubuntu设置 SSH 通过密钥登录 - 盘思动 - 博客园 (cnblogs.com)</font>](https://www.cnblogs.com/pansidong/p/12248278.html)
 - [<font color=Red>ssh-copy-id命令 – 复制公钥到远程主机</font>](https://www.linuxcool.com/ssh-copy-id)
-- [<font color=Red>Linux配置SSH免用户免密码登陆</font>](https://www.cnblogs.com/jhao/p/12917598.html?share_token=B863D5C4-FCA0-42E3-A884-4EA9A33238E9\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [<font color=Red>Linux配置SSH免用户免密码登陆</font>](https://www.cnblogs.com/jhao/p/12917598.html)
 - [<font color=Red>SSH的config配置之多账号简单管理</font>](https://jingwei.link/2018/12/15/ssh-config-multi-app-manager.html)
-- [Win10怎么配置ssh密钥免密连接Linux服务器\_windows10\_Windows系列\_操作系统\_脚本之家 (jb51.net)](https://www.jb51.net/os/win10/680687.html)
+- [Win10怎么配置ssh密钥免密连接Linux服务器_windows10_Windows系列_操作系统_脚本之家 (jb51.net)](https://www.jb51.net/os/win10/680687.html)
 - [Win10配置ssh密钥免密连接Linux服务器 - 大白的攻城狮 - 博客园 (cnblogs.com)](https://www.cnblogs.com/dabai56/p/11057127.html)
 - [Mac使用ssh密钥登录Linux - 简书 (jianshu.com)](https://www.jianshu.com/p/7990ca55da69)
-- [Mac通过ssh连接ubuntu\_Lynn\_mg的博客-CSDN博客](https://blog.csdn.net/Lynn_mg/article/details/91344494)
+- [Mac通过ssh连接ubuntu_Lynn_mg的博客-CSDN博客](https://blog.csdn.net/Lynn_mg/article/details/91344494)
 - [vscode SSH 保存密码自动登录服务器](https://www.jianshu.com/p/cc1f599c8841)
 
 - [VSCode Remote ssh跳板机配置(linux环境)](https://blog.csdn.net/qq_21407811/article/details/110938940)
@@ -409,9 +408,9 @@
 
 ## crontab计划任务
 
-- [linux中crontab计划任务怎么删除?\_LINUX\_操作系统\_脚本之家 (jb51.net)](https://www.jb51.net/LINUXjishu/717266.html)
-- [Linux中的cron计划任务配置详解\_Linux教程\_Linux公社-Linux系统门户网站 (linuxidc.com)](https://www.linuxidc.com/Linux/2016-11/137660.htm)
-- [在线crontab表达式执行时间计算工具\_蛙蛙在线工具 (iamwawa.cn)](https://www.iamwawa.cn/crontab.html)
+- [linux中crontab计划任务怎么删除?_LINUX_操作系统_脚本之家 (jb51.net)](https://www.jb51.net/LINUXjishu/717266.html)
+- [Linux中的cron计划任务配置详解_Linux教程_Linux公社-Linux系统门户网站 (linuxidc.com)](https://www.linuxidc.com/Linux/2016-11/137660.htm)
+- [在线crontab表达式执行时间计算工具_蛙蛙在线工具 (iamwawa.cn)](https://www.iamwawa.cn/crontab.html)
 - [crontab执行时间计算 - 在线工具 (tool.lu)](https://tool.lu/crontab/)
 
 ## Patch
@@ -426,11 +425,11 @@
 
 ## 其它
 
-- [解决VSCode终端在Linux下打不开的问题\_hqsiswiliam的博客-CSDN博客\_vscode打不开](https://blog.csdn.net/hqsiswiliam/article/details/105832597)
+- [解决VSCode终端在Linux下打不开的问题_hqsiswiliam的博客-CSDN博客_vscode打不开](https://blog.csdn.net/hqsiswiliam/article/details/105832597)
 
 - [3 种方法教你在 Linux 中修改打开文件数量限制](https://www.163.com/dy/article/FSEENEN90531I6Y1.html)
 - [安装OhMyZsh插件后提示错误：“zsh compinit: insecure directories”- bobjoy的个人空间- OSCHINA -中文开源技术交流社区](https://my.oschina.net/u/215547/blog/824106)
-- [ubuntu搭建http服务器用于下载ubuntu文件](https://blog.csdn.net/yy1695990107/article/details/116976994?spm=1001.2101.3001.6650.2\&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-2.no_search_link\&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-2.no_search_link)
+- [ubuntu搭建http服务器用于下载ubuntu文件](https://blog.csdn.net/yy1695990107/article/details/116976994)
 
 - [你和 Linux 极客只差一个 LFS - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/26546592)
 - [服务器虚拟化组件有哪些？](http://c.biancheng.net/view/3842.html)
@@ -441,15 +440,15 @@
 
 - [快乐尝试最新 KDE Plasma，精心制作的 Linux 桌面环境](https://mp.weixin.qq.com/s/aZsaUt2sJhd-BzxlmS3Cmw)
 
-- [Talk is cheap. Show me the code.— IT 界那些朗朗上口的“名言”](https://blog.csdn.net/piupiu78/article/details/116350367?ydreferer=aHR0cHM6Ly93d3cuYmluZy5jb20v)
+- [Talk is cheap. Show me the code.— IT 界那些朗朗上口的“名言”](https://blog.csdn.net/piupiu78/article/details/116350367)
 
 - [宇宙第一 IDE 到底是谁？](https://www.toutiao.com/article/6930965164980306439)
 
 - [盘一盘各种”xPU”](https://mp.weixin.qq.com/s/UAzN_7Bmb9uLRy8GJ-9rFg)
 
 - [菜鸟也能懂的 - 音视频基础知识。](https://mp.weixin.qq.com/s/HzJyf9QLZYjRsacf_veK4g)
-- [Camera \| 2.MIPI、CSI基础](https://mp.weixin.qq.com/s/5qYO5RjCDUcxo4tR3_f_ow)
-- [Linux虚拟网络设备bridge你真搞懂了吗？](https://cloud.tencent.com/developer/article/1871867?shareByChannel=link)
+- [Camera | 2.MIPI、CSI基础](https://mp.weixin.qq.com/s/5qYO5RjCDUcxo4tR3_f_ow)
+- [Linux虚拟网络设备bridge你真搞懂了吗？](https://cloud.tencent.com/developer/article/1871867)
 
 ## 时间协议
 
