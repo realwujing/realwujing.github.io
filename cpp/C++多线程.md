@@ -34,7 +34,7 @@
 
 - [C++11 并发指南系列 - Haippy - 博客园 (cnblogs.com)](https://www.cnblogs.com/haippy/p/3284540.html)
 - [C++11 并发指南五(std::condition_variable 详解) - Haippy - 博客园 (cnblogs.com)](https://www.cnblogs.com/haippy/p/3252041.html)
-- [C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客\_c++ notify\_one](https://blog.csdn.net/feikudai8460/article/details/109604690)
+- [C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客_c++ notify_one](https://blog.csdn.net/feikudai8460/article/details/109604690)
 
 ### 死锁
 
