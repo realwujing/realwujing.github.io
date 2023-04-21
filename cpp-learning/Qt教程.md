@@ -162,7 +162,7 @@
 
 ## qmake cmake
 
-- [qmake: could not exec '/usr/lib/x86\_64-linux-gnu/qt4/bin/qmake'](https://blog.csdn.net/x356982611/article/details/71169940)
+- [qmake: could not exec '/usr/lib/x86_64-linux-gnu/qt4/bin/qmake'](https://blog.csdn.net/x356982611/article/details/71169940)
 - [qt的moc,uic,rcc命令的使用](https://www.cnblogs.com/xiangism/p/4621108.html)
 - <https://cmake.org/cmake/help/latest/manual/cmake-qt.7.html>
 
