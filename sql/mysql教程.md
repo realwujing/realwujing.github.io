@@ -4,16 +4,16 @@
 
 - [MySQL安装配置](https://www.runoob.com/linux/mysql-install-setup.html)
 - [如何在Ubuntu 20.04 LTS Linux上安装MySQL服务器](https://www.cyberciti.biz/faq/install-mysql-server-8-on-ubuntu-20-04-lts-linux/)
-- [Ubuntu 18.04 64位安装MySQL8.0](https://blog.csdn.net/weixin_44129085/article/details/104481986)
+- [<font color=Red>Ubuntu 18.04 64位安装MySQL8.0</font>](https://blog.csdn.net/weixin_44129085/article/details/104481986)
 - [Ubuntu18.04下安装MySQL](https://www.cnblogs.com/opsprobe/p/9126864.html)
 - [ubuntu20.04安装mysql8.0](https://blog.csdn.net/lduzhenlin/article/details/113243476)
-- [Ubuntu20.04安装Mysql（亲测有效，一定要按步骤来）](https://blog.csdn.net/YM_1111/article/details/107555383)
+- [<font color=Red>Ubuntu20.04安装Mysql（亲测有效，一定要按步骤来）</font>](https://blog.csdn.net/YM_1111/article/details/107555383)
 - [在 Ubuntu 18.0-10上安装 MySQL8](https://www.bbsmax.com/A/qVdeLMAb5P/)
-- [mysql官方apt仓库源](https://dev.mysql.com/downloads/repo/apt/)
+- [<font color=Red>mysql官方apt仓库源</font>](https://dev.mysql.com/downloads/repo/apt/)
 
 ## Mariadb
 
-- [MariaDB数据库管理系统是MySQL的一个分支](https://www.cnblogs.com/sunxiuwen/p/9818620.html)
+- [<font color=Red>MariaDB数据库管理系统是MySQL的一个分支</font>](https://www.cnblogs.com/sunxiuwen/p/9818620.html)
 - [弹指神通MariaDB——MariaDB与MySQL各版本的区别](https://blog.csdn.net/dongdong9223/article/details/86645690)
 - [MariaDB窗口函数row_number、rank介绍](https://blog.csdn.net/shenliang1985/article/details/105727187)
 
@@ -27,7 +27,7 @@
 
 - [MySQL5.7创建用户并授权_qpzkobe的博客-CSDN博客_mysql5.7 创建用户](https://blog.csdn.net/qpzkobe/article/details/102833458)
 - [MySQL 创建用户并设置所有权限_HelloKandy的博客-CSDN博客_mysql给用户所有权限](https://blog.csdn.net/hellokandy/article/details/80493564)
-- [mysql8.0数据库添加用户和授权](https://blog.csdn.net/qq_23859799/article/details/85862821)
+- [<font color=Red>mysql8.0数据库添加用户和授权</font>](https://blog.csdn.net/qq_23859799/article/details/85862821)
 
 ## 修改密码
 
@@ -35,7 +35,7 @@
 
 ## 忘记密码
 
-- [CentOS忘记mariadb/mysql root密码解决办法](https://blog.51cto.com/u_15162069/2742245)
+- [<font color=Red>CentOS忘记mariadb/mysql root密码解决办法</font>](https://blog.51cto.com/u_15162069/2742245)
 
 ## 远程连接
 
@@ -138,13 +138,13 @@
 
 ## 数据库同步
 
-- [mysql怎么导出数据库？](https://m.php.cn/article/418834.html)
-- [MySQL终端执行SQL文件](https://pein0119.github.io/2014/10/22/MySQL%E7%BB%88%E7%AB%AF%E6%89%A7%E8%A1%8CSQL%E6%96%87%E4%BB%B6/)
+- [<font color=Red>mysql怎么导出数据库？</font>](https://m.php.cn/article/418834.html)
+- [<font color=Red>MySQL终端执行SQL文件</font>](https://pein0119.github.io/2014/10/22/MySQL%E7%BB%88%E7%AB%AF%E6%89%A7%E8%A1%8CSQL%E6%96%87%E4%BB%B6/)
 
 - [一文了解MySQL Binlog](https://www.toutiao.com/article/7153640695385932324/)
 - [基于Binlog的MySQL主从复制](https://www.toutiao.com/article/7153641138942198308/)
 
-- [MySQL 最朴素的监控方式！用完爱不释手](https://mp.weixin.qq.com/s/TjF8stG8UhBm_TZAaChbTA)
+- [<font color=Red>MySQL 最朴素的监控方式！用完爱不释手</font>](https://mp.weixin.qq.com/s/TjF8stG8UhBm_TZAaChbTA)
 
 - [基于Canal和Kafka实现MySQL的Binlog近实时同步 (juejin.cn)](https://juejin.cn/post/6844904088539234312)
 - [大数据时代，数据实时同步解决方案的思考—最全的数据同步总结 - 张永清 - 博客园 (cnblogs.com)](https://www.cnblogs.com/laoqing/p/11359224.html)
