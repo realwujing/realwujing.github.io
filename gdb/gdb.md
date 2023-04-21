@@ -2,12 +2,12 @@
 
 ## 调试工具
 
-- [<font color=Red>Linux 程序开发常用调试工具合集</font>](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==\&mid=2247483984\&idx=2\&sn=2672096af3ab1844e7b6d0b6e9de802b\&chksm=f96870a4ce1ff9b2183f17c2873f1a35b418469dde92eb4e49f9d3de073aeafb87fe4c5b0002\&scene=21#wechat_redirect)
+- [<font color=Red>Linux 程序开发常用调试工具合集</font>](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&mid=2247483984&idx=2&sn=2672096af3ab1844e7b6d0b6e9de802b&chksm=f96870a4ce1ff9b2183f17c2873f1a35b418469dde92eb4e49f9d3de073aeafb87fe4c5b0002&scene=21#wechat_redirect)
 - [Linux C/C++ 调试的那些“歪门邪道”](https://mp.weixin.qq.com/s/t0BidHMCGqTftchGUU5otw)
 
 ## gdb
 
-- [<font color=Red>gdb调试常用命令</font>](https://www.cnblogs.com/tzj-kernel/p/14909077.html?share_token=6DA887AF-AC5E-4520-9F5A-EFA01AD42511\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [<font color=Red>gdb调试常用命令</font>](https://www.cnblogs.com/tzj-kernel/p/14909077.html)
 - [GDB调试](https://blog.codekissyoung.com/C%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1/GDB%E8%B0%83%E8%AF%95%E5%99%A8)
 - [了解和使用GDB调试-基础](https://www.cnblogs.com/tlam/p/15612774.html)
 - [GDB调试指南(入门，看这篇够了)](https://blog.csdn.net/chen1415886044/article/details/105094688)
@@ -44,13 +44,13 @@
 - [<font color=Red>源码路径查看与设置</font>](https://www.jianshu.com/p/9c211e92d25e)
 - [替换查找源文件的目录 set substitute-path from-path to-path](https://wizardforcel.gitbooks.io/100-gdb-tips/content/substitute-path.html)
 - [<font color=Red>gdb调试解决找不到源代码的问题</font>](https://blog.csdn.net/nicholas_duan/article/details/117515155)
-- [gdb分析core文件找不到源码](https://blog.csdn.net/jackgo73/article/details/120431609?share_token=1A4DC704-9FC8-4E2A-9CA3-3D767D17A1D6\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
-- [gdb调试解决找不到源代码的问题](https://blog.csdn.net/albertsh/article/details/107437084?share_token=3F12E4D7-315D-494E-9164-4C926E0E6664\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [gdb分析core文件找不到源码](https://blog.csdn.net/jackgo73/article/details/120431609)
+- [gdb调试解决找不到源代码的问题](https://blog.csdn.net/albertsh/article/details/107437084)
 
 - [gdb设置显示选项](https://blog.csdn.net/dai_jing/article/details/36896215)
 - [GDB 调试 {转} - 心灵捕手 - 博客园 (cnblogs.com)](https://www.cnblogs.com/Dennis-mi/articles/3755911.html)
 - [LINUX下GDB的使用方法(简单说说)_longfan的博客-CSDN博客_gdb](https://blog.csdn.net/awm_kar98/article/details/82840811)
-- [GDB查看C++对象布局\_tmhanks的博客-CSDN博客](https://blog.csdn.net/tmhanks/article/details/89110833?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-1.no_search_link\&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-1.no_search_link)
+- [GDB查看C++对象布局_tmhanks的博客-CSDN博客](https://blog.csdn.net/tmhanks/article/details/89110833)
 - [gdb not in executable format file format not recognized](https://blog.csdn.net/abcd1f2/article/details/49816751)
 - [Linux下GDB调试指令汇总](https://zhuanlan.zhihu.com/p/71519244)
 - [linux gdb详解](https://www.jianshu.com/p/adcf474f5561)
@@ -96,7 +96,7 @@
 - [golang-进程崩溃后如何输出错误日志？](https://blog.csdn.net/xmcy001122/article/details/105665732)
 - [【Linux】core文件存储位置和命名](https://zhengyun.blog.csdn.net/article/details/107365187)
 - [一文读懂 | coredump文件是如何生成的](https://cloud.tencent.com/developer/article/1860631)
-- [linux下产生core文件以及不产生core文件的条件](https://www.cnblogs.com/huixinquan/p/14941880.html?share_token=E4829902-2D06-42CF-9048-11ED2B653450\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [linux下产生core文件以及不产生core文件的条件](https://www.cnblogs.com/huixinquan/p/14941880.html)
 - [Linux下addr2line命令用法](https://blog.csdn.net/fengbingchun/article/details/119980076)
 - [<font color=Red>linux中的dmesg命令简介没有core文件时如何定位core dump问题</font>](https://blog.csdn.net/stpeace/article/details/49843897)
 - [Linux如何使用gdb查看core堆栈信息](https://www.cnblogs.com/lynsen/p/8439550.html)
@@ -123,19 +123,19 @@
 - [Linux Kdump内核崩溃转储部署详解](https://blog.csdn.net/ludaoyi88/article/details/114194687)
 - [Ubuntu的内核转储工具](https://www.cnblogs.com/wwang/archive/2010/11/19/1881304.html)
 - [<font color=Red>centos7 kdump、crash调试内核</font>](https://blog.csdn.net/weixin_45030965/article/details/124960224)
-- [<font color=Red>How to on enable kernel crash dump on Debian Linux</font>](https://www.cyberciti.biz/faq/how-to-on-enable-kernel-crash-dump-on-debian-linux/#:\~:text=A%20Debian%20Linux%20kernel%20crash%20dump%20service%20configure,developer%2C%20you%20need%20to%20track%20down%20the%20problem.)
+- [<font color=Red>How to on enable kernel crash dump on Debian Linux</font>](https://www.cyberciti.biz/faq/how-to-on-enable-kernel-crash-dump-on-debian-linux/)
 
 ## carsh
 
 - [Linux crash 调试环境搭建](https://blog.csdn.net/qq_42931917/article/details/108236139)
 - [linux内核学习-Linux内核程序调试工具Crash的安装](https://www.cnblogs.com/ssyfj/p/16278883.html)
-- [dump分析工具\_ubantu18.04内核奔溃调试工具Crash的搭建](https://blog.csdn.net/weixin_39545102/article/details/111215997)
+- [dump分析工具_ubantu18.04内核奔溃调试工具Crash的搭建](https://blog.csdn.net/weixin_39545102/article/details/111215997)
 
 ## debugsymbols
 
 - [deb debug package-标准的 debian / ubuntu 打 deb 包，通过将可执行文件的符号表通过剥离成独立的 dbg 包，称为 debug package](http://sunyongfeng.com/201802/linux/debian_debug_package)
-- [17GDB使用符号表调试release程序](https://www.cnblogs.com/qiumingcheng/p/15821919.html?share_token=4A7CA208-9D9F-44A3-BBF8-062E7AD64C90\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
-- [使用GDB调试将符号表与程序分离后的可执行文件](https://www.cnblogs.com/dongc/p/9690754.html?share_token=160A49C9-81E2-40ED-9FF2-2CF956FA1E12\&tt_from=weixin\&utm_source=weixin\&utm_medium=toutiao_ios\&utm_campaign=client_share\&wxshare_count=1)
+- [17GDB使用符号表调试release程序](https://www.cnblogs.com/qiumingcheng/p/15821919.html)
+- [使用GDB调试将符号表与程序分离后的可执行文件](https://www.cnblogs.com/dongc/p/9690754.html)
 - [使用strip, eu-strip, objcopy等剥离与导回符号表及调试信息](https://blog.csdn.net/nirendao/article/details/104107608)
 - [Ubuntu 21.10 安装调试符号](https://blog.csdn.net/dwh0403/article/details/123551691)
 
@@ -184,8 +184,6 @@
 - [<font color=Red>https://github.com/yuan-xy/Linux-0.11</font>](https://github.com/yuan-xy/Linux-0.11)
 - [<font color=Red>Linux 0.11 vscode + gdb调试环境搭建</font>](https://www.modb.pro/db/422613)
 - [利用vscode远程调试Linux内核](https://mp.weixin.qq.com/s/vb1SiI0Uc5KpU2yGwJBRmg)
-
-
 
 ## windebug
 
