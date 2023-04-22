@@ -1,5 +1,20 @@
 # C++基础
 
+## C/C++
+
+- [C语言和C++的区别和联系](https://mp.weixin.qq.com/s/h3On-o0QybTkMy88Dy7qpA)
+- [Linux C编程一站式学习](https://www.bookstack.cn/read/linux-c/menu.md)
+- [关于linux系统里glibc库的一些记述](http://fsemouse.com/wordpress/2021/01/19/%E5%85%B3%E4%BA%8Elinux%E7%B3%BB%E7%BB%9F%E9%87%8Cglibc%E5%BA%93%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%B0%E8%BF%B0/)
+- [C标准库 在线速查手册](https://www.w3xue.com/manual/c/)
+- [gcc和g++是什么，有什么区别？](http://c.biancheng.net/view/7936.html)
+- [GCC 参数详解](https://www.runoob.com/w3cnote/gcc-parameter-detail.html)
+
+## 库函数、系统调用
+
+- [Linux系统调用函数列表](https://blog.csdn.net/kwame211/article/details/77572123)
+- [Linux函数调用手册](https://www.chinastor.com/manuals/linuxfunctions/)
+- [linux系统调用和库函数调用的区别](https://www.cnblogs.com/Yogurshine/p/3666527.html)
+
 ## main
 
 - [main 函数和命令行参数](https://learn.microsoft.com/zh-cn/cpp/cpp/main-function-command-line-args?view=msvc-170)
@@ -11,8 +26,21 @@
 - [typedef的用法，C语言typedef详解 (biancheng.net)](http://c.biancheng.net/view/298.html)
 - [C语言的不完整类型和前置声明](https://blog.csdn.net/astrotycoon/article/details/41286413)
 - [<font color=Red>forward declaration of a struct in C?</font>](https://stackoverflow.com/questions/9999512/forward-declaration-of-a-struct-in-c)
+- [<font color=Red>C++里类的前置声明分析</font>](https://blog.csdn.net/whahu1989/article/details/83627658)
 
-## const、define
+## 头文件、源文件
+
+- [<font color=Red>C++ 变量类型 声明 定义</font>](https://www.runoob.com/cplusplus/cpp-variable-types.html)
+- [C++中头文件（.h）和源文件（.cpp）都应该写些什么](https://www.cnblogs.com/fenghuan/p/4794514.html)
+- [理解C++中的头文件和源文件的作用](https://www.runoob.com/w3cnote/cpp-header.html)
+
+### 预处理命令
+
+- [预处理命令使用详解#if、#endif、#undef、#ifdef、#else、#elif - 蓝海人 - 博客园 (cnblogs.com)](https://www.cnblogs.com/lanhaicode/p/10546514.html)
+- [与c++握手言和：define宏定义遇上expected primary-expression before ' ' taken](https://blog.csdn.net/sinat_28752257/article/details/84989928)
+- [#pragma once用法总结](https://www.cnblogs.com/acec/p/14674448.html)
+
+### const、define
 
 - [<font color=Red>const和define的区别以及const的优点</font>](https://blog.csdn.net/YL970302/article/details/88916973)
 
@@ -20,18 +48,37 @@
 
 - [C语言中关于 strlen 和 sizeof 的用法及区别（含例题及解析）](https://blog.csdn.net/ty6693/article/details/86699176)
 
+## 运算符优先级
+
+- [C语言运算符优先级（超详细）_yuliying的专栏-CSDN博客_运算符优先级](https://blog.csdn.net/yuliying/article/details/72898132)
+
+## if
+
+- [[C/C++] 为什么把常量写在 == 运算符的左边](https://blog.csdn.net/ithomer/article/details/5017929)
+- [C++ &、&&、 |、|| 、|=、?: 逻辑运算符用法](https://blog.csdn.net/qq_41452267/article/details/105264542)
+- [<font color=Red>C语言中if(a)；if(!a)；if(a!=0)；if(a==0)有什么区别</font>](https://blog.csdn.net/weixin_44153896/article/details/108217579)
+
+## switch
+
 - [C++ switch 语句](https://www.runoob.com/cplusplus/cpp-switch.html)
+
+## for
+
 - [C语言的for循环中i++和++i的关系](https://blog.csdn.net/chenguigan/article/details/102637747)
+
+## extern
+
+- [C++是如何调用C接口的？](https://www.toutiao.com/i7028025947727217160/)
+- [C/C++中extern关键字详解](https://www.cnblogs.com/yc_sunniwell/archive/2010/07/14/1777431.html)
 
 ## union
 
 - [C语言共用体（C语言union用法）详解](http://c.biancheng.net/view/2035.html)
 
-## 指针
+## 位域
 
-- [C语言指针变量的定义和使用（精华）](http://c.biancheng.net/view/1991.html)
-- [第九章 指针_只需一招，彻底攻克C语言指针，再复杂的指针都不怕](https://blog.csdn.net/qq_43205256/article/details/123097791)
-- [看完还不会指针，锤自己！](https://mp.weixin.qq.com/s/t7vomHGTMJ179XTmuJjDqQ)
+- [C/C++ 位域知识小结](https://www.cnblogs.com/zlcxbb/p/6803059.html)
+- [C 位域](https://www.runoob.com/cprogramming/c-bit-fields.html)
 
 ## 数组
 
@@ -39,6 +86,43 @@
 - [C语言二维数组指针（指向二维数组的指针）详解](http://c.biancheng.net/view/2022.html)
 - [C/C++ 关于一维或二维数组首地址表示含义](https://blog.csdn.net/qq_41574298/article/details/108873959)
 - [数组和指针绝不等价，数组是另外一种类型](https://blog.csdn.net/qq_38325803/article/details/102751865)
+- [二维数组指针表示，C语言指针引用二维数组详解](http://m.biancheng.net/view/227.html)
+
+## 引用
+
+- [C++引用、取地址符](https://blog.csdn.net/Amber_technology/article/details/105020482)
+
+## 指针
+
+- [C语言指针变量的定义和使用（精华）](http://c.biancheng.net/view/1991.html)
+- [第九章 指针_只需一招，彻底攻克C语言指针，再复杂的指针都不怕](https://blog.csdn.net/qq_43205256/article/details/123097791)
+- [看完还不会指针，锤自己！](https://mp.weixin.qq.com/s/t7vomHGTMJ179XTmuJjDqQ)
+
+## 函数
+
+- [C++函数编译原理和成员函数的实现](https://blog.csdn.net/qq826364410/article/details/88902027)
+
+- [<font color=Red>C语言return的用法详解，C语言函数返回值详解</font>](http://c.biancheng.net/view/1855.html)
+
+- [ABI 与 API 的区别](https://blog.csdn.net/K346K346/article/details/88371267)
+
+- [函数式编程 - 廖雪峰的官方网站 (liaoxuefeng.com)](https://www.liaoxuefeng.com/wiki/1016959663602400/1017328525009056)
+
+### 回调函数
+
+- [「C/C++」回调函数详解，拿捏住了](https://www.toutiao.com/i7054434692053090853)
+- [10张图让你彻底理解回调函数](https://mp.weixin.qq.com/s/eFYM4uOIF09t8b9tTD523A)
+- [C语言回调函数，提升C技巧必备](https://mp.weixin.qq.com/s/wq2Zwpx_V9JHvC81gN4hPA)
+- [C++对象模型](https://www.cnblogs.com/skynet/p/3343726.html)
+- [C++对象模型——Function语意学](https://blog.csdn.net/qq_34938983/article/details/118277929)
+- [为什么C++中有函数指针还需要std::function？](https://mp.weixin.qq.com/s/4mFv0IqvOS_FBEXSwg8KnQ)
+
+### C++函数返回指针
+
+- [C++ 从函数返回指针](https://www.runoob.com/cplusplus/cpp-return-pointer-from-functions.html)
+- [关于C++函数返回指针的情况](https://blog.csdn.net/u013700358/article/details/100941168)
+- [函数返回局部变量问题](https://blog.csdn.net/gogokongyin/article/details/51472062)
+- [C++ 怎样让函数返回数组](https://www.runoob.com/w3cnote/cpp-return-array.html)
 
 ## Class
 
@@ -47,20 +131,8 @@
 - [C语言：春节回家过年，我发现只有我没有对象！](https://mp.weixin.qq.com/s/2ivQ9hcRvZnhk89jzAppSg)
 - [UML类图几种关系的总结](https://kb.cnblogs.com/page/129490/)
 
-## explicit default delete
 
-- [<font color=Red>C++ explicit关键字用法详解</font>](https://blog.csdn.net/readyone/article/details/112371671)
-- [c++ 隐式类型转换_一只懒虫的博客-CSDN博客_c++隐式转换](https://blog.csdn.net/liunan199481/article/details/85251197)
-- [C++中explicit的用法](https://blog.csdn.net/qq_35524916/article/details/58178072)
-- [<font color=Red>C++中的默认函数与default和delete用法</font>](https://blog.csdn.net/u012333003/article/details/25299939)
-- [C++11 =default和=delete -简书(jianshu.com)](https://www.jianshu.com/p/ef66ba66916c)
-- [C++中的=default和=delete_FEEL的博客-CSDN博客_c++ default](https://blog.csdn.net/weixin_38339025/article/details/89161324)
-
-## extern
-
-- [C/C++中extern关键字详解](https://www.cnblogs.com/yc_sunniwell/archive/2010/07/14/1777431.html)
-
-## 初始化
+### const、static
 
 - [关于C++ 类中数据成员在定义时初始化问题。](https://blog.csdn.net/weixin_43644231/article/details/88769163)
 - [初始化const成员变量](http://c.biancheng.net/view/2223.html)
@@ -72,7 +144,7 @@
 - [C++ const成员变量和成员函数（常成员函数）](http://c.biancheng.net/view/2230.html)
 - [<font color=Red>C/C++语法高阶：const的应用，const在类中的体现</font>](https://blog.csdn.net/QQrenzai/article/details/49716515)
 
-## 默认初始化和值初始化
+### 默认初始化和值初始化
 
 - [<font color=Red>C++ 变量的默认初始化和值初始化</font>](https://www.cnblogs.com/FengZeng666/p/9276618.html)
 - [注意了！C++默认初始化与值初始化的这个细节，千万不要忽视！](https://zhuanlan.zhihu.com/p/350008529)
@@ -80,7 +152,7 @@
 - [c++ - 是否需要在头文件中定义初始化列表？](https://www.coder.work/article/30481)
 - [C/C++中局部/全局变量初始值或默认值问题](https://blog.csdn.net/Lanyan9/article/details/123316610)
 
-## 构造函数
+### 构造函数
 
 - [C++ 对象实例化（转）](https://www.cnblogs.com/xiaoniu-666/p/9491897.html)
 - [C++的默认构造函数与构造函数](https://www.cnblogs.com/gklovexixi/p/5814626.html)
@@ -102,7 +174,16 @@
 - [C++默认构造函数——深入理解_HAN Kai-CSDN博客_c++ 默认构造函数](https://blog.csdn.net/hankai1024/article/details/7947989)
 - [C++ override 虚析构函数 使用技巧](https://blog.csdn.net/qq_41540355/article/details/120751543)
 
-## 初始化列表
+#### explicit default delete
+
+- [<font color=Red>C++ explicit关键字用法详解</font>](https://blog.csdn.net/readyone/article/details/112371671)
+- [c++ 隐式类型转换_一只懒虫的博客-CSDN博客_c++隐式转换](https://blog.csdn.net/liunan199481/article/details/85251197)
+- [C++中explicit的用法](https://blog.csdn.net/qq_35524916/article/details/58178072)
+- [<font color=Red>C++中的默认函数与default和delete用法</font>](https://blog.csdn.net/u012333003/article/details/25299939)
+- [C++11 =default和=delete -简书(jianshu.com)](https://www.jianshu.com/p/ef66ba66916c)
+- [C++中的=default和=delete_FEEL的博客-CSDN博客_c++ default](https://blog.csdn.net/weixin_38339025/article/details/89161324)
+
+#### 初始化列表
 
 - [C++ 初始化列表](https://www.cnblogs.com/shijingjing07/p/5550556.html)
 - [C++使用初始化列表提高效率（转）： - A-祥子 - 博客园 (cnblogs.com)](https://www.cnblogs.com/weizhixiang/p/6374430.html)
@@ -116,28 +197,28 @@
 - [<font color=Red>析构函数写成virtual的好处</font>](https://blog.csdn.net/heibao111728/article/details/80814313)
 - [C++继承 构造函数和析构函数的执行顺序](https://blog.csdn.net/qq_38393591/article/details/108997232)
 
-## 内联函数
+### 内联函数
 
 - [C++内联函数（C++ inline）详解](http://c.biancheng.net/view/199.html)
 - [C++ inline内联函数详解](http://c.biancheng.net/view/2201.html)
 - [C++ 内联函数](https://www.runoob.com/cplusplus/cpp-inline-functions.html)
 - [C++类的成员变量和成员函数](http://c.biancheng.net/cpp/biancheng/view/186.html)
 
-## friend
+### friend
 
 - [<font color=Red>C++之友元：是朋友（friend）也是破坏者</font>](https://blog.csdn.net/weixin_53472920/article/details/119577775)
 - [C++ friend友元函数和友元类](http://c.biancheng.net/cpp/biancheng/view/211.html)
 - [C++友元函数和友元类（C++ friend）详解](http://c.biancheng.net/view/169.html)
 - [流运算符为什么不能重载为成员函数，只能用友元函数重载](https://blog.csdn.net/snowsnowsnow1991/article/details/50314961#commentBox)
 
-## 类指针成员
+### 类指针成员
 
 - [C++ this指针详解](http://c.biancheng.net/cpp/biancheng/view/201.html)
 - [C++ 带有指针成员的类处理方式](https://www.cnblogs.com/lucy-lizhi/p/6551308.html)
 - [c++ 类中指针的释放（delete）](https://bbs.csdn.net/topics/370037865)
 - [C++析构函数（Destructor）](http://c.biancheng.net/cpp/biancheng/view/196.html)
 
-## 继承多态
+### 继承多态
 
 - [C++中public、protected、private的区别_SCOTT技术博客-CSDN博客_private](https://blog.csdn.net/scottly1/article/details/24354489)
 - [C++ 多态 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/37340242)
@@ -145,36 +226,26 @@
 - [C 语言实现面向对象编程_onlyshi的专栏-CSDN博客_c 面向对象](https://blog.csdn.net/onlyshi/article/details/81672279)
 - [<font color=Red>C语言结构体变量私有化</font>](https://blog.csdn.net/z13653662052/article/details/89003731)
 
-## new delete malloc free
+## 内存管理
 
-- [C++ 定位（placement）new 操作符 - 简书 (jianshu.com)](https://www.jianshu.com/p/e9c2b523f297)
-- [理解C++ placement语法 - 简书 (jianshu.com)](https://www.jianshu.com/p/4af119c44086)
-- [操作系统brk()和mmap()详解_moots-CSDN博客_brk mmap](https://blog.csdn.net/shuzishij/article/details/86574927)
-- [【 C语言指针详解 】(七）野指针 - 799 - 博客园 (cnblogs.com)](https://www.cnblogs.com/sxy-798013203/p/7790376.html)
-- [野指针 - 简书 (jianshu.com)](https://www.jianshu.com/p/c092e8c20479)
-- [<font color=Red>C++指针delete后还要置为null</font>](https://blog.csdn.net/qq_36570733/article/details/80043321)
+- [<font color=Red>深度阅读：深入 C++ 内存管理（万字长文）</font>](https://zhuanlan.zhihu.com/p/344377490)
 
-## C++函数返回指针
-
-- [C++ 从函数返回指针](https://www.runoob.com/cplusplus/cpp-return-pointer-from-functions.html)
-- [关于C++函数返回指针的情况](https://blog.csdn.net/u013700358/article/details/100941168)
-- [函数返回局部变量问题](https://blog.csdn.net/gogokongyin/article/details/51472062)
-- [「C/C++」回调函数详解，拿捏住了](https://www.toutiao.com/i7054434692053090853)
-- [10张图让你彻底理解回调函数](https://mp.weixin.qq.com/s/eFYM4uOIF09t8b9tTD523A)
-- [C语言回调函数，提升C技巧必备](https://mp.weixin.qq.com/s/wq2Zwpx_V9JHvC81gN4hPA)
-
-## 虚拟内存
+### 进程结构
 
 - [Linux进程地址空间和进程的内存分布](https://blog.csdn.net/cl_linux/article/details/80328608)
 - [认识目标文件结构 - 云+社区 - 腾讯云 (tencent.com)](https://cloud.tencent.com/developer/article/1449872)
-- [虚拟内存的那点事儿 - 掘金 (juejin.cn)](https://juejin.cn/post/6844903507594575886)
+- [C++栈与堆 内存空间模型详解](https://www.toutiao.com/article/7198085217624687161)
 
-## 代码区、常量区、静态区（全局区）、堆区、栈区
+#### 代码区、常量区、静态区（全局区）、堆区、栈区
 
 - [C语言中各变量/常量的存储模型——静态、全局、堆、栈梳理](https://blog.csdn.net/klq6743/article/details/82535173)
 - [<font color=Red>什么是代码区、常量区、静态区（全局区）、堆区、栈区？</font>](https://blog.csdn.net/u014470361/article/details/79297601)
 
-## 内存分布
+### 虚拟内存
+
+- [虚拟内存的那点事儿 - 掘金 (juejin.cn)](https://juejin.cn/post/6844903507594575886)
+
+### 对象内存
 
 - [Linux 下利用 gdb 查看 C++ 对象内存分布_WavenZ的博客-CSDN博客](https://blog.csdn.net/weixin_43374723/article/details/107128204)
 - [c++——类内部的内存分布_www_dong的博客-CSDN博客](https://blog.csdn.net/www_dong/article/details/115050681)
@@ -187,30 +258,28 @@
 - [<font color=Red>C++类大小详解</font>](https://blog.csdn.net/bryant_xw/article/details/89479480)
 - [<font color=Red>程序员应了解的那些事（10）-为什么C++中空类和空结构体大小为1？</font>](https://blog.csdn.net/qfturauyls/article/details/107646050)
 - [C++引用占用内存？_飞鸿印雪的博客-CSDN博客_c++引用占用内存吗](https://blog.csdn.net/feigegegegegegegeg/article/details/52613627)
-- [C++引用、取地址符](https://blog.csdn.net/Amber_technology/article/details/105020482)
+- [C++ 对象模型](https://mikeblog.top/2019/02/15/C-%E5%AF%B9%E8%B1%A1%E6%A8%A1%E5%9E%8B/)
+
+### 大小端
+
 - [理解字节序](https://www.ruanyifeng.com/blog/2016/11/byte-order.html)
 - [二进制读写之大端VS小端](https://blog.csdn.net/u010368322/article/details/106790016)
 
+### new delete malloc free
+
+- [C++ 定位（placement）new 操作符 - 简书 (jianshu.com)](https://www.jianshu.com/p/e9c2b523f297)
+- [理解C++ placement语法 - 简书 (jianshu.com)](https://www.jianshu.com/p/4af119c44086)
+- [操作系统brk()和mmap()详解_moots-CSDN博客_brk mmap](https://blog.csdn.net/shuzishij/article/details/86574927)
+- [【 C语言指针详解 】(七）野指针 - 799 - 博客园 (cnblogs.com)](https://www.cnblogs.com/sxy-798013203/p/7790376.html)
+- [野指针 - 简书 (jianshu.com)](https://www.jianshu.com/p/c092e8c20479)
+- [<font color=Red>C++指针delete后还要置为null</font>](https://blog.csdn.net/qq_36570733/article/details/80043321)
 - [<font color=Red>C++之RAII惯用法</font>](https://blog.csdn.net/u014465639/article/details/72854760)
-- [<font color=Red>深度阅读：深入 C++ 内存管理（万字长文）</font>](https://zhuanlan.zhihu.com/p/344377490)
-
-- [C++栈与堆 内存空间模型详解](https://www.toutiao.com/article/7198085217624687161)
-
-- [C++ 对象模型](https://mikeblog.top/2019/02/15/C-%E5%AF%B9%E8%B1%A1%E6%A8%A1%E5%9E%8B/)
-- [C++函数编译原理和成员函数的实现](https://blog.csdn.net/qq826364410/article/details/88902027)
-- [C++对象模型](https://www.cnblogs.com/skynet/p/3343726.html)
-- [C++对象模型——Function语意学](https://blog.csdn.net/qq_34938983/article/details/118277929)
-- [为什么C++中有函数指针还需要std::function？](https://mp.weixin.qq.com/s/4mFv0IqvOS_FBEXSwg8KnQ)
-
-## 预处理命令
-
-- [预处理命令使用详解#if、#endif、#undef、#ifdef、#else、#elif - 蓝海人 - 博客园 (cnblogs.com)](https://www.cnblogs.com/lanhaicode/p/10546514.html)
-- [与c++握手言和：define宏定义遇上expected primary-expression before ' ' taken](https://blog.csdn.net/sinat_28752257/article/details/84989928)
-- [#pragma once用法总结](https://www.cnblogs.com/acec/p/14674448.html)
 
 ## C++11 新特性
 
 - [<font color=Red>C++11教程：C++11新特性大汇总</font>](http://c.biancheng.net/cplus/11/)
+
+- [C++11的原生字符串-标识](https://wizardforcel.gitbooks.io/cpp-11-faq/content/52.html)
 
 ### 右值引用
 
@@ -222,6 +291,7 @@
 - [不再困惑！一文教你读懂C++右值引用和std::move (toutiao.com)](https://www.toutiao.com/i6906371639865655816)
 - [c++ 之 std::move 原理实现与用法总结_学之知之的博客-CSDN博客_std::move](https://blog.csdn.net/p942005405/article/details/84644069)
 - [一文带你详细介绍c++中的std::move函数 - shadow_lr - 博客园 (cnblogs.com)](https://www.cnblogs.com/shadow-lr/p/14748272.html)
+- [现代C++之如何返回一个对象?](https://cloud.tencent.com/developer/article/1561361)
 
 ### 智能指针
 
@@ -247,7 +317,7 @@
 - [C++11 lambda函数](https://blog.csdn.net/zxm342698145/article/details/91978568)
 - [c++新特性：lambda](https://blog.csdn.net/zxm342698145/article/details/91978568)
 
-## 模板
+### 模板
 
 - [模板为什么必须定义在头文件](https://blog.csdn.net/xin_hen/article/details/108782175)
 - [C++中模板以及模板实例化都放在头文件](https://blog.csdn.net/l15799033407/article/details/120411311)
@@ -255,7 +325,7 @@
 - [泛化之美C++11可变模版参数的妙用](https://www.cnblogs.com/qicosmos/p/4325949.html)
 - [整理C/C++的可变参数](https://cloud.tencent.com/developer/article/1701143)
 
-## STL
+### STL
 
 - [C++STL详解](https://blog.csdn.net/qq_36779888/article/details/82220997)
 - [C++中map容器的说明和使用技巧 - anywei - 博客园](https://www.cnblogs.com/anywei/archive/2011/10/27/2226830.html)
@@ -265,7 +335,7 @@
 - [<font color=Red>哈希表（散列表）详解（包含哈希表处理冲突的方法）</font>](http://c.biancheng.net/view/3437.html)
 - [<font color=Red>红黑树算法和应用(更高级的二叉查找树)</font>](http://data.biancheng.net/view/85.html)
 
-### STL排序(Sort)
+#### STL排序(Sort)
 
 - [C++中sort函数使用方法 - 俊宝贝 - 博客园](https://www.cnblogs.com/junbaobei/p/10776066.html)
 - [C++自带sort函数对vector容器元素进行排序](https://blog.csdn.net/qianlixiaomage/article/details/81205584)
@@ -279,7 +349,7 @@
 - [C++STL「容器」详解 （全站最详细）](https://www.toutiao.com/article/7143891436965462536/)
 - [STL 红黑树源码分析](https://www.toutiao.com/article/7135719892027720232/)
 
-### 容器元素的深拷贝和浅拷贝
+#### 容器元素的深拷贝和浅拷贝
 
 - [<font color=Red>理解C++右值引用和std::move-云+社区-腾讯云(tencent.com)</font>](https://cloud.tencent.com/developer/article/1868759)
 - [容器元素的深拷贝和浅拷贝问题](https://www.cnblogs.com/Manual-Linux/p/11087903.html)
@@ -287,7 +357,7 @@
 - [C++STL | 容器元素浅拷贝深拷贝问题及容器共性和使用场景](https://www.jianshu.com/p/9d93ec48ae6a)
 - [vector内数据的深拷贝和浅拷贝](https://blog.csdn.net/earbao/article/details/44492185)
 
-## Boost
+## boost
 
 - [详解BOOST库智能指针](https://cloud.tencent.com/developer/article/1433313)
 - [面试之Boost](https://blog.csdn.net/xp178171640/article/details/105405950)
@@ -358,32 +428,19 @@
 - [<font color=Red>C++实用技术 – YAML & JSON互转</font>](https://blog.csdn.net/weixin_38054045/article/details/104145544)
 - [<font color=Red>Protocol Buffers官方文档(开发指南)</font>](https://www.cnblogs.com/silvermagic/p/9087593.html)
 
-## 头文件、源文件
+## file
 
-- [C++中头文件（.h）和源文件（.cpp）都应该写些什么](https://www.cnblogs.com/fenghuan/p/4794514.html)
-- [理解C++中的头文件和源文件的作用](https://www.runoob.com/w3cnote/cpp-header.html)
-
-## C/C++ 位域
-
-- [C/C++ 位域知识小结](https://www.cnblogs.com/zlcxbb/p/6803059.html)
-- [C 位域](https://www.runoob.com/cprogramming/c-bit-fields.html)
-
-## C/C++库函数系统调用
-
-- [Linux C编程一站式学习](https://www.bookstack.cn/read/linux-c/menu.md)
-- [关于linux系统里glibc库的一些记述](http://fsemouse.com/wordpress/2021/01/19/%E5%85%B3%E4%BA%8Elinux%E7%B3%BB%E7%BB%9F%E9%87%8Cglibc%E5%BA%93%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AE%B0%E8%BF%B0/)
-- [C标准库 在线速查手册](https://www.w3xue.com/manual/c/)
 - [C++ File文件处理 删除文件和文件夹目录](https://www.cjavapy.com/article/1835/)
-- [Linux系统调用函数列表](https://blog.csdn.net/kwame211/article/details/77572123)
-- [Linux函数调用手册](https://www.chinastor.com/manuals/linuxfunctions/)
-- [linux系统调用和库函数调用的区别](https://www.cnblogs.com/Yogurshine/p/3666527.html)
 
 ## time
 
 - [C++获取当前系统时间并格式化输出 - 云+社区 - 腾讯云 (tencent.com)](https://cloud.tencent.com/developer/article/1735036)
 - [C/C++时间函数(Linux) - 简书 (jianshu.com)](https://www.jianshu.com/p/032da8113be5)
 
+## 进度条
+
 - [教你在 Linux 上写一个进度条小程序](https://mp.weixin.qq.com/s/dQ907HjxEq8sZXkHx0dPkQ)
+- [Linux、Windows 和 Mac 中的换行符对比](https://www.cnblogs.com/cnjavahome/p/8893813.html)
 
 ## 缓存
 
@@ -391,38 +448,14 @@
 - [Kafka学习之路 （一）Kafka的简介](https://www.cnblogs.com/qingyunzong/p/9004509.html)
 - [从面试角度来看一看 Kafka](https://mp.weixin.qq.com/s/ijek6Tdb6H3hqY2CEC917Q)
 
-## 代码函数调用关系
+## 其他
 
 - [看开源代码利器—用Graphviz + CodeViz生成C/C++函数调用图(call graph)](https://www.linuxidc.com/Linux/2015-01/111501.htm)
 
-- [[C/C++] 为什么把常量写在 == 运算符的左边](https://blog.csdn.net/ithomer/article/details/5017929)
-- [C++ &、&&、 |、|| 、|=、?: 逻辑运算符用法](https://blog.csdn.net/qq_41452267/article/details/105264542)
-
-- [C++11的原生字符串-标识](https://wizardforcel.gitbooks.io/cpp-11-faq/content/52.html)
-
-- [ABI 与 API 的区别](https://blog.csdn.net/K346K346/article/details/88371267)
+- [求求你不要写满屏的 try...catch 了，这才是优雅的处理方式，真香！](https://mp.weixin.qq.com/s/FQaT8DhfDYugA1CYiymqaA)
 
 - [漫画 | 永不过时的编程语言终于出现了](https://www.toutiao.com/article/7169042655157174796/)
 - [漫画：为什么C语言永不过时？](https://www.toutiao.com/article/7169041177684050445/)
-
-- [求求你不要写满屏的 try...catch 了，这才是优雅的处理方式，真香！](https://mp.weixin.qq.com/s/FQaT8DhfDYugA1CYiymqaA)
-
-## 其他
-
-- [C语言和C++的区别和联系](https://mp.weixin.qq.com/s/h3On-o0QybTkMy88Dy7qpA)
-- [C++是如何调用C接口的？](https://www.toutiao.com/i7028025947727217160/)
-- [二维数组指针表示，C语言指针引用二维数组详解](http://m.biancheng.net/view/227.html)
-- [C语言运算符优先级（超详细）_yuliying的专栏-CSDN博客_运算符优先级](https://blog.csdn.net/yuliying/article/details/72898132)
-- [gcc和g++是什么，有什么区别？](http://c.biancheng.net/view/7936.html)
-- [GCC 参数详解](https://www.runoob.com/w3cnote/gcc-parameter-detail.html)
-- [函数式编程 - 廖雪峰的官方网站 (liaoxuefeng.com)](https://www.liaoxuefeng.com/wiki/1016959663602400/1017328525009056)
-- [<font color=Red>C语言中if(a)；if(!a)；if(a!=0)；if(a==0)有什么区别</font>](https://blog.csdn.net/weixin_44153896/article/details/108217579)
-- [<font color=Red>C语言return的用法详解，C语言函数返回值详解</font>](http://c.biancheng.net/view/1855.html)
-- [<font color=Red>C++里类的前置声明分析</font>](https://blog.csdn.net/whahu1989/article/details/83627658)
-- [<font color=Red>C++ 变量类型 声明 定义</font>](https://www.runoob.com/cplusplus/cpp-variable-types.html)
-- [现代C++之如何返回一个对象?](https://cloud.tencent.com/developer/article/1561361)
-- [C++ 怎样让函数返回数组](https://www.runoob.com/w3cnote/cpp-return-array.html)
-- [Linux、Windows 和 Mac 中的换行符对比](https://www.cnblogs.com/cnjavahome/p/8893813.html)
 
 ### 快捷键
 
