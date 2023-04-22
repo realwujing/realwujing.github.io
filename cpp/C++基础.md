@@ -184,6 +184,8 @@
 - [<font color=Red>深入探究C++虚函数表——从内存的角度</font>](https://mp.weixin.qq.com/s/xTj_FLz0P3uXi-hi8jN_zA)
 - [C语言各数据类型的内存映像](https://mp.weixin.qq.com/s/wlgmS5DVJF80epo7PKxOuQ)
 - [C++中类所占的内存大小以及成员函数的存储位置 - 北极星! - 博客园 (cnblogs.com)](https://www.cnblogs.com/zhjblogs/p/15149681.html)
+- [<font color=Red>C++类大小详解</font>](https://blog.csdn.net/bryant_xw/article/details/89479480)
+- [<font color=Red>程序员应了解的那些事（10）-为什么C++中空类和空结构体大小为1？</font>](https://blog.csdn.net/qfturauyls/article/details/107646050)
 - [C++引用占用内存？_飞鸿印雪的博客-CSDN博客_c++引用占用内存吗](https://blog.csdn.net/feigegegegegegegeg/article/details/52613627)
 - [C++引用、取地址符](https://blog.csdn.net/Amber_technology/article/details/105020482)
 - [理解字节序](https://www.ruanyifeng.com/blog/2016/11/byte-order.html)
