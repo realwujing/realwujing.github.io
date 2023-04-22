@@ -181,6 +181,7 @@
 - [C/C++中基本数据类型所占内存大小_ZMyths的博客-CSDN博客_c++类型大小](https://blog.csdn.net/zcyzsy/article/details/77935651)
 - [<font color=Red>GDB查看C++对象布局_tmhanks的博客-CSDN博客</font>](https://blog.csdn.net/tmhanks/article/details/89110833)
 - [<font color=Red>面试系列之C++的对象布局【建议收藏】 - 知乎 (zhihu.com)</font>](https://zhuanlan.zhihu.com/p/156880783)
+- [<font color=Red>深入探究C++虚函数表——从内存的角度</font>](https://mp.weixin.qq.com/s/xTj_FLz0P3uXi-hi8jN_zA)
 - [C语言各数据类型的内存映像](https://mp.weixin.qq.com/s/wlgmS5DVJF80epo7PKxOuQ)
 - [C++中类所占的内存大小以及成员函数的存储位置 - 北极星! - 博客园 (cnblogs.com)](https://www.cnblogs.com/zhjblogs/p/15149681.html)
 - [C++引用占用内存？_飞鸿印雪的博客-CSDN博客_c++引用占用内存吗](https://blog.csdn.net/feigegegegegegegeg/article/details/52613627)
