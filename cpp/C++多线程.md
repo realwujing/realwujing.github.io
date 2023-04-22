@@ -47,6 +47,7 @@
 - [【开发工具】【lockdep】Linux内核死锁检测工具（lockdep）的使用](https://blog.csdn.net/Ivan804638781/article/details/100740857)
 - [手画图解 | 关于死锁，面试的一切都在这里了](https://mp.weixin.qq.com/s/Jjio-cNapfUMBqEOefi1og)
 - [<font color=Red>内存泄漏检测工具valgrind神器</font>](https://zhuanlan.zhihu.com/p/75416381)
+- [<font color=Red>多线程检测工具ThreadSanitizer 与 Helgrind 的使用</font>](https://zhuanlan.zhihu.com/p/446932523)
 
 ## 线程池
 
