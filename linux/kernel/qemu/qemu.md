@@ -20,8 +20,9 @@
 
 - [KVM虚拟化解决方案系列之KVM管理工具-libvirt介绍篇](https://blog.csdn.net/jianghu0755/article/details/129776841)
 
-## Mac OSX
+### Mac OSX
 
+- [<font color=Red>使用Qemu在Mac上安装虚拟机</font>](https://blog.csdn.net/weixin_39759247/article/details/126569448)
 - [使用QEMU在macOS上创建Ubuntu 20.04桌面虚拟机](https://www.arthurkoziel.com/qemu-ubuntu-20-04/)
 - [Running virt-manager and libvirt on macOS](https://www.arthurkoziel.com/running-virt-manager-and-libvirt-on-macos/)
 - [Mac安装Linux的KVM管理工具virt-manager](https://blog.csdn.net/weixin_30883777/article/details/95729678)
@@ -35,12 +36,17 @@
 
 - [QEMU (简体中文)](https://wiki.archlinuxcn.org/wiki/QEMUhttps://wiki.archlinuxcn.org/wiki/QEMU)
 - [QEMU-KVM基本原理](https://www.toutiao.com/article/7194721406406787623)
+- [<font color=Red>Qemu&KVM 第一篇（2） qemu kvm 相关知识</font>](https://blog.csdn.net/weixin_34253539/article/details/93084893)
+- [<font color=Red>虚拟化技术 — 硬件辅助的虚拟化技术</font>](https://mp.weixin.qq.com/s/NsdNFhoP0QwjfhsQIeRWeQ)
+- [libvirt and QEMU 基础篇](https://blog.csdn.net/lingshengxiyou/article/details/128665491)
 
 - <https://www.qemu.org/docs/master/system/invocation.html>
 
 - [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
-- [libvirt and QEMU 基础篇](https://www.toutiao.com/article/7187732563673432609)
 - [<font color=Red>Linux内核调试</font>](https://blog.csdn.net/onlylove_/category_11607029.html)
+
+### 网络
+
 - [<font color=Red>QEMU用户模式网络</font>](https://blog.csdn.net/m0_43406494/article/details/124827927)
 - [<font color=Red>QEMU 网络配置</font>](https://tomwei7.com/2021/10/09/qemu-network-config/)
 - [<font color=Red>Linux 内核调试 七：qemu网络配置</font>](https://blog.csdn.net/OnlyLove_/article/details/124536607)
@@ -76,8 +82,6 @@
 
 - [<font color=Red>qemu: usb存储设备仿真</font>](https://blog.csdn.net/kingtj/article/details/82952783)
 - [如何在 Linux 中导出和导入 KVM 虚拟机](https://www.51cto.com/article/708013.html)
-- [<font color=Red>使用Qemu在Mac上安装虚拟机</font>](https://blog.csdn.net/weixin_39759247/article/details/126569448)
-- [<font color=Red>Qemu&KVM 第一篇（2） qemu kvm 相关知识</font>](https://blog.csdn.net/weixin_34253539/article/details/93084893)
 
 - [<font color=Red>ARMv8架构下修改Linux内核并打开kvm硬件虚拟化支持（平台Firefly-rk3568）</font>](https://blog.csdn.net/qq_40598297/article/details/121084904)
 
