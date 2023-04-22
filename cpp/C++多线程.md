@@ -6,8 +6,10 @@
 - [看完这篇还不懂高并发中的线程与线程池你来打我(内含20张图)](https://blog.csdn.net/github_37382319/article/details/108478589)
 - [Linux 多线程全面解析](https://mp.weixin.qq.com/s/2eetiUAtedavND8c-sQM5w)
 - [带你走进Linux内核源码中最常见的数据结构之「mutex」](https://www.vxbus.com/post/linux/linux-kernel-source-code-data-structure-mutex.html)
+- [【C++多线程】join()及注意 - Chen沉尘 - 博客园 (cnblogs.com)](https://www.cnblogs.com/chen-cs/p/13055211.html)
 
 ### pthread
+
 - [写给大忙人看的进程和线程](https://mp.weixin.qq.com/s/CCzEFnyxXKp6a1iVSBD78w)
 - [详解多线程](https://www.cnblogs.com/yjboke/p/8911220.html)
 - [<font color=Red>【Linux】多线程详解，一篇文章彻底搞懂多线程中各个难点！！！</font>](https://blog.csdn.net/w903414/article/details/110005612)
@@ -23,10 +25,9 @@
 - [<font color=Red>linux对线程等待和唤醒操作（pthread_cond_timedwait 详解）</font>](https://blog.csdn.net/wteruiycbqqvwt/article/details/99707580)
 
 #### 信号量
+
 - [深入讲解读写信号量（上）](https://www.toutiao.com/article/7159838260959740457/)
 - [深入讲解读写信号量（下）](https://www.toutiao.com/article/7159867610317390372)
-
-- [【C++多线程】join()及注意 - Chen沉尘 - 博客园 (cnblogs.com)](https://www.cnblogs.com/chen-cs/p/13055211.html)
 
 ### C++11多线程
 
