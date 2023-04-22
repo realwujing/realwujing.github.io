@@ -3,6 +3,7 @@
 ## 数据结构
 
 - [代码面试需要知道的8种数据结构(附面试题及答案链接)](https://www.cnblogs.com/fundebug/p/data_structures_in_js_for_interview.html)
+- [嵌入式软件常见的 8 种数据结构](https://mp.weixin.qq.com/s/ujXOtCA8og8Cyq59O_zuaw)
 - [数据结构-各种树的定义](https://blog.csdn.net/u014532217/article/details/79118023)
 - [二叉树、平衡二叉树、红黑树、B树、B+树与B*树 - 简书 (jianshu.com)](https://www.jianshu.com/p/b597aa97c9de)
 - [红黑树、B树和B+树](https://blog.csdn.net/sinat_34072381/article/details/107197754)
