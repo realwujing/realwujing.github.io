@@ -29,12 +29,14 @@
 - [【C++多线程】join()及注意 - Chen沉尘 - 博客园 (cnblogs.com)](https://www.cnblogs.com/chen-cs/p/13055211.html)
 
 ### C++11多线程
+
 - [从无栈协程到 C++异步框架](https://www.toutiao.com/article/7153230059011686948/)
 - [c++11中关于std::thread的join函数详解_fanyun的博客-CSDN博客](https://blog.csdn.net/fanyun_01/article/details/100178104)
 
 - [C++11 并发指南系列 - Haippy - 博客园 (cnblogs.com)](https://www.cnblogs.com/haippy/p/3284540.html)
 - [C++11 并发指南五(std::condition_variable 详解) - Haippy - 博客园 (cnblogs.com)](https://www.cnblogs.com/haippy/p/3252041.html)
 - [C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客_c++ notify_one](https://blog.csdn.net/feikudai8460/article/details/109604690)
+- [C++11是如何封装Thread库的？](https://mp.weixin.qq.com/s/WsYEvRays-l58KAOwwzP-w)
 
 ### 死锁
 
