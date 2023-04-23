@@ -13,6 +13,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: main
+          fetch-depth: 0
       - name: Set up Git
         uses: actions/setup-python@v2
         with:
@@ -21,19 +24,29 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Merge branch
         run: |
+          set -aex
           git config --global user.email "178955347@qq.com"
           git config --global user.name "bot"
           git fetch origin
-          git branch
+          git checkout main
           git pull origin main
-          git merge --strategy-option=theirs origin/hexo --allow-unrelated-histories --no-edit
-      - name: Bot automatic update
-        run: |
-          rm -rf source/_posts/*
+          pwd
+          ls -lah
+          git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" README.md
           find . -name "*.md" -exec sh -c 'sed -i "1 i ---\ndate: $(git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" "{}" | head -1)\nupdated: $(git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" "{}" | tail -1)\n---\n" "{}"' \;
-          rsync -avP  --delete --exclude='.git'--exclude='.github' --exclude='node_modules' --exclude='public' --exclude='source' --exclude='scaffolds' --exclude='themes' --include='*/' --include='*.md' --exclude='*' ./ ./source/_posts/
-          rsync -avP README.md source/about/index.md
-          rm -rf source/_posts/.git source/_posts/.github source/_posts/.gitignore source/_posts/.DS_Store
+          rm -rf ../hexo-site
+          mkdir ../hexo-site
+          cp -r ./* ../hexo-site
+          git checkout -- .
+          git checkout -b hexo origin/hexo
+          rsync -avP  --delete --exclude='.git'--exclude='.github' --exclude='node_modules' --exclude='public' --exclude='source' --exclude='scaffolds' --exclude='themes' --include='*/' --include='*.md' --exclude='*' ../hexo-site/ ./source/_posts/
+          rsync -avP ../hexo-site/README.md source/about/index.md
+          pwd
+          git status
+          git add -A .
+          find source -name '*.md'
+          git commit -m "feat: bot auto commit"
+          git push origin HEAD:bot -u -f
       - name: Use Node.js 16.x
         uses: actions/setup-node@v2
         with:
@@ -48,9 +61,23 @@ jobs:
       - name: Install pandoc
         run: sudo apt install pandoc
       - name: Install Dependencies
-        run: npm install
+        run: |
+          set -aex
+          pwd
+          npm install
+          find source -name '*.md'
       - name: Build
-        run: npm run build
+        run: |
+          set -aex
+          pwd
+          git branch
+          find source -name '*.md'
+          pwd
+          npm run clean
+          pwd
+          npm run build
+          ls -la
+          tree public
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
