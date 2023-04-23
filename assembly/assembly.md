@@ -6,7 +6,7 @@
 - [<font color=Red>二进制分析实战：x86汇编快速入门</font>](https://www.toutiao.com/article/7039892076707807748/)
 
 - [<font color=Red>Linux 下 64 位汇编语言</font>](https://blog.codekissyoung.com/%E7%AC%AC%E9%9B%B6%E5%B1%82/64%E4%BD%8DCPU%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80)
-- [<font color=32 位汇编语言>Test</font>](https://blog.codekissyoung.com/%E7%AC%AC%E9%9B%B6%E5%B1%82/32%E4%BD%8DCPU%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80)
+- [<font color=Red>32 位汇编语言</font>](https://blog.codekissyoung.com/%E7%AC%AC%E9%9B%B6%E5%B1%82/32%E4%BD%8DCPU%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80)
 - [<font color=Red>16 位汇编语言</font>](https://blog.codekissyoung.com/%E7%AC%AC%E9%9B%B6%E5%B1%82/16%E4%BD%8DCPU%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80)
 
 - [<font color=Red>Linux 汇编语言程序设计 (使用 NASM)</font>](https://www.dazhuanlan.com/alzheimers/topics/1114443)
