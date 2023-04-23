@@ -13,6 +13,7 @@
 - [令人拍手叫绝的运维小技巧](https://mp.weixin.qq.com/s/uavyYSfpSy4v1ovmZLE1hw)
 
 - [<font color=Red>Linux基础知识汇总，收藏！</font>](https://mp.weixin.qq.com/s/0kyyki6IrmojiUnzGVlUzA)
+- [<font color=Red>10个提高生产力的 Linux 命令与技巧，用完直接起飞！</font>](https://mp.weixin.qq.com/s/rFI56ytk0mmr6hgKJ432qQ)
 - [Linux基础总结，这一篇就够了](https://mp.weixin.qq.com/s/zUKmA3sh-uzdyThEG6e1qA)
 - [计算机操作系统知识点总结（相当到位！！）](https://mp.weixin.qq.com/s/OLrN2irwzjCI937iDW4XJg)
 
