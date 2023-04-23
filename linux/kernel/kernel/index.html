@@ -1,0 +1,853 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="kernel 启动管理  Linux系统启动管理 BIOS和grub 聊聊BIOS、UEFI、MBR、GPT、GRUB…… BIOS, UEFI, MBR, GPT, GRUB介绍 GRUB-一个多重操作系统启动管理器 主分区、扩展分区、逻辑分区 主磁盘分区和逻辑磁盘分区的区别是什么？ ubuntu 修改开机启动项默认值  内核  Linux内核之旅 30分钟读懂Linux五大模块内核源码，内核整">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kernel">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/kernel/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="kernel 启动管理  Linux系统启动管理 BIOS和grub 聊聊BIOS、UEFI、MBR、GPT、GRUB…… BIOS, UEFI, MBR, GPT, GRUB介绍 GRUB-一个多重操作系统启动管理器 主分区、扩展分区、逻辑分区 主磁盘分区和逻辑磁盘分区的区别是什么？ ubuntu 修改开机启动项默认值  内核  Linux内核之旅 30分钟读懂Linux五大模块内核源码，内核整">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-04-23T21:43:51.000Z">
+<meta property="article:modified_time" content="2023-04-23T21:43:51.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="qemu">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="HTML">
+<meta property="article:tag" content="initramfs">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>kernel - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":null,"gtag":null,"tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="kernel"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2023-04-23 21:43" pubdate>
+          2023年4月23日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.4k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          21 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">kernel</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="kernel">kernel</h1>
+<h2 id="启动管理">启动管理</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="http://c.biancheng.net/linux_tutorial/12/">Linux系统启动管理</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_43178138/article/details/109524002">BIOS和grub</a></li>
+<li><a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000020850901">聊聊BIOS、UEFI、MBR、GPT、GRUB……</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/xhtchina/article/details/113789538">BIOS, UEFI, MBR, GPT, GRUB介绍</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.baike.com/wikiid/7276828077877800951">GRUB-一个多重操作系统启动管理器</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/itmeatball/p/11469673.html">主分区、扩展分区、逻辑分区</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_33906657/article/details/92576959">主磁盘分区和逻辑磁盘分区的区别是什么？</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/DEEP_M/article/details/118103914">ubuntu 修改开机启动项默认值</a></li>
+</ul>
+<h2 id="内核">内核</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="http://kerneltravel.net/"><font color=Red>Linux内核之旅</font></a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&amp;mid=2247500232&amp;idx=2&amp;sn=9a81b4fa46e234192ae6fab97840026c&amp;chksm=f96bb33cce1c3a2a770760031fc58ebc6dc367695eebc5db6a08048774789cdee630f6c58d5f&amp;mpshare=1&amp;scene=1&amp;srcid=0407Gxo7W7KdCRYn2kb8WEsB&amp;sharer_sharetime=1649316737801&amp;sharer_shareid=2dfdf936388dba04865b3e883d5a3225&amp;version=3.1.12.6001&amp;platform=win#rd">30分钟读懂Linux五大模块内核源码，内核整体架构设计</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/RaNeUkveH_AdKnkzY70TEg">Linux 内核概念和学习路线</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/VJFXFs8430SrpnJTmUsIZg">Linux系统内核概述</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/y4247464/p/12333955.html">Linux内核 内核源码结构</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_39702400/article/details/116625705">linux查看安装的所有内核,查看已安装的Linux内核</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/jxwzh/article/details/116041716">deepin系统更改默认启动内核</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/aPTCt5cmzEtq0xeeMgQLRQ">操作系统如何实现：什么是宏内核、微内核</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/Aai7Ccwwp7SROEXpPnEfzA">一篇文章汇总嵌入式处理器相关的知识</a></li>
+</ul>
+<h2 id="内核makefileconfig">内核Makefileconfig</h2>
+<ul>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/lizuobin2/article/details/51464152">Linux内核Makefile分析</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/358801667">linux内核编译系统-kbuild系统详解</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/88548273">浅析Kbuild系统</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_40182062/article/details/108230678">以deb包方式编译内核</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.debian.org/doc/manuals/debian-faq/kernel.zh-cn.html">第 10 章 Debian 和内核</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/lizuobin2/article/details/51429937">Linux内核配置以及Make menuconfig过程分析</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/flc2762/article/details/103735072">make defconfig savedefconfig olddefconfig区别</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/gp18391818575/article/details/112555781">linux内核配置清理make clean</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.csdn.net/tags/MtjaAg5sMTU4MjMtYmxvZwO0O0OO0O0O.html">ubuntu查看内核config</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_62882080/article/details/124262374">ubuntu(20.04)+linux内核（5.17.3）的config文件</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.51cto.com/article/663841.html">Linux内核编译很简单，6步编译一个自己的内核</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_62882080/article/details/124260136">ubuntu(20.04)+linux内核（5.17.3）编译内核</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/proware/article/details/117386555">内核编译更新</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://davejingtian.org/2018/03/15/make-deb-pkg-broken/">“make deb-pkg” broken</a></p></li>
+</ul>
+<h2 id="内核模块">内核模块</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/u012184539/article/details/120326741">Linux内核模块HelloWorld</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_46048542/article/details/123171177">Linux内核驱动学习-编写最简单Linux内核模块HelloWorld</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/Lihuihui006/article/details/112199469">linux内核模块加载命令</a></li>
+</ul>
+<h2 id="aslr">ASLR</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/counsellor/article/details/81543197">Linux下关闭ASLR(地址空间随机化)的方法</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/zy_zhengyang/article/details/95451484">Linux关闭KASLR</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/gatieme/article/details/104266966">开启内核地址随机化KASLR后, qemu 调试 kernel 不能设置断点</a></li>
+<li><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/90004914">逻辑地址、线性地址、物理地址区别</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.zhihu.com/question/420128789">Linux内存管理中，代码段和数据段映射成的线性地址重叠，不会冲突吗？</a></li>
+<li><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/324210723">x86段寄存器和分段机制</a></li>
+</ul>
+<h2 id="audio">audio</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/1TJQc3Ktdw_Qz576iLjB1Q">ALSA（高级Linux声音架构）浅析</a></li>
+</ul>
+<h2 id="系统日志">系统日志</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/duanxz/p/10185946.html">Linux进程被杀掉（OOM killer），查看系统日志</a></li>
+</ul>
+<h2 id="其他">其他</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_43871678/article/details/106723029">用户态和内核态的切换耗费时间的原因</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/u014470361/article/details/81193023">linux内核中likely与unlikely</a></li>
+</ul>
+<h2 id="linux内核源码">linux内核源码</h2>
+<ul>
+<li><p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/igoodful/p/14081782.html">linux内核源码在线阅读</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://github.com/sunym1993/flash-linux0.11-talk">品读 Linux 0.11 核心代码</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://github.com/realwujing/Linux-0.11">Linux内核完全注释(修正版v3.0).pdf</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/cx_vaRTcC29h0pWkJPpqQQ"><font color=Red>调试 Linux 最早期的代码</font></a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/chaoguo1234/article/details/128613219">Linux-0.11操作系统源码调试-在 Ubuntu22 上</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://github.com/yuan-xy/Linux-0.11"><font color=Red>https://github.com/yuan-xy/Linux-0.11</font></a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://richardweiyang-2.gitbook.io/kernel-exploring/">https://richardweiyang-2.gitbook.io/kernel-exploring/</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/sinat_38816924/article/details/115498707">ubuntu获取源码方式</a></p></li>
+</ul>
+<h2 id="内核链表">内核链表</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/Ddonv6FdY4oroIT32IGxOw">玩转内核链表list_head，教你管理不同类型节点的实现，建议收藏</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/wanshilun/article/details/79747710">Linux内核中经典链表 list_head 常见使用方法解析</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/npy_lp/article/details/7010752#:~:text=Containe,%E4%BD%93%E5%8F%98%E9%87%8F%E7%9A%84%E9%A6%96%E5%9C%B0%E5%9D%80%E3%80%82">Linux内核中的常用宏container_of其实很简单</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/u010632165/article/details/107523477"><font color=Red>Linux内核中container_of的原理及其使用详解</font></a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/hs794502825/article/details/24597773">Linux 内核 hlist 详解</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/oHeHui1/article/details/128176831">hlist用法以及hlist_for_each_entry 使用举例</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/bhniunan/article/details/104082581">内核模块开发中__init和__exit的作用</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.toutiao.com/article/7222172647486964258">linux内核中6个经典C语言函数代码赏析</a></li>
+</ul>
+<h2 id="内核section">内核section</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/sglxUkdboT4epiJOH5z7pg"><font color=Red>C关键字section的作用</font></a></li>
+</ul>
+<h2 id="initramfs">initramfs</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/zyqash/article/details/126041951">initramfs详解-初识initramfs</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/oqqYuJi12345678/article/details/103218438">linux initramfs启动原理</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/sky-heaven/p/13856545.html"><font color=Red>Linux内核Ramdisk(initrd)机制【转】</font></a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/wipan/p/9269505.html">Initramfs 原理和实践</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/u012787604/article/details/121685547"><font color=Red>关于initrd和initramfs</font></a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609"><font color=Red>Linux aarch64 编译 &amp; qemu 搭建实验平台 initrd initramfs</font></a></li>
+<li><a target="_blank" rel="noopener" href="https://huaweicloud.csdn.net/6356178ed3efff3090b59d10.html">initramfs详解-初识initramfs</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/u012332571/article/details/121906322">linux 内核启动Initramfs与initrd 及其挂载</a></li>
+<li><a target="_blank" rel="noopener" href="http://t.zoukankan.com/FullStack-p-8041964.html">精通initramfs构建step by step</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/xiaofeng_yan/article/details/83303544">新型的initrd的解压方法</a></li>
+<li><a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1515285">BinWalk安装和命令参数详解</a></li>
+</ul>
+<h2 id="启动流程">启动流程</h2>
+<ul>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/jasonactions/article/details/114080652">kernel启动流程-start_kernel的执行_8.cpio initrd解包</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/jasonactions/article/details/114007646">kernel启动流程-start_kernel的执行_7.arch_call_rest_init</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://m.elecfans.com/article/1980482.html">linux内核中do_initcalls函数的执行逻辑分析</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/MrLiuZF/p/15187310.html">Linux0号进程，1号进程，2号进程</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/21cnbao/article/details/105885390">Linux下0号进程的前世(init_task进程)今生(idle进程)</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/umB4mgMUtAvL52AcjDq55g">Linux | Kernel 启动流程源码分析</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/jcolfo4bvKPS-eRdeCkRCg">Linux 实现原理 — 网卡驱动程序初始化流程</a></p></li>
+</ul>
+<h2 id="根文件系统挂载">根文件系统挂载</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/489819324">一文讲解Linux内核中根文件系统挂载流程</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.51cto.com/csdyabc/856177">根文件系统挂载 原创</a></li>
+</ul>
+<h2 id="percpu变量">percpu变量</h2>
+<ul>
+<li><p><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/340985476">一张图看懂linux内核中percpu变量的实现 KING.YT</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1769514">一张图看懂linux内核中percpu变量的实现</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://github.com/realwujing/realwujing.github.io/blob/main/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eper_cpu%E5%8F%98%E9%87%8Fcurrent_task%E8%8E%B7%E5%8F%96task_struct.md"><font color=Red>amd64下基于per_cpu变量current_task获取task_struct</font></a></p>
+<p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">p ((struct task_struct*)(*(unsigned long*)((char*)__per_cpu_offset[0] + 0x15d00)))-&gt;comm<br></code></pre></td></tr></table></figure></p></li>
+</ul>
+<h2 id="系统调用">系统调用</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_39852688/article/details/110815377"><font color=Red>linux系统调用函数大全_Linux架构</font></a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/m0_74282605/article/details/128097944"><font color=Red>介绍Linux系统调用（值得收藏）</font></a></li>
+<li><a target="_blank" rel="noopener" href="https://m.dandelioncloud.cn/article/details/1567859018796593153">linux系统下的各种hook方式Linux内核hook系统调用</a></li>
+<li><a target="_blank" rel="noopener" href="https://m.dandelioncloud.cn/article/details/1552321452504739842">Linux系统调用Hook姿势总结</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/yuechuxuan/article/details/70308126">没有open的手册页条目</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/QFFQFF/article/details/76762232">系统调用的三种方式</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_42992444/article/details/108688932">应用程序如何直接调用一个系统调用, 不经过C库?</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.toutiao.com/article/7159607330227798562/">Linux系统调用汇总</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/kwame211/article/details/77572123">Linux系统调用函数列表</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.chinastor.com/manuals/linuxfunctions/">Linux函数调用手册</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/Yogurshine/p/3666527.html">linux系统调用和库函数调用的区别</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/2rzzQTuZKSW0O4zM1DlAWQ">系统调用与函数调用有什么区别？</a></li>
+</ul>
+<h2 id="open-openat">open openat</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.modb.pro/db/379821">open和openat系统调用</a></li>
+</ul>
+<h2 id="uid和euid">uid和euid</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.junmajinlong.com/linux/euid_ruid/">理解Effective UID(EUID)和Real UID(RUID)</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/itech/archive/2012/04/01/2429081.html">Linux进程的uid和euid</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/dongzhongshu/article/details/6215054">geteuid()和getuid（）的区别</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/dedlous/article/details/7188776">getuid() 与 geteuid() 获得 UID 以及 有效 UID 值</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/whatday/article/details/102844879">linux c setuid函数解析</a></li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/qemu/">#qemu</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/HTML/">#HTML</a>
+      
+        <a href="/tags/initramfs/">#initramfs</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>kernel</div>
+      <div>https://realwujing.github.io/linux/kernel/kernel/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2023年4月23日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/k8s/linglong/README/" title="README">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">README</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/network/" title="network">
+                        <span class="hidden-mobile">network</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '7fc0c8e9e600f058f96bf3698c5d91f8'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

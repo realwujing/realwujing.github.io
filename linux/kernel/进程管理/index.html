@@ -1,0 +1,748 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="进程管理 ELF  linux下的ELF格式分析 程序运行环境 认识目标文件结构 - 云+社区 - 腾讯云 (tencent.com) 扒一扒ELF文件 Linux ELF文件格式分析 linux下ELF的加载运行 ELF文件加载过程 ELF文件的加载过程(load_elf_binary函数详解)Linux进程的管理与调度（十三） Linux 可执行文件程序载入和执行过程 Linux 修改 ELF">
+<meta property="og:type" content="article">
+<meta property="og:title" content="进程管理">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/%E8%BF%9B%E7%A8%8B%E7%AE%A1%E7%90%86/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="进程管理 ELF  linux下的ELF格式分析 程序运行环境 认识目标文件结构 - 云+社区 - 腾讯云 (tencent.com) 扒一扒ELF文件 Linux ELF文件格式分析 linux下ELF的加载运行 ELF文件加载过程 ELF文件的加载过程(load_elf_binary函数详解)Linux进程的管理与调度（十三） Linux 可执行文件程序载入和执行过程 Linux 修改 ELF">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-04-23T21:43:51.000Z">
+<meta property="article:modified_time" content="2023-04-23T21:43:51.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="HTML">
+<meta property="article:tag" content="bcc">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>进程管理 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":null,"gtag":null,"tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="进程管理"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2023-04-23 21:43" pubdate>
+          2023年4月23日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          975 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          9 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">进程管理</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="进程管理">进程管理</h1>
+<h2 id="elf">ELF</h2>
+<ul>
+<li><p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/qscfyuk/p/11697816.html">linux下的ELF格式分析</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.codekissyoung.com/C%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1/%E8%BF%90%E8%A1%8C%E7%8E%AF%E5%A2%83"><font color=Red>程序运行环境</font></a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1449872">认识目标文件结构 - 云+社区 - 腾讯云 (tencent.com)</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&amp;mid=2247491839&amp;idx=1&amp;sn=e9a229184f158759c6648eed708d9598&amp;chksm=f96b920bce1c1b1d8546e659e195575a6014643f48cfe21cedc7b6108f655cfdca7580cfd02d&amp;scene=21#wechat_redirect"><font color=Red>扒一扒ELF文件</font></a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/xj178926426/article/details/72825630#commentBox">Linux ELF文件格式分析</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/faxiang1230/article/details/105647915/">linux下ELF的加载运行</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/287863861">ELF文件加载过程</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/gatieme/article/details/51628257">ELF文件的加载过程(load_elf_binary函数详解)Linux进程的管理与调度（十三）</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.toutiao.com/article/7199638660437082639/"><font color=Red>Linux 可执行文件程序载入和执行过程</font></a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1758586">Linux 修改 ELF 解决 glibc 兼容性问题</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/u011987514/article/details/67716639">浅析ELF中的GOT与PLT</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzA3MzAwODYyNQ==&amp;mid=2247485059&amp;idx=1&amp;sn=057760b7cbe9a37d4312ec74dcb8a196&amp;scene=21#wechat_redirect">Linux系统中编译、链接的基石-ELF文件：扒开它的层层外衣，从字节码的粒度来探索</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzA3MzAwODYyNQ==&amp;mid=2247487353&amp;idx=1&amp;sn=533701348cbdf80ed48aee2195312d92&amp;scene=21#wechat_redirect">【图片+代码】：GCC 链接过程中的【重定位】过程分析</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/Lz3AAZcAk5_Z3HiOMsFlNA">【图片+代码】：Linux 动态链接过程中的【重定位】底层原理</a></p></li>
+</ul>
+<h2 id="进程与线程">进程与线程</h2>
+<ul>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/zUph16tTNMXy9pQY2LKsiA">为什么进程地址空间中包括操作系统？</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/E9SbPDDFs_NkMuuSACUq3w">Linux实现原理—进程、线程、内核线程、轻量级进程、协程</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/691d02380312">浅析Linux下的task_struct结构体</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_38371073/article/details/114376410">linux内核task_struct源码分析与解析(整合配图）</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/296750228">linux进程内核栈</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.toutiao.com/article/7195179429876728335">从进程和线程的创建过程来看进程和线程的区别</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/xy010902100449/article/details/44851453"><font color=Red>【进程管理】fork之后子进程到底复制了父进程什么？</font></a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/uf_mJZpirL8kjBzPEy9aRw"><font color=Red>深入理解Linux中进程控制</font></a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/bastard/archive/2012/08/31/2664896.html">linux中fork（）函数详解（原创！！实例讲解）</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.toutiao.com/article/7133100878235632158/">超详细的Linux进程控制精讲</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&amp;mid=2247503375&amp;idx=1&amp;sn=1ef245dd250d7004f9363a81e79d9f1d&amp;chksm=f96bbcfbce1c35edb5ff68f5f0dfcd58859dd5d2f8a68f1e013c2d97ecb29bf978cc5445f030&amp;mpshare=1&amp;scene=1&amp;srcid=0328qTcSaP6kykSE1yEjcA07&amp;sharer_sharetime=1648479204839&amp;sharer_shareid=2dfdf936388dba04865b3e883d5a3225&amp;version=3.1.12.6001&amp;platform=win#rd"><font color=Red>Linux 进程编程入门 fork vfork</font></a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1568077">Linux系统之进程状态</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/flyingleo1981/article/details/7739490">ps -aux出来的stat结果Ss,Sl,SN~~ 进程状态</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/25134841">被遗忘的桃源——flock 文件锁 - 知乎 (zhihu.com)</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&amp;mid=2247495796&amp;idx=1&amp;sn=5491512e674f56d5192a95d7094c3e62&amp;chksm=f96b8280ce1c0b965626468d03144bc497332e204b7ec6b54bd6bb1ea0d226bcc21bc1a580e9&amp;scene=178&amp;cur_album_id=1507350615537025026#rd">linux后台开发中避免僵尸进程的方法总结</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1497217">父进程退出时如何确保子进程退出？</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/8KoBR7awh_nZ-VAxVVVxhA">Linux进程描述符task_struct结构体详解</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/Function_Dou/article/details/89893888">进程最大打开文件描述符个数</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/Erice_s/article/details/111300790">Linux中的soft和hard limit</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/QCGJNUC71OTd11bSO_Oiew">Linux 中的各种栈：进程栈 线程栈 内核栈 中断栈</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/yPovZdsDhzm0hiUdlrKdjg">图解｜Linux 组调度</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/2eetiUAtedavND8c-sQM5w">Linux 多线程全面解析</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000009152815">Linux session和进程组概述</a></p></li>
+</ul>
+<h2 id="linux进程通信">Linux进程通信</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/tdzvElDwpt3kVyklVdYtig">原来＼进程间通信／是这么回事......</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/fortunely/p/14648146.html">Linux进程通信 - 无名管道与有名管道</a></li>
+<li><a target="_blank" rel="noopener" href="https://byronhe.com/post/2020/03/03/abstract-unix-socket-single-instance/">用 abstract unix socket 实现进程单实例运行</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_40763897/article/details/87545788">进程间通信——重定向、描述符表</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.toutiao.com/article/7137131866540376610">Linux管道到底能有多快？</a></li>
+</ul>
+<h2 id="多线程">多线程</h2>
+<ul>
+<li><p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/yinbiao/p/11190336.html">【Linux】多线程同步的四种方式</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/aaronLinux/p/5904479.html">[内核同步]浅析Linux内核同步机制 - aaronGao - 博客园 (cnblogs.com)</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.toutiao.com/article/7140527671716364837/">怒啃 24 小时，终于搞懂linux系统上下文切换</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://www.toutiao.com/article/7171812794948649511/">一文读懂进程调度算法</a></p></li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/HTML/">#HTML</a>
+      
+        <a href="/tags/bcc/">#bcc</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>进程管理</div>
+      <div>https://realwujing.github.io/linux/kernel/进程管理/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2023年4月23日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/kernel/%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8/" title="设备驱动">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">设备驱动</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/package/flatpak/" title="flatpak">
+                        <span class="hidden-mobile">flatpak</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '049a97e8215bec3712e2584c920f44a5'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
