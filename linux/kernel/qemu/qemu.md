@@ -6,7 +6,7 @@
 - [如何从主机粘贴到KVM客户机？](https://stc214.github.io/posts/2021%E5%B9%B42%E6%9C%886%E6%97%A512/)
 - [Copy n Paste in (KVM) Kernel-based Virtual Machine](https://www.linuxsecrets.com/3883-copy-n-paste-in-kvm)
 - [解决kvm安装Ubuntu虚机远程桌面无法复制粘贴问题](https://blog.csdn.net/guoyinzhao/article/details/109642824)
-- [解决deepin虚拟机系统时间不正确的问题  ](https://blog.csdn.net/fcdm_/article/details/122150246)
+- [解决deepin虚拟机系统时间不正确的问题](https://blog.csdn.net/fcdm_/article/details/122150246)
 
     ```bash
     sudo apt install systemd-timesyncd
@@ -34,17 +34,18 @@
 
 ## qemu
 
-- [QEMU (简体中文)](https://wiki.archlinuxcn.org/wiki/QEMUhttps://wiki.archlinuxcn.org/wiki/QEMU)
+- <https://www.qemu.org/docs/master/system/invocation.html>
+- [QEMU (简体中文)](https://wiki.archlinuxcn.org/wiki/QEMU)
 - [QEMU-KVM基本原理](https://www.toutiao.com/article/7194721406406787623)
 - [<font color=Red>Qemu&KVM 第一篇（2） qemu kvm 相关知识</font>](https://blog.csdn.net/weixin_34253539/article/details/93084893)
 - [<font color=Red>虚拟化技术 — 硬件辅助的虚拟化技术</font>](https://mp.weixin.qq.com/s/NsdNFhoP0QwjfhsQIeRWeQ)
 - [<font color=Red>虚拟化技术 — QEMU-KVM 基于内核的虚拟机</font>](https://mp.weixin.qq.com/s/sn-TTwldA81uFuVn5NBMhg)
 - [libvirt and QEMU 基础篇](https://blog.csdn.net/lingshengxiyou/article/details/128665491)
 
-- <https://www.qemu.org/docs/master/system/invocation.html>
+- [<font color=Red>https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu</font>](https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu)
+- [<font color=Red>Linux内核调试</font>](https://blog.csdn.net/onlylove_/category_11607029.html)
 
 - [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
-- [<font color=Red>Linux内核调试</font>](https://blog.csdn.net/onlylove_/category_11607029.html)
 
 ### 网络
 
