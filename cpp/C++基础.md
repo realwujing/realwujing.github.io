@@ -14,6 +14,7 @@
 - [Linux系统调用函数列表](https://blog.csdn.net/kwame211/article/details/77572123)
 - [Linux函数调用手册](https://www.chinastor.com/manuals/linuxfunctions/)
 - [linux系统调用和库函数调用的区别](https://www.cnblogs.com/Yogurshine/p/3666527.html)
+- [在程序里面执行system(“cd /某个目录“)，为什么路径切换不成功？](https://mp.weixin.qq.com/s/64xAPVhntRjz65SvrCqi7g)
 
 ## main
 
