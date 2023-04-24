@@ -52,9 +52,6 @@
 - [Linux下关闭ASLR(地址空间随机化)的方法](https://blog.csdn.net/counsellor/article/details/81543197)
 - [Linux关闭KASLR](https://blog.csdn.net/zy_zhengyang/article/details/95451484)
 - [开启内核地址随机化KASLR后, qemu 调试 kernel 不能设置断点](https://blog.csdn.net/gatieme/article/details/104266966)
-- [逻辑地址、线性地址、物理地址区别](https://zhuanlan.zhihu.com/p/90004914)
-- [Linux内存管理中，代码段和数据段映射成的线性地址重叠，不会冲突吗？](https://www.zhihu.com/question/420128789)
-- [x86段寄存器和分段机制](https://zhuanlan.zhihu.com/p/324210723)
 
 ## audio
 
