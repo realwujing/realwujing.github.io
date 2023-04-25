@@ -15,7 +15,7 @@
 - [anaconda | 镜像站使用帮助 | 清华大学开源软件镜像站 | Tsinghua Open Source Mirror](https://mirrors.tuna.tsinghua.edu.cn/help/anaconda/)
 
     ```bash
-    pip config set global.index-url<https://mirrors.aliyun.com/pypi/simple/
+    pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple/
     ```
 
 ## 日志
