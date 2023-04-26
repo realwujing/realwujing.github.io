@@ -41,7 +41,6 @@
 - [linux之登录式shell和非登录式shell](https://cloud.tencent.com/developer/article/1883601)
 - [linux之登录式shell和非登录式shell](https://zhuanlan.zhihu.com/p/415152910)
 
-
 ## 父子shell
 
 - [linux中父shell与子shell（脚本执行的几种方式）_peacewind-CSDN博客](https://blog.csdn.net/NOStandby/article/details/82914930)

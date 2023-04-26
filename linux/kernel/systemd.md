@@ -46,3 +46,8 @@
 - [systemd.swap — Swap unit configuration](https://www.freedesktop.org/software/systemd/man/systemd.swap.html)
 - [openSUSE Tumbleweed 中禁用 SWAP](https://cnzhx.net/blog/disable-swap-in-opensuse-tumbleweed/)
 - [openSUSE Tumbleweed 中禁用 SWAP](https://www.freedesktop.org/software/systemd/man/systemd.swap.html)
+
+## reload
+
+- [Linux Systemd 详细介绍: Unit、Unit File、Systemctl、Target](https://www.cnblogs.com/usmile/p/13065594.html)
+- [linux systemctl 命令](https://www.cnblogs.com/sparkdev/p/8472711.html)
