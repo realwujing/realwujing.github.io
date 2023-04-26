@@ -423,6 +423,11 @@
 - [BuildStream，软件集成工具](https://www.buildstream.build/)
 - [BuildStream 文档](https://docs.buildstream.build/1.4.3/index.html)
 
+## 时间协议
+
+- [NTP/PTP时间同步入门](https://hongwangle.com/use-case/time-sync/ntp-ptp-time-sync/)
+- [简单理解时间同步和时钟同步](https://blog.csdn.net/zu7543/article/details/102584313)
+
 ## 其它
 
 - [解决VSCode终端在Linux下打不开的问题_hqsiswiliam的博客-CSDN博客_vscode打不开](https://blog.csdn.net/hqsiswiliam/article/details/105832597)
@@ -449,8 +454,3 @@
 - [菜鸟也能懂的 - 音视频基础知识。](https://mp.weixin.qq.com/s/HzJyf9QLZYjRsacf_veK4g)
 - [Camera | 2.MIPI、CSI基础](https://mp.weixin.qq.com/s/5qYO5RjCDUcxo4tR3_f_ow)
 - [Linux虚拟网络设备bridge你真搞懂了吗？](https://cloud.tencent.com/developer/article/1871867)
-
-## 时间协议
-
-- [NTP/PTP时间同步入门](https://hongwangle.com/use-case/time-sync/ntp-ptp-time-sync/)
-- [简单理解时间同步和时钟同步](https://blog.csdn.net/zu7543/article/details/102584313)
