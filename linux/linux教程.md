@@ -184,7 +184,7 @@
 
 - [强大的Linux终端行为记录和回放工具：script命令详解](https://blog.csdn.net/Victor2code/article/details/103378542)
 - [linux情况屏幕一条命令是,Linux中通过script命令那个记录屏幕的输出](https://blog.csdn.net/weixin_29763641/article/details/116925273)
-- [linux下使用script命令生成^ [和^ M个字符的原因和方法](https://blog.csdn.net/weixin_42096901/article/details/107922971)
+- [linux下使用script命令生成^ \[和^ M个字符的原因和方法](https://blog.csdn.net/weixin_42096901/article/details/107922971)
 - [【Linux学习 】Linux使用Script命令来记录并回放终端会话](https://blog.csdn.net/ouyang_peng/article/details/78818492)
 - [终于知道保存SCP日志了](https://blog.csdn.net/reyleon/article/details/13999033)
 
