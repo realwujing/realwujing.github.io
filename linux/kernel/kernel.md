@@ -57,11 +57,6 @@
 
 - [ALSA（高级Linux声音架构）浅析](https://mp.weixin.qq.com/s/1TJQc3Ktdw_Qz576iLjB1Q)
 
-## 其他
-
-- [用户态和内核态的切换耗费时间的原因](https://blog.csdn.net/weixin_43871678/article/details/106723029)
-- [linux内核中likely与unlikely](https://blog.csdn.net/u014470361/article/details/81193023)
-
 ## linux内核源码
 
 - [linux内核源码在线阅读](https://www.cnblogs.com/igoodful/p/14081782.html)
@@ -155,3 +150,8 @@
 - [geteuid()和getuid（）的区别](https://blog.csdn.net/dongzhongshu/article/details/6215054)
 - [getuid() 与 geteuid()  获得 UID 以及 有效 UID 值](https://blog.csdn.net/dedlous/article/details/7188776)
 - [linux c setuid函数解析](https://blog.csdn.net/whatday/article/details/102844879)
+
+## 其他
+
+- [用户态和内核态的切换耗费时间的原因](https://blog.csdn.net/weixin_43871678/article/details/106723029)
+- [linux内核中likely与unlikely](https://blog.csdn.net/u014470361/article/details/81193023)
