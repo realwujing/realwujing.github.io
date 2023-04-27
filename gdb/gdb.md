@@ -115,6 +115,7 @@
 
 ## kdump
 
+- [<font color=Red>How to on enable kernel crash dump on Debian Linux</font>](https://www.cyberciti.biz/faq/how-to-on-enable-kernel-crash-dump-on-debian-linux/)
 - [详解Linux内核态调试工具kdump](https://blog.csdn.net/chenlycly/article/details/126074433)
 - [<font color=Red>Linux内核转储-Kdump，Crash使用介绍</font>](https://blog.csdn.net/qq_41782149/article/details/129021833)
 - [<font color=Red>Ubuntu 20.04 Kdump + Crash 初体验</font>](https://ebpf.top/post/ubuntu_kdump_crash/)
@@ -123,7 +124,7 @@
 - [Linux Kdump内核崩溃转储部署详解](https://blog.csdn.net/ludaoyi88/article/details/114194687)
 - [Ubuntu的内核转储工具](https://www.cnblogs.com/wwang/archive/2010/11/19/1881304.html)
 - [<font color=Red>centos7 kdump、crash调试内核</font>](https://blog.csdn.net/weixin_45030965/article/details/124960224)
-- [<font color=Red>How to on enable kernel crash dump on Debian Linux</font>](https://www.cyberciti.biz/faq/how-to-on-enable-kernel-crash-dump-on-debian-linux/)
+- [Linux Kdump 机制详解](https://www.toutiao.com/article/7103352500777910821/)
 
 ## carsh
 
