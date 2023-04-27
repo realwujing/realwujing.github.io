@@ -57,10 +57,6 @@
 
 - [ALSA（高级Linux声音架构）浅析](https://mp.weixin.qq.com/s/1TJQc3Ktdw_Qz576iLjB1Q)
 
-## 系统日志
-
-- [Linux进程被杀掉（OOM killer），查看系统日志](https://www.cnblogs.com/duanxz/p/10185946.html)
-
 ## 其他
 
 - [用户态和内核态的切换耗费时间的原因](https://blog.csdn.net/weixin_43871678/article/details/106723029)
