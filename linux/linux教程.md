@@ -51,7 +51,6 @@
 - [Linux多命令顺序执行连接符(; || && |)_Don't lost way-CSDN博客](https://blog.csdn.net/wang740209668/article/details/53152596)
 - [Linux中单引号和双引号的区别](https://www.cnblogs.com/yeyuzhuanjia/p/16407968.html)
 
-
 ## 上传下载文件
 
 - [Linux上传下载文件的几种方式 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/141860859#:~:text=Linux%E4%B8%8A%E4%BC%A0%E4%B8%8B%E8%BD%BD%E6%96%87%E4%BB%B6%E7%9A%84%E5%87%A0%E7%A7%8D%E6%96%B9%E5%BC%8F%201%20scp%202%20rcp%203%20wget%204,account%20required%20%2Flib64%2Fsecurity%2Fpam_unix.so%20session%20required%20%2Flib64%2Fsecurity%2Fpam_unix.so%209%20SecureCRT)
@@ -159,6 +158,10 @@
 - [精通awk系列文章](https://www.junmajinlong.com/shell/awk/index/)
 - [Linux 下强大的 awk 命令，你真的会了吗？](https://mp.weixin.qq.com/s/WEE702IgzgUbRI7u3K39gg)
 - [Linux之awk使用技巧](https://mp.weixin.qq.com/s/f093fiQ6XYqAUobRMeCHqg)
+
+## 日志
+
+- [Linux 下使用 Logrotate 旋转和压缩日志文件](https://www.toutiao.com/article/7228735741931864631/)
 
 ## tail
 
