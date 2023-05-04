@@ -65,11 +65,15 @@
 
 ## 忽略大小写
 
-- [Linux终端忽略大小写自动补全_、moddemod-CSDN博客_ubuntu 终端忽略大小写 ](https://blog.csdn.net/weixin_43833642/article/details/104712175)
+- [Linux终端忽略大小写自动补全](https://blog.csdn.net/weixin_43833642/article/details/104712175)
 
   ```bash
   echo "set completion-ignore-case on" >> ~/.inputrc
   ```
+
+## python
+
+- [linux系统下将python3设置为默认的python](https://blog.51cto.com/u_15351425/3727453)
 
 ## 时间
 
@@ -190,10 +194,6 @@
 - [linux下使用script命令生成^ \[和^ M个字符的原因和方法](https://blog.csdn.net/weixin_42096901/article/details/107922971)
 - [【Linux学习 】Linux使用Script命令来记录并回放终端会话](https://blog.csdn.net/ouyang_peng/article/details/78818492)
 - [终于知道保存SCP日志了](https://blog.csdn.net/reyleon/article/details/13999033)
-
-## python
-
-- [linux系统下将python3设置为默认的python](https://blog.51cto.com/u_15351425/3727453)
 
 ## 终端
 
