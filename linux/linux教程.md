@@ -256,6 +256,7 @@
 
 - [nc命令 全称netcat，用于设置路由器](https://wangchujiang.com/linux-command/c/nc.html)
 - [linux 测试端口通不通(四种方法）](https://blog.csdn.net/weixin_30696427/article/details/95817700)
+- [<font color=Red>Linux系统中如何验证网络端口通不通</font>](https://mp.weixin.qq.com/s/_YYk_uWSoOln_yU8kbUqjg)
 - [LINUX中如何查看某个端口是否被占用](https://www.cnblogs.com/hindy/p/7249234.html)
 - [Linux 查看端口占用情况](https://www.runoob.com/w3cnote/linux-check-port-usage.html)
 
