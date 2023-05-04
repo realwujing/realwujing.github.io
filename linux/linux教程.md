@@ -439,7 +439,6 @@
 
 - [解决VSCode终端在Linux下打不开的问题_hqsiswiliam的博客-CSDN博客_vscode打不开](https://blog.csdn.net/hqsiswiliam/article/details/105832597)
 
-- [3 种方法教你在 Linux 中修改打开文件数量限制](https://www.163.com/dy/article/FSEENEN90531I6Y1.html)
 - [安装OhMyZsh插件后提示错误：“zsh compinit: insecure directories”- bobjoy的个人空间- OSCHINA -中文开源技术交流社区](https://my.oschina.net/u/215547/blog/824106)
 - [ubuntu搭建http服务器用于下载ubuntu文件](https://blog.csdn.net/yy1695990107/article/details/116976994)
 
