@@ -210,6 +210,10 @@
 - [tmux常用命令及快捷键](https://blog.51cto.com/u_6997825/3748023)
 - [tmux 解决屏幕比例不协调问题](https://blog.csdn.net/chaokudeztt/article/details/126299939)
 
+## 随机数
+
+- [Linux中的随机数知多少](https://mp.weixin.qq.com/s/YhSMBitB6bA1QkXUcUe5_Q)
+
 ## 查找进程
 
 - [第9章Linux进程和信号超详细分析](https://www.cnblogs.com/f-ck-need-u/p/7058920.html)
