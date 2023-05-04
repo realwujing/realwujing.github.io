@@ -444,8 +444,6 @@
 - [ubuntu搭建http服务器用于下载ubuntu文件](https://blog.csdn.net/yy1695990107/article/details/116976994)
 
 - [你和 Linux 极客只差一个 LFS - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/26546592)
-- [服务器虚拟化组件有哪些？](http://c.biancheng.net/view/3842.html)
-- [ubuntu18.04上搭建KVM虚拟机环境超完整过程](https://mp.weixin.qq.com/s/FVyzPVwwQ85AC4jlVZvF4g)
 - [改造rm命令，删除文件至回收站](https://segmentfault.com/a/1190000018464527)
 - [ubuntu16.04 安装x11vnc桌面](https://www.jianshu.com/p/f1997b5e1031)
 - [VSCode安装shell、bash格式化工具](https://www.jianshu.com/p/484e5be21786)
