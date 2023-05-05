@@ -22,6 +22,7 @@
 - [deepin系统更改默认启动内核](https://blog.csdn.net/jxwzh/article/details/116041716)
 - [操作系统如何实现：什么是宏内核、微内核](https://mp.weixin.qq.com/s/aPTCt5cmzEtq0xeeMgQLRQ)
 - [一篇文章汇总嵌入式处理器相关的知识](https://mp.weixin.qq.com/s/Aai7Ccwwp7SROEXpPnEfzA)
+- [<font color=Red>【精华】Linux阅码场原创精华文章汇总</font>](https://mp.weixin.qq.com/s/co0CzrJBmbZd0I0ddjHGaQ)
 
 ## 内核Makefileconfig
 
