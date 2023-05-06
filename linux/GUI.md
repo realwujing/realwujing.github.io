@@ -23,7 +23,3 @@
 
 - [linux（ubuntu）系统什么叫：桌面管理器，窗口管理器？](https://my.oschina.net/aspirs/blog/607710)
 - [Linux桌面环境（桌面系统）大比拼[附带优缺点]](http://c.biancheng.net/view/2912.html)
-
-## amd drivers
-
-- [How to Install the Latest AMD Drivers on Debian 10 Buster](https://linuxconfig.org/how-to-install-the-latest-amd-drivers-on-debian-10-buster)
