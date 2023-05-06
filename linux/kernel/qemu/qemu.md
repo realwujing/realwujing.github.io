@@ -92,6 +92,7 @@
 - [<font color=Red>制作一个grub虚拟启动盘，在qemu下调试</font>](https://blog.csdn.net/qq_41957544/article/details/105769697)
 
 - [Running a full system stack under QEMUarm64](https://cdn.kernel.org/pub/linux/kernel/people/will/docs/qemu/qemu-arm64-howto.html)
+- [qemu模拟vexpress开发板](https://www.cnblogs.com/bigsissy/p/11134802.html)
 
 ## arm64下qemu虚拟arm64
 
