@@ -39,3 +39,4 @@
 - [Linux设备驱动开发详解：基于最新的Linux4.0内核.pdf](https://manongbook.com/linux/684.html)
 - [Linux设备驱动开发详解(宋宝华)资料](https://zhuanlan.zhihu.com/p/112208300)
 - [驱动源码](drivers.tar)
+- [《Linux 设备驱动开发详解》(宋宝华) 学习笔记](https://github.com/eddyvv/learn-ldd-master)
