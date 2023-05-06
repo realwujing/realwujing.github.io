@@ -33,3 +33,9 @@
 ## PCI_Express_体系结构导读
 
 - [PCI_Express_体系结构导读.pdf](https://www.123pan.com/Weboffice/?type=f&id=1641382&FileName=PCI_Express_%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84%E5%AF%BC%E8%AF%BB.pdf&Size=31777886&Etag=7d823eed57dad308392d512270c729fc&S3KeyFlag=1640083-0&CreateAt=1647394917&UpdateAt=1648172199&from=2&shareKey=y8zA-syTe)
+
+## Linux设备驱动开发详解：基于最新的Linux4.0内核
+
+- [Linux设备驱动开发详解：基于最新的Linux4.0内核.pdf](https://manongbook.com/linux/684.html)
+- [Linux设备驱动开发详解(宋宝华)资料](https://zhuanlan.zhihu.com/p/112208300)
+- [驱动源码](drivers.tar)
