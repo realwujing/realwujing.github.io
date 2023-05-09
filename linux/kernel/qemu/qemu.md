@@ -93,6 +93,7 @@
 
 - [Running a full system stack under QEMUarm64](https://cdn.kernel.org/pub/linux/kernel/people/will/docs/qemu/qemu-arm64-howto.html)
 - [qemu模拟vexpress开发板](https://www.cnblogs.com/bigsissy/p/11134802.html)
+- [<font color=Red>第四期 QEMU调试Linux内核实验 《虚拟机就是开发板》</font>](https://blog.csdn.net/aggresss/article/details/54946438)
 
 ## arm64下qemu虚拟arm64
 
