@@ -55,6 +55,7 @@
 - [<font color=Red>QEMU 网络配置</font>](https://tomwei7.com/2021/10/09/qemu-network-config/)
 - [<font color=Red>Linux 内核调试 七：qemu网络配置</font>](https://blog.csdn.net/OnlyLove_/article/details/124536607)
 - [<font color=Red>详解QEMU网络配置的方法</font>](https://www.jb51.net/article/97216.htm)
+- [详解：VirtIO Networking 虚拟网络设备实现架构](https://mp.weixin.qq.com/s/aFOcuyypU1KdcdOecs8DdQ)
 - [虚拟化技术 — Libvirt 异构虚拟化管理组件](https://mp.weixin.qq.com/s/oEDuaFs7DQM3zMCIx_CiFA)
 
 ## x86_64下qemu虚拟x86_64
