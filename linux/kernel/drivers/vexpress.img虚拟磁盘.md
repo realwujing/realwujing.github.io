@@ -72,3 +72,8 @@ qemu-img create -f raw vexpress.img 48M
 ```bash
 sudo mount -o loop,offset=$((2048*512)) vexpress.img img
 ```
+
+## More
+
+- [Linux设备驱动开发详解：基于最新的Linux4.0内核.pdf](https://manongbook.com/linux/684.html)
+- [第四期 QEMU调试Linux内核实验 《虚拟机就是开发板》](https://blog.csdn.net/aggresss/article/details/54946438)
