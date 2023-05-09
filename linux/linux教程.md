@@ -116,6 +116,7 @@
 - [正则表达式中的 .*和.*?的区别](https://blog.csdn.net/qq_34172780/article/details/104954879)
 - [正则表达式和扩展正则表达式](https://www.cnblogs.com/yan888/p/16137904.html)
 - [C语言中的正则表达式使用](https://www.cnblogs.com/xiaojiu/archive/2013/11/19/3430875.html)
+- [Linux0基础入门，教你如何在Shell中使用正则表达式](https://mp.weixin.qq.com/s/I3pxGtWLg86wfHItRafXQQ)
 
 ## find
 
