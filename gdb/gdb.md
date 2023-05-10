@@ -132,7 +132,12 @@
 - [linux内核学习-Linux内核程序调试工具Crash的安装](https://www.cnblogs.com/ssyfj/p/16278883.html)
 - [dump分析工具_ubantu18.04内核奔溃调试工具Crash的搭建](https://blog.csdn.net/weixin_39545102/article/details/111215997)
 
-## debugsymbols
+## Binutils
+
+- [GNU binutils 里的九种武器](https://zhuanlan.zhihu.com/p/85913402)
+- [GNU Binutils简介及基本用法](https://www.cnblogs.com/tocy/p/gnu-binutils-simple-usage.html)
+
+### debugsymbols
 
 - [deb debug package-标准的 debian / ubuntu 打 deb 包，通过将可执行文件的符号表通过剥离成独立的 dbg 包，称为 debug package](http://sunyongfeng.com/201802/linux/debian_debug_package)
 - [17GDB使用符号表调试release程序](https://www.cnblogs.com/qiumingcheng/p/15821919.html)
@@ -145,7 +150,7 @@
 - [linux之vmlinux、vmlinuz、System.map和/proc/kallsyms简介](https://blog.csdn.net/weixin_45030965/article/details/125055828)
 - [Linux内核：符号表详解](https://zhuanlan.zhihu.com/p/445864686)
 
-## strings
+### strings
 
 - [<font color=Red>strings</font>](https://github.com/realwujing/realwujing.github.io/blob/main/shell/strings.md)
 - [linux中的strings命令简介](https://zhuanlan.zhihu.com/p/383038723)
