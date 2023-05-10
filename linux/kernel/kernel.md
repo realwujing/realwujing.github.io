@@ -26,6 +26,7 @@
 
 ## 内核Makefileconfig
 
+- [make 参数 ARCH与CROSS_COMPILE***](https://www.cnblogs.com/jiangzhaowei/p/12288515.html)
 - [Linux内核Makefile分析](https://blog.csdn.net/lizuobin2/article/details/51464152)
 - [linux内核编译系统-kbuild系统详解](https://zhuanlan.zhihu.com/p/358801667)
 - [浅析Kbuild系统](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/88548273)
