@@ -30,6 +30,7 @@
 - [Linux内核Makefile分析](https://blog.csdn.net/lizuobin2/article/details/51464152)
 - [linux内核编译系统-kbuild系统详解](https://zhuanlan.zhihu.com/p/358801667)
 - [浅析Kbuild系统](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/88548273)
+- [linux kernel: defconfig和.config](https://blog.csdn.net/u012247418/article/details/105347429)
 - [以deb包方式编译内核](https://blog.csdn.net/weixin_40182062/article/details/108230678)
 - [第 10 章 Debian 和内核](https://www.debian.org/doc/manuals/debian-faq/kernel.zh-cn.html)
 - [Linux内核配置以及Make menuconfig过程分析](https://blog.csdn.net/lizuobin2/article/details/51429937)
