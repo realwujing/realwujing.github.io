@@ -50,6 +50,10 @@
 - [Linux内核驱动学习-编写最简单Linux内核模块HelloWorld](https://blog.csdn.net/weixin_46048542/article/details/123171177)
 - [linux内核模块加载命令](https://blog.csdn.net/Lihuihui006/article/details/112199469)
 
+### dkms
+
+- [Linux 模块管理方法之 DKMS](https://zhuanlan.zhihu.com/p/353393598)
+
 ## ASLR
 
 - [Linux下关闭ASLR(地址空间随机化)的方法](https://blog.csdn.net/counsellor/article/details/81543197)
