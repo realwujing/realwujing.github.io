@@ -80,7 +80,7 @@
 
 - [玩转内核链表list_head，教你管理不同类型节点的实现，建议收藏](https://mp.weixin.qq.com/s/Ddonv6FdY4oroIT32IGxOw)
 - [Linux内核中经典链表 list_head 常见使用方法解析](https://blog.csdn.net/wanshilun/article/details/79747710)
-- [Linux内核中的常用宏container_of其实很简单](https://blog.csdn.net/npy_lp/article/details/7010752#:~:text=Containe,%E4%BD%93%E5%8F%98%E9%87%8F%E7%9A%84%E9%A6%96%E5%9C%B0%E5%9D%80%E3%80%82)
+- [Linux内核中的常用宏container_of其实很简单](https://blog.csdn.net/npy_lp/article/details/7010752)
 - [<font color=Red>Linux内核中container_of的原理及其使用详解</font>](https://blog.csdn.net/u010632165/article/details/107523477)
 - [Linux 内核 hlist 详解](https://blog.csdn.net/hs794502825/article/details/24597773)
 - [hlist用法以及hlist_for_each_entry 使用举例](https://blog.csdn.net/oHeHui1/article/details/128176831)
@@ -120,6 +120,7 @@
 
 - [一文讲解Linux内核中根文件系统挂载流程](https://zhuanlan.zhihu.com/p/489819324)
 - [根文件系统挂载 原创](https://blog.51cto.com/csdyabc/856177)
+- [rootfs根文件系统制作及挂载方法-详解](https://mp.weixin.qq.com/s/0sM0y0Bc8pJvzohJ_cpmoQ)
 
 ## percpu变量
 
