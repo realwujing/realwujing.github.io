@@ -437,6 +437,10 @@
 - [NTP/PTP时间同步入门](https://hongwangle.com/use-case/time-sync/ntp-ptp-time-sync/)
 - [简单理解时间同步和时钟同步](https://blog.csdn.net/zu7543/article/details/102584313)
 
+## 输入法
+
+- [Linux 系统Kde桌面环境的fcitx输入问题解决](https://zhuanlan.zhihu.com/p/41338951)
+
 ## 其它
 
 - [解决VSCode终端在Linux下打不开的问题_hqsiswiliam的博客-CSDN博客_vscode打不开](https://blog.csdn.net/hqsiswiliam/article/details/105832597)
