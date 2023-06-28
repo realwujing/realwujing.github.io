@@ -121,6 +121,7 @@
 - [一文讲解Linux内核中根文件系统挂载流程](https://zhuanlan.zhihu.com/p/489819324)
 - [根文件系统挂载 原创](https://blog.51cto.com/csdyabc/856177)
 - [rootfs根文件系统制作及挂载方法-详解](https://mp.weixin.qq.com/s/0sM0y0Bc8pJvzohJ_cpmoQ)
+- [根文件系统挂载](http://blog.chinaunix.net/uid-305141-id-2133773.html)
 
 ## percpu变量
 
