@@ -111,3 +111,7 @@
 - [交叉编译arm64内核](https://blog.csdn.net/shanruo/article/details/80474338)
 - [交叉编译环境下对linux内核编译](https://blog.csdn.net/ludaoyi88/article/details/115633849)
 - [交叉编译linux内核并使用qemu运行](https://blog.csdn.net/jinking01/article/details/129580621)
+
+## loongarch
+
+- [龙芯虚拟化使用手册](https://blog.csdn.net/faxiang1230/article/details/120907896)
