@@ -71,6 +71,7 @@
 - [<font color=Red>服务/软件管理：38-gdb+gdbserver的使用</font>](https://blog.51cto.com/u_15346415/3678651)
 - [gdb远程及本地调试的一些技巧](https://www.cnblogs.com/seven-sky/p/4730225.html)
 - [使用GDB进行嵌入式远程调试](https://blog.csdn.net/lvwx369/article/details/121490883)
+- [linux内核调试（七）使用kdb/kgdb调试内核](https://zhuanlan.zhihu.com/p/546416941)
 
 ## ptrace
 
