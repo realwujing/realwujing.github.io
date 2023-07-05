@@ -73,6 +73,7 @@
 - [使用GDB进行嵌入式远程调试](https://blog.csdn.net/lvwx369/article/details/121490883)
 - [<font color=Red>Linux下常用的串口助手 —— minicom、putty、cutecom</font>](https://blog.csdn.net/Mculover666/article/details/87647810)
 - [linux内核调试（七）使用kdb/kgdb调试内核](https://zhuanlan.zhihu.com/p/546416941)
+- [Using kgdb, kdb and the kernel debugger internals](https://www.kernel.org/doc/html/latest/dev-tools/kgdb.html?highlight=kgdb)
 
 ## ptrace
 
