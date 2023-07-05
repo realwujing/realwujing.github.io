@@ -63,6 +63,7 @@
 ## audio
 
 - [ALSA（高级Linux声音架构）浅析](https://mp.weixin.qq.com/s/1TJQc3Ktdw_Qz576iLjB1Q)
+- [ALSA配置文件(alsa.conf, asoundrc, asound.conf)及其自动加载 And HDMI Adiuo](https://blog.csdn.net/lile777/article/details/62428473)
 
 ## linux内核源码
 
