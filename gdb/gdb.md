@@ -80,6 +80,7 @@
 - [使用KGDB调试Linux驱动（以imx6ull开发板为例）](https://blog.csdn.net/weixin_38832162/article/details/115347640)
 - [用 kGDB 调试 Linux 内核 ](https://www.cnblogs.com/qiynet/p/6432717.html)
 - [使用kgdb调试Vagrant guest kernel](https://www.jianshu.com/p/5418908bc883)
+- [【调试】sysRq按键使用方法](https://zhuanlan.zhihu.com/p/608948166)
 
 ## ptrace
 
