@@ -82,6 +82,7 @@
 - [使用kgdb调试Vagrant guest kernel](https://www.jianshu.com/p/5418908bc883)
 - [【调试】sysRq按键使用方法](https://zhuanlan.zhihu.com/p/608948166)
 - [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
+- [kgdb调试linux内核以及驱动模块](https://blog.csdn.net/weixin_39871788/article/details/120313821)
 
 ## ptrace
 
