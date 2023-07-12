@@ -60,13 +60,6 @@
 - [Linux关闭KASLR](https://blog.csdn.net/zy_zhengyang/article/details/95451484)
 - [开启内核地址随机化KASLR后, qemu 调试 kernel 不能设置断点](https://blog.csdn.net/gatieme/article/details/104266966)
 
-## alsa
-
-- [ALSA（高级Linux声音架构）浅析](https://mp.weixin.qq.com/s/1TJQc3Ktdw_Qz576iLjB1Q)
-- [Linux音频驱动-ALSA概述](https://blog.csdn.net/longwang155069/article/details/53260731)
-- [ALSA配置文件(alsa.conf, asoundrc, asound.conf)及其自动加载 And HDMI Adiuo](https://blog.csdn.net/lile777/article/details/62428473)
-- [kernel 4.19音频框架超详细分析(ALSA数据流程、控制流程、驱动层)](https://blog.csdn.net/l316194152/article/details/116854430)
-
 ## linux内核源码
 
 - [linux内核源码在线阅读](https://www.cnblogs.com/igoodful/p/14081782.html)
