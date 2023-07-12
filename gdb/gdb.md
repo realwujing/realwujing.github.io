@@ -84,6 +84,7 @@
 - [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
 - [kgdb调试linux内核以及驱动模块](https://blog.csdn.net/weixin_39871788/article/details/120313821)
 - [内核调试- vmlinux-gdb.py无法在gdb上运行](https://cloud.tencent.com/developer/ask/sof/249935)
+- [](https://quard-star-tutorial.readthedocs.io/zh_CN/latest/ext1.html)
 
 ## ptrace
 
