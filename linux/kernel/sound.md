@@ -10,3 +10,4 @@
 ## pulseaudio
 
 - [linux音频声卡 pulseaudio服务](https://blog.csdn.net/qq_42138566/article/details/108626378)
+- [PulseAudio](https://magodo.github.io/PulseAudio/)
