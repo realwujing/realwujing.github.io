@@ -15,3 +15,4 @@
 ## qemu
 
 - [QEMU 中音频模拟如何工作](https://blog.csdn.net/tq08g2z/article/details/78908757)
+- [qemu声卡模拟原理-声音播放(pa+ac97)](https://blog.csdn.net/qq_16054639/article/details/116745416)
