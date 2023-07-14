@@ -16,6 +16,8 @@
 git format-patch --output=kgdb_not_work.patch c907106159ca
 ```
 
+patch下载地址：[kgdb_not_work.patch](https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/sysrq_trigger)
+
 ### 应用patch
 
 先检查patch文件：
