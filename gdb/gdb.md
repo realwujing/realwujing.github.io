@@ -86,6 +86,10 @@
 - [内核调试- vmlinux-gdb.py无法在gdb上运行](https://cloud.tencent.com/developer/ask/sof/249935)
 - [](https://quard-star-tutorial.readthedocs.io/zh_CN/latest/ext1.html)
 
+### kgdboe
+
+- [How to use kgdb over ethernet (kgdboe)?](https://stackoverflow.com/questions/21300420/how-to-use-kgdb-over-ethernet-kgdboe)
+
 ## ptrace
 
 - [Linux GDB的实现原理](https://www.toutiao.com/article/7199644016760554018)
