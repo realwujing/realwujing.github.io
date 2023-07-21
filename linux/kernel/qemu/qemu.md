@@ -36,6 +36,7 @@
 
 ## qemu
 
+- [<font color=Red>libvirt的virsh命令和qemu参数转换</font>](https://blog.csdn.net/YuZhiHui_No1/article/details/53909925)
 - <https://www.qemu.org/docs/master/system/invocation.html>
 - [QEMU (简体中文)](https://wiki.archlinuxcn.org/wiki/QEMU)
 - [QEMU-KVM基本原理](https://www.toutiao.com/article/7194721406406787623)
