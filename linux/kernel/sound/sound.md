@@ -1,5 +1,9 @@
 # sound
 
+## codec
+
+- [<font color=Red>Linux音频问题——codec寄存器配置</font>](https://blog.csdn.net/tombaby_come/article/details/129521118)
+
 ## alsa
 
 - [ALSA（高级Linux声音架构）浅析](https://mp.weixin.qq.com/s/1TJQc3Ktdw_Qz576iLjB1Q)
