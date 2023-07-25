@@ -15,6 +15,7 @@
 
 ### realtek
 
+- [<font color=Red>ALC885_1-1.pdf</font>](https://github.com/realwujing/realwujing.github.io/blob/main/linux/kernel/sound/ALC885_1-1.pdf)
 - [http://realtek.info/pdf/ALC885_1-1.pdf](http://realtek.info/pdf/ALC885_1-1.pdf)
 
 ## alsa
