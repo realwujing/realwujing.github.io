@@ -2,6 +2,7 @@
 
 ## hda
 
+- [<font color=Red>Pin configuration guidelines for High Definition Audio devices</font>](https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn613979(v=vs.85)?redirectedfrom=MSDN)
 - [<font color=Red>High Definition Audio Specification Revision 1.0a</font>](https://www.intel.com/content/dam/www/public/us/en/documents/product-specifications/high-definition-audio-specification.pdf)
 
 ### hda-verb
@@ -11,7 +12,7 @@
 ### codec
 
 - [<font color=Red>Linux音频问题——codec寄存器配置</font>](https://blog.csdn.net/tombaby_come/article/details/129521118)
-- [HDA codec相关(2) - verbtable相关](https://blog.csdn.net/qq_21186033/article/details/117667075)
+- [<font color=Red>HDA codec相关(2) - verbtable相关</font>](https://blog.csdn.net/qq_21186033/article/details/117667075)
 
 ### realtek
 
