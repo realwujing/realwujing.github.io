@@ -1,13 +1,17 @@
 # sound
 
-## codec
+## hda
+
+- [<font color=Red>High Definition Audio Specification Revision 1.0a</font>](https://www.intel.com/content/dam/www/public/us/en/documents/product-specifications/high-definition-audio-specification.pdf)
+
+### hda-verb
+
+- [hda-verb参数详表](https://www.jianshu.com/p/d4e92693b17e)
+
+### codec
 
 - [<font color=Red>Linux音频问题——codec寄存器配置</font>](https://blog.csdn.net/tombaby_come/article/details/129521118)
 - [HDA codec相关(2) - verbtable相关](https://blog.csdn.net/qq_21186033/article/details/117667075)
-
-### hda
-
-- [High Definition Audio Specification Revision 1.0a](https://www.intel.com/content/dam/www/public/us/en/documents/product-specifications/high-definition-audio-specification.pdf)
 
 ### realtek
 
