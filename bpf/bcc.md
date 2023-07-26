@@ -107,6 +107,14 @@ sudo update-alternatives --config python
 sudo execsnoop
 ```
 
+```bash
+trace-bpfcc -I 'sound/pci/hda/hda_codec.h' 'r::snd_hda_codec_configure(struct hda_codec *codec) "ret:%d", retval'
+```
+
+```bash
+trace-bpfcc 'r::parse_user_pin_configs "ret:%d", retval'
+```
+
 ## More
 
 - [https://github.com/iovisor/bcc/blob/master/INSTALL.md#ubuntu---source](https://github.com/iovisor/bcc/blob/master/INSTALL.md#ubuntu---source)
