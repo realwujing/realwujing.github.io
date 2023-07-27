@@ -4,6 +4,7 @@
 
 - [<font color=Red>Pin configuration guidelines for High Definition Audio devices</font>](https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn613979(v=vs.85)?redirectedfrom=MSDN)
 - [<font color=Red>High Definition Audio Specification Revision 1.0a</font>](https://www.intel.com/content/dam/www/public/us/en/documents/product-specifications/high-definition-audio-specification.pdf)
+- [More Notes on HD-Audio Driver](https://www.kernel.org/doc/html/latest/sound/hd-audio/notes.html)
 
 ### hda-verb
 
