@@ -32,6 +32,7 @@
 - [linux音频声卡 pulseaudio服务](https://blog.csdn.net/qq_42138566/article/details/108626378)
 - [PulseAudio](https://magodo.github.io/PulseAudio/)
 - [https://wiki.archlinuxcn.org/wiki/PulseAudio](https://wiki.archlinuxcn.org/wiki/PulseAudio)
+- [Linux使用PulseAudio设置音频card的默认profile](https://blog.csdn.net/qq_35156410/article/details/107401642)
 
 ## qemu
 
