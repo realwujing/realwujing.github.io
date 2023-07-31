@@ -34,6 +34,7 @@
 - [PulseAudio](https://magodo.github.io/PulseAudio/)
 - [https://wiki.archlinuxcn.org/wiki/PulseAudio](https://wiki.archlinuxcn.org/wiki/PulseAudio)
 - [Linux使用PulseAudio设置音频card的默认profile](https://blog.csdn.net/qq_35156410/article/details/107401642)
+- [<font color=Red>[ALC885_1-1.pdf](https://www.freedesktop.org/wiki/Software/PulseAudio/Backends/ALSA/Profiles/)</font>](https://www.freedesktop.org/wiki/Software/PulseAudio/Backends/ALSA/Profiles/)
 
 ## qemu
 
