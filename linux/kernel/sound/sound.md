@@ -30,11 +30,12 @@
 
 ## pulseaudio
 
+- [https://gavv.net/articles/pulseaudio-under-the-hood/](https://gavv.net/articles/pulseaudio-under-the-hood/)
+- [<font color=Red>[ALC885_1-1.pdf](https://www.freedesktop.org/wiki/Software/PulseAudio/Backends/ALSA/Profiles/)</font>](https://www.freedesktop.org/wiki/Software/PulseAudio/Backends/ALSA/Profiles/)
 - [linux音频声卡 pulseaudio服务](https://blog.csdn.net/qq_42138566/article/details/108626378)
 - [PulseAudio](https://magodo.github.io/PulseAudio/)
 - [https://wiki.archlinuxcn.org/wiki/PulseAudio](https://wiki.archlinuxcn.org/wiki/PulseAudio)
 - [Linux使用PulseAudio设置音频card的默认profile](https://blog.csdn.net/qq_35156410/article/details/107401642)
-- [<font color=Red>[ALC885_1-1.pdf](https://www.freedesktop.org/wiki/Software/PulseAudio/Backends/ALSA/Profiles/)</font>](https://www.freedesktop.org/wiki/Software/PulseAudio/Backends/ALSA/Profiles/)
 
 ## qemu
 
