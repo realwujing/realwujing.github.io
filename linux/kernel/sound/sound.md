@@ -22,6 +22,7 @@
 
 ## alsa
 
+- [<font color=Red>Linux ALSA sound notes</font>](http://www.sabi.co.uk/Notes/linuxSoundALSA.html)
 - [ALSA（高级Linux声音架构）浅析](https://mp.weixin.qq.com/s/1TJQc3Ktdw_Qz576iLjB1Q)
 - [Linux音频驱动-ALSA概述](https://blog.csdn.net/longwang155069/article/details/53260731)
 - [ALSA配置文件(alsa.conf, asoundrc, asound.conf)及其自动加载 And HDMI Adiuo](https://blog.csdn.net/lile777/article/details/62428473)
