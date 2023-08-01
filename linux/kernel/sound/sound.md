@@ -38,6 +38,7 @@
 - [https://wiki.archlinuxcn.org/wiki/PulseAudio](https://wiki.archlinuxcn.org/wiki/PulseAudio)
 - [Linux使用PulseAudio设置音频card的默认profile](https://blog.csdn.net/qq_35156410/article/details/107401642)
 - [Linux音频系统研究(ALSA Udev PulseAudio)](https://blog.mxslly.com/archives/174.html)
+- [Tell PulseAudio to ignore a USB device using udev](https://jamielinux.com/blog/tell-pulseaudio-to-ignore-a-usb-device-using-udev/)
 
 ## qemu
 
