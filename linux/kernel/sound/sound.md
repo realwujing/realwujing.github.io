@@ -41,6 +41,7 @@
 - [Tell PulseAudio to ignore a USB device using udev](https://jamielinux.com/blog/tell-pulseaudio-to-ignore-a-usb-device-using-udev/)
 - [https://wiki.archlinux.org/title/PulseAudio/Examples](https://wiki.archlinux.org/title/PulseAudio/Examples)
 - [https://wiki.archlinux.org/title/PulseAudio/Troubleshooting](https://wiki.archlinux.org/title/PulseAudio/Troubleshooting)
+- [https://wiki.debian.org/PulseAudio](https://wiki.debian.org/PulseAudio)
 
 ## qemu
 
