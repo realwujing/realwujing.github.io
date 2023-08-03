@@ -14,6 +14,7 @@
 
 - [<font color=Red>Linux音频问题——codec寄存器配置</font>](https://blog.csdn.net/tombaby_come/article/details/129521118)
 - [<font color=Red>HDA codec相关(2) - verbtable相关</font>](https://blog.csdn.net/qq_21186033/article/details/117667075)
+- [http://helllabs.org/codecgraph/](http://helllabs.org/codecgraph/)
 
 ### realtek
 
