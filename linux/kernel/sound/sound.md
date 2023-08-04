@@ -43,6 +43,7 @@
 - [https://wiki.archlinux.org/title/PulseAudio/Examples](https://wiki.archlinux.org/title/PulseAudio/Examples)
 - [https://wiki.archlinux.org/title/PulseAudio/Troubleshooting](https://wiki.archlinux.org/title/PulseAudio/Troubleshooting)
 - [https://wiki.debian.org/PulseAudio](https://wiki.debian.org/PulseAudio)
+- [Pulseaudio调试技巧](https://www.codenong.com/cs105336370/)
 
 ## qemu
 
