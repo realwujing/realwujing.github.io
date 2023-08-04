@@ -44,6 +44,7 @@
 - [https://wiki.archlinux.org/title/PulseAudio/Troubleshooting](https://wiki.archlinux.org/title/PulseAudio/Troubleshooting)
 - [https://wiki.debian.org/PulseAudio](https://wiki.debian.org/PulseAudio)
 - [Pulseaudio调试技巧](https://www.codenong.com/cs105336370/)
+- [How to debug PulseAudio problems](https://fedoraproject.org/wiki/How_to_debug_PulseAudio_problems)
 
 ## qemu
 
