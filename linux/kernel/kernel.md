@@ -69,7 +69,6 @@
 - [<font color=Red>调试 Linux 最早期的代码</font>](https://mp.weixin.qq.com/s/cx_vaRTcC29h0pWkJPpqQQ)
 - [Linux-0.11操作系统源码调试-在 Ubuntu22 上](https://blog.csdn.net/chaoguo1234/article/details/128613219)
 - [<font color=Red>https://github.com/yuan-xy/Linux-0.11</font>](https://github.com/yuan-xy/Linux-0.11)
-
 - [https://richardweiyang-2.gitbook.io/kernel-exploring/](https://richardweiyang-2.gitbook.io/kernel-exploring/)
 - [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
 
@@ -83,6 +82,7 @@
 - [hlist用法以及hlist_for_each_entry 使用举例](https://blog.csdn.net/oHeHui1/article/details/128176831)
 - [内核模块开发中__init和__exit的作用](https://blog.csdn.net/bhniunan/article/details/104082581)
 - [linux内核中6个经典C语言函数代码赏析](https://www.toutiao.com/article/7222172647486964258)
+- [Linux内核中常用的C语言技巧](https://mp.weixin.qq.com/s/tim50z93e-E-Jbl08rDY2A)
 
 ## 内核section
 
