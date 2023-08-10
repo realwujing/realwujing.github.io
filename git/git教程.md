@@ -184,3 +184,8 @@ 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
 - [通过 GitHub Actions 将 GitHub 仓库自动备份到 Gitee、GitLab](https://www.it610.com/article/1527116916244676608.htm)
 - [bash - Github Action - Error: Process completed with exit code 1 - Stack Overflow](https://stackoverflow.com/questions/66626814/github-action-error-process-completed-with-exit-code-1)
 - [<font color=Red>Github actions git log only output one line</font>](https://github.com/orgs/community/discussions/26928)
+
+## patch
+
+- [使用Git生成patch和应用patch，看完这一篇文章就全懂了](https://www.toutiao.com/article/6652488964823319052)
+- [git生成patch和打patch的操作命令](https://blog.csdn.net/qq_30624591/article/details/89474571)
