@@ -73,6 +73,7 @@
 - [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
 - [Linux kernel source tree](https://github.com/torvalds/linux)
 - [Linux kernel stable tree mirror](https://github.com/gregkh/linux)
+- [OpenCloudOS kernel](https://gitee.com/OpenCloudOS/OpenCloudOS-Kernel/tree/master)
 
 ## 内核链表
 
