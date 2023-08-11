@@ -71,6 +71,8 @@
 - [<font color=Red>https://github.com/yuan-xy/Linux-0.11</font>](https://github.com/yuan-xy/Linux-0.11)
 - [https://richardweiyang-2.gitbook.io/kernel-exploring/](https://richardweiyang-2.gitbook.io/kernel-exploring/)
 - [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
+- [Linux kernel source tree](https://github.com/torvalds/linux)
+- [Linux kernel stable tree mirror](https://github.com/gregkh/linux)
 
 ## 内核链表
 
