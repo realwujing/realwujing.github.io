@@ -13,7 +13,7 @@
 ### 生成patch
 
 ```bash
-git format-patch --output=kgdb_not_work.patch c907106159ca
+git format-patch -1 c907106159ca -o kgdb_not_work.patch
 ```
 
 patch下载地址：[kgdb_not_work.patch](https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/sysrq_trigger)
