@@ -45,6 +45,7 @@
 - [https://wiki.debian.org/PulseAudio](https://wiki.debian.org/PulseAudio)
 - [Pulseaudio调试技巧](https://www.codenong.com/cs105336370/)
 - [How to debug PulseAudio problems](https://fedoraproject.org/wiki/How_to_debug_PulseAudio_problems)
+- [pulseaudio调试信息输出控制机制](https://blog.csdn.net/cgipro/article/details/6089349)
 
 ## qemu
 
