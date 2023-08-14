@@ -46,6 +46,7 @@
 - [Pulseaudio调试技巧](https://www.codenong.com/cs105336370/)
 - [How to debug PulseAudio problems](https://fedoraproject.org/wiki/How_to_debug_PulseAudio_problems)
 - [pulseaudio调试信息输出控制机制](https://blog.csdn.net/cgipro/article/details/6089349)
+- `set args --log-level=4 --log-meta=1 --log-time=1  --log-backtrace=FRAMES`
 
 ## qemu
 
