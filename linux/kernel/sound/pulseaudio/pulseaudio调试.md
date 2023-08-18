@@ -86,50 +86,20 @@ file /usr/bin/pulseaudio
 
 ## main
 
-src/daemon/main.c：371
-
-## /etc/pulse/daemon.conf加载流程
-
-### gdb日志
-
-```bash
-Breakpoint 29, pa_daemon_conf_load (c=0xaaaaaaad5500, filename=0x0) at daemon/daemon-conf.c:710
-710             pa_open_config_file(DEFAULT_CONFIG_FILE, DEFAULT_CONFIG_FILE_USER, ENV_CONFIG_FILE, &c->config_file);                                                                          
+```c
 (gdb) bt
-#0  pa_daemon_conf_load (c=0xaaaaaaad5500, filename=0x0) at daemon/daemon-conf.c:710
-#1  0x0000aaaaaaab7204 in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:483
-(gdb) frame
-#0  pa_daemon_conf_load (c=0xaaaaaaad5500, filename=0x0) at daemon/daemon-conf.c:710
-710             pa_open_config_file(DEFAULT_CONFIG_FILE, DEFAULT_CONFIG_FILE_USER, ENV_CONFIG_FILE, &c->config_file);                                                                          
-(gdb) p c->config_file
-$6 = 0x0
-(gdb) n
-708         f = filename ?
-(gdb) n
-712         if (!f && errno != ENOENT) {
-(gdb) p c->config_file
-$7 = 0xaaaaaaad5b20 "/etc/pulse/daemon.conf"
-(gdb) n
-717         ci.default_channel_map_set = ci.default_sample_spec_set = false;
-(gdb)
-718         ci.conf = c;
-(gdb)
-720         r = f ? pa_config_parse(c->config_file, f, table, NULL, true, NULL) : 0;
-(gdb) s
-pa_config_parse (filename=0xaaaaaaad5b20 "/etc/pulse/daemon.conf", f=0xaaaaaaad58f0, t=0xffffffffd188, proplist=0x0, use_dot_d=true, userdata=0x0) at pulsecore/conf-parser.c:168              
-warning: Source file is more recent than executable.
-168                         void *userdata) {
-(gdb) bt
-#0  pa_config_parse (filename=0xaaaaaaad5b20 "/etc/pulse/daemon.conf", f=0xaaaaaaad58f0, t=0xffffffffd188, proplist=0x0, use_dot_d=true, userdata=0x0) at pulsecore/conf-parser.c:168          
-#1  0x0000aaaaaaab4484 in pa_daemon_conf_load (c=0xaaaaaaad5500, filename=0x0) at daemon/daemon-conf.c:720                                                                                     
-#2  0x0000aaaaaaab7204 in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:483
+#0  main (argc=4, argv=0xffffffffdd98) at daemon/main.c:371
 ```
 
-### 关键函数
+## pa_daemon_conf_load
 
-#### pa_daemon_conf_load
+/etc/pulse/daemon.conf加载流程
 
-src/daemon/daemon-conf.c:603
+```c
+(gdb) bt
+#0  pa_daemon_conf_load (c=0xaaaaaaad5500, filename=0x0) at daemon/daemon-conf.c:603
+#1  0x0000aaaaaaab7204 in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:483
+```
 
 ```c
 int pa_daemon_conf_load(pa_daemon_conf *c, const char *filename) {
@@ -187,9 +157,15 @@ finish:
 }
 ```
 
-#### pa_open_config_file
+### pa_open_config_file
 
-src/pulsecore/core-util.c:2017
+```c
+(gdb) bt
+#0  pa_open_config_file (global=0xaaaaaaabd520 "/etc/pulse/daemon.conf", local=0xaaaaaaabd510 "/daemon.conf", env=0xaaaaaaabd500 "PULSE_CONFIG", result=0xaaaaaaad5560)
+    at pulsecore/core-util.c:2021
+#1  0x0000aaaaaaab43d4 in pa_daemon_conf_load (c=0xaaaaaaad5500, filename=0x0) at daemon/daemon-conf.c:710
+#2  0x0000aaaaaaab7204 in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:483
+```
 
 ```c
 /* 尝试打开配置文件。如果指定了 "env"，则打开指定环境变量的值。
@@ -285,9 +261,14 @@ FILE *pa_open_config_file(const char *global, const char *local, const char *env
 }
 ```
 
-#### pa_config_parse
+### pa_config_parse
 
-src/pulsecore/conf-parser.c:167
+```c
+(gdb) bt
+#0  pa_config_parse (filename=0xaaaaaaad5b20 "/etc/pulse/daemon.conf", f=0xaaaaaaad58f0, t=0xffffffffd188, proplist=0x0, use_dot_d=true, userdata=0x0) at pulsecore/conf-parser.c:168          
+#1  0x0000aaaaaaab4484 in pa_daemon_conf_load (c=0xaaaaaaad5500, filename=0x0) at daemon/daemon-conf.c:720                                                                                     
+#2  0x0000aaaaaaab7204 in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:483
+```
 
 ```c
 /* 通过文件并逐行解析文件 */
@@ -384,9 +365,14 @@ finish:
 
 #### parse_line
 
-pa_config_parse中有个关键函数parse_line：
-
-src/pulsecore/conf-parser.c:83
+```c
+(gdb) bt
+#0  parse_line (state=0xffffffffc0d8) at pulsecore/conf-parser.c:86
+#1  0x0000fffff7dad198 in pa_config_parse (filename=0xaaaaaaad5b20 "/etc/pulse/daemon.conf", f=0xaaaaaaad58f0, t=0xffffffffd188, proplist=0x0, use_dot_d=true, userdata=0x0)
+    at pulsecore/conf-parser.c:208
+#2  0x0000aaaaaaab4484 in pa_daemon_conf_load (c=0xaaaaaaad5500, filename=0x0) at daemon/daemon-conf.c:720
+#3  0x0000aaaaaaab7204 in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:483
+```
 
 ```c
 /* 解析变量赋值行 */
@@ -483,7 +469,7 @@ int parse_line(pa_config_parser_state *state) {
 }
 ```
 
-#### proplist_assignment
+##### proplist_assignment
 
 parse_line中有个关键函数proplist_assignment：
 
@@ -506,7 +492,7 @@ static int proplist_assignment(pa_config_parser_state *state) {
 }
 ```
 
-#### normal_assignment
+##### normal_assignment
 
 parse_line中有个关键函数normal_assignment：
 
@@ -653,9 +639,7 @@ pa_config_item table[] = {
 };
 ```
 
-## 获取硬件信息
-
-### gdb日志
+## pa_get_hw_info
 
 ```bash
 (gdb)
@@ -699,11 +683,6 @@ if (pa_get_hw_info(hw_info_path, card_name)) {
             pa_log(_("Failed to load platform file."));
     }
 ```
-
-### 关键函数
-#### pa_get_hw_info
-
-src/daemon/daemon-conf.c:540
 
 ```c
 // 获取硬件信息，根据给定的路径和卡片名进行匹配
@@ -751,11 +730,11 @@ bool pa_get_hw_info(const char *path, char *card) {
 }
 ```
 
-## 从环境变量中获取配置信息
+## pa_daemon_conf_env
 
-### gdb日志
+从环境变量中获取配置信息
 
-```bash
+```c
 (gdb) n
 496         if (pa_daemon_conf_env(conf) < 0)
 (gdb) s
@@ -770,12 +749,6 @@ main (argc=4, argv=0xffffffffdd98) at daemon/main.c:496
 496         if (pa_daemon_conf_env(conf) < 0)
 Value returned is $15 = 0
 ```
-
-### 关键函数
-
-#### pa_daemon_conf_env
-
-src/daemon/daemon-conf.c:745
 
 ```c
 // 从环境变量中获取配置信息并更新到pa_daemon_conf结构
@@ -800,11 +773,11 @@ int pa_daemon_conf_env(pa_daemon_conf *c) {
 }
 ```
 
-## 解析命令行参数并更新pa_daemon_conf结构
+## pa_cmdline_parse
 
-### gdb日志
+解析命令行参数并更新pa_daemon_conf结构
 
-```bash
+```c
 (gdb) n
 499         if (pa_cmdline_parse(conf, argc, argv, &d) < 0) {
 (gdb) s
@@ -817,10 +790,6 @@ main (argc=4, argv=0xffffffffdd98) at daemon/main.c:499
 499         if (pa_cmdline_parse(conf, argc, argv, &d) < 0) {
 Value returned is $16 = 0
 ```
-
-### 关键函数
-
-src/daemon/cmdline.c：171
 
 ```c
 // 解析命令行参数并更新pa_daemon_conf结构
@@ -1125,24 +1094,19 @@ fail:
 }
 ```
 
-## 初始化libtool库
+## pa_ltdl_init
 
-### gdb日志
+初始化libtool库
 
-```bash
-545         pa_ltdl_init();
-(gdb) s
-pa_ltdl_init () at daemon/ltdl-bind-now.c:118
-warning: Source file is more recent than executable.
-118         pa_assert_se(lt_dlinit() == 0);
+```c
+(gdb) bt
+#0  pa_ltdl_init () at daemon/ltdl-bind-now.c:118
+#1  0x0000aaaaaaab74fc in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:545
 (gdb) fin
 Run till exit from #0  pa_ltdl_init () at daemon/ltdl-bind-now.c:118
+main (argc=4, argv=0xffffffffdd98) at daemon/main.c:546
+546         ltdl_init = true;
 ```
-### 关键函数
-
-#### pa_ltdl_init
-
-src/daemon/ltdl-bind-now.c：112
 
 ```c
 // 初始化libtool库，并在需要的情况下添加BIND_NOW加载器
@@ -1192,9 +1156,9 @@ void pa_ltdl_init(void) {
 }
 ```
 
-## 事件循环
+## pa_mainloop_new
 
-### gdb日志
+事件循环
 
 ```c
 (gdb) 
@@ -1209,12 +1173,6 @@ Run till exit from #0  pa_mainloop_new () at pulse/mainloop.c:453
 1033        pa_assert_se(mainloop = pa_mainloop_new());
 Value returned is $28 = (pa_mainloop *) 0xaaaaaaadad60
 ```
-
-### 主要函数
-
-#### pa_mainloop_new
-
-src/pulse/mainloop.c：450
 
 ```c
 /* 创建一个新的主事件循环。*/
@@ -1251,7 +1209,7 @@ pa_mainloop *pa_mainloop_new(void) {
 }
 ```
 
-## pa_core参数设置
+## pa_core默认参数设置
 
 src/daemon/main.c：1042
 
@@ -1280,11 +1238,11 @@ c->flat_volumes = conf->flat_volumes;  // 设置平坦音量
 c->huawei_identity = huawei_identification;  // 设置华为身份标识
 ```
 
-## cpu特性设置
+## pa_cpu_init
 
-### gdb日志
+cpu特性设置
 
-```bash
+```c
 (gdb) n
 1083        pa_cpu_init(&c->cpu_info);
 (gdb) bt
@@ -1296,10 +1254,6 @@ warning: Source file is more recent than executable.
 (gdb) fin
 Run till exit from #0  pa_cpu_init (cpu_info=0xaaaaaaae30e0) at pulsecore/cpu.c:25
 ```
-
-### 关键函数
-
-#### pa_cpu_init
 
 ```c
 void pa_cpu_init(pa_cpu_info *cpu_info) {
@@ -1326,9 +1280,9 @@ void pa_cpu_init(pa_cpu_info *cpu_info) {
 }
 ```
 
-## default.pa加载
+## pa_daemon_conf_open_default_script_file
 
-### gdb日志
+default.pa加载
 
 ```bash
 (gdb) bt
@@ -1351,10 +1305,6 @@ Run till exit from #0  0x0000aaaaaaab4884 in pa_daemon_conf_open_default_script_
 Value returned is $37 = (FILE *) 0xaaaaaaad58f0
 ```
 
-### 关键函数
-
-#### pa_daemon_conf_open_default_script_file
-
 ```c
 FILE *pa_daemon_conf_open_default_script_file(pa_daemon_conf *c) {
     FILE *f;
@@ -1376,103 +1326,7 @@ FILE *pa_daemon_conf_open_default_script_file(pa_daemon_conf *c) {
 }
 ```
 
-##### pa_cli_command
-
-###### gdb日志
-
-`command->proc`是一个函数指针：
-
-```bash
-(gdb) p command->proc
-$38 = (int (*)(pa_core *, pa_tokenizer *, pa_strbuf *, _Bool *)) 0xfffff7e4ffb0 <pa_cli_command_load>                                                                                          
-(gdb) s
-pa_cli_command_load (c=0xaaaaaaae2ec0, t=0xaaaaaaaddf90, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:422                                                               
-422     static int pa_cli_command_load(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail) {                                                                                              
-(gdb) bt
-#0  pa_cli_command_load (c=0xaaaaaaae2ec0, t=0xaaaaaaaddf90, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:422
-#1  0x0000fffff7e5774c in pa_cli_command_execute_line_stateful (c=0xaaaaaaae2ec0, s=0xffffffffd1c8 "load-module module-device-restore", buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505, 
-    ifstate=0xffffffffd1c0) at pulsecore/cli-command.c:2136
-#2  0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2ec0, f=0xaaaaaaad58f0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176
-#3  0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
-```
-
-###### command
-
-src/pulsecore/cli-command.c:62
-
-```c
-struct command {
-    const char *name;
-    int (*proc) (pa_core *c, pa_tokenizer*t, pa_strbuf *buf, bool *fail);
-    const char *help;
-    unsigned args;
-};
-```
-
-回调函数总览:
-
-src/pulsecore/cli-command.c:82
-
-```c
-/* Prototypes for all available commands */
-static int pa_cli_command_exit(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_help(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_modules(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_clients(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_cards(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_sinks(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_sources(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_sink_inputs(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_source_outputs(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_stat(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_info(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_load(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_unload(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_describe(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_sink_volume(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_sink_input_volume(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_source_output_volume(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_source_volume(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_sink_mute(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_source_mute(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_sink_input_mute(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_source_output_mute(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_sink_default(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_source_default(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_kill_client(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_kill_sink_input(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_kill_source_output(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_scache_play(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_scache_remove(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_scache_list(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_scache_load(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_scache_load_dir(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_play_file(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_dump(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_list_shared_props(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_move_sink_input(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_move_source_output(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_vacuum(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_suspend_sink(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_suspend_source(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_suspend(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_log_target(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_log_level(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_log_meta(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_log_time(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_log_backtrace(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_update_sink_proplist(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_update_source_proplist(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_update_sink_input_proplist(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_update_source_output_proplist(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_card_profile(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_sink_port(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_source_port(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_port_offset(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-static int pa_cli_command_dump_volumes(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
-```
-
-###### pa_cli_command_execute_line_stateful
+### pa_cli_command_execute_line_stateful
 
 ```c
 int pa_cli_command_execute_line_stateful(pa_core *c, const char *s, pa_strbuf *buf, bool *fail, int *ifstate) {
@@ -1557,15 +1411,109 @@ int pa_cli_command_execute_line_stateful(pa_core *c, const char *s, pa_strbuf *b
 }
 ```
 
+#### pa_cli_command
+
+`command->proc`是一个函数指针：
+
+```bash
+(gdb) p command->proc
+$38 = (int (*)(pa_core *, pa_tokenizer *, pa_strbuf *, _Bool *)) 0xfffff7e4ffb0 <pa_cli_command_load>                                                                                          
+(gdb) s
+pa_cli_command_load (c=0xaaaaaaae2ec0, t=0xaaaaaaaddf90, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:422                                                               
+422     static int pa_cli_command_load(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail) {                                                                                              
+(gdb) bt
+#0  pa_cli_command_load (c=0xaaaaaaae2ec0, t=0xaaaaaaaddf90, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:422
+#1  0x0000fffff7e5774c in pa_cli_command_execute_line_stateful (c=0xaaaaaaae2ec0, s=0xffffffffd1c8 "load-module module-device-restore", buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505, 
+    ifstate=0xffffffffd1c0) at pulsecore/cli-command.c:2136
+#2  0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2ec0, f=0xaaaaaaad58f0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176
+#3  0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
+```
+
+##### command
+
+src/pulsecore/cli-command.c:62
+
+```c
+struct command {
+    const char *name;
+    int (*proc) (pa_core *c, pa_tokenizer*t, pa_strbuf *buf, bool *fail);
+    const char *help;
+    unsigned args;
+};
+```
+
+回调函数总览:
+
+src/pulsecore/cli-command.c:82
+
+```c
+/* Prototypes for all available commands */
+static int pa_cli_command_exit(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_help(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_modules(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_clients(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_cards(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_sinks(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_sources(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_sink_inputs(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_source_outputs(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_stat(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_info(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_load(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_unload(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_describe(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_sink_volume(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_sink_input_volume(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_source_output_volume(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_source_volume(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_sink_mute(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_source_mute(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_sink_input_mute(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_source_output_mute(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_sink_default(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_source_default(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_kill_client(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_kill_sink_input(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_kill_source_output(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_scache_play(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_scache_remove(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_scache_list(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_scache_load(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_scache_load_dir(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_play_file(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_dump(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_list_shared_props(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_move_sink_input(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_move_source_output(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_vacuum(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_suspend_sink(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_suspend_source(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_suspend(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_log_target(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_log_level(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_log_meta(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_log_time(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_log_backtrace(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_update_sink_proplist(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_update_source_proplist(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_update_sink_input_proplist(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_update_source_output_proplist(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_card_profile(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_sink_port(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_source_port(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_port_offset(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+static int pa_cli_command_dump_volumes(pa_core *c, pa_tokenizer *t, pa_strbuf *buf, bool *fail);
+```
+
 到此，pusleaudio整体框架基本介绍差不多了，下文会基于`command->proc`介绍`/usr/share/pulseaudio/alsa-mixer/profile-sets/`、`/usr/share/pulseaudio/alsa-mixer/paths/`部分。
 
 ## /usr/share/pulseaudio/alsa-mixer/profile-sets/
 
-### 解析profile-set
+### pa_alsa_profile_set_new
 
-### gdb日志
+解析profile-set
 
-```bash
+```c
 (gdb) bt
 #0  pa_config_parse (filename=0xaaaaaab154c0 "/usr/share/pulseaudio/alsa-mixer/profile-sets/default.conf", f=0x0, t=0xfffff2519640 <items>, proplist=0x0, use_dot_d=false, 
     userdata=0xaaaaaab28120) at pulsecore/conf-parser.c:168
@@ -1585,10 +1533,6 @@ int pa_cli_command_execute_line_stateful(pa_core *c, const char *s, pa_strbuf *b
 #12 0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2ec0, f=0xaaaaaaad58f0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176
 #13 0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
 ```
-
-### 关键函数
-
-#### pa_alsa_profile_set_new
 
 ```c
 pa_alsa_profile_set* pa_alsa_profile_set_new(const char *fname, const pa_channel_map *bonus) {
@@ -1713,13 +1657,28 @@ src/pulsecore/conf-parser.c:167
 
 参见上方。
 
-#### 自动将适合的音频配置添加到给定的 `pa_alsa_profile_set` 中
+#### profile_set_add_auto
 
-##### profile_set_add_auto
+自动将适合的音频配置添加到给定的 `pa_alsa_profile_set` 中
 
 ```c
-src/modules/alsa/alsa-mixer.c：4588
-src/modules/alsa/alsa-mixer.c:4306
+(gdb) bt
+#0  profile_set_add_auto (ps=0xaaaaaab28120) at modules/alsa/alsa-mixer.c:4306
+#1  0x0000fffff24dcb8c in pa_alsa_profile_set_new (fname=0xfffff24fa608 "default.conf", bonus=0xaaaaaaae2f68) at modules/alsa/alsa-mixer.c:4588                                   
+#2  0x0000fffff268bc14 in module_alsa_card_LTX_pa__init (m=0xaaaaaab0f450) at modules/alsa/module-alsa-card.c:849                                                                 
+#3  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcd90, c=0xaaaaaaae2ec0, name=0xfffff26a4d98 "module-alsa-card",                                                        
+    argument=0xaaaaaaadd8b0 "device_id=\"0\" name=\"platform-PHYT0006_00\" card_name=\"alsa_card.platform-PHYT0006_00\" namereg_fail=false tsched=yes fixed_latency_range=no ignore_dB=no deferred_volume=yes use_ucm=yes card_properties=\""...) at pulsecore/module.c:187
+#4  0x0000fffff26a2d9c in verify_access (u=0xaaaaaab03700, d=0xaaaaaab071f0) at modules/module-udev-detect.c:333                                                                  
+#5  0x0000fffff26a32fc in card_changed (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:422                                                                 
+#6  0x0000fffff26a36bc in process_device (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:464                                                               
+#7  0x0000fffff26a373c in process_path (u=0xaaaaaab03700, path=0xaaaaaab18b00 "/sys/devices/platform/PHYT0006:00/sound/card0") at modules/module-udev-detect.c:481                
+#8  0x0000fffff26a46ac in module_udev_detect_LTX_pa__init (m=0xaaaaaab00e20) at modules/module-udev-detect.c:789                                                                  
+#9  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcfe8, c=0xaaaaaaae2ec0, name=0xaaaaaab011b0 "module-udev-detect", argument=0x0) at pulsecore/module.c:187              
+#10 0x0000fffff7e50170 in pa_cli_command_load (c=0xaaaaaaae2ec0, t=0xaaaaaab011d0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:437                        
+#11 0x0000fffff7e5774c in pa_cli_command_execute_line_stateful (c=0xaaaaaaae2ec0, s=0xffffffffd1c8 "load-module module-udev-detect", buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505,     
+    ifstate=0xffffffffd1c0) at pulsecore/cli-command.c:2136
+#12 0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2ec0, f=0xaaaaaaad58f0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176        
+#13 0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
 ```
 
 ```c
@@ -1751,6 +1710,27 @@ static void profile_set_add_auto(pa_alsa_profile_set *ps) {
 ```
 
 ##### profile_set_add_auto_pair
+
+```c
+(gdb) bt
+#0  profile_set_add_auto_pair (ps=0xaaaaaab28120, m=0xaaaaaab28970, n=0xaaaaaab28970) at modules/alsa/alsa-mixer.c:4262                                                           
+#1  0x0000fffff24dbc5c in profile_set_add_auto (ps=0xaaaaaab28120) at modules/alsa/alsa-mixer.c:4326                                                                              
+#2  0x0000fffff24dcb8c in pa_alsa_profile_set_new (fname=0xfffff24fa608 "default.conf", bonus=0xaaaaaaae2f68) at modules/alsa/alsa-mixer.c:4588                                   
+#3  0x0000fffff268bc14 in module_alsa_card_LTX_pa__init (m=0xaaaaaab0f450) at modules/alsa/module-alsa-card.c:849                                                                 
+#4  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcd90, c=0xaaaaaaae2ec0, name=0xfffff26a4d98 "module-alsa-card",                                                        
+    argument=0xaaaaaaadd8b0 "device_id=\"0\" name=\"platform-PHYT0006_00\" card_name=\"alsa_card.platform-PHYT0006_00\" namereg_fail=false tsched=yes fixed_latency_range=no ignore_dB=no deferred_volume=yes use_ucm=yes card_properties=\""...) at pulsecore/module.c:187
+#5  0x0000fffff26a2d9c in verify_access (u=0xaaaaaab03700, d=0xaaaaaab071f0) at modules/module-udev-detect.c:333                                                                  
+#6  0x0000fffff26a32fc in card_changed (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:422                                                                 
+#7  0x0000fffff26a36bc in process_device (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:464                                                               
+#8  0x0000fffff26a373c in process_path (u=0xaaaaaab03700, path=0xaaaaaab18b00 "/sys/devices/platform/PHYT0006:00/sound/card0") at modules/module-udev-detect.c:481                
+#9  0x0000fffff26a46ac in module_udev_detect_LTX_pa__init (m=0xaaaaaab00e20) at modules/module-udev-detect.c:789                                                                  
+#10 0x0000fffff7e67104 in pa_module_load (module=0xffffffffcfe8, c=0xaaaaaaae2ec0, name=0xaaaaaab011b0 "module-udev-detect", argument=0x0) at pulsecore/module.c:187              
+#11 0x0000fffff7e50170 in pa_cli_command_load (c=0xaaaaaaae2ec0, t=0xaaaaaab011d0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:437                        
+#12 0x0000fffff7e5774c in pa_cli_command_execute_line_stateful (c=0xaaaaaaae2ec0, s=0xffffffffd1c8 "load-module module-udev-detect", buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505,     
+    ifstate=0xffffffffd1c0) at pulsecore/cli-command.c:2136
+#13 0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2ec0, f=0xaaaaaaad58f0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176        
+#14 0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
+```
 
 ```c
 static void profile_set_add_auto_pair(
@@ -1814,11 +1794,11 @@ static void profile_set_add_auto_pair(
 }
 ```
 
-### 将自定义path添加到profile_set哈希映射中
+### pa_alsa_profile_set_cust_paths
 
-#### gdb日志
+将自定义path添加到profile_set哈希映射中
 
-```bash
+```c
 Breakpoint 33, pa_alsa_profile_set_cust_paths (ps=0xaaaaaab28270, cust_folder=0xaaaaaac6a780 "cust/P710") at modules/alsa/alsa-mixer.c:4747                                       
 warning: Source file is more recent than executable.
 4747        pa_assert(ps);
@@ -1845,13 +1825,6 @@ Run till exit from #0  pa_alsa_profile_set_cust_paths (ps=0xaaaaaab28270, cust_f
 (  13.293|  11.844) D: [pulseaudio][modules/alsa/alsa-mixer.c:4751 pa_alsa_profile_set_cust_paths()] Analyzing directory: '/usr/share/pulseaudio/alsa-mixer/paths'                
 (  13.293|   0.000) D: [pulseaudio][modules/alsa/alsa-mixer.c:4755 pa_alsa_profile_set_cust_paths()] open directory: '/usr/share/pulseaudio/alsa-mixer/paths/cust/P710'           
 (  13.293|   0.000) W: [pulseaudio][modules/alsa/alsa-mixer.c:4758 pa_alsa_profile_set_cust_paths()] Failed to open /usr/share/pulseaudio/alsa-mixer/paths/cust/P710 
-```
-
-#### 关键函数
-
-```c
-src/modules/alsa/module-alsa-card.c:868
-src/modules/alsa/alsa-mixer.c:4738
 ```
 
 ```c
@@ -1905,9 +1878,28 @@ void pa_alsa_profile_set_cust_paths(pa_alsa_profile_set *ps, const char *cust_fo
 }
 ```
 
-### 探测pcm是否可用
+### pa_alsa_profile_set_probe
 
-#### pa_alsa_profile_set_probe
+探测pcm是否可用
+
+```c
+#0  pa_alsa_profile_set_probe (ps=0xaaaaaab28120, dev_id=0xaaaaaab12450 "0", ss=0xaaaaaaae2fec, default_n_fragments=4, default_fragment_size_msec=25)
+    at modules/alsa/alsa-mixer.c:4787
+#1  0x0000fffff268bd10 in module_alsa_card_LTX_pa__init (m=0xaaaaaab0f450) at modules/alsa/module-alsa-card.c:871
+#2  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcd90, c=0xaaaaaaae2ec0, name=0xfffff26a4d98 "module-alsa-card", 
+    argument=0xaaaaaaadd8b0 "device_id=\"0\" name=\"platform-PHYT0006_00\" card_name=\"alsa_card.platform-PHYT0006_00\" namereg_fail=false tsched=yes fixed_latency_range=no ignore_dB=no deferred_volume=yes use_ucm=yes card_properties=\""...) at pulsecore/module.c:187
+#3  0x0000fffff26a2d9c in verify_access (u=0xaaaaaab03700, d=0xaaaaaab071f0) at modules/module-udev-detect.c:333
+#4  0x0000fffff26a32fc in card_changed (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:422
+#5  0x0000fffff26a36bc in process_device (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:464
+#6  0x0000fffff26a373c in process_path (u=0xaaaaaab03700, path=0xaaaaaab18b00 "/sys/devices/platform/PHYT0006:00/sound/card0") at modules/module-udev-detect.c:481
+#7  0x0000fffff26a46ac in module_udev_detect_LTX_pa__init (m=0xaaaaaab00e20) at modules/module-udev-detect.c:789
+#8  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcfe8, c=0xaaaaaaae2ec0, name=0xaaaaaab011b0 "module-udev-detect", argument=0x0) at pulsecore/module.c:187
+#9  0x0000fffff7e50170 in pa_cli_command_load (c=0xaaaaaaae2ec0, t=0xaaaaaab011d0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:437
+#10 0x0000fffff7e5774c in pa_cli_command_execute_line_stateful (c=0xaaaaaaae2ec0, s=0xffffffffd1c8 "load-module module-udev-detect", buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505, 
+    ifstate=0xffffffffd1c0) at pulsecore/cli-command.c:2136
+#11 0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2ec0, f=0xaaaaaaad58f0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176
+#12 0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
+```
 
 ```c
 void pa_alsa_profile_set_probe(
@@ -2093,9 +2085,28 @@ void pa_alsa_profile_set_probe(
 }
 ```
 
-##### add_profiles_to_probe
+#### add_profiles_to_probe
 
-pa_alsa_profile_set_probe --- add_profiles_to_probe
+```c
+(gdb) bt
+#0  add_profiles_to_probe (list=0xaaaaaac6bd50, profiles=0xaaaaaab292a0, fallback_output=false, fallback_input=false) at modules/alsa/alsa-mixer.c:4705                           
+#1  0x0000fffff24dd90c in pa_alsa_profile_set_probe (ps=0xaaaaaab280c0, dev_id=0xaaaaaab123f0 "0", ss=0xaaaaaaae2fec, default_n_fragments=4, default_fragment_size_msec=25)       
+    at modules/alsa/alsa-mixer.c:4809
+#2  0x0000fffff268bd10 in module_alsa_card_LTX_pa__init (m=0xaaaaaab0f3f0) at modules/alsa/module-alsa-card.c:871                                                                 
+#3  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcd90, c=0xaaaaaaae2ec0, name=0xfffff26a4d98 "module-alsa-card",                                                        
+    argument=0xaaaaaaade630 "device_id=\"0\" name=\"platform-PHYT0006_00\" card_name=\"alsa_card.platform-PHYT0006_00\" namereg_fail=false tsched=yes fixed_latency_range=no ignore_dB=no deferred_volume=yes use_ucm=yes card_properties=\""...) at pulsecore/module.c:187
+#4  0x0000fffff26a2d9c in verify_access (u=0xaaaaaab036a0, d=0xaaaaaab07190) at modules/module-udev-detect.c:333                                                                  
+#5  0x0000fffff26a32fc in card_changed (u=0xaaaaaab036a0, dev=0xaaaaaaadda70) at modules/module-udev-detect.c:422                                                                 
+#6  0x0000fffff26a36bc in process_device (u=0xaaaaaab036a0, dev=0xaaaaaaadda70) at modules/module-udev-detect.c:464                                                               
+#7  0x0000fffff26a373c in process_path (u=0xaaaaaab036a0, path=0xaaaaaab18aa0 "/sys/devices/platform/PHYT0006:00/sound/card0") at modules/module-udev-detect.c:481                
+#8  0x0000fffff26a46ac in module_udev_detect_LTX_pa__init (m=0xaaaaaab00dc0) at modules/module-udev-detect.c:789                                                                  
+#9  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcfe8, c=0xaaaaaaae2ec0, name=0xaaaaaab01150 "module-udev-detect", argument=0x0) at pulsecore/module.c:187              
+#10 0x0000fffff7e50170 in pa_cli_command_load (c=0xaaaaaaae2ec0, t=0xaaaaaab01170, buf=0xaaaaaaadbed0, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:437                        
+#11 0x0000fffff7e5774c in pa_cli_command_execute_line_stateful (c=0xaaaaaaae2ec0, s=0xffffffffd1c8 "load-module module-udev-detect", buf=0xaaaaaaadbed0, fail=0xaaaaaaad5505,     
+    ifstate=0xffffffffd1c0) at pulsecore/cli-command.c:2136
+#12 0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2ec0, f=0xaaaaaaad58f0, buf=0xaaaaaaadbed0, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176        
+#13 0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
+```
 
 ```c
 static int add_profiles_to_probe(
@@ -2119,13 +2130,28 @@ static int add_profiles_to_probe(
 }
 ```
 
-##### mapping_open_pcm
-
-pa_alsa_profile_set_probe --- mapping_open_pcm
+#### mapping_open_pcm
 
 ```c
-src/modules/alsa/alsa-mixer.c:4891
-src/modules/alsa/alsa-mixer.c:4651
+(gdb) bt
+#0  mapping_open_pcm (m=0xaaaaaab28ba0, ss=0xaaaaaaae30fc, dev_id=0xaaaaaab12550 "0", exact_channels=true, mode=1, default_n_fragments=4, default_fragment_size_msec=25)
+    at modules/alsa/alsa-mixer.c:4657
+#1  0x0000fffff24ddf28 in pa_alsa_profile_set_probe (ps=0xaaaaaab28350, dev_id=0xaaaaaab12550 "0", ss=0xaaaaaaae30fc, default_n_fragments=4, default_fragment_size_msec=25)
+    at modules/alsa/alsa-mixer.c:4891
+#2  0x0000fffff268bd10 in module_alsa_card_LTX_pa__init (m=0xaaaaaab0f550) at modules/alsa/module-alsa-card.c:871
+#3  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcd90, c=0xaaaaaaae2fd0, name=0xfffff26a4d98 "module-alsa-card", 
+    argument=0xaaaaaaadd690 "device_id=\"0\" name=\"platform-PHYT0006_00\" card_name=\"alsa_card.platform-PHYT0006_00\" namereg_fail=false tsched=yes fixed_latency_range=no ignore_dB=no deferred_volume=yes use_ucm=yes card_properties=\""...) at pulsecore/module.c:187
+#4  0x0000fffff26a2d9c in verify_access (u=0xaaaaaab03800, d=0xaaaaaab072f0) at modules/module-udev-detect.c:333
+#5  0x0000fffff26a32fc in card_changed (u=0xaaaaaab03800, dev=0xaaaaaaaddee0) at modules/module-udev-detect.c:422
+#6  0x0000fffff26a36bc in process_device (u=0xaaaaaab03800, dev=0xaaaaaaaddee0) at modules/module-udev-detect.c:464
+#7  0x0000fffff26a373c in process_path (u=0xaaaaaab03800, path=0xaaaaaab18c00 "/sys/devices/platform/PHYT0006:00/sound/card0") at modules/module-udev-detect.c:481
+#8  0x0000fffff26a46ac in module_udev_detect_LTX_pa__init (m=0xaaaaaab00f20) at modules/module-udev-detect.c:789
+#9  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcfe8, c=0xaaaaaaae2fd0, name=0xaaaaaab012b0 "module-udev-detect", argument=0x0) at pulsecore/module.c:187
+#10 0x0000fffff7e50170 in pa_cli_command_load (c=0xaaaaaaae2fd0, t=0xaaaaaab012d0, buf=0xaaaaaaadb270, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:437
+#11 0x0000fffff7e5774c in pa_cli_command_execute_line_stateful (c=0xaaaaaaae2fd0, s=0xffffffffd1c8 "load-module module-udev-detect", buf=0xaaaaaaadb270, fail=0xaaaaaaad5505, 
+    ifstate=0xffffffffd1c0) at pulsecore/cli-command.c:2136
+#12 0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2fd0, f=0xaaaaaaad58f0, buf=0xaaaaaaadb270, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176
+#13 0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
 ```
 
 ```c
@@ -2169,13 +2195,30 @@ static snd_pcm_t* mapping_open_pcm(pa_alsa_mapping *m,
 }
 ```
 
-###### pa_alsa_open_by_template
-
-mapping_open_pcm --- pa_alsa_open_by_template
+##### pa_alsa_open_by_template
 
 ```c
-src/modules/alsa/alsa-mixer.c:4671
-src/modules/alsa/alsa-util.c:774
+(gdb) bt
+#0  pa_alsa_open_by_template (template=0xaaaaaab154c0, dev_id=0xaaaaaab125e0 "0", dev=0x0, ss=0xffffffffc940, map=0xffffffffc950, mode=1, period_size=0xffffffffc928, 
+    buffer_size=0xffffffffc930, tsched_size=0, use_mmap=0x0, use_tsched=0x0, require_exact_channel_number=true) at modules/alsa/alsa-util.c:791
+#1  0x0000fffff24dcfd0 in mapping_open_pcm (m=0xaaaaaab28b00, ss=0xaaaaaaae30fc, dev_id=0xaaaaaab125e0 "0", exact_channels=true, mode=1, default_n_fragments=4, 
+    default_fragment_size_msec=25) at modules/alsa/alsa-mixer.c:4671
+#2  0x0000fffff24ddf28 in pa_alsa_profile_set_probe (ps=0xaaaaaab282b0, dev_id=0xaaaaaab125e0 "0", ss=0xaaaaaaae30fc, default_n_fragments=4, default_fragment_size_msec=25)
+    at modules/alsa/alsa-mixer.c:4891
+#3  0x0000fffff268bd10 in module_alsa_card_LTX_pa__init (m=0xaaaaaab0f5e0) at modules/alsa/module-alsa-card.c:871
+#4  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcd90, c=0xaaaaaaae2fd0, name=0xfffff26a4d98 "module-alsa-card", 
+    argument=0xaaaaaaadd9b0 "device_id=\"0\" name=\"platform-PHYT0006_00\" card_name=\"alsa_card.platform-PHYT0006_00\" namereg_fail=false tsched=yes fixed_latency_range=no ignore_dB=no deferred_volume=yes use_ucm=yes card_properties=\""...) at pulsecore/module.c:187
+#5  0x0000fffff26a2d9c in verify_access (u=0xaaaaaab03890, d=0xaaaaaab07380) at modules/module-udev-detect.c:333
+#6  0x0000fffff26a32fc in card_changed (u=0xaaaaaab03890, dev=0xaaaaaaaddcd0) at modules/module-udev-detect.c:422
+#7  0x0000fffff26a36bc in process_device (u=0xaaaaaab03890, dev=0xaaaaaaaddcd0) at modules/module-udev-detect.c:464
+#8  0x0000fffff26a373c in process_path (u=0xaaaaaab03890, path=0xaaaaaab18c90 "/sys/devices/platform/PHYT0006:00/sound/card0") at modules/module-udev-detect.c:481
+#9  0x0000fffff26a46ac in module_udev_detect_LTX_pa__init (m=0xaaaaaab00fb0) at modules/module-udev-detect.c:789
+#10 0x0000fffff7e67104 in pa_module_load (module=0xffffffffcfe8, c=0xaaaaaaae2fd0, name=0xaaaaaab01340 "module-udev-detect", argument=0x0) at pulsecore/module.c:187
+#11 0x0000fffff7e50170 in pa_cli_command_load (c=0xaaaaaaae2fd0, t=0xaaaaaab01360, buf=0xaaaaaaad7e70, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:437
+#12 0x0000fffff7e5774c in pa_cli_command_execute_line_stateful (c=0xaaaaaaae2fd0, s=0xffffffffd1c8 "load-module module-udev-detect", buf=0xaaaaaaad7e70, fail=0xaaaaaaad5505, 
+    ifstate=0xffffffffd1c0) at pulsecore/cli-command.c:2136
+#13 0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2fd0, f=0xaaaaaaad58f0, buf=0xaaaaaaad7e70, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176
+#14 0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
 ```
 
 ```c
@@ -2231,11 +2274,30 @@ snd_pcm_t *pa_alsa_open_by_template(
 
 ###### pa_alsa_open_by_device_string
 
-pa_alsa_open_by_template --- pa_alsa_open_by_device_string
-
 ```c
-src/modules/alsa/alsa-util.c：796
-src/modules/alsa/alsa-util.c：657
+(gdb) bt
+#0  pa_alsa_open_by_device_string (device=0xaaaaaac6a790 "hw:0", dev=0x0, ss=0xffffffffc940, map=0xffffffffc950, mode=1, period_size=0xffffffffc928, buffer_size=0xffffffffc930,  
+    tsched_size=0, use_mmap=0x0, use_tsched=0x0, require_exact_channel_number=true) at modules/alsa/alsa-util.c:686                                                               
+#1  0x0000fffff24bf87c in pa_alsa_open_by_template (template=0xaaaaaab15330, dev_id=0xaaaaaab12450 "0", dev=0x0, ss=0xffffffffc940, map=0xffffffffc950, mode=1,                   
+    period_size=0xffffffffc928, buffer_size=0xffffffffc930, tsched_size=0, use_mmap=0x0, use_tsched=0x0, require_exact_channel_number=true) at modules/alsa/alsa-util.c:796       
+#2  0x0000fffff24dcfd0 in mapping_open_pcm (m=0xaaaaaab28970, ss=0xaaaaaaae2fec, dev_id=0xaaaaaab12450 "0", exact_channels=true, mode=1, default_n_fragments=4,                   
+    default_fragment_size_msec=25) at modules/alsa/alsa-mixer.c:4671
+#3  0x0000fffff24ddf28 in pa_alsa_profile_set_probe (ps=0xaaaaaab28120, dev_id=0xaaaaaab12450 "0", ss=0xaaaaaaae2fec, default_n_fragments=4, default_fragment_size_msec=25)       
+    at modules/alsa/alsa-mixer.c:4891
+#4  0x0000fffff268bd10 in module_alsa_card_LTX_pa__init (m=0xaaaaaab0f450) at modules/alsa/module-alsa-card.c:871                                                                 
+#5  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcd90, c=0xaaaaaaae2ec0, name=0xfffff26a4d98 "module-alsa-card",                                                        
+    argument=0xaaaaaaadd8b0 "device_id=\"0\" name=\"platform-PHYT0006_00\" card_name=\"alsa_card.platform-PHYT0006_00\" namereg_fail=false tsched=yes fixed_latency_range=no ignore_dB=no deferred_volume=yes use_ucm=yes card_properties=\""...) at pulsecore/module.c:187
+#6  0x0000fffff26a2d9c in verify_access (u=0xaaaaaab03700, d=0xaaaaaab071f0) at modules/module-udev-detect.c:333                                                                  
+#7  0x0000fffff26a32fc in card_changed (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:422                                                                 
+#8  0x0000fffff26a36bc in process_device (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:464                                                               
+#9  0x0000fffff26a373c in process_path (u=0xaaaaaab03700, path=0xaaaaaab18b00 "/sys/devices/platform/PHYT0006:00/sound/card0") at modules/module-udev-detect.c:481                
+#10 0x0000fffff26a46ac in module_udev_detect_LTX_pa__init (m=0xaaaaaab00e20) at modules/module-udev-detect.c:789                                                                  
+#11 0x0000fffff7e67104 in pa_module_load (module=0xffffffffcfe8, c=0xaaaaaaae2ec0, name=0xaaaaaab011b0 "module-udev-detect", argument=0x0) at pulsecore/module.c:187              
+#12 0x0000fffff7e50170 in pa_cli_command_load (c=0xaaaaaaae2ec0, t=0xaaaaaab011d0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:437                        
+#13 0x0000fffff7e5774c in pa_cli_command_execute_line_stateful (c=0xaaaaaaae2ec0, s=0xffffffffd1c8 "load-module module-udev-detect", buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505,     
+    ifstate=0xffffffffd1c0) at pulsecore/cli-command.c:2136
+#14 0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2ec0, f=0xaaaaaaad58f0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176        
+#15 0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
 ```
 
 ```c
@@ -2347,13 +2409,27 @@ fail:
 
 ![snd_pcm_open](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20230817170922.png)
 
-##### mapping_query_hw_device
-
-pa_alsa_profile_set_probe --- mapping_query_hw_device
+#### mapping_query_hw_device
 
 ```c
-src/modules/alsa/alsa-mixer.c：4905
-src/modules/alsa/alsa-mixer.c：4719
+(gdb) bt
+#0  0x0000fffff24dd348 in mapping_query_hw_device (mapping=0xaaaaaab2c360, pcm=0xaaaaaacb4360) at modules/alsa/alsa-mixer.c:4719
+#1  0x0000fffff24ddff4 in pa_alsa_profile_set_probe (ps=0xaaaaaab28120, dev_id=0xaaaaaab12450 "0", ss=0xaaaaaaae2fec, default_n_fragments=4, default_fragment_size_msec=25)
+    at modules/alsa/alsa-mixer.c:4905
+#2  0x0000fffff268bd10 in module_alsa_card_LTX_pa__init (m=0xaaaaaab0f450) at modules/alsa/module-alsa-card.c:871
+#3  0x0000fffff7e67104 in pa_module_load
+    (module=0xffffffffcd90, c=0xaaaaaaae2ec0, name=0xfffff26a4d98 "module-alsa-card", argument=0xaaaaaaadd8b0 "device_id=\"0\" name=\"platform-PHYT0006_00\" card_name=\"alsa_card.platform-PHYT0006_00\" namereg_fail=false tsched=yes fixed_latency_range=no ignore_dB=no deferred_volume=yes use_ucm=yes card_properties=\""...) at pulsecore/module.c:187
+#4  0x0000fffff26a2d9c in verify_access (u=0xaaaaaab03700, d=0xaaaaaab071f0) at modules/module-udev-detect.c:333
+#5  0x0000fffff26a32fc in card_changed (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:422
+#6  0x0000fffff26a36bc in process_device (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:464
+#7  0x0000fffff26a373c in process_path (u=0xaaaaaab03700, path=0xaaaaaab18b00 "/sys/devices/platform/PHYT0006:00/sound/card0") at modules/module-udev-detect.c:481
+#8  0x0000fffff26a46ac in module_udev_detect_LTX_pa__init (m=0xaaaaaab00e20) at modules/module-udev-detect.c:789
+#9  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcfe8, c=0xaaaaaaae2ec0, name=0xaaaaaab011b0 "module-udev-detect", argument=0x0) at pulsecore/module.c:187
+#10 0x0000fffff7e50170 in pa_cli_command_load (c=0xaaaaaaae2ec0, t=0xaaaaaab011d0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:437
+#11 0x0000fffff7e5774c in pa_cli_command_execute_line_stateful
+    (c=0xaaaaaaae2ec0, s=0xffffffffd1c8 "load-module module-udev-detect", buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505, ifstate=0xffffffffd1c0) at pulsecore/cli-command.c:2136
+#12 0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2ec0, f=0xaaaaaaad58f0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176
+#13 0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
 ```
 
 ```c
@@ -2377,7 +2453,7 @@ static void mapping_query_hw_device(pa_alsa_mapping *mapping, snd_pcm_t *pcm) {
 }
 ```
 
-##### mapping_paths_probe
+#### mapping_paths_probe
 
 `mapping_paths_probe`中会处理`/usr/share/pulseaudio/alsa-mixer/paths/`，见下文。
 
@@ -2385,11 +2461,26 @@ static void mapping_query_hw_device(pa_alsa_mapping *mapping, snd_pcm_t *pcm) {
 
 ### mapping_paths_probe
 
-pa_alsa_profile_set_probe --- mapping_paths_probe
-
 ```c
-src/modules/alsa/alsa-mixer.c:4923
-src/modules/alsa/alsa-mixer.c:4115
+(gdb) bt
+#0  0x0000fffff24db120 in mapping_paths_probe (m=0xaaaaaab2c360, profile=0xaaaaaab408a0, direction=PA_ALSA_DIRECTION_INPUT, used_paths=0xaaaaaac6b970)
+    at modules/alsa/alsa-mixer.c:4116
+#1  0x0000fffff24de19c in pa_alsa_profile_set_probe (ps=0xaaaaaab28120, dev_id=0xaaaaaab12450 "0", ss=0xaaaaaaae2fec, default_n_fragments=4, default_fragment_size_msec=25)
+    at modules/alsa/alsa-mixer.c:4933
+#2  0x0000fffff268bd10 in module_alsa_card_LTX_pa__init (m=0xaaaaaab0f450) at modules/alsa/module-alsa-card.c:871
+#3  0x0000fffff7e67104 in pa_module_load
+    (module=0xffffffffcd90, c=0xaaaaaaae2ec0, name=0xfffff26a4d98 "module-alsa-card", argument=0xaaaaaaadd8b0 "device_id=\"0\" name=\"platform-PHYT0006_00\" card_name=\"alsa_card.platform-PHYT0006_00\" namereg_fail=false tsched=yes fixed_latency_range=no ignore_dB=no deferred_volume=yes use_ucm=yes card_properties=\""...) at pulsecore/module.c:187
+#4  0x0000fffff26a2d9c in verify_access (u=0xaaaaaab03700, d=0xaaaaaab071f0) at modules/module-udev-detect.c:333
+#5  0x0000fffff26a32fc in card_changed (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:422
+#6  0x0000fffff26a36bc in process_device (u=0xaaaaaab03700, dev=0xaaaaaaaddc50) at modules/module-udev-detect.c:464
+#7  0x0000fffff26a373c in process_path (u=0xaaaaaab03700, path=0xaaaaaab18b00 "/sys/devices/platform/PHYT0006:00/sound/card0") at modules/module-udev-detect.c:481
+#8  0x0000fffff26a46ac in module_udev_detect_LTX_pa__init (m=0xaaaaaab00e20) at modules/module-udev-detect.c:789
+#9  0x0000fffff7e67104 in pa_module_load (module=0xffffffffcfe8, c=0xaaaaaaae2ec0, name=0xaaaaaab011b0 "module-udev-detect", argument=0x0) at pulsecore/module.c:187
+#10 0x0000fffff7e50170 in pa_cli_command_load (c=0xaaaaaaae2ec0, t=0xaaaaaab011d0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:437
+#11 0x0000fffff7e5774c in pa_cli_command_execute_line_stateful
+    (c=0xaaaaaaae2ec0, s=0xffffffffd1c8 "load-module module-udev-detect", buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505, ifstate=0xffffffffd1c0) at pulsecore/cli-command.c:2136
+#12 0x0000fffff7e57a00 in pa_cli_command_execute_file_stream (c=0xaaaaaaae2ec0, f=0xaaaaaaad58f0, buf=0xaaaaaaadaf60, fail=0xaaaaaaad5505) at pulsecore/cli-command.c:2176
+#13 0x0000aaaaaaab90ac in main (argc=4, argv=0xffffffffdd98) at daemon/main.c:1112
 ```
 
 ```c
@@ -2455,13 +2546,6 @@ static void mapping_paths_probe(pa_alsa_mapping *m, pa_alsa_profile *profile,
 #### pa_alsa_path_set_new
 
 ```c
-src/modules/alsa/alsa-mixer.c:4127
-src/modules/alsa/alsa-mixer.c:3184
-```
-
-##### gdb日志
-
-```bash
 #0  0x0000fffff24d78c4 in pa_alsa_path_set_new (m=0xaaaaaab2c4b0, direction=PA_ALSA_DIRECTION_INPUT, paths_dir=0x0) at modules/alsa/alsa-mixer.c:3184
 #1  0x0000fffff24db1a0 in mapping_paths_probe (m=0xaaaaaab2c4b0, profile=0xaaaaaab409f0, direction=PA_ALSA_DIRECTION_INPUT, used_paths=0xaaaaaac6bac0)
     at modules/alsa/alsa-mixer.c:4132
@@ -2897,7 +2981,7 @@ $58 = {
 }
 ```
 
-###### profile_set_add_path
+##### profile_set_add_path
 
 ```c
 (gdb) n
@@ -2956,7 +3040,7 @@ static void profile_set_add_path(pa_alsa_profile_set *ps, pa_alsa_path *path) {
 }
 ```
 
-###### pa_alsa_path_synthesize
+##### pa_alsa_path_synthesize
 
 ```c
 typedef enum pa_alsa_direction {
@@ -3310,7 +3394,7 @@ int pa_alsa_path_probe(pa_alsa_path *p, pa_alsa_mapping *mapping, snd_mixer_t *m
 }
 ```
 
-#### jack_probe
+##### jack_probe
 
 ```bash
 (gdb) bt
@@ -3453,7 +3537,7 @@ pa_alsa_path_probe (p=0xaaaaaacb3dd0, mapping=0xaaaaaab2c360, m=0xaaaaaad5f180, 
 2951            if (element_probe(e, m) < 0) {
 ```
 
-#### element_probe
+##### element_probe
 
 ```bash
 (gdb) bt
@@ -4151,48 +4235,56 @@ i b
 ```
 
 ```c
-Num     Type           Disp Enb Address            What
-1       breakpoint     keep n   0x0000fffff24d78c4 in pa_alsa_path_set_new at modules/alsa/alsa-mixer.c:3184
-2       breakpoint     keep n   0x0000fffff268bbfc in module_alsa_card_LTX_pa__init at modules/alsa/module-alsa-card.c:849
-3       breakpoint     keep n   0x0000fffff268bcb0 in module_alsa_card_LTX_pa__init at modules/alsa/module-alsa-card.c:868
-4       breakpoint     keep n   0x0000fffff268bcd0 in module_alsa_card_LTX_pa__init at modules/alsa/module-alsa-card.c:871
-5       breakpoint     keep n   0x0000fffff24dc94c in pa_alsa_profile_set_new at modules/alsa/alsa-mixer.c:4520
-6       breakpoint     keep n   0x0000fffff24dcae4 in pa_alsa_profile_set_new at modules/alsa/alsa-mixer.c:4577
-7       breakpoint     keep n   0x0000fffff7dacf08 in pa_config_parse at pulsecore/conf-parser.c:168
-8       breakpoint     keep n   0x0000fffff7dad190 in pa_config_parse at pulsecore/conf-parser.c:208
-9       breakpoint     keep n   0x0000fffff7dac9e0 in parse_line at pulsecore/conf-parser.c:86
-10      breakpoint     keep n   0x0000fffff7dace98 in parse_line at pulsecore/conf-parser.c:157
-11      breakpoint     keep n   0x0000fffff7dac698 in normal_assignment at pulsecore/conf-parser.c:45
-12      breakpoint     keep n   0x0000fffff24dd714 in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4787
-13      breakpoint     keep n   0x0000fffff24ddebc in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4890
-14      breakpoint     keep n   0x0000fffff24dd250 in add_profiles_to_probe at modules/alsa/alsa-mixer.c:4705
-15      breakpoint     keep n   0x0000fffff24ddad0 in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4833
-16      breakpoint     keep n   0x0000fffff24ddd40 in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4867
-17      breakpoint     keep n   0x0000fffff24dced8 in mapping_open_pcm at modules/alsa/alsa-mixer.c:4657
-18      breakpoint     keep n   0x0000fffff24dde28 in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4881
-19      breakpoint     keep n   0x0000fffff24dd348 in mapping_query_hw_device at modules/alsa/alsa-mixer.c:4719
-20      breakpoint     keep n   0x0000fffff24de0e8 in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4923
-21      breakpoint     keep n   0x0000fffff24db120 in mapping_paths_probe at modules/alsa/alsa-mixer.c:4116
-22      breakpoint     keep n   0x0000fffff24db150 in mapping_paths_probe at modules/alsa/alsa-mixer.c:4127
-23      breakpoint     keep n   0x0000fffff24db22c in mapping_paths_probe at modules/alsa/alsa-mixer.c:4141
-24      breakpoint     keep n   0x0000fffff24db2fc in mapping_paths_probe at modules/alsa/alsa-mixer.c:4156
---Type <RET> for more, q to quit, c to continue without paging--
-25      breakpoint     keep n   0x0000fffff24d8bb8 in path_set_condense at modules/alsa/alsa-mixer.c:3478
-26      breakpoint     keep n   0x0000fffff24dcb84 in pa_alsa_profile_set_new at modules/alsa/alsa-mixer.c:4588
-27      breakpoint     keep n   0x0000fffff24dcc9c in profile_finalize_probing at modules/alsa/alsa-mixer.c:4605
-28      breakpoint     keep n   0x0000aaaaaaab6fd8 in main at daemon/main.c:371
-29      breakpoint     keep n   0x0000aaaaaaab43ac in pa_daemon_conf_load at daemon/daemon-conf.c:710
-30      breakpoint     keep n   0x0000aaaaaaab3674 in pa_get_hw_info at daemon/daemon-conf.c:540
-31      breakpoint     keep n   0x0000fffff7e57a88 in pa_cli_command_execute_file at pulsecore/cli-command.c:2187
-32      breakpoint     keep n   0x0000fffff7e57730 in pa_cli_command_execute_line_stateful at pulsecore/cli-command.c:2136
-33      breakpoint     keep n   0x0000fffff24dd458 in pa_alsa_profile_set_cust_paths at modules/alsa/alsa-mixer.c:4747
-34      breakpoint     keep n   0x0000fffff24d78c4 in pa_alsa_path_set_new at modules/alsa/alsa-mixer.c:3184
-35      breakpoint     keep n   0x0000fffff24d7d04 in pa_alsa_path_set_new at modules/alsa/alsa-mixer.c:3255
-37      breakpoint     keep n   0x0000fffff24d7f28 in pa_alsa_path_set_new at modules/alsa/alsa-mixer.c:3284
-38      breakpoint     keep n   0x0000fffff24d1cc0 in jack_probe at modules/alsa/alsa-mixer.c:1872
-39      breakpoint     keep n   0x0000fffff24ca6b8 in pa_alsa_jack_set_has_control at modules/alsa/alsa-mixer.c:151
-40      breakpoint     keep n   0x0000fffff24c9c70 in pa_alsa_ucm_device_update_available at modules/alsa/alsa-ucm.c:1817
-41      breakpoint     keep n   0x0000fffff24d67f0 in pa_alsa_path_probe at modules/alsa/alsa-mixer.c:3015                         
+Num     Type           Disp Enb Address            What                                                                                                                            
+1       breakpoint     keep n   0x0000fffff24d78c4 in pa_alsa_path_set_new at modules/alsa/alsa-mixer.c:3184                                                                       
+2       breakpoint     keep n   0x0000fffff268bbfc in module_alsa_card_LTX_pa__init at modules/alsa/module-alsa-card.c:849                                                         
+3       breakpoint     keep n   0x0000fffff268bcb0 in module_alsa_card_LTX_pa__init at modules/alsa/module-alsa-card.c:868                                                         
+4       breakpoint     keep n   0x0000fffff268bcd0 in module_alsa_card_LTX_pa__init at modules/alsa/module-alsa-card.c:871                                                         
+5       breakpoint     keep n   0x0000fffff24dc94c in pa_alsa_profile_set_new at modules/alsa/alsa-mixer.c:4520                                                                   
+6       breakpoint     keep n   0x0000fffff24dcae4 in pa_alsa_profile_set_new at modules/alsa/alsa-mixer.c:4577                                                                   
+7       breakpoint     keep n   0x0000fffff7dacf08 in pa_config_parse at pulsecore/conf-parser.c:168                                                                               
+8       breakpoint     keep n   0x0000fffff7dad190 in pa_config_parse at pulsecore/conf-parser.c:208                                                                              
+9       breakpoint     keep n   0x0000fffff7dac9e0 in parse_line at pulsecore/conf-parser.c:86                                                                                    
+10      breakpoint     keep n   0x0000fffff7dace98 in parse_line at pulsecore/conf-parser.c:157                                                                                   
+11      breakpoint     keep n   0x0000fffff7dac698 in normal_assignment at pulsecore/conf-parser.c:45                                                                              
+12      breakpoint     keep n   0x0000fffff24dd714 in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4787                                                                 
+13      breakpoint     keep n   0x0000fffff24ddebc in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4890                                                                 
+14      breakpoint     keep n   0x0000fffff24dd250 in add_profiles_to_probe at modules/alsa/alsa-mixer.c:4705                                                                     
+15      breakpoint     keep n   0x0000fffff24ddad0 in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4833                                                                 
+16      breakpoint     keep n   0x0000fffff24ddd40 in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4867                                                                 
+17      breakpoint     keep n   0x0000fffff24dced8 in mapping_open_pcm at modules/alsa/alsa-mixer.c:4657                                                                          
+18      breakpoint     keep n   0x0000fffff24dde28 in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4881                                                                 
+19      breakpoint     keep n   0x0000fffff24dd348 in mapping_query_hw_device at modules/alsa/alsa-mixer.c:4719                                                                   
+20      breakpoint     keep n   0x0000fffff24de0e8 in pa_alsa_profile_set_probe at modules/alsa/alsa-mixer.c:4923                                                                 
+21      breakpoint     keep y   0x0000fffff24db120 in mapping_paths_probe at modules/alsa/alsa-mixer.c:4116                                                                       
+22      breakpoint     keep n   0x0000fffff24db150 in mapping_paths_probe at modules/alsa/alsa-mixer.c:4127                                                                       
+23      breakpoint     keep n   0x0000fffff24db22c in mapping_paths_probe at modules/alsa/alsa-mixer.c:4141                                                                       
+24      breakpoint     keep n   0x0000fffff24db2fc in mapping_paths_probe at modules/alsa/alsa-mixer.c:4156                                                                       
+25      breakpoint     keep n   0x0000fffff24d8bb8 in path_set_condense at modules/alsa/alsa-mixer.c:3478                                                                         
+26      breakpoint     keep n   0x0000fffff24dcb84 in pa_alsa_profile_set_new at modules/alsa/alsa-mixer.c:4588                                                                   
+27      breakpoint     keep n   0x0000fffff24dcc9c in profile_finalize_probing at modules/alsa/alsa-mixer.c:4605                                                                  
+28      breakpoint     keep n   0x0000aaaaaaab6fd8 in main at daemon/main.c:371                                  
+29      breakpoint     keep n   0x0000aaaaaaab43ac in pa_daemon_conf_load at daemon/daemon-conf.c:710                                                                             
+30      breakpoint     keep n   0x0000aaaaaaab3674 in pa_get_hw_info at daemon/daemon-conf.c:540                                                                                   
+31      breakpoint     keep n   0x0000fffff7e57a88 in pa_cli_command_execute_file at pulsecore/cli-command.c:2187                                                                 
+32      breakpoint     keep n   0x0000fffff7e57730 in pa_cli_command_execute_line_stateful at pulsecore/cli-command.c:2136                                                        
+33      breakpoint     keep n   0x0000fffff24dd458 in pa_alsa_profile_set_cust_paths at modules/alsa/alsa-mixer.c:4747                                                            
+34      breakpoint     keep n   0x0000fffff24d78c4 in pa_alsa_path_set_new at modules/alsa/alsa-mixer.c:3184                                                                      
+35      breakpoint     keep n   0x0000fffff24d7d04 in pa_alsa_path_set_new at modules/alsa/alsa-mixer.c:3255                                                                      
+37      breakpoint     keep n   0x0000fffff24d7f28 in pa_alsa_path_set_new at modules/alsa/alsa-mixer.c:3284                                                                      
+38      breakpoint     keep n   0x0000fffff24d1cc0 in jack_probe at modules/alsa/alsa-mixer.c:1872                                                                                
+39      breakpoint     keep n   0x0000fffff24ca6b8 in pa_alsa_jack_set_has_control at modules/alsa/alsa-mixer.c:151                                                               
+40      breakpoint     keep n   0x0000fffff24c9c70 in pa_alsa_ucm_device_update_available at modules/alsa/alsa-ucm.c:1817                                                         
+41      breakpoint     keep n   0x0000fffff24d67f0 in pa_alsa_path_probe at modules/alsa/alsa-mixer.c:3015                                                                        
+42      breakpoint     keep n   0x0000aaaaaaab393c in pa_daemon_conf_load at daemon/daemon-conf.c:603                                                                             
+44      breakpoint     keep n   0x0000fffff7dac9e0 in parse_line at pulsecore/conf-parser.c:86                                                                                    
+45      breakpoint     keep n   0x0000aaaaaaab3674 in pa_get_hw_info at daemon/daemon-conf.c:540                                          
+46      breakpoint     keep n   0x0000aaaaaaab5f3c in pa_ltdl_init at daemon/ltdl-bind-now.c:118
+47      breakpoint     keep n   0x0000fffff24dbb30 in profile_set_add_auto at modules/alsa/alsa-mixer.c:4306
+49      breakpoint     keep n   0x0000fffff24dd250 in add_profiles_to_probe at modules/alsa/alsa-mixer.c:4705
+50      breakpoint     keep n   0x0000fffff24dced8 in mapping_open_pcm at modules/alsa/alsa-mixer.c:4657
+51      breakpoint     keep n   0x0000fffff24bf814 in pa_alsa_open_by_template at modules/alsa/alsa-util.c:791
+52      breakpoint     keep n   0x0000fffff24bf39c in pa_alsa_open_by_device_string at modules/alsa/alsa-util.c:686
 ```
 
 断点恢复：
