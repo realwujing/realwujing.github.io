@@ -136,6 +136,7 @@
 ## 内核模块
 
 - [如何编写一个Linux内核模块，这次手把手教你](https://zhuanlan.zhihu.com/p/420194002)
+- grub中不加载某个驱动 `initcall_blacklist=phytium_spi_driver_init`
 
 ## 系统调用
 
