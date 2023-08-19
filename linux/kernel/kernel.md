@@ -165,6 +165,17 @@
 - [getuid() 与 geteuid()  获得 UID 以及 有效 UID 值](https://blog.csdn.net/dedlous/article/details/7188776)
 - [linux c setuid函数解析](https://blog.csdn.net/whatday/article/details/102844879)
 
+## acpi
+
+- [【UEFI实战】Linux下如何解析ACPI表](https://blog.csdn.net/jiangwei0512/article/details/83317890)
+
+```bash
+sudo apt install acpica-tools iasl
+sudo acpidump -n DSDT -b
+sudo iasl -d dsdt.dat
+vim dsdt.dsl
+```
+
 ## 其他
 
 - [用户态和内核态的切换耗费时间的原因](https://blog.csdn.net/weixin_43871678/article/details/106723029)
