@@ -168,6 +168,7 @@
 ## acpi
 
 - [【UEFI实战】Linux下如何解析ACPI表](https://blog.csdn.net/jiangwei0512/article/details/83317890)
+- [SPI协议](https://blog.csdn.net/lzy13785490347/article/details/91373912)
 
 ```bash
 sudo apt install acpica-tools iasl
