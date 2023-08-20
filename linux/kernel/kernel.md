@@ -43,6 +43,7 @@
 - [ubuntu(20.04)+linux内核（5.17.3）编译内核](https://blog.csdn.net/weixin_62882080/article/details/124260136)
 - [内核编译更新](https://blog.csdn.net/proware/article/details/117386555)
 - [“make deb-pkg” broken](https://davejingtian.org/2018/03/15/make-deb-pkg-broken/)
+- [Debian 指定内核启动](https://blog.chenxiaosheng.com/posts/2022-05-07/debian-switch-kernel-boot.html)
 
 ## 内核模块
 
