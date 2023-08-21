@@ -139,6 +139,11 @@
 - [如何编写一个Linux内核模块，这次手把手教你](https://zhuanlan.zhihu.com/p/420194002)
 - grub中不加载某个驱动 `initcall_blacklist=phytium_spi_driver_init`
 
+## 日志
+
+- [dev_info、dev_dbg、dev_err及动态调试](https://blog.csdn.net/daocaokafei/article/details/116102271)
+- [打开dev_dbg()调试开关](https://blog.csdn.net/u014770862/article/details/81408859)
+
 ## 系统调用
 
 - [<font color=Red>linux系统调用函数大全_Linux架构</font>](https://blog.csdn.net/weixin_39852688/article/details/110815377)
