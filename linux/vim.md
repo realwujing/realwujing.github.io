@@ -47,7 +47,7 @@
 - [技巧045：以超级用户权限保存文件](https://blog.csdn.net/weixin_44531336/article/details/126187768)
 
     ```bash
-    w !sudo tee % > /dev/null
+    :w !sudo tee % > /dev/null
     ```
 
 - [vim中使用sudo保存文件](https://www.cnblogs.com/jackie-astro/p/13295584.html)
