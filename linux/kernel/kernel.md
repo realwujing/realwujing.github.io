@@ -141,8 +141,10 @@
 
 ## 日志
 
+- [https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html](https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html)
 - [dev_info、dev_dbg、dev_err及动态调试](https://blog.csdn.net/daocaokafei/article/details/116102271)
 - [打开dev_dbg()调试开关](https://blog.csdn.net/u014770862/article/details/81408859)
+- [https://blog.csdn.net/lyndon_li/article/details/126276835](https://blog.csdn.net/lyndon_li/article/details/126276835)
 
 ## 系统调用
 
