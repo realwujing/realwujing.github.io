@@ -51,6 +51,7 @@
 - [Linux内核驱动学习-编写最简单Linux内核模块HelloWorld](https://blog.csdn.net/weixin_46048542/article/details/123171177)
 - [linux内核模块加载命令](https://blog.csdn.net/Lihuihui006/article/details/112199469)
 - [Linux内核模块通信 | 符号导出解析](https://mp.weixin.qq.com/s/zNfS2XULX2by1d2O_qQTtg)
+- [Linux驱动程序Makefile文件见解](https://juejin.cn/post/7242186721784938556)
 
 ### dkms
 
