@@ -106,6 +106,7 @@
 - [精通initramfs构建step by step](http://t.zoukankan.com/FullStack-p-8041964.html)
 - [新型的initrd的解压方法](https://blog.csdn.net/xiaofeng_yan/article/details/83303544)
 - [BinWalk安装和命令参数详解](https://cloud.tencent.com/developer/article/1515285)
+- [lsinitramfs lsinitrd 系统镜像操作相关命令一览表](https://cloud.tencent.com/developer/article/2128401)
 
 ## 启动流程
 
