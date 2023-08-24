@@ -10,6 +10,7 @@
 - [主分区、扩展分区、逻辑分区](https://www.cnblogs.com/itmeatball/p/11469673.html)
 - [主磁盘分区和逻辑磁盘分区的区别是什么？](https://blog.csdn.net/weixin_33906657/article/details/92576959)
 - [ubuntu 修改开机启动项默认值](https://blog.csdn.net/DEEP_M/article/details/118103914)
+- grub中不加载某个驱动 `initcall_blacklist=phytium_spi_driver_init`
 
 ## 内核
 
@@ -52,6 +53,8 @@
 - [linux内核模块加载命令](https://blog.csdn.net/Lihuihui006/article/details/112199469)
 - [Linux内核模块通信 | 符号导出解析](https://mp.weixin.qq.com/s/zNfS2XULX2by1d2O_qQTtg)
 - [Linux驱动程序Makefile文件见解](https://juejin.cn/post/7242186721784938556)
+
+- [如何编写一个Linux内核模块，这次手把手教你](https://zhuanlan.zhihu.com/p/420194002)
 
 ### dkms
 
@@ -136,11 +139,6 @@
     ```text
     p ((struct task_struct*)(*(unsigned long*)((char*)__per_cpu_offset[0] + 0x15d00)))->comm
     ```
-
-## 内核模块
-
-- [如何编写一个Linux内核模块，这次手把手教你](https://zhuanlan.zhihu.com/p/420194002)
-- grub中不加载某个驱动 `initcall_blacklist=phytium_spi_driver_init`
 
 ## 日志
 
