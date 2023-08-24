@@ -163,11 +163,11 @@
 - [linux系统调用和库函数调用的区别](https://www.cnblogs.com/Yogurshine/p/3666527.html)
 - [系统调用与函数调用有什么区别？](https://mp.weixin.qq.com/s/2rzzQTuZKSW0O4zM1DlAWQ)
 
-## open openat
+### open openat
 
 - [open和openat系统调用](https://www.modb.pro/db/379821)
 
-## uid和euid
+### uid和euid
 
 - [理解Effective UID(EUID)和Real UID(RUID)](https://www.junmajinlong.com/linux/euid_ruid/)
 - [Linux进程的uid和euid](https://www.cnblogs.com/itech/archive/2012/04/01/2429081.html)
@@ -175,7 +175,11 @@
 - [getuid() 与 geteuid()  获得 UID 以及 有效 UID 值](https://blog.csdn.net/dedlous/article/details/7188776)
 - [linux c setuid函数解析](https://blog.csdn.net/whatday/article/details/102844879)
 
+### likely和unlikely
+
+- [为什么Linux内核代码中有这么多的likely和unlikely](https://mp.weixin.qq.com/s/JWj5MhMPvc5BmwejqXx3Vw)
+- [linux内核中likely与unlikely](https://blog.csdn.net/u014470361/article/details/81193023)
+
 ## 其他
 
 - [用户态和内核态的切换耗费时间的原因](https://blog.csdn.net/weixin_43871678/article/details/106723029)
-- [linux内核中likely与unlikely](https://blog.csdn.net/u014470361/article/details/81193023)
