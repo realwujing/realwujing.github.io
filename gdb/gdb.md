@@ -121,6 +121,10 @@
 - [Linux如何使用gdb查看core堆栈信息](https://www.cnblogs.com/lynsen/p/8439550.html)
 - [<font color=Red>golang-进程崩溃后如何输出错误日志？core dump</font>](https://blog.csdn.net/xmcy001122/article/details/105665732)
 
+## dump_stack
+
+- [【Linux内核调试-dump_stack】](https://blog.csdn.net/cddchina/article/details/125175118)
+
 ## oops
 
 - [Linux 死机复位(oops、panic)问题定位指南](https://blog.csdn.net/pwl999/article/details/106931608)
