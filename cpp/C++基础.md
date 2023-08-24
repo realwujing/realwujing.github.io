@@ -109,6 +109,8 @@
 
 - [函数式编程 - 廖雪峰的官方网站 (liaoxuefeng.com)](https://www.liaoxuefeng.com/wiki/1016959663602400/1017328525009056)
 
+- [Linux 可重入、异步信号安全和线程安全](https://mp.weixin.qq.com/s/D9lLDvdLI9lkDXhMhr-VKQ)
+
 ### 回调函数
 
 - [「C/C++」回调函数详解，拿捏住了](https://www.toutiao.com/i7054434692053090853)
