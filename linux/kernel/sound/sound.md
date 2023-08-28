@@ -16,6 +16,11 @@
 - [<font color=Red>HDA codec相关(2) - verbtable相关</font>](https://blog.csdn.net/qq_21186033/article/details/117667075)
 - [http://helllabs.org/codecgraph/](http://helllabs.org/codecgraph/)
 
+### gain、volume
+
+- [两个单词 | 彻底搞懂增益Gain和音量Volume的区别？！](https://www.bilibili.com/read/cv3616606)
+- [Volume and Loudness](https://webaudioapi.com/book/Web_Audio_API_Boris_Smus_html/ch03.html)
+
 ### realtek
 
 - [<font color=Red>ALC885_1-1.pdf</font>](https://github.com/realwujing/realwujing.github.io/blob/main/linux/kernel/sound/ALC885_1-1.pdf)
