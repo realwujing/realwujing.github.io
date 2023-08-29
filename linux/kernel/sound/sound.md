@@ -95,6 +95,11 @@
 - [pulseaudio调试信息输出控制机制](https://blog.csdn.net/cgipro/article/details/6089349)
 - `set args --log-level=4 --log-meta=1 --log-time=1  --log-backtrace=FRAMES`
 
+## audacity
+
+- [https://www.audacityteam.org/](https://www.audacityteam.org/)
+- [https://support.audacityteam.org/](https://support.audacityteam.org/)
+
 ## qemu
 
 - [QEMU 中音频模拟如何工作](https://blog.csdn.net/tq08g2z/article/details/78908757)
