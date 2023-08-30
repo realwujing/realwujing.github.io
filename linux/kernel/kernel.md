@@ -32,6 +32,16 @@
 
 - [The kernel's command-line parameters](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html)
 - grub中不加载某个驱动 `initcall_blacklist=phytium_spi_driver_init`
+- [Message logging with printk](https://www.kernel.org/doc/html/latest/core-api/printk-basics.html?highlight=loglevel)
+
+## 日志
+
+- [https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html](https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html)
+- [dev_info、dev_dbg、dev_err及动态调试](https://blog.csdn.net/daocaokafei/article/details/116102271)
+- [打开dev_dbg()调试开关](https://blog.csdn.net/u014770862/article/details/81408859)
+- [<font color=Red>内核动态打印</font>](https://blog.csdn.net/lyndon_li/article/details/126276835)
+- [linux常见的系统日志](https://blog.csdn.net/qq_36733838/article/details/129190496)
+- [ignore_loglevel](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=ignore_loglevel)
 
 ## 内核
 
@@ -146,15 +156,6 @@
     ```text
     p ((struct task_struct*)(*(unsigned long*)((char*)__per_cpu_offset[0] + 0x15d00)))->comm
     ```
-
-## 日志
-
-- [https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html](https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html)
-- [dev_info、dev_dbg、dev_err及动态调试](https://blog.csdn.net/daocaokafei/article/details/116102271)
-- [打开dev_dbg()调试开关](https://blog.csdn.net/u014770862/article/details/81408859)
-- [<font color=Red>内核动态打印</font>](https://blog.csdn.net/lyndon_li/article/details/126276835)
-- [linux常见的系统日志](https://blog.csdn.net/qq_36733838/article/details/129190496)
-- [ignore_loglevel](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=ignore_loglevel)
 
 ## 系统调用
 
