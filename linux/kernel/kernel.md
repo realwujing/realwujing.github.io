@@ -147,6 +147,7 @@
 - [打开dev_dbg()调试开关](https://blog.csdn.net/u014770862/article/details/81408859)
 - [https://blog.csdn.net/lyndon_li/article/details/126276835](https://blog.csdn.net/lyndon_li/article/details/126276835)
 - [linux常见的系统日志](https://blog.csdn.net/qq_36733838/article/details/129190496)
+- [ignore_loglevel](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=ignore_loglevel)
 
 ## 系统调用
 
