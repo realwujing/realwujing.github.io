@@ -236,6 +236,7 @@
 ## 硬件信息
 
 - [Linux 中的 lshw 命令：获取硬件详细信息](https://www.toutiao.com/article/7257841565858103819/)
+- [dmidecode(8) - Linux man page](https://linux.die.net/man/8/dmidecode)
 
 ## 系统状态
 
