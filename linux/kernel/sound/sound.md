@@ -1,6 +1,7 @@
 # sound
 
 - [菜鸟也能懂的 - 音视频基础知识。](https://mp.weixin.qq.com/s/HzJyf9QLZYjRsacf_veK4g)
+- [耳机插头3.5 三段与四段 的区别](https://www.jianshu.com/p/9355acdfafb2)
 
 ## alsa
 
