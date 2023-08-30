@@ -1,5 +1,8 @@
 # kernel
 
+- [https://www.kernel.org/](https://www.kernel.org/)
+- [https://www.kernel.org/doc/html/](https://www.kernel.org/doc/html/)
+
 ## 启动管理
 
 - [Linux系统启动管理](http://c.biancheng.net/linux_tutorial/12/)
