@@ -1,5 +1,7 @@
 # sound
 
+- [菜鸟也能懂的 - 音视频基础知识。](https://mp.weixin.qq.com/s/HzJyf9QLZYjRsacf_veK4g)
+
 ## alsa
 
 - [<font color=Red>Linux ALSA sound notes</font>](http://www.sabi.co.uk/Notes/linuxSoundALSA.html)

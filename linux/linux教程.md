@@ -79,6 +79,11 @@
 
 - [linux中通过date命令获取昨天或明天时间的方法_花落花开，春去秋来！-CSDN博客](https://blog.csdn.net/GGxiaobai/article/details/53504629)
 
+### 时间协议
+
+- [NTP/PTP时间同步入门](https://hongwangle.com/use-case/time-sync/ntp-ptp-time-sync/)
+- [简单理解时间同步和时钟同步](https://blog.csdn.net/zu7543/article/details/102584313)
+
 ## 数组
 
 - [shell脚本——字符串 数组](https://blog.csdn.net/weixin_42167759/article/details/80702517)
@@ -227,6 +232,10 @@
 - [使用ps、grep、kill批量杀死进程 - 物博网 (wubo.net.cn)](https://www.wubo.net.cn/security/ps_grep_kill_process.html)
 - [no no no. 不要使用kill -9](https://mp.weixin.qq.com/s/UkzMZYbmtSHYLQ-SShSnHg)
 - [SIGTERM等信号含义](https://blog.csdn.net/weixin_34121304/article/details/85553216)
+
+## 硬件信息
+
+- [Linux 中的 lshw 命令：获取硬件详细信息](https://www.toutiao.com/article/7257841565858103819/)
 
 ## 系统状态
 
@@ -432,11 +441,6 @@
 - [BuildStream，软件集成工具](https://www.buildstream.build/)
 - [BuildStream 文档](https://docs.buildstream.build/1.4.3/index.html)
 
-## 时间协议
-
-- [NTP/PTP时间同步入门](https://hongwangle.com/use-case/time-sync/ntp-ptp-time-sync/)
-- [简单理解时间同步和时钟同步](https://blog.csdn.net/zu7543/article/details/102584313)
-
 ## 输入法
 
 - [Linux 系统Kde桌面环境的fcitx输入问题解决](https://zhuanlan.zhihu.com/p/41338951)
@@ -461,6 +465,4 @@
 
 - [盘一盘各种”xPU”](https://mp.weixin.qq.com/s/UAzN_7Bmb9uLRy8GJ-9rFg)
 
-- [菜鸟也能懂的 - 音视频基础知识。](https://mp.weixin.qq.com/s/HzJyf9QLZYjRsacf_veK4g)
-- [Camera | 2.MIPI、CSI基础](https://mp.weixin.qq.com/s/5qYO5RjCDUcxo4tR3_f_ow)
 - [Linux虚拟网络设备bridge你真搞懂了吗？](https://cloud.tencent.com/developer/article/1871867)
