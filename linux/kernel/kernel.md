@@ -3,6 +3,20 @@
 - [https://www.kernel.org/](https://www.kernel.org/)
 - [https://www.kernel.org/doc/html/](https://www.kernel.org/doc/html/)
 
+## linux内核源码
+
+- [linux内核源码在线阅读](https://www.cnblogs.com/igoodful/p/14081782.html)
+- [品读 Linux 0.11 核心代码](https://github.com/sunym1993/flash-linux0.11-talk)
+- [Linux内核完全注释(修正版v3.0).pdf](https://github.com/realwujing/Linux-0.11)
+- [<font color=Red>调试 Linux 最早期的代码</font>](https://mp.weixin.qq.com/s/cx_vaRTcC29h0pWkJPpqQQ)
+- [Linux-0.11操作系统源码调试-在 Ubuntu22 上](https://blog.csdn.net/chaoguo1234/article/details/128613219)
+- [<font color=Red>https://github.com/yuan-xy/Linux-0.11</font>](https://github.com/yuan-xy/Linux-0.11)
+- [https://richardweiyang-2.gitbook.io/kernel-exploring/](https://richardweiyang-2.gitbook.io/kernel-exploring/)
+- [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
+- [Linux kernel source tree](https://github.com/torvalds/linux)
+- [Linux kernel stable tree mirror](https://github.com/gregkh/linux)
+- [OpenCloudOS kernel](https://gitee.com/OpenCloudOS/OpenCloudOS-Kernel/tree/master)
+
 ## 启动管理
 
 - [Linux系统启动管理](http://c.biancheng.net/linux_tutorial/12/)
@@ -68,20 +82,6 @@
 - [Linux下关闭ASLR(地址空间随机化)的方法](https://blog.csdn.net/counsellor/article/details/81543197)
 - [Linux关闭KASLR](https://blog.csdn.net/zy_zhengyang/article/details/95451484)
 - [开启内核地址随机化KASLR后, qemu 调试 kernel 不能设置断点](https://blog.csdn.net/gatieme/article/details/104266966)
-
-## linux内核源码
-
-- [linux内核源码在线阅读](https://www.cnblogs.com/igoodful/p/14081782.html)
-- [品读 Linux 0.11 核心代码](https://github.com/sunym1993/flash-linux0.11-talk)
-- [Linux内核完全注释(修正版v3.0).pdf](https://github.com/realwujing/Linux-0.11)
-- [<font color=Red>调试 Linux 最早期的代码</font>](https://mp.weixin.qq.com/s/cx_vaRTcC29h0pWkJPpqQQ)
-- [Linux-0.11操作系统源码调试-在 Ubuntu22 上](https://blog.csdn.net/chaoguo1234/article/details/128613219)
-- [<font color=Red>https://github.com/yuan-xy/Linux-0.11</font>](https://github.com/yuan-xy/Linux-0.11)
-- [https://richardweiyang-2.gitbook.io/kernel-exploring/](https://richardweiyang-2.gitbook.io/kernel-exploring/)
-- [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
-- [Linux kernel source tree](https://github.com/torvalds/linux)
-- [Linux kernel stable tree mirror](https://github.com/gregkh/linux)
-- [OpenCloudOS kernel](https://gitee.com/OpenCloudOS/OpenCloudOS-Kernel/tree/master)
 
 ## 内核链表
 
