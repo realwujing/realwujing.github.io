@@ -19,6 +19,7 @@
 
 ## 启动管理
 
+- [Linux基础- Linux 启动过程](https://www.toutiao.com/article/7271522135665902115/)
 - [Linux系统启动管理](http://c.biancheng.net/linux_tutorial/12/)
 - [BIOS和grub](https://blog.csdn.net/qq_43178138/article/details/109524002)
 - [聊聊BIOS、UEFI、MBR、GPT、GRUB……](https://segmentfault.com/a/1190000020850901)
