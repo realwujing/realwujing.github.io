@@ -27,6 +27,10 @@
 - [主分区、扩展分区、逻辑分区](https://www.cnblogs.com/itmeatball/p/11469673.html)
 - [主磁盘分区和逻辑磁盘分区的区别是什么？](https://blog.csdn.net/weixin_33906657/article/details/92576959)
 - [ubuntu 修改开机启动项默认值](https://blog.csdn.net/DEEP_M/article/details/118103914)
+
+### 启动参数
+
+- [The kernel's command-line parameters](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html)
 - grub中不加载某个驱动 `initcall_blacklist=phytium_spi_driver_init`
 
 ## 内核
