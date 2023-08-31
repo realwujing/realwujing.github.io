@@ -81,9 +81,9 @@
 ## 内核模块
 
 - [Linux内核模块HelloWorld](https://blog.csdn.net/u012184539/article/details/120326741)
-- [Linux内核驱动学习-编写最简单Linux内核模块HelloWorld](https://blog.csdn.net/weixin_46048542/article/details/123171177)
+- [<font color=Red>Linux内核驱动学习-编写最简单Linux内核模块HelloWorld</font>](https://blog.csdn.net/weixin_46048542/article/details/123171177)
 - [linux内核模块加载命令](https://blog.csdn.net/Lihuihui006/article/details/112199469)
-- [Linux内核模块通信 | 符号导出解析](https://mp.weixin.qq.com/s/zNfS2XULX2by1d2O_qQTtg)
+- [<font color=Red>Linux内核模块通信 | 符号导出解析</font>](https://mp.weixin.qq.com/s/zNfS2XULX2by1d2O_qQTtg)
 - [Linux驱动程序Makefile文件见解](https://juejin.cn/post/7242186721784938556)
 
 - [如何编写一个Linux内核模块，这次手把手教你](https://zhuanlan.zhihu.com/p/420194002)
