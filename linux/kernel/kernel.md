@@ -89,6 +89,7 @@
 
 ### KBUILD_EXTRA_SYMBOLS
 
+- [<font color=Red>KBUILD_EXTRA_SYMBOLS</font>](https://zhuanlan.zhihu.com/p/525378647)
 - [Linux内核模块通信](https://nu-ll.github.io/2020/06/20/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E9%80%9A%E4%BF%A1/)
 
 ### dkms
