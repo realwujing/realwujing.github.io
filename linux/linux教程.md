@@ -235,6 +235,7 @@
 
 ## 硬件信息
 
+- [9个Linux 常用查看系统硬件信息命令(实例详解)](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&mid=2247493224&idx=1&sn=d020f84b7e607e740ac487c61b231c25&chksm=f96b949cce1c1d8ada3bab434c88c43972032874405597084d43db5b0b605df9213b6f51ef47&scene=21#wechat_redirect)
 - [Linux 中的 lshw 命令：获取硬件详细信息](https://www.toutiao.com/article/7257841565858103819/)
 - [dmidecode(8) - Linux man page](https://linux.die.net/man/8/dmidecode)
 
