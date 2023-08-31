@@ -111,6 +111,7 @@
 ## 降噪算法
 
 - [语音降噪/语音增强的几种算法](https://blog.csdn.net/kaixinshier/article/details/72477679)
+- [有没有开源的音频AI降噪库？](https://www.zhihu.com/question/602700859)
 
 ## 其他
 
