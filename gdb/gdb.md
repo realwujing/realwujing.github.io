@@ -24,10 +24,14 @@
 - [<font color=Red>GDB实用命令</font>](https://blog.csdn.net/ljss321/article/details/104304591)
 - [GDB 调试指令](https://blog.csdn.net/evilswords/article/details/18353181)
 - [gdb中list命令使用](https://blog.csdn.net/Mormont/article/details/53037978)
-- [<font color=Red>gdb调试的layout使用</font>](https://blog.csdn.net/whlloveblog/article/details/48090567)
 - [为fork调用设置catchpoint](https://wizardforcel.gitbooks.io/100-gdb-tips/content/catch-fork.html)
 - [同时调试父进程和子进程](https://wizardforcel.gitbooks.io/100-gdb-tips/content/set-detach-on-fork.html)
 - [【工欲善其事，必先利其器】之gdb五大高级用法](https://blog.csdn.net/e21105834/article/details/118515137)
+
+## gdb tui
+
+- [gdb TUI界面快捷键](https://blog.csdn.net/xiaozi0221/article/details/90512751)
+- [<font color=Red>gdb调试的layout使用</font>](https://blog.csdn.net/whlloveblog/article/details/48090567)
 
 ## gdb assembly
 
