@@ -122,6 +122,7 @@
 - [<font color=Red>linux中的dmesg命令简介没有core文件时如何定位core dump问题</font>](https://blog.csdn.net/stpeace/article/details/49843897)
 - [Linux如何使用gdb查看core堆栈信息](https://www.cnblogs.com/lynsen/p/8439550.html)
 - [<font color=Red>golang-进程崩溃后如何输出错误日志？core dump</font>](https://blog.csdn.net/xmcy001122/article/details/105665732)
+- [coredumpctl - Retrieve and process saved core dumps and metadata](https://www.man7.org/linux/man-pages/man1/coredumpctl.1.html)
 
 ## addr2line
 
