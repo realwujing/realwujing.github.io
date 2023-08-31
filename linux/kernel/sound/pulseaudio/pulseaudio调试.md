@@ -53,7 +53,7 @@ sudo apt install --reinstall ../*.deb
 
 ```bash
 systemctl --user stop pulseaudio.socket
-systectl --user stop pulseaudio
+systemctl --user stop pulseaudio
 ```
 
 查看pulseaudio参数:
