@@ -28,18 +28,18 @@
 - [同时调试父进程和子进程](https://wizardforcel.gitbooks.io/100-gdb-tips/content/set-detach-on-fork.html)
 - [【工欲善其事，必先利其器】之gdb五大高级用法](https://blog.csdn.net/e21105834/article/details/118515137)
 
-## gdb tui
+### gdb tui
 
 - [gdb TUI界面快捷键](https://blog.csdn.net/xiaozi0221/article/details/90512751)
 - [<font color=Red>gdb调试的layout使用</font>](https://blog.csdn.net/whlloveblog/article/details/48090567)
 
-## gdb assembly
+### gdb assembly
 
 - [GDB 单步调试汇编](https://www.bbsmax.com/A/mo5kQN04zw/)
 - [<font color=Red>汇编语言和gdb调试汇编</font>](https://zhuanlan.zhihu.com/p/410215049)
 - [静态链接符号地址重定位直观描述](https://mp.weixin.qq.com/s/cq0iHepG_xXKXHLlQpPGZw)
 
-## gdb源码路径
+### gdb源码路径
 
 - [https://sourceware.org/gdb/current/onlinedocs/gdb/Source-Path.html#index-set-substitute_002dpath](https://sourceware.org/gdb/current/onlinedocs/gdb/Source-Path.html#index-set-substitute_002dpath)
 
@@ -59,7 +59,7 @@
 - [Linux下GDB调试指令汇总](https://zhuanlan.zhihu.com/p/71519244)
 - [linux gdb详解](https://www.jianshu.com/p/adcf474f5561)
 
-## gdb打印qt数据类型
+### gdb打印qt数据类型
 
 - [https://github.com/Lekensteyn/qt5printers](https://github.com/Lekensteyn/qt5printers)
 
@@ -68,7 +68,7 @@
 - [GDB && QString](https://www.cnblogs.com/Braveliu/p/8426945.html)
 - [007 - 配置 Clion 调试显示 Qt 变量-爱代码爱编程](https://icode.best/i/64401545957413)
 
-## gdb远程调试
+### gdb远程调试
 
 - [40.Linux应用调试-使用gdb和gdbserver](https://cloud.tencent.com/developer/article/1015873)
 - [使用gdbserver远程调试](https://www.jianshu.com/p/d532d196c89f)
@@ -215,7 +215,7 @@
 
 - [设置vscode命令行其缓冲区中保留的最大行数](https://blog.csdn.net/wzp20092009/article/details/118327205)
 
-## vscode调试linux内核
+### vscode调试linux内核
 
 - [<font color=Red>调试 Linux 最早期的代码</font>](https://mp.weixin.qq.com/s/cx_vaRTcC29h0pWkJPpqQQ)
 - [<font color=Red>https://github.com/yuan-xy/Linux-0.11</font>](https://github.com/yuan-xy/Linux-0.11)
