@@ -232,6 +232,7 @@
 - [使用ps、grep、kill批量杀死进程 - 物博网 (wubo.net.cn)](https://www.wubo.net.cn/security/ps_grep_kill_process.html)
 - [no no no. 不要使用kill -9](https://mp.weixin.qq.com/s/UkzMZYbmtSHYLQ-SShSnHg)
 - [SIGTERM等信号含义](https://blog.csdn.net/weixin_34121304/article/details/85553216)
+- [Linux下使用ps命令查看某个进程文件的启动位置](https://www.cnblogs.com/diyunpeng/p/8535504.html)
 
 ## 硬件信息
 
