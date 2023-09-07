@@ -84,11 +84,16 @@
 - [使用KGDB调试Linux驱动（以imx6ull开发板为例）](https://blog.csdn.net/weixin_38832162/article/details/115347640)
 - [用 kGDB 调试 Linux 内核 ](https://www.cnblogs.com/qiynet/p/6432717.html)
 - [使用kgdb调试Vagrant guest kernel](https://www.jianshu.com/p/5418908bc883)
-- [【调试】sysRq按键使用方法](https://zhuanlan.zhihu.com/p/608948166)
-- [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
+
 - [kgdb调试linux内核以及驱动模块](https://blog.csdn.net/weixin_39871788/article/details/120313821)
 - [内核调试- vmlinux-gdb.py无法在gdb上运行](https://cloud.tencent.com/developer/ask/sof/249935)
-- [](https://quard-star-tutorial.readthedocs.io/zh_CN/latest/ext1.html)
+- [kgdb调试linux内核以及驱动模块](https://quard-star-tutorial.readthedocs.io/zh_CN/latest/ext1.html)
+
+## sysrq-trigger
+
+- [【调试】sysRq按键使用方法](https://zhuanlan.zhihu.com/p/608948166)
+- [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
+- [<font color=Red>Linux Magic System Request Key Hacks</font>](https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/sysrq.html)
 
 ### kgdboe
 
