@@ -3,7 +3,7 @@
 ## anaconda
 
 - [Anaconda python3.6版本安装_华仔的博客-CSDN博客_anaconda python3.6](https://blog.csdn.net/qq_36338754/article/details/96430294)
-- wget <https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-5.2.0-Linux-x86_64.sh>
+- `wget https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/Anaconda3-5.2.0-Linux-x86_64.sh`
 
 - [pipreqs查找python项目依赖并生成requirements.txt - 一抹浅笑 - 博客园 (cnblogs.com)](https://www.cnblogs.com/zhaopanpan/p/9383350.html)
 - [python使用清华源进行pip安装的方法（最方便，不用换源只需一行代码）](https://zhuanlan.zhihu.com/p/129866307)
