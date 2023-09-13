@@ -86,6 +86,7 @@
 - [<font color=Red>Linux内核模块通信 | 符号导出解析</font>](https://mp.weixin.qq.com/s/zNfS2XULX2by1d2O_qQTtg)
 - [Linux驱动程序Makefile文件见解](https://juejin.cn/post/7242186721784938556)
 - [如何编写一个Linux内核模块，这次手把手教你](https://zhuanlan.zhihu.com/p/420194002)
+- [<font color=Red>Linux下使用内核源码单独编译某一模块</font>](https://blog.csdn.net/bingyu9875/article/details/95972059)
 
 ### KBUILD_EXTRA_SYMBOLS
 
