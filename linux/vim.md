@@ -52,6 +52,15 @@
 
 - [vim中使用sudo保存文件](https://www.cnblogs.com/jackie-astro/p/13295584.html)
 
+## 插件
+
+- [（转）Vim十大必备插件](https://blog.51cto.com/u_15905375/5919878)
+- [Ubuntu 下 vim+Ctags+Taglist+WinManager工具的安装](https://blog.csdn.net/eric_sunah/article/details/51028874)
+- [2021-11-11 vim 显示函数列表](https://blog.csdn.net/weihua1643/article/details/121264521)
+- [linux安装vim插件 NERDTree、taglist 、winmanager（类似source insight）](https://blog.csdn.net/qq_36754075/article/details/100030981)
+- [https://github.com/preservim/nerdtree](https://github.com/preservim/nerdtree)
+- [https://github.com/yegappan/taglist](https://github.com/yegappan/taglist)
+
 ## nano
 
 - [4.4 超简单文书编辑器： nano](https://www.wenjiangs.com/doc/8ij4xm4z)
