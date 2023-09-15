@@ -116,3 +116,7 @@
 ## loongarch
 
 - [龙芯虚拟化使用手册](https://blog.csdn.net/faxiang1230/article/details/120907896)
+
+## book
+
+- [kvm虚拟化技术：实战与原理解析.pdf](http://www.downcc.com/soft/317578.html)
