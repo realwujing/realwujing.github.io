@@ -119,4 +119,5 @@
 
 ## book
 
+- [QEMU KVM学习笔记](https://github.com/yifengyou/learn-kvm)
 - [kvm虚拟化技术：实战与原理解析.pdf](http://www.downcc.com/soft/317578.html)
