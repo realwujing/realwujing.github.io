@@ -10,7 +10,7 @@
 
     ```bash
     cd linglong-repo
-    sudo apt build-dep .
+    sudo apt build-dep .    # 使用.报错时，可以将.替换成debian/control中的Source字段
     cd ..
     ```
 
