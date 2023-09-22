@@ -160,3 +160,6 @@ grep acpi_enable_subsystem . -inr --color --include={*.h,*.c}
 ./acpica/evxfregn.c:39: * initialized (via acpi_enable_subsystem.)
 ./bus.c:1107:   status = acpi_enable_subsystem(~ACPI_NO_ACPI_ENABLE);
 ./bus.c:1157:   status = acpi_enable_subsystem(ACPI_NO_ACPI_ENABLE);
+
+
+
