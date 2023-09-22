@@ -163,3 +163,35 @@ grep acpi_enable_subsystem . -inr --color --include={*.h,*.c}
 
 
 
+```c
+uname -a
+Linux ARM-PC 5.10.0-arm64-desktop #1 SMP Thu Sep 21 17:42:23 CST 2023 aarch64 GNU/Linux
+
+2023-09-22 14:08:30 ARM-PC kernel: [  180.165690] CPU: 0 PID: 1731 Comm: kworker/0:3 Tainted: G           OE     5.10.0-arm64-desktop #1
+2023-09-22 14:08:30 ARM-PC kernel: [  180.174643] Hardware name: Centerm C7F-G3/C7F-G3, BIOS 1.05 20210816
+2023-09-22 14:08:30 ARM-PC kernel: [  180.180993] Workqueue: kacpi_notify acpi_os_execute_deferred
+2023-09-22 14:08:30 ARM-PC kernel: [  180.186642] Call trace:
+2023-09-22 14:08:30 ARM-PC kernel: [  180.189080]  dump_backtrace+0x0/0x1e8
+2023-09-22 14:08:30 ARM-PC kernel: [  180.192731]  show_stack+0x18/0x28
+2023-09-22 14:08:30 ARM-PC kernel: [  180.196036]  dump_stack+0xf0/0x128
+2023-09-22 14:08:30 ARM-PC kernel: [  180.199431]  acpi_button_notify+0x24/0x114 [button]
+2023-09-22 14:08:30 ARM-PC kernel: [  180.204297]  acpi_device_notify+0x1c/0x28
+2023-09-22 14:08:30 ARM-PC kernel: [  180.208296]  acpi_ev_notify_dispatch+0x60/0x70
+2023-09-22 14:08:30 ARM-PC kernel: [  180.212728]  acpi_os_execute_deferred+0x1c/0x38
+2023-09-22 14:08:30 ARM-PC kernel: [  180.217248]  process_one_work+0x1f4/0x4f0
+2023-09-22 14:08:30 ARM-PC kernel: [  180.221247]  worker_thread+0x140/0x568
+2023-09-22 14:08:30 ARM-PC kernel: [  180.224985]  kthread+0x110/0x118
+2023-09-22 14:08:30 ARM-PC kernel: [  180.228201]  ret_from_fork+0x10/0x18
+```
+
+```c
+../../../scripts/faddr2line evmisc.o acpi_ev_notify_dispatch+0x60/0x70
+acpi_ev_notify_dispatch+0x60/0x70:
+acpi_ev_notify_dispatch 于 /data3/home/yuanqiliang/code/arm-kernel-5.10/kernel/drivers/acpi/acpica/evmisc.c:184
+```
+
+```c
+../../scripts/faddr2line bus.o acpi_device_notify+0x1c/0x28
+acpi_device_notify+0x1c/0x28:
+acpi_device_notify 于 /data3/home/yuanqiliang/code/arm-kernel-5.10/kernel/drivers/acpi/bus.c:425
+```
