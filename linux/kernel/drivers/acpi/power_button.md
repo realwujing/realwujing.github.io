@@ -72,8 +72,10 @@ static struct acpi_driver acpi_button_driver = {
 };
 ```
 
+```c
 drivers/acpi/bus.c:450
 acpi_device_install_notify_handler
+```
 
 ----------------------
 
@@ -88,7 +90,7 @@ acpi_device_install_notify_handler
 3. **事件检测**：ACPI固件检测到电源按钮事件的发生后，会识别事件的类型，即电源按钮事件。这一步通常涉及解析电源按钮事件的特定电路信号。
 
 4. **生成ACPI事件**：一旦事件被检测到并识别，ACPI固件将生成一个ACPI事件，包含以下信息：
-   
+
    - 事件类型：通常标识为电源按钮事件。
    - 事件参数：可能包括按钮按下的详细信息，如持续时间等。
    - 其他相关信息：与事件相关的附加数据。
