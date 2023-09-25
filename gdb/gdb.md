@@ -164,6 +164,7 @@
 - [Ubuntu的内核转储工具](https://www.cnblogs.com/wwang/archive/2010/11/19/1881304.html)
 - [<font color=Red>centos7 kdump、crash调试内核</font>](https://blog.csdn.net/weixin_45030965/article/details/124960224)
 - [Linux Kdump 机制详解](https://www.toutiao.com/article/7103352500777910821/)
+- [x86 and x86_64 - Some systems can take advantage of the nmi watchdog. Add nmi_watchdog=1 to the boot commandline to turn on the watchdog. The nmi interrupt will call panic if activated.](https://manpages.debian.org/testing/kdump-tools/kdump-tools.5.en.html)
 
 ## carsh
 
