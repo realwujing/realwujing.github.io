@@ -204,6 +204,10 @@
 - [【博客272】errno错误对照表](https://blog.csdn.net/qq_43684922/article/details/106440542)
 - [gcc 7.1.0下gdb无法prinf查看errno解决](https://blog.csdn.net/liuhhaiffeng/article/details/104040174)
 
+## gcc
+
+- [Dwarf Error: wrong version in compilation unit header (is 4, should be 2) \[in module /dawnfs/users/](https://blog.csdn.net/fandroid/article/details/32914203)
+
 ## libtool
 
 - [gdb调试libtool封装的可执行文件](https://www.cnblogs.com/ericsun/p/3168842.html)
