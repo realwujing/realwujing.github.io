@@ -54,13 +54,18 @@
 
 ## 插件
 
-- [https://vimawesome.com/](https://vimawesome.com/)
+- [<font color=Red>https://vimawesome.com/</font>](https://vimawesome.com/)
 - [（转）Vim十大必备插件](https://blog.51cto.com/u_15905375/5919878)
 - [Ubuntu 下 vim+Ctags+Taglist+WinManager工具的安装](https://blog.csdn.net/eric_sunah/article/details/51028874)
 - [2021-11-11 vim 显示函数列表](https://blog.csdn.net/weihua1643/article/details/121264521)
 - [linux安装vim插件 NERDTree、taglist 、winmanager（类似source insight）](https://blog.csdn.net/qq_36754075/article/details/100030981)
+- [<font color=Red>https://github.com/VundleVim/Vundle.vim</font>](https://github.com/VundleVim/Vundle.vim)
 - [https://github.com/preservim/nerdtree](https://github.com/preservim/nerdtree)
 - [https://github.com/yegappan/taglist](https://github.com/yegappan/taglist)
+
+```bash
+git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
+```
 
 ## nano
 
