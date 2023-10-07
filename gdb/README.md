@@ -9,3 +9,4 @@
 ## More
 
 - [Debugging.with.gdb 中文.pdf](https://github.com/shihyu/MyTool/blob/master/GDB/Debugging.with.gdb%20%E4%B8%AD%E6%96%87.pdf)
+- [Ubuntu16.04升级gdb7.11升级到10.2版本](https://blog.csdn.net/qq_39153421/article/details/116753735)
