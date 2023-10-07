@@ -43,5 +43,6 @@
 
 ## UEFI原理与编程_戴正华(著) 机械工业出版社_完整版.pdf
 
-- [UEFI原理与编程_戴正华(著) 机械工业出版社_完整版.pdf](https://github.com/yuanzhaoming/uefi/blob/master/UEFI%E5%8E%9F%E7%90%86%E4%B8%8E%E7%BC%96%E7%A8%8B_%E6%88%B4%E6%AD%A3%E5%8D%8E(%E8%91%97)%20%E6%9C%BA%E6%A2%B0%E5%B7%A5%E4%B8%9A%E5%87%BA%E7%89%88%E7%A4%BE_%E5%AE%8C%E6%95%B4%E7%89%88.pdf)
 - [UEFI入门必读的12本书](https://blog.csdn.net/jehuyang/article/details/126596488)
+- [UEFI原理与编程_戴正华(著) 机械工业出版社_完整版.pdf](https://github.com/yuanzhaoming/uefi/blob/master/UEFI%E5%8E%9F%E7%90%86%E4%B8%8E%E7%BC%96%E7%A8%8B_%E6%88%B4%E6%AD%A3%E5%8D%8E(%E8%91%97)%20%E6%9C%BA%E6%A2%B0%E5%B7%A5%E4%B8%9A%E5%87%BA%E7%89%88%E7%A4%BE_%E5%AE%8C%E6%95%B4%E7%89%88.pdf)
+- [UEFI编程实践.pdf](https://static2.file123.info/download/7e7ee3a2f0411b4a1a428ddabe045471553090b9)
