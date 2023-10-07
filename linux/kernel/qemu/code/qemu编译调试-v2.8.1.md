@@ -20,6 +20,12 @@ sudo apt install ../*.deb
 ```bash
 git clone git@github.com:realwujing/qemu.git
 git checkout -b v2.8.1-comment v2.8.1
+git submodule update --init --recursive
+```
+
+```bash
+wget https://download.qemu.org/qemu-2.8.1.tar.xz
+tar -xvJf qemu-2.8.1.tar.xz
 ```
 
 ## 编译调试
@@ -35,7 +41,8 @@ make
 ## 开始调试
 
 ```bash
-gdb ./qemu-system-x86_64
+find . -name qemu-system-x86_64
+gdb ./x86_64-softmmu/qemu-system-x86_64
 ```
 
 ```c
