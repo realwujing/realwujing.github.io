@@ -2,6 +2,26 @@
 
 ## 内核环境
 
+镜像基于Ubuntu 16.04.7 LTS:
+
+```bash
+cat /etc/os-release
+
+NAME="Ubuntu"
+VERSION="16.04.7 LTS (Xenial Xerus)"
+ID=ubuntu
+ID_LIKE=debian
+PRETTY_NAME="Ubuntu 16.04.7 LTS"
+VERSION_ID="16.04"
+HOME_URL="http://www.ubuntu.com/"
+SUPPORT_URL="http://help.ubuntu.com/"
+BUG_REPORT_URL="http://bugs.launchpad.net/ubuntu/"
+VERSION_CODENAME=xenial
+UBUNTU_CODENAME=xenial
+```
+
+将内核版本替换成linux主线v4.4:
+
 ```bash
 git clone git@github.com:realwujing/linux.git
 git checkout -b v4.4 v4.4
@@ -15,13 +35,20 @@ sudo apt install ../*.deb
 
 ## 源码下载
 
-本次源码解读基于git标签v2.8.1:
+本次源码解读基于git标签v2.8.1。
+
+方式一
+
+qemu源码位于github上，但是v2.8.1对应的git submodules仓库位于gitlab上，无法下载对应gitmodules源码，故手动替换git submodules仓库为github镜像仓库源，详情见提交：[gitmodules: update git submodule url to github](https://github.com/realwujing/qemu/commit/56fe7ca29adddd876b590e301e62d5b6e4b3a33e)
 
 ```bash
 git clone git@github.com:realwujing/qemu.git
-git checkout -b v2.8.1-comment v2.8.1
+git checkout -b v2.8.1-comment v2.8.1-comment
+git submodule init
 git submodule update --init --recursive
 ```
+
+方式二
 
 ```bash
 wget https://download.qemu.org/qemu-2.8.1.tar.xz
