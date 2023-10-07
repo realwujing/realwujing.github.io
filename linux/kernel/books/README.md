@@ -40,3 +40,7 @@
 - [Linux设备驱动开发详解(宋宝华)资料](https://zhuanlan.zhihu.com/p/112208300)
 - [驱动源码](drivers.tar)
 - [《Linux 设备驱动开发详解》(宋宝华) 学习笔记](https://github.com/eddyvv/learn-ldd-master)
+
+## UEFI原理与编程_戴正华(著) 机械工业出版社_完整版.pdf
+
+- [UEFI原理与编程_戴正华(著) 机械工业出版社_完整版.pdf](https://github.com/yuanzhaoming/uefi/blob/master/UEFI%E5%8E%9F%E7%90%86%E4%B8%8E%E7%BC%96%E7%A8%8B_%E6%88%B4%E6%AD%A3%E5%8D%8E(%E8%91%97)%20%E6%9C%BA%E6%A2%B0%E5%B7%A5%E4%B8%9A%E5%87%BA%E7%89%88%E7%A4%BE_%E5%AE%8C%E6%95%B4%E7%89%88.pdf)
