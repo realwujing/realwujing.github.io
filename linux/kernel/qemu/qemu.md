@@ -50,6 +50,11 @@
 
 - [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
 
+### qemu monitor
+
+- [QEMU Monitor](https://www.qemu.org/docs/master/system/monitor.html)
+- [QEMU monitor控制台使用详解](https://blog.csdn.net/qq_43523618/article/details/106278245)
+
 ### 网络
 
 - [<font color=Red>QEMU用户模式网络</font>](https://blog.csdn.net/m0_43406494/article/details/124827927)
