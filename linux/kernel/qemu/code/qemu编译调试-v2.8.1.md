@@ -69,7 +69,15 @@ make
 
 ```bash
 find . -name qemu-system-x86_64
-gdb ./x86_64-softmmu/qemu-system-x86_64
+```
+
+```bash
+gdb --args ./x86_64-softmmu/qemu-system-x86_64 \
+-m 2048 \
+-kernel ~/code/linux/arch/x86/boot/bzImage \
+-hda ~/code/qemu-img/bionic.img \
+-append "root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr" \
+-nographic
 ```
 
 ```c
