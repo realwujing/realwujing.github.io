@@ -61,6 +61,8 @@ tar -xvJf qemu-2.8.1.tar.xz
 mkdir build
 cd build
 sudo apt install libglib2.0-dev libpixman-1-dev libfdt-dev
+export CFLAGS="-g -O0"
+export LDFLAGS="-g -O0"
 ../configure
 make
 ```
