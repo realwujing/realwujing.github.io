@@ -139,12 +139,17 @@
 
 - [kernel启动流程-start_kernel的执行_8.cpio initrd解包](https://blog.csdn.net/jasonactions/article/details/114080652)
 - [kernel启动流程-start_kernel的执行_7.arch_call_rest_init](https://blog.csdn.net/jasonactions/article/details/114007646)
-- [linux内核中do_initcalls函数的执行逻辑分析](https://m.elecfans.com/article/1980482.html)
 - [Linux0号进程，1号进程，2号进程](https://www.cnblogs.com/MrLiuZF/p/15187310.html)
 - [Linux下0号进程的前世(init_task进程)今生(idle进程)](https://blog.csdn.net/21cnbao/article/details/105885390)
 - [Linux | Kernel 启动流程源码分析](https://mp.weixin.qq.com/s/umB4mgMUtAvL52AcjDq55g)
 
 - [Linux 实现原理 — 网卡驱动程序初始化流程](https://mp.weixin.qq.com/s/jcolfo4bvKPS-eRdeCkRCg)
+
+### do_initcalls
+
+- [<font color=Red>initcall 机制</font>](https://www.bookstack.cn/read/linux-insides-zh/Concepts-linux-cpu-3.md)
+- [linux内核中do_initcalls函数的执行逻辑分析](https://m.elecfans.com/article/1980482.html)
+- [initcall_debug来查看开机慢问题](https://blog.csdn.net/rikeyone/article/details/84258391)
 
 ## 根文件系统挂载
 
