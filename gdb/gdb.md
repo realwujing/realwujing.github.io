@@ -4,6 +4,7 @@
 
 - [<font color=Red>Linux 程序开发常用调试工具合集</font>](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&mid=2247483984&idx=2&sn=2672096af3ab1844e7b6d0b6e9de802b&chksm=f96870a4ce1ff9b2183f17c2873f1a35b418469dde92eb4e49f9d3de073aeafb87fe4c5b0002&scene=21#wechat_redirect)
 - [Linux C/C++ 调试的那些“歪门邪道”](https://mp.weixin.qq.com/s/t0BidHMCGqTftchGUU5otw)
+- [Linux内核调试方法](https://blog.csdn.net/u013253075/article/details/120569270)
 
 ## gdb
 
