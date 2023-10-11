@@ -156,6 +156,7 @@
 
 ## kdump
 
+- [<font color=Red>Documentation for Kdump - The kexec-based Crash Dumping Solution</font>](https://www.kernel.org/doc/html/latest/admin-guide/kdump/kdump.html)
 - [<font color=Red>How to on enable kernel crash dump on Debian Linux</font>](https://www.cyberciti.biz/faq/how-to-on-enable-kernel-crash-dump-on-debian-linux/)
 - [详解Linux内核态调试工具kdump](https://blog.csdn.net/chenlycly/article/details/126074433)
 - [<font color=Red>Linux内核转储-Kdump，Crash使用介绍</font>](https://blog.csdn.net/qq_41782149/article/details/129021833)
