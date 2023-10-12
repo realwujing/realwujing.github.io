@@ -55,8 +55,7 @@ make -j`expr $(nproc) / 2`
 ### 安装依赖
 
 ```bash
-sudo apt-get install debian-archive-keyring
-sudo apt-get install  qemu qemu-user-static  binfmt-support debootstrap
+sudo apt-get install qemu qemu-user-static binfmt-support debootstrap debian-archive-keyring
 ```
 
 ### 制作文件系统
