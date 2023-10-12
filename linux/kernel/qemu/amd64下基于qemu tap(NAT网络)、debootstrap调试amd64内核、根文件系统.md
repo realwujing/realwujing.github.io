@@ -1,4 +1,4 @@
-# amd64下基于qemu tap(NAT网络)、debootstrap 调试内核、根文件系统
+# amd64下基于qemu tap(NAT网络)、debootstrap调试amd64内核、根文件系统
 
 ## 1. 编译调试版linux内核
 
