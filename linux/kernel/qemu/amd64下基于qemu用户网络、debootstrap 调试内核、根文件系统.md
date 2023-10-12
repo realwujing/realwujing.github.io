@@ -73,7 +73,7 @@ sudo debootstrap --arch [平台] [发行版本代号] [构建目录] [镜像地�
 sudo debootstrap --arch=amd64 --include=ifupdown bionic linux-rootfs http://mirrors.aliyun.com/ubuntu/
 ```
 
-arm64下构建adm64需要执行下方命令，当前可以省略
+amd64下交叉编译构建arm64需要执行下方命令：
 
 ```bash
 sudo cp -a /usr/bin/qemu-x86_64-static linux-rootfs/usr/bin/qemu-x86_64-static
@@ -87,7 +87,7 @@ chmod 777 ch-mount.sh
 # 执行脚本后，没有报错会进入文件系统，交叉编译时显示 I have no name ，这是因为还没有初始化。
 ./ch-mount.sh -m linux-rootfs/
 
-debootstrap/debootstrap --second-stage # 交叉编译时执行第二步，初始化文件系统，会把一个系统的基础包初始化
+debootstrap/debootstrap --second-stage # 交叉编译时执行，初始化文件系统，会把一个系统的基础包初始化
 exit
 ./ch-mount.sh -u linux-rootfs/
 ./ch-mount.sh -m linux-rootfs/

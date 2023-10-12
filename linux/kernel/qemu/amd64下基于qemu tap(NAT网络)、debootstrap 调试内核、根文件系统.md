@@ -123,7 +123,7 @@ https://pools.uniontech.com/desktop-professional/
 
 - [ubuntu 下安装C/C++ 开发编译环境](https://blog.csdn.net/houxian1103/article/details/121886365)
 
-arm64下构建adm64需要执行下方命令，当前可以省略
+amd64下交叉编译构建arm64需要执行下方命令：
 
 ```bash
 sudo cp -a /usr/bin/qemu-x86_64-static linux-rootfs/usr/bin/qemu-x86_64-static
@@ -137,7 +137,7 @@ chmod 777 ch-mount.sh
 # 执行脚本后，没有报错会进入文件系统，交叉编译时显示 I have no name ，这是因为还没有初始化。
 ./ch-mount.sh -m linux-rootfs/
 
-debootstrap/debootstrap --second-stage # 交叉编译时执行第二步，初始化文件系统，会把一个系统的基础包初始化
+debootstrap/debootstrap --second-stage # 交叉编译时执行，初始化文件系统，会把一个系统的基础包初始化
 exit
 ./ch-mount.sh -u linux-rootfs/
 # ./ch-mount.sh -m linux-rootfs/
