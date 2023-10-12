@@ -1,4 +1,4 @@
-# amd64下基于qemu用户网络、debootstrap 调试内核、根文件系统
+# amd64下交叉编译调试arm64内核
 
 ## 1. 编译调试版linux内核
 
@@ -11,7 +11,7 @@ git clone https://github.com/torvalds/linux.git
 ### 安装编译依赖
 
 ```bash
-sudo apt-get install build-essential libncurses-dev bison flex libssl-dev libelf-dev
+sudo apt install build-essential libncurses-dev bison flex libssl-dev libelf-dev gcc-arm-linux-gnueabihf gcc-arm-linux-gnueabi
 ```
 
 ### 内核编译选项配置
