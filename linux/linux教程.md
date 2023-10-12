@@ -384,6 +384,12 @@
 - [Linux下tar命令解压到指定的目录](https://blog.csdn.net/libing_zeng/article/details/73268032)
 - [想学Linux中的打包和压缩？看这一篇就够了](https://www.toutiao.com/article/7172630331697218059)
 
+- ### 分卷压缩
+
+- [linux下分卷压缩，合并解压的3种方法](http://blog.51yip.com/linux/988.html)
+- [linux使用tar打包压缩和分卷压缩](https://blog.csdn.net/sumengnan/article/details/107806838)
+- [Linux新手入门系列：Linux分卷压缩与分卷解压缩](https://zhuanlan.zhihu.com/p/397071336)
+
 ## set
 
 - [Linux 系统设置 : set 命令详解](https://blog.csdn.net/yexiangCSDN/article/details/82828811)
