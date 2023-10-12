@@ -1,4 +1,4 @@
-# gdb
+# debug
 
 ## 调试工具
 
@@ -7,7 +7,36 @@
 - [Linux内核调试方法](https://blog.csdn.net/u013253075/article/details/120569270)
 - [全面剖析Linux kernel的调试debug技术](https://zhuanlan.zhihu.com/p/543103513)
 
-## gdb
+## Binutils
+
+- [GNU binutils 里的九种武器](https://zhuanlan.zhihu.com/p/85913402)
+- [GNU Binutils简介及基本用法](https://www.cnblogs.com/tocy/p/gnu-binutils-simple-usage.html)
+
+### addr2line
+
+- [Linux下addr2line命令用法](https://blog.csdn.net/fengbingchun/article/details/119980076)
+- [<font color=Red>https://github.com/torvalds/linux/blob/master/scripts/faddr2line</font>](https://github.com/torvalds/linux/blob/master/scripts/faddr2line)
+
+### symbols
+
+- [deb debug package-标准的 debian / ubuntu 打 deb 包，通过将可执行文件的符号表通过剥离成独立的 dbg 包，称为 debug package](http://sunyongfeng.com/201802/linux/debian_debug_package)
+- [17GDB使用符号表调试release程序](https://www.cnblogs.com/qiumingcheng/p/15821919.html)
+- [使用GDB调试将符号表与程序分离后的可执行文件](https://www.cnblogs.com/dongc/p/9690754.html)
+- [使用strip, eu-strip, objcopy等剥离与导回符号表及调试信息](https://blog.csdn.net/nirendao/article/details/104107608)
+- [Ubuntu 21.10 安装调试符号](https://blog.csdn.net/dwh0403/article/details/123551691)
+
+- [linux——nm命令：查看符号表](https://blog.csdn.net/lgfun/article/details/103600880)
+- [Linux System.map文件](https://blog.csdn.net/ysbj123/article/details/51233618)
+- [linux之vmlinux、vmlinuz、System.map和/proc/kallsyms简介](https://blog.csdn.net/weixin_45030965/article/details/125055828)
+- [Linux内核：符号表详解](https://zhuanlan.zhihu.com/p/445864686)
+
+### strings
+
+- [<font color=Red>strings</font>](https://github.com/realwujing/realwujing.github.io/blob/main/shell/strings.md)
+- [linux中的strings命令简介](https://zhuanlan.zhihu.com/p/383038723)
+- [递归查找当前目录下的动态库文件，提取其中的字符串，查找目标字符串，输出包含目标字符串的文件名。](https://github.com/realwujing/linux-learning/blob/main/shell/strings.md)
+
+### gdb
 
 - [<font color=Red>gdb调试常用命令</font>](https://www.cnblogs.com/tzj-kernel/p/14909077.html)
 - [GDB调试](https://blog.codekissyoung.com/C%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1/GDB%E8%B0%83%E8%AF%95%E5%99%A8)
@@ -30,18 +59,18 @@
 - [同时调试父进程和子进程](https://wizardforcel.gitbooks.io/100-gdb-tips/content/set-detach-on-fork.html)
 - [【工欲善其事，必先利其器】之gdb五大高级用法](https://blog.csdn.net/e21105834/article/details/118515137)
 
-### gdb tui
+#### gdb tui
 
 - [gdb TUI界面快捷键](https://blog.csdn.net/xiaozi0221/article/details/90512751)
 - [<font color=Red>gdb调试的layout使用</font>](https://blog.csdn.net/whlloveblog/article/details/48090567)
 
-### gdb assembly
+#### gdb assembly
 
 - [GDB 单步调试汇编](https://www.bbsmax.com/A/mo5kQN04zw/)
 - [<font color=Red>汇编语言和gdb调试汇编</font>](https://zhuanlan.zhihu.com/p/410215049)
 - [静态链接符号地址重定位直观描述](https://mp.weixin.qq.com/s/cq0iHepG_xXKXHLlQpPGZw)
 
-### gdb源码路径
+#### gdb源码路径
 
 - [https://sourceware.org/gdb/current/onlinedocs/gdb/Source-Path.html#index-set-substitute_002dpath](https://sourceware.org/gdb/current/onlinedocs/gdb/Source-Path.html#index-set-substitute_002dpath)
 
@@ -61,7 +90,7 @@
 - [Linux下GDB调试指令汇总](https://zhuanlan.zhihu.com/p/71519244)
 - [linux gdb详解](https://www.jianshu.com/p/adcf474f5561)
 
-### gdb打印qt数据类型
+#### gdb打印qt数据类型
 
 - [https://github.com/Lekensteyn/qt5printers](https://github.com/Lekensteyn/qt5printers)
 
@@ -70,13 +99,47 @@
 - [GDB && QString](https://www.cnblogs.com/Braveliu/p/8426945.html)
 - [007 - 配置 Clion 调试显示 Qt 变量-爱代码爱编程](https://icode.best/i/64401545957413)
 
-### gdb远程调试
+#### gdb print errno
+
+- [errno全局变量及使用细则，C语言errno全局变量完全攻略](http://c.biancheng.net/c/errno/)
+- [Linux(程序设计):08-perror、strerror函数(errno全局变量)](https://blog.51cto.com/u_15346415/5094459)
+- [Linux errno 错误对照表](https://blog.csdn.net/Gpengtao/article/details/7553307)
+- [【博客272】errno错误对照表](https://blog.csdn.net/qq_43684922/article/details/106440542)
+- [gcc 7.1.0下gdb无法prinf查看errno解决](https://blog.csdn.net/liuhhaiffeng/article/details/104040174)
+
+#### gdb远程调试
 
 - [40.Linux应用调试-使用gdb和gdbserver](https://cloud.tencent.com/developer/article/1015873)
 - [使用gdbserver远程调试](https://www.jianshu.com/p/d532d196c89f)
 - [<font color=Red>服务/软件管理：38-gdb+gdbserver的使用</font>](https://blog.51cto.com/u_15346415/3678651)
 - [gdb远程及本地调试的一些技巧](https://www.cnblogs.com/seven-sky/p/4730225.html)
 - [使用GDB进行嵌入式远程调试](https://blog.csdn.net/lvwx369/article/details/121490883)
+
+#### vscode gdb
+
+- [一步一步学CMake 之 VSCode+CMakeLists 调试 C++ 工程_wanzew的博客-CSDN博客](https://blog.csdn.net/wanzew/article/details/83097457)
+- [VSCode 无法打开 libc-start.c - Zijian/TENG - 博客园 (cnblogs.com)](https://www.cnblogs.com/tengzijian/p/vscode-cannot-find-libc-start-c.html)
+- [visualstudio-launch-json-reference](https://code.visualstudio.com/docs/cpp/launch-json-reference)
+- [CentOS下sudo免密配置](https://www.jianshu.com/p/22effba56f7e)
+- [VS Code 下以 root 用户调试程序](https://www.jianshu.com/p/368e5de24cc9)
+- [VS Code 下以 root 用户调试程序](https://www.mycat.wiki/archives/769)
+- [Linux deepin下普通用户免密切换至root用户](https://zhangxueliang.blog.csdn.net/article/details/110701868)
+- [process - Visual Studio Code，调试子进程不起作用](https://www.coder.work/article/7603523)
+- [VSCode 同时调试2个或多个程序](https://blog.csdn.net/leon_zeng0/article/details/107438624)
+- [在vscode中调试nginx源码](https://blog.hufeifei.cn/2021/10/C-C++/vscode-debug-nginx/index.html)
+
+- [设置vscode命令行其缓冲区中保留的最大行数](https://blog.csdn.net/wzp20092009/article/details/118327205)
+
+#### vscode调试linux内核
+
+- [<font color=Red>调试 Linux 最早期的代码</font>](https://mp.weixin.qq.com/s/cx_vaRTcC29h0pWkJPpqQQ)
+- [<font color=Red>https://github.com/yuan-xy/Linux-0.11</font>](https://github.com/yuan-xy/Linux-0.11)
+- [<font color=Red>Linux 0.11 vscode + gdb调试环境搭建</font>](https://www.modb.pro/db/422613)
+- [利用vscode远程调试Linux内核](https://mp.weixin.qq.com/s/vb1SiI0Uc5KpU2yGwJBRmg)
+
+## 串口
+
+- [<font color=Red>Linux下常用的串口助手 —— minicom、putty、cutecom</font>](https://blog.csdn.net/Mculover666/article/details/87647810)
 
 ## kgdb
 
@@ -90,19 +153,15 @@
 - [内核调试- vmlinux-gdb.py无法在gdb上运行](https://cloud.tencent.com/developer/ask/sof/249935)
 - [kgdb调试linux内核以及驱动模块](https://quard-star-tutorial.readthedocs.io/zh_CN/latest/ext1.html)
 
+### kgdboe
+
+- [How to use kgdb over ethernet (kgdboe)?](https://stackoverflow.com/questions/21300420/how-to-use-kgdb-over-ethernet-kgdboe)
+
 ## sysrq-trigger
 
 - [<font color=Red>Linux Magic System Request Key Hacks</font>](https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/sysrq.html)
 - [【调试】sysRq按键使用方法](https://zhuanlan.zhihu.com/p/608948166)
 - [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
-
-## 串口
-
-- [<font color=Red>Linux下常用的串口助手 —— minicom、putty、cutecom</font>](https://blog.csdn.net/Mculover666/article/details/87647810)
-
-### kgdboe
-
-- [How to use kgdb over ethernet (kgdboe)?](https://stackoverflow.com/questions/21300420/how-to-use-kgdb-over-ethernet-kgdboe)
 
 ## ptrace
 
@@ -133,11 +192,6 @@
 - [Linux如何使用gdb查看core堆栈信息](https://www.cnblogs.com/lynsen/p/8439550.html)
 - [<font color=Red>golang-进程崩溃后如何输出错误日志？core dump</font>](https://blog.csdn.net/xmcy001122/article/details/105665732)
 - [coredumpctl - Retrieve and process saved core dumps and metadata](https://www.man7.org/linux/man-pages/man1/coredumpctl.1.html)
-
-## addr2line
-
-- [Linux下addr2line命令用法](https://blog.csdn.net/fengbingchun/article/details/119980076)
-- [<font color=Red>https://github.com/torvalds/linux/blob/master/scripts/faddr2line</font>](https://github.com/torvalds/linux/blob/master/scripts/faddr2line)
 
 ## dump_stack
 
@@ -175,69 +229,6 @@
 - [linux内核学习-Linux内核程序调试工具Crash的安装](https://www.cnblogs.com/ssyfj/p/16278883.html)
 - [dump分析工具_ubantu18.04内核奔溃调试工具Crash的搭建](https://blog.csdn.net/weixin_39545102/article/details/111215997)
 
-## Binutils
-
-- [GNU binutils 里的九种武器](https://zhuanlan.zhihu.com/p/85913402)
-- [GNU Binutils简介及基本用法](https://www.cnblogs.com/tocy/p/gnu-binutils-simple-usage.html)
-
-### debugsymbols
-
-- [deb debug package-标准的 debian / ubuntu 打 deb 包，通过将可执行文件的符号表通过剥离成独立的 dbg 包，称为 debug package](http://sunyongfeng.com/201802/linux/debian_debug_package)
-- [17GDB使用符号表调试release程序](https://www.cnblogs.com/qiumingcheng/p/15821919.html)
-- [使用GDB调试将符号表与程序分离后的可执行文件](https://www.cnblogs.com/dongc/p/9690754.html)
-- [使用strip, eu-strip, objcopy等剥离与导回符号表及调试信息](https://blog.csdn.net/nirendao/article/details/104107608)
-- [Ubuntu 21.10 安装调试符号](https://blog.csdn.net/dwh0403/article/details/123551691)
-
-- [linux——nm命令：查看符号表](https://blog.csdn.net/lgfun/article/details/103600880)
-- [Linux System.map文件](https://blog.csdn.net/ysbj123/article/details/51233618)
-- [linux之vmlinux、vmlinuz、System.map和/proc/kallsyms简介](https://blog.csdn.net/weixin_45030965/article/details/125055828)
-- [Linux内核：符号表详解](https://zhuanlan.zhihu.com/p/445864686)
-
-### strings
-
-- [<font color=Red>strings</font>](https://github.com/realwujing/realwujing.github.io/blob/main/shell/strings.md)
-- [linux中的strings命令简介](https://zhuanlan.zhihu.com/p/383038723)
-- [递归查找当前目录下的动态库文件，提取其中的字符串，查找目标字符串，输出包含目标字符串的文件名。](https://github.com/realwujing/linux-learning/blob/main/shell/strings.md)
-
-## gdb print errno
-
-- [errno全局变量及使用细则，C语言errno全局变量完全攻略](http://c.biancheng.net/c/errno/)
-- [Linux(程序设计):08-perror、strerror函数(errno全局变量)](https://blog.51cto.com/u_15346415/5094459)
-- [Linux errno 错误对照表](https://blog.csdn.net/Gpengtao/article/details/7553307)
-- [【博客272】errno错误对照表](https://blog.csdn.net/qq_43684922/article/details/106440542)
-- [gcc 7.1.0下gdb无法prinf查看errno解决](https://blog.csdn.net/liuhhaiffeng/article/details/104040174)
-
-## gcc
-
-- [Dwarf Error: wrong version in compilation unit header (is 4, should be 2) \[in module /dawnfs/users/](https://blog.csdn.net/fandroid/article/details/32914203)
-
-## libtool
-
-- [gdb调试libtool封装的可执行文件](https://www.cnblogs.com/ericsun/p/3168842.html)
-- [使用 GNU Libtool 创建库](https://blog.csdn.net/rainharder/article/details/8057819)
-
-## vscode gdb
-
-- [一步一步学CMake 之 VSCode+CMakeLists 调试 C++ 工程_wanzew的博客-CSDN博客](https://blog.csdn.net/wanzew/article/details/83097457)
-- [VSCode 无法打开 libc-start.c - Zijian/TENG - 博客园 (cnblogs.com)](https://www.cnblogs.com/tengzijian/p/vscode-cannot-find-libc-start-c.html)
-- [visualstudio-launch-json-reference](https://code.visualstudio.com/docs/cpp/launch-json-reference)
-- [CentOS下sudo免密配置](https://www.jianshu.com/p/22effba56f7e)
-- [VS Code 下以 root 用户调试程序](https://www.jianshu.com/p/368e5de24cc9)
-- [VS Code 下以 root 用户调试程序](https://www.mycat.wiki/archives/769)
-- [Linux deepin下普通用户免密切换至root用户](https://zhangxueliang.blog.csdn.net/article/details/110701868)
-- [process - Visual Studio Code，调试子进程不起作用](https://www.coder.work/article/7603523)
-- [VSCode 同时调试2个或多个程序](https://blog.csdn.net/leon_zeng0/article/details/107438624)
-- [在vscode中调试nginx源码](https://blog.hufeifei.cn/2021/10/C-C++/vscode-debug-nginx/index.html)
-
-- [设置vscode命令行其缓冲区中保留的最大行数](https://blog.csdn.net/wzp20092009/article/details/118327205)
-
-### vscode调试linux内核
-
-- [<font color=Red>调试 Linux 最早期的代码</font>](https://mp.weixin.qq.com/s/cx_vaRTcC29h0pWkJPpqQQ)
-- [<font color=Red>https://github.com/yuan-xy/Linux-0.11</font>](https://github.com/yuan-xy/Linux-0.11)
-- [<font color=Red>Linux 0.11 vscode + gdb调试环境搭建</font>](https://www.modb.pro/db/422613)
-- [利用vscode远程调试Linux内核](https://mp.weixin.qq.com/s/vb1SiI0Uc5KpU2yGwJBRmg)
-
 ## windebug
 
 - [windebug快速使用及调试注意事项](https://blog.csdn.net/pathfinder1987/article/details/86620985)
@@ -248,3 +239,12 @@
 - [https://wiki.archlinux.org/title/Debugging](https://wiki.archlinux.org/title/Debugging)
 - [ASCII码一览表，ASCII码对照表](http://c.biancheng.net/c/ascii/)
 - [16进制到文本字符串](https://www.bejson.com/convert/ox2str/)
+
+### gcc
+
+- [Dwarf Error: wrong version in compilation unit header (is 4, should be 2) \[in module /dawnfs/users/](https://blog.csdn.net/fandroid/article/details/32914203)
+
+### libtool
+
+- [gdb调试libtool封装的可执行文件](https://www.cnblogs.com/ericsun/p/3168842.html)
+- [使用 GNU Libtool 创建库](https://blog.csdn.net/rainharder/article/details/8057819)
