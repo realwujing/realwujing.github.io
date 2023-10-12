@@ -59,17 +59,41 @@
 - [GDB调试指南(入门，看这篇够了)](https://blog.csdn.net/chen1415886044/article/details/105094688)
 - [本文是一篇GDB学习笔记，总结了GDB常用命令，方便以后查阅。](http://xnzaa.github.io/2016/07/20/GDB%E8%B0%83%E8%AF%95%E5%8F%8A%E5%91%BD%E4%BB%A4%E6%B1%87%E6%80%BB/)
 - [GDB调试教程：1小时玩转Linux gdb命令](http://c.biancheng.net/gdb/)
-- [<font color=Red>GDB print命令高级用法</font>](http://c.biancheng.net/view/8252.html)
-- [打印ASCII和宽字符字符串](https://wizardforcel.gitbooks.io/100-gdb-tips/content/print-ascii-and-wide-string.html)
-- [打印内存的值](https://wizardforcel.gitbooks.io/100-gdb-tips/content/examine-memory.html)
-- [GDB调试查看内存数据](https://blog.csdn.net/u014470361/article/details/102230583)
-- [GDB打印内存的值](https://blog.csdn.net/weixin_44395686/article/details/104727584)
-- [<font color=Red>跳至下一个断点_GDB断点调试详解</font>](https://blog.csdn.net/weixin_39880632/article/details/112621585)
-- [<font color=Red>linux gdb 跳出函数,gdb调试程序时跳进函数和跳出函数</font>](https://blog.csdn.net/weixin_35197990/article/details/116710685)
+
 - [<font color=Red>100个gdb小技巧</font>](https://wizardforcel.gitbooks.io/100-gdb-tips/content/index.html)
 - [<font color=Red>GDB实用命令</font>](https://blog.csdn.net/ljss321/article/details/104304591)
 - [GDB 调试指令](https://blog.csdn.net/evilswords/article/details/18353181)
+- [Linux下GDB调试指令汇总](https://zhuanlan.zhihu.com/p/71519244)
+- [linux gdb详解](https://www.jianshu.com/p/adcf474f5561)
+- [LINUX下GDB的使用方法(简单说说)_longfan的博客-CSDN博客_gdb](https://blog.csdn.net/awm_kar98/article/details/82840811)
+
+#### continue
+
+- [<font color=Red>跳至下一个断点_GDB断点调试详解</font>](https://blog.csdn.net/weixin_39880632/article/details/112621585)
+- [<font color=Red>linux gdb 跳出函数,gdb调试程序时跳进函数和跳出函数</font>](https://blog.csdn.net/weixin_35197990/article/details/116710685)
+
+#### print
+
+- [<font color=Red>GDB print命令高级用法</font>](http://c.biancheng.net/view/8252.html)
+- [gdb设置显示选项](https://blog.csdn.net/dai_jing/article/details/36896215)
+
+#### 打印内存值
+
+- [打印内存的值](https://wizardforcel.gitbooks.io/100-gdb-tips/content/examine-memory.html)
+- [GDB调试查看内存数据](https://blog.csdn.net/u014470361/article/details/102230583)
+- [GDB打印内存的值](https://blog.csdn.net/weixin_44395686/article/details/104727584)
+- [打印ASCII和宽字符字符串](https://wizardforcel.gitbooks.io/100-gdb-tips/content/print-ascii-and-wide-string.html)
+
+#### C++对象布局
+
+- [GDB查看C++对象布局_tmhanks的博客-CSDN博客](https://blog.csdn.net/tmhanks/article/details/89110833)
+
+#### list
+
 - [gdb中list命令使用](https://blog.csdn.net/Mormont/article/details/53037978)
+
+#### 多进程
+
 - [为fork调用设置catchpoint](https://wizardforcel.gitbooks.io/100-gdb-tips/content/catch-fork.html)
 - [同时调试父进程和子进程](https://wizardforcel.gitbooks.io/100-gdb-tips/content/set-detach-on-fork.html)
 - [【工欲善其事，必先利其器】之gdb五大高级用法](https://blog.csdn.net/e21105834/article/details/118515137)
@@ -97,14 +121,6 @@
 - [gdb分析core文件找不到源码](https://blog.csdn.net/jackgo73/article/details/120431609)
 - [gdb调试解决找不到源代码的问题](https://blog.csdn.net/albertsh/article/details/107437084)
 
-- [gdb设置显示选项](https://blog.csdn.net/dai_jing/article/details/36896215)
-- [GDB 调试 {转} - 心灵捕手 - 博客园 (cnblogs.com)](https://www.cnblogs.com/Dennis-mi/articles/3755911.html)
-- [LINUX下GDB的使用方法(简单说说)_longfan的博客-CSDN博客_gdb](https://blog.csdn.net/awm_kar98/article/details/82840811)
-- [GDB查看C++对象布局_tmhanks的博客-CSDN博客](https://blog.csdn.net/tmhanks/article/details/89110833)
-- [gdb not in executable format file format not recognized](https://blog.csdn.net/abcd1f2/article/details/49816751)
-- [Linux下GDB调试指令汇总](https://zhuanlan.zhihu.com/p/71519244)
-- [linux gdb详解](https://www.jianshu.com/p/adcf474f5561)
-
 #### gdb打印qt数据类型
 
 - [https://github.com/Lekensteyn/qt5printers](https://github.com/Lekensteyn/qt5printers)
@@ -129,6 +145,16 @@
 - [<font color=Red>服务/软件管理：38-gdb+gdbserver的使用</font>](https://blog.51cto.com/u_15346415/3678651)
 - [gdb远程及本地调试的一些技巧](https://www.cnblogs.com/seven-sky/p/4730225.html)
 - [使用GDB进行嵌入式远程调试](https://blog.csdn.net/lvwx369/article/details/121490883)
+
+#### gcc
+
+- [Dwarf Error: wrong version in compilation unit header (is 4, should be 2) \[in module /dawnfs/users/](https://blog.csdn.net/fandroid/article/details/32914203)
+
+#### libtool
+
+- [gdb调试libtool封装的可执行文件](https://www.cnblogs.com/ericsun/p/3168842.html)
+- [使用 GNU Libtool 创建库](https://blog.csdn.net/rainharder/article/details/8057819)
+- [gdb not in executable format file format not recognized](https://blog.csdn.net/abcd1f2/article/details/49816751)
 
 #### vscode gdb
 
@@ -254,12 +280,3 @@
 - [https://wiki.archlinux.org/title/Debugging](https://wiki.archlinux.org/title/Debugging)
 - [ASCII码一览表，ASCII码对照表](http://c.biancheng.net/c/ascii/)
 - [16进制到文本字符串](https://www.bejson.com/convert/ox2str/)
-
-### gcc
-
-- [Dwarf Error: wrong version in compilation unit header (is 4, should be 2) \[in module /dawnfs/users/](https://blog.csdn.net/fandroid/article/details/32914203)
-
-### libtool
-
-- [gdb调试libtool封装的可执行文件](https://www.cnblogs.com/ericsun/p/3168842.html)
-- [使用 GNU Libtool 创建库](https://blog.csdn.net/rainharder/article/details/8057819)
