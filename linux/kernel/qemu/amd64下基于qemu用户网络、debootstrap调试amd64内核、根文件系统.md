@@ -72,7 +72,7 @@ sudo debootstrap --arch [平台] [发行版本代号] [构建目录] [镜像地�
 sudo debootstrap --arch=amd64 --include=ifupdown bionic linux-rootfs http://mirrors.aliyun.com/ubuntu/
 ```
 
-amd64下交叉编译构建arm64需要执行下方命令：
+arm64下交叉编译构建amd64需要执行下方命令：
 
 ```bash
 sudo cp -a /usr/bin/qemu-x86_64-static linux-rootfs/usr/bin/qemu-x86_64-static

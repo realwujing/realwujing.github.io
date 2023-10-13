@@ -11,7 +11,7 @@ git clone https://github.com/torvalds/linux.git
 ### 安装编译依赖
 
 ```bash
-sudo apt install build-essential libncurses-dev bison flex libssl-dev libelf-dev gcc-arm-linux-gnueabihf gcc-arm-linux-gnueabi
+sudo apt install build-essential libncurses-dev bison flex libssl-dev libelf-dev gcc-aarch64-linux-gnu
 ```
 
 ### 内核编译选项配置
@@ -20,8 +20,10 @@ sudo apt install build-essential libncurses-dev bison flex libssl-dev libelf-dev
 
 ```bash
 cd linux
-git checkout -b v5.10-rc7 v5.10-rc7
-make menuconfig
+git checkout -b v4.19 v4.19
+export ARCH=arm64
+export CROSS_COMPILE=aarch64-linux-gnu-
+make defconfig
 ```
 
 比较重要的配置项有：
@@ -48,7 +50,9 @@ Processor type and features ---->
 make -j`expr $(nproc) / 2`
 ```
 
+- [ubuntu虚拟机中使用QEMU搭建ARM64环境](https://blog.csdn.net/qq_41660119/article/details/123949923)
 - [使用 VSCode + qemu 搭建 Linux 内核调试环境](https://blog.csdn.net/eydwyz/article/details/114019532)
+- [QEMU实现gdb调试(虚拟硬件)arm64 linux内核以及arm64应用程序](https://blog.csdn.net/w346665682/article/details/118446953)
 
 ## 2. debootstrap制作根文件系统
 
@@ -66,16 +70,15 @@ sudo apt-get install qemu qemu-user-static binfmt-support debootstrap debian-arc
 sudo debootstrap --arch [平台] [发行版本代号] [构建目录] [镜像地址]
 ```
 
-以在Deepin 20.7 amd64上构建ubuntu18(bionic) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：
+以在Deepin 20.7 制作debian10(buster) arm64文件系统为例，预装ifupdown是因为下方配置网络的时候需要用到：
 
 ```bash
-sudo debootstrap --arch=amd64 --include=ifupdown bionic linux-rootfs http://mirrors.aliyun.com/ubuntu/
-```
+sudo debootstrap --arch=arm64 --include=ifupdown --foreign buster linux-rootfs http://ftp.cn.debian.org/debian/
 
 amd64下交叉编译构建arm64需要执行下方命令：
 
 ```bash
-sudo cp -a /usr/bin/qemu-x86_64-static linux-rootfs/usr/bin/qemu-x86_64-static
+sudo cp -a /usr/bin/qemu-aarch64-static linux-rootfs/usr/bin/qemu-aarch64-static
 ```
 
 ### 进入文件系统
@@ -89,9 +92,6 @@ chmod 777 ch-mount.sh
 debootstrap/debootstrap --second-stage # 交叉编译时执行，初始化文件系统，会把一个系统的基础包初始化
 exit
 ./ch-mount.sh -u linux-rootfs/
-./ch-mount.sh -m linux-rootfs/
-# 再次进入时，执行如下命令即可
-# sudo chroot linux-rootfs
 ```
 
 ### 定制文件系统
@@ -107,12 +107,28 @@ sudo cp /etc/resolv.conf linux-rootfs/etc/resolv.conf
 #### 更换国内镜像源
 
 ```bash
+# 再次进入时，执行如下命令即可
+sudo chroot linux-rootfs
+
 # 若是遇到没法拉取 https 源的状况，请先使用 http 源并安装
 apt install apt-transport-https
 cp /etc/apt/sources.list /etc/apt/sources.list.bak
 # 把文件内容所有替换为对应阿里源，参见：https://developer.aliyun.com/mirror/?spm=a2c6h.12873639.J_5404914170.29.2feb6235F6x30d
-vim /etc/apt/source.list
-echo "deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ bionic main restricted universe multiverse" >> /etc/apt/sources.list
+
+cat > /etc/apt/source.list << EOF
+
+deb https://mirrors.ustc.edu.cn/debian/ buster main contrib non-free
+deb-src https://mirrors.ustc.edu.cn/debian/ buster main contrib non-free
+
+deb https://mirrors.ustc.edu.cn/debian/ buster-updates main contrib non-free
+deb-src https://mirrors.ustc.edu.cn/debian/ buster-updates main contrib non-free
+
+deb https://mirrors.ustc.edu.cn/debian/ buster-backports main contrib non-free
+deb-src https://mirrors.ustc.edu.cn/debian/ buster-backports main contrib non-free
+
+deb https://mirrors.ustc.edu.cn/debian-security/ buster/updates main contrib non-free
+deb-src https://mirrors.ustc.edu.cn/debian-security/ buster/updates main contrib non-free
+EOF
 ```
 
 #### 配置 root 用户密码
@@ -137,8 +153,8 @@ passwd $USER
 echo $HOST > /etc/hostname
 echo "127.0.0.1 localhost.localdomain localhost" > /etc/hosts
 echo "127.0.0.1 $HOST" >> /etc/hosts
-echo "auto enp0s3" >> /etc/network/interfaces
-echo "iface enp0s3 inet dhcp" >> /etc/network/interfaces
+echo "auto enp0s1" >> /etc/network/interfaces
+echo "iface enp0s1 inet dhcp" >> /etc/network/interfaces
 ```
 
 ### 退出文件系统
@@ -148,16 +164,16 @@ exit
 ./ch-mount.sh -u linux-rootfs
 ```
 
-### 制作文件系统镜像(initrd)
+### 制作文件系统镜像
 
 ```bash
-dd if=/dev/zero of=bionic.img bs=1M seek=2047 count=1
-sudo mkfs.ext4 -F bionic.img
-sudo mkdir -p /mnt/bionic
-sudo mount -o loop bionic.img /mnt/bionic
-sudo cp -a linux-rootfs/. /mnt/bionic/.
-sudo umount /mnt/bionic
-sudo chmod 666 bionic.img
+dd if=/dev/zero of=buster.img bs=1M seek=2047 count=1
+sudo mkfs.ext4 -F buster.img
+sudo mkdir -p /mnt/buster
+sudo mount -o loop buster.img /mnt/buster
+sudo cp -a linux-rootfs/. /mnt/buster/.
+sudo umount /mnt/buster
+sudo chmod 666 buster.img
 ```
 
 - [内核调试环境：buildroot/debootstrap制作文件系统、编译内核、QEMU模拟](https://blog.csdn.net/weixin_49393427/article/details/126435589)
@@ -174,14 +190,8 @@ sudo apt install qemu qemu-system qemu-kvm
 
 ### qemu启动内核并挂载文件系统调试
 
-下方两个命令都行，第一个报warning，第二个file=后面要使用绝对路径。
-
 ```bash
-qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -hda ~/code/tmp/bionic.img -append "root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr" -nographic
-```
-
-```bash
-qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -drive format=raw,file=/home/wujing/code/tmp/bionic.img -append "root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr" -nographic
+sudo qemu-system-aarch64 -m 1024 -cpu cortex-a57 -M virt -nographic -smp 4 -kernel ~/code/linux/arch/arm64/boot/Image -append "noinintrd sched_debug root=/dev/vda rootfstype=ext4 rw crashkernel=256M loglevel=8" -drive if=none,file=buster.img,id=hd0 -device virtio-blk-device,drive=hd0 -S -s
 ```
 
 - [Linux aarch64 编译 &amp; qemu 搭建实验平台 initrd initramfs](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609)
@@ -198,7 +208,9 @@ echo "add-auto-load-safe-path ./scripts/gdb/vmlinux-gdb.py" >> .gdbinit
 加载内核调试工具，然后执行：
 
 ```bash
-gdb vmlinux
+sudo apt install gdb-multiarch
+gdb-multiarch vmlinux
+set architecture aarch64
 target remote :1234
 c
 ```
@@ -206,6 +218,8 @@ c
 来连接到虚拟机上的 gdb 服务。
 
 到这里，你就可以像调试普通程序一样调试 Linux 内核了。Linux 的内核入口函数是位于 init/main.c 中的 start_kernel ，在这里完成各种内核数据结构的初始化。
+
+- [如何在x86架构Linux上使用qemu+gdb调试aarch64的内核](https://zhuanlan.zhihu.com/p/47783910)
 
 ## 4. 网络修复
 
@@ -215,15 +229,15 @@ c
 ip addr
 ```
 
-假设网卡名为enp0s3。
+假设网卡名为enp0s1。
 
 假设上方设置主机名和以太网中网卡名为eth0。
 
 执行如下命令：
 
 ```bash
-sed -i "s/eth0/enp0s3/g" /etc/network/interfaces
-ifup enp0s3
+sed -i "s/enp0s3/enp0s1/g" /etc/network/interfaces
+ifup enp0s1
 ```
 
 现在可以使用apt安装依赖：

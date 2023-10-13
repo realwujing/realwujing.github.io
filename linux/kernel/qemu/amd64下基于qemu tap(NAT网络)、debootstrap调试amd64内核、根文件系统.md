@@ -122,7 +122,7 @@ https://pools.uniontech.com/desktop-professional/
 
 - [ubuntu 下安装C/C++ 开发编译环境](https://blog.csdn.net/houxian1103/article/details/121886365)
 
-amd64下交叉编译构建arm64需要执行下方命令：
+arm64下交叉编译构建amd64需要执行下方命令：
 
 ```bash
 sudo cp -a /usr/bin/qemu-x86_64-static linux-rootfs/usr/bin/qemu-x86_64-static
