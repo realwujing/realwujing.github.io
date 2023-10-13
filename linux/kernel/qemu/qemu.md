@@ -118,6 +118,12 @@
 - [交叉编译环境下对linux内核编译](https://blog.csdn.net/ludaoyi88/article/details/115633849)
 - [交叉编译linux内核并使用qemu运行](https://blog.csdn.net/jinking01/article/details/129580621)
 
+## buildroot
+
+- [使用Buildroot + QEMU构建和运行Linux](https://blog.csdn.net/xunknown/article/details/124521135)
+- [最新Buildroot2021.08.1搭建qemu环境](https://zhuanlan.zhihu.com/p/426026299)
+- [从0开始使用QEMU模拟ARM开发环境之buildroot构建linux根文件系统](https://blog.csdn.net/leacock1991/article/details/113730672)
+
 ## loongarch
 
 - [龙芯虚拟化使用手册](https://blog.csdn.net/faxiang1230/article/details/120907896)
