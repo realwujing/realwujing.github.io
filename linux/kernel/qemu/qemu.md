@@ -123,6 +123,7 @@
 - [使用Buildroot + QEMU构建和运行Linux](https://blog.csdn.net/xunknown/article/details/124521135)
 - [最新Buildroot2021.08.1搭建qemu环境](https://zhuanlan.zhihu.com/p/426026299)
 - [从0开始使用QEMU模拟ARM开发环境之buildroot构建linux根文件系统](https://blog.csdn.net/leacock1991/article/details/113730672)
+- [Buildroot 切换到国内源](https://blog.csdn.net/lsg19920625/article/details/130837469)
 
 ## loongarch
 
