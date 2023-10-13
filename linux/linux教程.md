@@ -240,13 +240,18 @@
 - [Linux 中的 lshw 命令：获取硬件详细信息](https://www.toutiao.com/article/7257841565858103819/)
 - [dmidecode(8) - Linux man page](https://linux.die.net/man/8/dmidecode)
 
+## top
+
+- [linux top命令详解（看这一篇就够了）](https://blog.csdn.net/weixin_45465395/article/details/115728520)
+- [<font color=Red>top命令里内存参数 VIRT, RES 和 SHR 分别是什么意思</font>](https://segmentfault.com/a/1190000013504502)
+- [Linux命令系列之top——里面藏着很多鲜为人知的宝藏知识](https://www.toutiao.com/article/7152513156642816519)
+
 ## 系统状态
 
 - [<font color=Red>第10章统计和查看Linux的系统状态</font>](https://www.cnblogs.com/f-ck-need-u/p/7059074.html)
 - [<font color=Red>61秒，摸透Linux的健康状态！</font>](https://mp.weixin.qq.com/s/Fv64jRXmAe-H81Qh8RJK7w)
-- [Linux命令系列之top——里面藏着很多鲜为人知的宝藏知识](https://www.toutiao.com/article/7152513156642816519)
 - [Linux 进程管理之四大名捕](https://mp.weixin.qq.com/s/XzoekOLtREOUftHhGE3FLQ)
-- [<font color=Red>top命令里内存参数 VIRT, RES 和 SHR 分别是什么意思</font>](https://segmentfault.com/a/1190000013504502)
+
 - [linux 实际可用内存_beyond_zb的博客-CSDN博客_linux 可用内存](https://blog.csdn.net/u014265442/article/details/90211142)
 - [linux找出占用内存，占用CPU资源最多的前10个进程_huangbaokang的博客-CSDN博客_linux查看内存占用前十](https://blog.csdn.net/huangbaokang/article/details/84934957)
 - [界面酷炫，功能强大！这款Linux性能实时监控工具超好用！](https://www.toutiao.com/article/7195829422606467587/)
