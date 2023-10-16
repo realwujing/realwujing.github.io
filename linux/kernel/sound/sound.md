@@ -114,6 +114,8 @@
 - [语音降噪/语音增强的几种算法](https://blog.csdn.net/kaixinshier/article/details/72477679)
 - [有没有开源的音频AI降噪库？](https://www.zhihu.com/question/602700859)
 - [一种简单高效的音频降噪算法示例(附完整C代码)](https://www.cnblogs.com/cpuimage/p/10800768.html)
+- [<font color=Red>https://github.com/realwujing/rnnoise</font>](https://github.com/realwujing/rnnoise)
+- [<font color=Red>语音降噪是如何扼住噪声的咽喉的</font>](https://www.toutiao.com/article/7189091215299019320)
 
 ## 其他
 
