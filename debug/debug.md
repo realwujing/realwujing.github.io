@@ -185,6 +185,34 @@
 
 - [<font color=Red>Linux下常用的串口助手 —— minicom、putty、cutecom</font>](https://blog.csdn.net/Mculover666/article/details/87647810)
 
+- 查询串口波特率：
+
+    ```bash
+    stty -F /dev/ttyS0
+    ```
+
+    其中 /dev/ttyS0 是串口设备文件的路径。你可以将路径更改为你所关心的特定串口。
+
+    这将返回串口的配置，包括波特率、数据位、校验位、停止位等。通常，波特率会显示在配置输出中，如下所示：
+
+    ```text
+    speed 9600 baud; line = 0;
+    ```
+
+- 设置串口波特率
+
+    ```bash
+    stty -F /dev/ttyS0 9600
+    ```
+
+    在上面的命令中：
+
+    /dev/ttyS0 是串口设备文件的路径，你可以根据需要更改为你使用的串口。
+
+    9600 是所需的波特率。你可以将其替换为你想要的任何波特率。
+
+    运行此命令后，串口 /dev/ttyS0 的波特率将设置为 9600。确保串口没有被其他程序占用，以便成功设置波特率。
+
 ## kgdb
 
 - [linux内核调试（七）使用kdb/kgdb调试内核](https://zhuanlan.zhihu.com/p/546416941)
