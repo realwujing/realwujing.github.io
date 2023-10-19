@@ -52,7 +52,6 @@
     ```
 
 - [linux中的strings命令简介](https://zhuanlan.zhihu.com/p/383038723)
-- [递归查找当前目录下的动态库文件，提取其中的字符串，查找目标字符串，输出包含目标字符串的文件名。](https://github.com/realwujing/linux-learning/blob/main/shell/strings.md)
 
 ### gdb
 
