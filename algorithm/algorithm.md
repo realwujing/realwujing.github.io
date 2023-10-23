@@ -10,6 +10,7 @@
 - [二叉树学习笔记之B树、B+树、B*树](https://developer.aliyun.com/article/38345)
 - [<font color=Red>LeetCode0：学习算法必备知识：时间复杂度与空间复杂度的计算</font>](https://cloud.tencent.com/developer/article/1769988)
 - [算法入门教程（多语言实现）](http://c.biancheng.net/algorithm/)
+- [双链表——双链表的定义及其基本操作（初始化、头插法尾插法建表、插入、查找、删除、判空等）](https://blog.csdn.net/weixin_44162361/article/details/115819742)
 
 ## 堆栈
 
