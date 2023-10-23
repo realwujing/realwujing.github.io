@@ -1,4 +1,4 @@
-# algorithm
+# sound-algorithm
 
 源码基于`/home/wujing/code/linux-6.1.27/sound`
 
