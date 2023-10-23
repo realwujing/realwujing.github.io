@@ -1,6 +1,5 @@
 # namespace cgroup
 
-
 - [Linux沙箱技术](https://hyperj.net/2016/2016-11-23-linux-sandbox/)
 - [沙盒化容器：是容器还是虚拟机](https://atbug.com/sandboxed-container/)
 - [Linux的Namespace与Cgroups介绍](https://www.cnblogs.com/wjoyxt/p/9935098.html)
@@ -11,8 +10,8 @@
 - [LINUX CGROUP总结](https://www.cnblogs.com/menkeyi/p/10941843.html)
 - [Linux mount （第一部分）](https://segmentfault.com/a/1190000006878392)
 - [Linux mount （第二部分 - Shared subtrees）](https://segmentfault.com/a/1190000006899213)
-- [<font color=Red>命名空间介绍之八：挂载命名空间和共享子树</font>](https://cloud.tencent.com/developer/article/1531989)
-- [Linux Namespace和Cgroup](https://segmentfault.com/a/1190000009732550)
+- [命名空间介绍之八：挂载命名空间和共享子树](https://cloud.tencent.com/developer/article/1531989)
+- [<font color=Red>Linux Namespace和Cgroup</font>](https://segmentfault.com/a/1190000009732550)
 - [Linux Namespace : User](https://www.cnblogs.com/sparkdev/p/9462838.html)
 - [链接器命名空间](https://source.android.com/devices/architecture/vndk/linker-namespace?hl=zh_cn)
 - [走进docker系列：开篇](https://segmentfault.com/a/1190000009309276)
