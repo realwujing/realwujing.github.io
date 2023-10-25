@@ -55,6 +55,7 @@
 ## 启动顺序
 
 - [<font color=Red>systemd服务启动顺序分析工具</font>](https://blog.csdn.net/qq_31442743/article/details/118571723)
+- [systemd启动流程分析](https://blog.csdn.net/rikeyone/article/details/108097837)
 
 ## 其他
 
