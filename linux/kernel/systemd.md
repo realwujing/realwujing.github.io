@@ -57,6 +57,13 @@
 - [<font color=Red>systemd服务启动顺序分析工具</font>](https://blog.csdn.net/qq_31442743/article/details/118571723)
 - [systemd启动流程分析](https://blog.csdn.net/rikeyone/article/details/108097837)
 
+- [<font color=Red>输出单元间的依赖关系图</font>](https://www.jinbuguo.com/systemd/systemd-analyze.html)
+
+    ```bash
+    sudo apt install graphviz
+    systemd-analyze dot "lightdm.service" | dot -Tsvg > systemd.svg
+    ```
+
 ## 其他
 
 - [XDG Autostart](https://wiki.archlinux.org/title/XDG_Autostart)
