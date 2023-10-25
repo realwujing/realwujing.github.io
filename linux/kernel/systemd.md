@@ -52,6 +52,10 @@
 - [Linux Systemd 详细介绍: Unit、Unit File、Systemctl、Target](https://www.cnblogs.com/usmile/p/13065594.html)
 - [linux systemctl 命令](https://www.cnblogs.com/sparkdev/p/8472711.html)
 
+## 启动顺序
+
+- [<font color=Red>systemd服务启动顺序分析工具</font>](https://blog.csdn.net/qq_31442743/article/details/118571723)
+
 ## 其他
 
 - [XDG Autostart](https://wiki.archlinux.org/title/XDG_Autostart)
