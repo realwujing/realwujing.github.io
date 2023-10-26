@@ -6,6 +6,7 @@
 - [Linux C/C++ 调试的那些“歪门邪道”](https://mp.weixin.qq.com/s/t0BidHMCGqTftchGUU5otw)
 - [Linux内核调试方法](https://blog.csdn.net/u013253075/article/details/120569270)
 - [全面剖析Linux kernel的调试debug技术](https://zhuanlan.zhihu.com/p/543103513)
+- [内核earlyprintk选项](https://blog.csdn.net/sinat_20184565/article/details/111875638)
 
 ## Binutils
 
