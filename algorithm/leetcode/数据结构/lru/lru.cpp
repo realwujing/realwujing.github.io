@@ -8,13 +8,7 @@ public:
     int key, val;
     Node *next;
     Node *prev;
-    Node(int k, int v)
-    {
-        this->key = k;
-        this->val = v;
-        this->next = nullptr;
-        this->prev = nullptr;
-    }
+    Node(int k, int v) : key(k), val(v), next(nullptr), prev(nullptr) {}
 };
 
 class DoubleList
@@ -27,14 +21,11 @@ private:
     int size;
 
 public:
-    DoubleList()
+    DoubleList() : head(new Node(0, 0)), tail(new Node(0, 0)), size(0)
     {
         // 初始化双向链表的数据
-        head = new Node(0, 0);
-        tail = new Node(0, 0);
         head->next = tail;
         tail->prev = head;
-        size = 0;
     }
 
     ~DoubleList()
@@ -93,12 +84,7 @@ private:
     int cap;
 
 public:
-    LRUCache(int capacity)
-    {
-        cap = capacity;
-        map = new unordered_map<int, Node *>();
-        cache = new DoubleList();
-    }
+    LRUCache(int capacity) : cap(capacity), map(new unordered_map<int, Node *>()), cache(new DoubleList()) {}
 
     ~LRUCache()
     {
@@ -110,7 +96,7 @@ public:
 
     int get(int key)
     {
-        if (map->find(key) == map->end())
+        if (!map->count(key))
         {
             return -1;
         }
@@ -121,7 +107,7 @@ public:
 
     void put(int key, int val)
     {
-        if (map->find(key) != map->end())
+        if (map->count(key))
         {
             // 删除旧的数据
             deleteKey(key);
@@ -138,12 +124,12 @@ public:
         // 添加为最近使用的元素
         addRecently(key, val);
 
-        for (auto iter = map->begin(); iter != map->end(); ++iter)
-        {
-            cout << "[" << iter->first << ", " << iter->second->val << "] ";
-        }
+        // for (auto iter = map->begin(); iter != map->end(); ++iter)
+        // {
+        //     cout << "[" << iter->first << ", " << iter->second->val << "] ";
+        // }
 
-        cout << endl;
+        // cout << endl;
     }
 
 private:
