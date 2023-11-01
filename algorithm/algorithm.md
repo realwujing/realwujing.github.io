@@ -28,6 +28,7 @@
 
 - [算法入门教程（多语言实现）](http://c.biancheng.net/algorithm/what-is-algorithm.html)
 - [<font color=Red>labuladong的算法小抄 :: labuladong的算法小抄 (gitee.io)</font>](https://labuladong.gitee.io/algo/)
+- [labuladong 公众号文章目录](https://mp.weixin.qq.com/s/sT6_sHuptgwg9A4KxQfGSg)
 - [<font color=Red>我们千万不要跳进递归的细节里，你的脑袋才能压几个栈呀。</font>](https://labuladong.gitee.io/algo/2/19/22/)
 - [开篇词 - labuladong 的算法小抄 (gitbook.io)](https://labuladong.gitbook.io/algo/)
 - [labuladong的算法小抄：列表形式目录(qq.com)](https://mp.weixin.qq.com/s/AWsL7G89RtaHyHjRPNJENA)
