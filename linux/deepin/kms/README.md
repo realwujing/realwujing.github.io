@@ -6,7 +6,15 @@
 
 ## 2. 激活
 
-```text
-设置 -> 系统信息 -> 关于本机 -> 激活 -> 设置 -> 自定义
-kms::// kms.uniontech.com:8900:nqYvXZXdNPKNn335
-```
+方式一：
+
+    ```text
+    设置 -> 系统信息 -> 关于本机 -> 激活 -> 设置 -> 自定义
+    kms::// kms.uniontech.com:8900:nqYvXZXdNPKNn335
+    ```
+
+方式二：
+
+    ```bash
+    uos-activator-cmd -s --kms kms.uniontech.com:8900:Vlc1cGIyNTBaV05v
+    ```
