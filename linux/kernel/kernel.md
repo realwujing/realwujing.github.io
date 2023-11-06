@@ -35,6 +35,7 @@
 - [The kernel's command-line parameters](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html)
 - grub中不加载某个驱动 `initcall_blacklist=phytium_spi_driver_init`
 - [Message logging with printk](https://www.kernel.org/doc/html/latest/core-api/printk-basics.html?highlight=loglevel)
+- [使用dynamic debug帮助调试](https://blog.csdn.net/dachai/article/details/103807529)
 
 ## 日志
 
