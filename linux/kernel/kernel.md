@@ -59,18 +59,18 @@
 - [一篇文章汇总嵌入式处理器相关的知识](https://mp.weixin.qq.com/s/Aai7Ccwwp7SROEXpPnEfzA)
 - [<font color=Red>【精华】Linux阅码场原创精华文章汇总</font>](https://mp.weixin.qq.com/s/co0CzrJBmbZd0I0ddjHGaQ)
 
-## 内核Makefileconfig
+## 内核 Makefile config
 
 - [make 参数 ARCH与CROSS_COMPILE***](https://www.cnblogs.com/jiangzhaowei/p/12288515.html)
 - [Linux内核Makefile分析](https://blog.csdn.net/lizuobin2/article/details/51464152)
 - [linux内核编译系统-kbuild系统详解](https://zhuanlan.zhihu.com/p/358801667)
 - [浅析Kbuild系统](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/88548273)
-- [linux kernel: defconfig和.config](https://blog.csdn.net/u012247418/article/details/105347429)
+- [<font color=Red>linux kernel: defconfig和.config</font>](https://blog.csdn.net/u012247418/article/details/105347429)
 - [以deb包方式编译内核](https://blog.csdn.net/weixin_40182062/article/details/108230678)
 - [第 10 章 Debian 和内核](https://www.debian.org/doc/manuals/debian-faq/kernel.zh-cn.html)
 - [Linux内核配置以及Make menuconfig过程分析](https://blog.csdn.net/lizuobin2/article/details/51429937)
-- [make defconfig savedefconfig olddefconfig区别](https://blog.csdn.net/flc2762/article/details/103735072)
-- [linux内核配置清理make clean](https://blog.csdn.net/gp18391818575/article/details/112555781)
+- [<font color=Red>make defconfig savedefconfig olddefconfig区别</font>](https://blog.csdn.net/flc2762/article/details/103735072)
+- [<font color=Red>linux内核配置清理make clean</font>](https://blog.csdn.net/gp18391818575/article/details/112555781)
 
 - [ubuntu查看内核config](https://www.csdn.net/tags/MtjaAg5sMTU4MjMtYmxvZwO0O0OO0O0O.html)
 - [ubuntu(20.04)+linux内核（5.17.3）的config文件](https://blog.csdn.net/weixin_62882080/article/details/124262374)
