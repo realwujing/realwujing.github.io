@@ -30,6 +30,7 @@
 - [<font color=Red>labuladong的算法小抄 :: labuladong的算法小抄 (gitee.io)</font>](https://labuladong.gitee.io/algo/)
 - [labuladong 公众号文章目录](https://mp.weixin.qq.com/s/sT6_sHuptgwg9A4KxQfGSg)
 - [<font color=Red>我们千万不要跳进递归的细节里，你的脑袋才能压几个栈呀。</font>](https://labuladong.gitee.io/algo/2/19/22/)
+- [<font color=Red>以树的视角看动归/回溯/DFS算法的区别和联系</font>](https://labuladong.gitee.io/algo/di-ling-zh-bfe1b/dong-ge-da-334dd/#%E4%BB%A5%E6%A0%91%E7%9A%84%E8%A7%86%E8%A7%92%E7%9C%8B%E5%8A%A8%E5%BD%92-%E5%9B%9E%E6%BA%AF-dfs%E7%AE%97%E6%B3%95%E7%9A%84%E5%8C%BA%E5%88%AB%E5%92%8C%E8%81%94%E7%B3%BB)
 - [开篇词 - labuladong 的算法小抄 (gitbook.io)](https://labuladong.gitbook.io/algo/)
 - [labuladong的算法小抄：列表形式目录(qq.com)](https://mp.weixin.qq.com/s/AWsL7G89RtaHyHjRPNJENA)
 - [soulmachine/leetcode: LeetCode题解，151道题完整版 (github.com)](https://github.com/soulmachine/leetcode)
