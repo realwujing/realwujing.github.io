@@ -122,8 +122,18 @@
 
 - [使用Buildroot + QEMU构建和运行Linux](https://blog.csdn.net/xunknown/article/details/124521135)
 - [最新Buildroot2021.08.1搭建qemu环境](https://zhuanlan.zhihu.com/p/426026299)
-- [从0开始使用QEMU模拟ARM开发环境之buildroot构建linux根文件系统](https://blog.csdn.net/leacock1991/article/details/113730672)
+- [<font color=Red>从0开始使用QEMU模拟ARM开发环境之buildroot构建linux根文件系统</font>](https://blog.csdn.net/leacock1991/article/details/113730672)
 - [Buildroot 切换到国内源](https://blog.csdn.net/lsg19920625/article/details/130837469)
+- [<font color=Red>The Buildroot user manual</font>](https://buildroot.org/downloads/manual/manual.html)
+- [error: 'ARPHRD_MCTP' undeclared (first use in this function)#20694](https://github.com/systemd/systemd/issues/20694)
+- [basic/linux: Sync if_arp.h with Linux 5.14 #20695](https://github.com/systemd/systemd/pull/20695/commits/67cd626399b0d02882ee00716c8bd31ba764c862)
+- buildroot/board/qemu/aarch64-virt/readme.txt
+
+    qemu_aarch64_virt_defconfig：
+
+    ```bash
+      qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic -smp 1 -kernel output/images/Image -append "rootwait root=/dev/vda console=ttyAMA0" -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 -drive file=output/images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0
+    ```
 
 ## loongarch
 
