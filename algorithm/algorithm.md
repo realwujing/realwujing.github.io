@@ -1,5 +1,8 @@
 # algorithm
 
+- [<font color=Red>https://github.com/krahets/hello-algo</font>](https://github.com/krahets/hello-algo)
+- [<font color=Red>《 Hello 算法 》</font>](https://www.hello-algo.com/)
+
 ## 数据结构
 
 - [代码面试需要知道的8种数据结构(附面试题及答案链接)](https://www.cnblogs.com/fundebug/p/data_structures_in_js_for_interview.html)
