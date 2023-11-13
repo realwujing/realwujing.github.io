@@ -271,7 +271,7 @@
 
 ## oops
 
-- [Linux 死机复位(oops、panic)问题定位指南](https://blog.csdn.net/pwl999/article/details/106931608)
+- [<font color=Red>Linux 死机复位(oops、panic)问题定位指南</font>](https://blog.csdn.net/pwl999/article/details/106931608)
 - [Linux内核调试的方式以及工具集锦](https://github.com/gatieme/LDD-LinuxDeviceDrivers/blob/master/study/debug/tools/systemtap/01-install/README.md)
 - [如何开机进入Linux命令行](https://www.linuxprobe.com/boot-into-linuxcli.html)
 
