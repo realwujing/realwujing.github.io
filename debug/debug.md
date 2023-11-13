@@ -269,6 +269,29 @@
 
 - [【Linux内核调试-dump_stack】](https://blog.csdn.net/cddchina/article/details/125175118)
 
+## objdump
+
+- [<font color=Red>objdump反汇编用法示例</font>](https://blog.csdn.net/zoomdy/article/details/50563680)
+- [反汇编代码格式](https://blog.csdn.net/kunkliu/article/details/82992361)
+
+- objdump 反汇编代码带行号:
+
+    ```bash
+    objdump -d -l -S your_binary_file
+    ```
+
+    这个命令中的参数含义如下：
+
+    -d：表示进行反汇编。
+
+    -l：表示生成包含行号信息的输出。
+
+    -S：表示同时输出源代码。
+
+    将 your_binary_file 替换为你要反汇编的二进制文件的路径。
+
+    这将生成一个包含反汇编代码和源代码行号信息的输出。你可以查看这个输出来分析程序的汇编代码。
+
 ## oops
 
 - [<font color=Red>Linux 死机复位(oops、panic)问题定位指南</font>](https://blog.csdn.net/pwl999/article/details/106931608)
