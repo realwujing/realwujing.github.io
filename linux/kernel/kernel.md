@@ -20,7 +20,8 @@
 ## 启动管理
 
 - [Linux基础- Linux 启动过程](https://www.toutiao.com/article/7271522135665902115/)
-- [Linux系统启动管理](http://c.biancheng.net/linux_tutorial/12/)
+- [<font color=Red>Linux系统启动管理</font>](http://c.biancheng.net/linux_tutorial/12/)
+- [<font color=Red>grub命令 – 交互式的管理GRUB引导程序</font>](https://www.linuxcool.com/grub)
 - [BIOS和grub](https://blog.csdn.net/qq_43178138/article/details/109524002)
 - [<font color=Red>聊聊BIOS、UEFI、MBR、GPT、GRUB……</font>](https://segmentfault.com/a/1190000020850901)
 - [MBR与GPT详解](https://blog.csdn.net/weixin_45938367/article/details/130933437)
