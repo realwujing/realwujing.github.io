@@ -46,6 +46,10 @@
 - [2020-2021-1 20209320 《Linux内核原理与分析》第二周作业](https://www.cnblogs.com/dyyblog/p/13812922.html)
 - [初步分析汇编代码](https://blog.csdn.net/assiduous_me/article/details/119488503)
 
+## x86
+
+- [Intel® 64 位和 IA-32 架构开发手册说明三卷中文版](https://blog.csdn.net/weixin_43833642/article/details/108511881)
+
 ## 龙芯
 
 - [龙芯架构参考手册](https://blog.csdn.net/weixin_43833642/article/details/108511881)
