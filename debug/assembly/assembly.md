@@ -46,7 +46,11 @@
 - [2020-2021-1 20209320 《Linux内核原理与分析》第二周作业](https://www.cnblogs.com/dyyblog/p/13812922.html)
 - [初步分析汇编代码](https://blog.csdn.net/assiduous_me/article/details/119488503)
 
-## 其他
+## 龙芯
+
+- [龙芯架构参考手册](https://blog.csdn.net/weixin_43833642/article/details/108511881)
+
+## 其它
 
 - [编译器的技术文章](https://m.toutiao.com/article_series/7147341959684751880)
 - [为什么 JVM 叫做基于栈的 RISC 虚拟机](https://mp.weixin.qq.com/s/E7XL4BVrJ99dG4RNo-olyQ)
