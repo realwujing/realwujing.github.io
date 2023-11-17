@@ -113,6 +113,10 @@
 
 - [Linux手误rm可能不需要跑路](https://mp.weixin.qq.com/s/aVQj2Qz0eAQ2pYRCZhKAyg)
 
+## trash-cli
+
+- [Trash-Cli：Linux 上的命令行回收站工具](https://www.toutiao.com/article/6602932678066962951)
+
 ## 正则表达式
 
 - [正则表达式 – 元字符 | 菜鸟教程 (runoob.com)](https://www.runoob.com/regexp/regexp-metachar.html)
