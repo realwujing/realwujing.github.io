@@ -27,3 +27,4 @@
 ## 其他
 
 - [彻底理解显卡与显示器的关系](https://www.toutiao.com/article/7271816041196487229/)
+- [<font color=Red>「小白课程」openKylin登录&锁屏简要介绍</font>](https://www.toutiao.com/article/7174576146997625352)
