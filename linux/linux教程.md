@@ -108,6 +108,7 @@
 - [stdbuf让nohup实时输出日志](https://blog.csdn.net/v6543210/article/details/104636198)
 - [命令行实现单个进度条，或者刷新一行的内容](https://blog.csdn.net/Tangs_/article/details/88998799)
 - [Linux 标准输入输出、重定向、管道、文件权限、后台启动进程命令](https://www.toutiao.com/article/7077055246081540646)
+- [深入理解Linux中2>&1的含义](https://mp.weixin.qq.com/s/-7Hb0-7p9FDQWYT_iD2pUg)
 
 ## rm
 
