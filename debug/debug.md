@@ -70,6 +70,10 @@
 - [linux gdb详解](https://www.jianshu.com/p/adcf474f5561)
 - [LINUX下GDB的使用方法(简单说说)_longfan的博客-CSDN博客_gdb](https://blog.csdn.net/awm_kar98/article/details/82840811)
 
+#### gef
+
+- [<font color=Red>gdb exhanced features(GEF)工具的使用</font>](https://mp.weixin.qq.com/s/RQD1Mge_AJIOdfKMEa9ZwQ)
+
 #### continue
 
 - [<font color=Red>跳至下一个断点_GDB断点调试详解</font>](https://blog.csdn.net/weixin_39880632/article/details/112621585)
