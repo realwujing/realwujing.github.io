@@ -18,7 +18,7 @@
 - [<font color=Red>信号量函数（semget、semop、semctl）及其范例</font>](https://blog.csdn.net/guoping16/article/details/6584043)
 - [「linux」深入理解RCU核心原理](https://www.toutiao.com/article/6978007709220291111)
 - [<font color=Red>linux c/c++开发：多线程并发锁：互斥锁、自旋锁、原子操作、CAS</font>](https://www.toutiao.com/article/7106767459059089923)
-
+- [Linux内核中的各种锁：信号量/互斥锁/读写锁/原子锁/自旋锁/内存屏障等](https://mp.weixin.qq.com/s/1-YpIr20KhYlpzub7JUU-A)
 - [详解Linux多线程中互斥锁、读写锁、自旋锁、条件变量、信号量](https://mp.weixin.qq.com/s/QITWTjR1T9eVBwPJ6sGZBA)
 
 - [<font color=Red>pthread_cond_wait()用法分析</font>](https://blog.csdn.net/hairetz/article/details/4535920)
