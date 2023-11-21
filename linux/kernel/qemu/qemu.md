@@ -36,6 +36,7 @@
 
 ## qemu
 
+- [CentOS创建KVM虚拟机-在Edit→Preferences里面开启XML文件编辑功能](https://tinychen.com/20200405-centos-create-kvm-vm/)
 - [<font color=Red>libvirt的virsh命令和qemu参数转换</font>](https://blog.csdn.net/YuZhiHui_No1/article/details/53909925)
 - <https://www.qemu.org/docs/master/system/invocation.html>
 - [QEMU (简体中文)](https://wiki.archlinuxcn.org/wiki/QEMU)
