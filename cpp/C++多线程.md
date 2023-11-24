@@ -50,6 +50,30 @@
 - [<font color=Red>内存泄漏检测工具valgrind神器</font>](https://zhuanlan.zhihu.com/p/75416381)
 - [<font color=Red>多线程检测工具ThreadSanitizer 与 Helgrind 的使用</font>](https://zhuanlan.zhihu.com/p/446932523)
 
+#### watchdog
+
+- [禁用watchdog方法汇总](https://cloud.tencent.com/developer/article/1843976)
+- [Linux watchdog配置](https://blog.csdn.net/jiexijihe945/article/details/128021600)
+- [Linux禁用watchdog](https://blog.csdn.net/qq_28278079/article/details/104218588)
+
+  ```text
+  nmi_watchdog=   [KNL,BUGS=X86] Debugging features for SMP kernels
+                        Format: [panic,][nopanic,][num]
+                        Valid num: 0 or 1
+                        0 - turn hardlockup detector in nmi_watchdog off
+                        1 - turn hardlockup detector in nmi_watchdog on
+                        When panic is specified, panic when an NMI watchdog
+                        timeout occurs (or 'nopanic' to not panic on an NMI
+                        watchdog, if CONFIG_BOOTPARAM_HARDLOCKUP_PANIC is set)
+                        To disable both hard and soft lockup detectors,
+                        please see 'nowatchdog'.
+                        This is useful when you use a panic=... timeout and
+                        need the box quickly up again.
+
+                        These settings can be accessed at runtime via
+                        the nmi_watchdog and hardlockup_panic sysctls.
+  ```
+
 ## 线程池
 
 - [C++实现线程池_蓬莱道人的博客-CSDN博客_c++实现线程池](https://blog.csdn.net/MOU_IT/article/details/88712090)
