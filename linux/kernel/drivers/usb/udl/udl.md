@@ -303,17 +303,6 @@ Num     Type           Disp Enb Address            What
         breakpoint already hit 1 time
 ```
 
-```c
-[一 11月 27 15:03:12 2023] [pid:84,cpu6,kworker/6:1,7]file: drivers/video/fbdev/core/fbmem.c, line: 1704, fun: do_register_framebuffer, fb->info: ffffffd087c3c880, &fb_info->lock:ffffffd087c3c890, &fb_info->lock.owner:ffffffd087c3c890.
-```
-
-```c
-1603 <4>[  317.052642s][pid:8203,cpu6,lshw-bak,8]file: drivers/video/fbdev/core/fbmem.c, line: 1467, fun: fb_open, inode:ffffffd08aca0eb0, file: ffffffd071b4b940, info:ffffffd084cd1880, fbidx:0.
-1604 <4>[  317.052642s][pid:8203,cpu6,lshw-bak,9]file: drivers/video/fbdev/core/fbmem.c, line: 1488, fun: fb_open, inode:ffffffd08aca0eb0, file: ffffffd071b4b940, info:ffffffd084cd1880, fbidx: 0, &info->lock: ffffffd084cd1890.
-1605 <4>[  317.052856s][pid:8203,cpu6,lshw-bak,0]file: drivers/video/fbdev/core/fbmem.c, line: 1467, fun: fb_open, inode:ffffffd08aca3de0, file: ffffffd07a07f940, info:ffffffd087c3c880, fbidx:1.
-1606 <4>[  317.052856s][pid:8203,cpu6,lshw-bak,1]file: drivers/video/fbdev/core/fbmem.c, line: 1488, fun: fb_open, inode:ffffffd08aca3de0, file: ffffffd07a07f940, info:ffffffd087c3c880, fbidx: 1, &info->lock: ffffffd087c3c890.
-```
-
 当前已用slub_debug、kasan排查内存错误问题，没发现问题。
 
 华为klua-kernel无法开启lockdep检测死锁，当前比较怀疑死锁导致oops。
@@ -354,42 +343,61 @@ root@uos-PC:/home/uos# cat /etc/product-info
 ```
 
 ```c
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,1]usb 1-1.1: USB disconnect, device number 4
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,2]usb 1-1.1.1: USB disconnect, device number 5
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,3]shy ==> udl_usb_disconnect
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,4]shy ==> udl_fbdev_unplug
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,5]CPU: 0 PID: 5 Comm: kworker/0:0 Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,6]Hardware name: HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.73 07/15/2023
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,7]Workqueue: usb_hub_wq hub_event
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,8]Call trace:
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,9] dump_backtrace+0x0/0x2e0
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,0] show_stack+0x24/0x30
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,1] dump_stack+0xcc/0x10c
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,2] unbind_console+0x9c/0x210
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,3] unlink_framebuffer+0x30/0x40
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,4] drm_fb_helper_unlink_fbi+0x30/0x40
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,5] udl_fbdev_unplug+0x40/0x4c [udl]
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,6] udl_usb_disconnect+0x44/0x60 [udl]
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,7] usb_unbind_interface+0xcc/0x378
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,8] device_release_driver_internal+0x258/0x338
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,9] device_release_driver+0x28/0x38
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,0] bus_remove_device+0x17c/0x248
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,1] device_del+0x240/0x560
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,2] usb_disable_device+0x114/0x338
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,3] usb_disconnect+0x15c/0x420
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,4] usb_disconnect+0x124/0x420
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,5] hub_event+0x9ac/0x1bd0
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,6] process_one_work+0x4fc/0xc80
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,7] worker_thread+0x80/0x700
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,8] kthread+0x208/0x218
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,9] ret_from_fork+0x10/0x1c
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,0]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: fffffff279415a80, &fb_info->lock:fffffff279415a90, &fb_info->lock.owner :fffffff279415a90, i: 1, FB_MAX: 32, registered_fb[i]: fffffff279415a80
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,1]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: fffffff279415a80, &fb_info->lock:fffffff279415a90, &fb_info->lock.owner: fffffff279415a90, i: 1, ret: 1
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,2][usb_hub]: USB_BUS_ADD busnum = 0
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,3][USB3][xhci_notifier_fn]+
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,4][USB3][xhci_notifier_fn]-
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,5]usb 1-1.1.2: USB disconnect, device number 6
-[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,6]usb 1-1.1.2.1: USB disconnect, device number 8
+[三 11月 29 16:29:24 2023] [2023:11:29 16:29:03][pid:5,cpu0,kworker/0:0,4]usb 1-1.1: USB disconnect, device number 4
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,5]usb 1-1.1.1: USB disconnect, device number 5
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,6]shy ==> udl_usb_disconnect
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,7]shy ==> file: drivers/gpu/drm/udl/udl_fb.c, func: udl_fbdev_unplug, line: 503, dev->dev->init_name: 0
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,8]CPU: 0 PID: 5 Comm: kworker/0:0 Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,9]Hardware name: HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.73 07/15/2023
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,0]Workqueue: usb_hub_wq hub_event
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,1]Call trace:
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,2] dump_backtrace+0x0/0x2e0
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,3] show_stack+0x24/0x30
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,4] dump_stack+0xcc/0x10c
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,5] unbind_console+0x9c/0x210
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,6] unlink_framebuffer+0x30/0x40
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,7] drm_fb_helper_unlink_fbi+0x30/0x40
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,8] udl_fbdev_unplug+0x60/0x6c [udl]
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,9] udl_usb_disconnect+0x44/0x60 [udl]
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,0] usb_unbind_interface+0xcc/0x378
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,1] device_release_driver_internal+0x258/0x338
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,2] device_release_driver+0x28/0x38
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,3] bus_remove_device+0x17c/0x248
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,4] device_del+0x240/0x560
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,5] usb_disable_device+0x114/0x338
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,6] usb_disconnect+0x15c/0x420
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,7] usb_disconnect+0x124/0x420
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,8] hub_event+0x9ac/0x1bd0
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,9] process_one_work+0x4fc/0xc80
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,0] worker_thread+0x80/0x700
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,1] kthread+0x208/0x218
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,2] ret_from_fork+0x10/0x1c
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,3]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: ffffffc1b957a880, &fb_info->lock:ffffffc1b957a890, &fb_info->lock.owner :ffffffc1b957a890, i: 1, FB_MAX: 32, registered_fb[i]: ffffffc1b957a880
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,4]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: ffffffc1b957a880, &fb_info->lock:ffffffc1b957a890, &fb_info->lock.owner: ffffffc1b957a890, i: 1, ret: 1
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,3][usb_hub]: USB_BUS_ADD busnum = 0
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,4][USB3][xhci_notifier_fn]+
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,5][USB3][xhci_notifier_fn]-
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,6]usb 1-1.1.2: USB disconnect, device number 6
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,7]usb 1-1.1.2.1: USB disconnect, device number 8
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,8][usb_hub]: USB_BUS_ADD busnum = 0
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,9][USB3][xhci_notifier_fn]+
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,0][USB3][xhci_notifier_fn]-
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,8][HISI_DRM I]:hisi_dp_connector_detect: [DP] hisi dp connector detect -:2
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,9][usb_hub]: USB_BUS_ADD busnum = 0
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,0][USB3][xhci_notifier_fn]+
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,1][USB3][xhci_notifier_fn]-
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,2]usb 1-1.1.5: USB disconnect, device number 7
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,0][HISI_DRM I]:mipi2edp_backlight_update: +
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,1][usb_hub]: USB_BUS_ADD busnum = 0
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,2][USB3][xhci_notifier_fn]+
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,3][USB3][xhci_notifier_fn]-
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,4]usb 1-1.1.7: USB disconnect, device number 9
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,5][usb_hub]: USB_BUS_ADD busnum = 0
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,6][USB3][xhci_notifier_fn]+
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,7][USB3][xhci_notifier_fn]-
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,8][usb_hub]: USB_BUS_ADD busnum = 0
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,9][USB3][xhci_notifier_fn]+
+[三 11月 29 16:29:24 2023] [pid:5,cpu0,kworker/0:0,0][USB3][xhci_notifier_fn]-
 ```
 
 ## 1070
@@ -410,103 +418,394 @@ root@uos-PC:/home/uos# cat /etc/product-info
 20231118.build54124
 ```
 
+```bash
+dmesg -C && (dmesg -w -T | tee udl_1070.log)
+```
+
+### do_register_framebuffer
+
+插入udl设备时，/dev/fb1注册流程如下：
+
 ```c
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,0]shy ==> udl_usb_disconnect
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,1]shy ==> udl_fbdev_unplug
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,2]CPU: 0 PID: 5 Comm: kworker/0:0 Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,3]Hardware name: HUAWEI HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.53 03/24/2021
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,4]Workqueue: usb_hub_wq hub_event
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,5]Call trace:
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,6] dump_backtrace+0x0/0x2e0
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,7] show_stack+0x24/0x30
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,8] dump_stack+0xcc/0x10c
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,9] unbind_console+0x9c/0x210
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,0] unlink_framebuffer+0x30/0x40
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,1] drm_fb_helper_unlink_fbi+0x30/0x40
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,2] udl_fbdev_unplug+0x40/0x4c [udl]
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,3] udl_usb_disconnect+0x44/0x60 [udl]
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,4] usb_unbind_interface+0xcc/0x378
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,5] device_release_driver_internal+0x258/0x338
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,6] device_release_driver+0x28/0x38
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,7] bus_remove_device+0x17c/0x248
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,8] device_del+0x240/0x560
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,9] usb_disable_device+0x114/0x338
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,0] usb_disconnect+0x15c/0x420
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,1] usb_disconnect+0x124/0x420
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,2] hub_event+0x9ac/0x1bd0
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,3] process_one_work+0x4fc/0xc80
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,4] worker_thread+0x80/0x700
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,5] kthread+0x208/0x218
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,6] ret_from_fork+0x10/0x1c
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,7]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner :ffffffe789f53c90, i: 1, FB_MAX: 32, registered_fb[i]: px
-[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,8]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner: ffffffe789f53c90, i: 1, ret: 1
+44:[三 11月 29 19:09:31 2023] [pid:494,cpu7,kworker/7:2,7]usb 1-1.1.1: new high-speed USB device number 5 using xhci-hcd
+53:[三 11月 29 19:09:31 2023] [pid:494,cpu7,kworker/7:2,6]usb 1-1.1.1: New USB device found, idVendor=17e9, idProduct=03c1, bcdDevice= 4.41
+54:[三 11月 29 19:09:31 2023] [pid:494,cpu7,kworker/7:2,7]usb 1-1.1.1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+55:[三 11月 29 19:09:31 2023] [pid:494,cpu7,kworker/7:2,8]usb 1-1.1.1: Product: USB LCD
+56:[三 11月 29 19:09:31 2023] [pid:494,cpu7,kworker/7:2,9]usb 1-1.1.1: Manufacturer: DisplayLink
+57:[三 11月 29 19:09:31 2023] [pid:494,cpu7,kworker/7:2,0]usb 1-1.1.1: SerialNumber: C20220115
+58:[三 11月 29 19:09:31 2023] [pid:494,cpu7,kworker/7:2,1][drm] vendor descriptor length:1b data:1b 5f 01 00 19 05 00 01 03 00 04
+59:[三 11月 29 19:09:32 2023] [2023:11:29 19:09:14][pid:494,cpu7,kworker/7:2,2]CPU: 7 PID: 494 Comm: kworker/7:2 Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
+60:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,3]Hardware name: HUAWEI HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.53 03/24/2021
+61:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,4]Workqueue: usb_hub_wq hub_event
+62:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,5]Call trace:
+63:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,6] dump_backtrace+0x0/0x2e0
+64:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,7] show_stack+0x24/0x30
+65:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,8] dump_stack+0xcc/0x10c
+66:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,9] register_framebuffer+0xac/0x494      // drivers/video/fbdev/core/fbmem.c:1889 1994
+67:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,0] __drm_fb_helper_initial_config_and_unlock+0x3bc/0x6c0        // drivers/gpu/drm/drm_fb_helper.c:2652 2687
+68:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,1] drm_fb_helper_initial_config+0x50/0x60       // drivers/gpu/drm/drm_fb_helper.c:2757 2754
+69:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,2] udl_fbdev_init+0xcc/0xe8 [udl]       // drivers/gpu/drm/udl/udl_fb.c:452 478
+70:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,3] udl_init+0x500/0x710 [udl]   // drivers/gpu/drm/udl/udl_main.c:313 341
+
+
+
+
+udl_driver_create drivers/gpu/drm/udl/udl_drv.c:83 102
+
+
+
+
+71:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,4] udl_usb_probe+0x94/0x150 [udl]       // drivers/gpu/drm/udl/udl_drv.c:113 119->udl_driver_create
+
+
+
+
+72:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,5] usb_probe_interface+0x178/0x3e0
+73:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,6] really_probe+0x280/0x520
+74:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,7] driver_probe_device+0x88/0x1a8
+75:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,8] __device_attach_driver+0x10c/0x170
+76:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,9] bus_for_each_drv+0xf8/0x158
+77:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,0] __device_attach+0x15c/0x1e8
+78:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,1] device_initial_probe+0x24/0x30
+79:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,2] bus_probe_device+0xf0/0x100
+80:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,3] device_add+0x538/0x958
+81:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,4] usb_set_configuration+0x730/0xca0
+82:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,5] generic_probe+0x70/0xa0
+83:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,6] usb_probe_device+0x68/0xb0
+84:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,7] really_probe+0x280/0x520
+85:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,8] driver_probe_device+0x88/0x1a8
+86:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,9] __device_attach_driver+0x10c/0x170
+87:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,0] bus_for_each_drv+0xf8/0x158
+88:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,1] __device_attach+0x15c/0x1e8
+89:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,2] device_initial_probe+0x24/0x30
+90:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,3] bus_probe_device+0xf0/0x100
+91:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,4] device_add+0x538/0x958
+92:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,5] usb_new_device+0x424/0x998
+93:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,6] hub_event+0xd08/0x1bd0
+94:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,7] process_one_work+0x4fc/0xc80
+95:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,8] worker_thread+0x80/0x700
+96:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,9] kthread+0x208/0x218
+97:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,0] ret_from_fork+0x10/0x1c
+98:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,1]file: drivers/video/fbdev/core/fbmem.c, line: 1704, fun: do_register_framebuffer, fb->info: ffffffd0efecda80, &fb_info->lock:ffffffd0efecda90, &fb_info->lock.owner:ffffffd0efecda90.
+99:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,2]udl 1-1.1.1:1.0: fb1: udldrmfb frame buffer device
+100:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,3][drm] Initialized udl 0.0.1 20120220 for 1-1.1.1:1.0 on minor 1
+101:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,4][drm] Initialized udl on minor 1
+102:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,5][usb_hub]: USB_BUS_ADD busnum = 0
+103:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,6][USB3][xhci_notifier_fn]+
+104:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,7][USB3][xhci_notifier_fn]-
+112:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,5][HISI_DRM I]:hisi_dp_connector_detect: [DP] hisi dp connector detect -:2
+113:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,6]usb 1-1.1.2: new high-speed USB device number 6 using xhci-hcd
+114:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,7]usb 1-1.1.2: New USB device found, idVendor=1a40, idProduct=0101, bcdDevice= 1.11
+115:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,8]usb 1-1.1.2: New USB device strings: Mfr=0, Product=1, SerialNumber=0
+116:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,9]usb 1-1.1.2: Product: USB 2.0 Hub
+125:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,8]hub 1-1.1.2:1.0: USB hub found
+126:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,9]hub 1-1.1.2:1.0: 4 ports detected
+127:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,0][usb_hub]: USB_BUS_ADD busnum = 0
+128:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,1][USB3][xhci_notifier_fn]+
+129:[三 11月 29 19:09:32 2023] [pid:494,cpu7,kworker/7:2,2][USB3][xhci_notifier_fn]usb hub don't notify
+130:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,3]usb 1-1.1.5: new full-speed USB device number 7 using xhci-hcd
+131:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,4]usb 1-1.1.5: New USB device found, idVendor=05af, idProduct=0060, bcdDevice= 0.00
+132:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,5]usb 1-1.1.5: New USB device strings: Mfr=5, Product=6, SerialNumber=0
+133:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,6]usb 1-1.1.5: Product: HandWrite Series
+134:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,7]usb 1-1.1.5: Manufacturer: Sunrex
+135:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,8]hid-generic 0003:05AF:0060.0003: hidraw2: USB HID v1.11 Device [Sunrex HandWrite Series] on usb-xhci-hcd.0.auto-1.1.5/input0
+136:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,9]input: Sunrex HandWrite Series Mouse as /devices/platform/hisi_usb@f8480000/f8400000.dwc3/xhci-hcd.0.auto/usb1/1-1/1-1.1/1-1.1.5/1-1.1.5:1.1/0003:05AF:0060.0004/input/input13
+137:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,0]hid-generic 0003:05AF:0060.0004: input,hidraw3: USB HID v1.11 Mouse [Sunrex HandWrite Series] on usb-xhci-hcd.0.auto-1.1.5/input1
+138:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,1][usb_hub]: USB_BUS_ADD busnum = 0
+139:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,2][USB3][xhci_notifier_fn]+
+140:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,3][USB3][xhci_notifier_fn]-
+147:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,0]usb 1-1.1.7: new full-speed USB device number 9 using xhci-hcd
+176:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,9]usb 1-1.1.7: New USB device found, idVendor=058f, idProduct=9540, bcdDevice= 1.20
+177:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,0]usb 1-1.1.7: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+178:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,1]usb 1-1.1.7: Product: EMV Smartcard Reader
+179:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,2]usb 1-1.1.7: Manufacturer: Generic
+180:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,3][usb_hub]: USB_BUS_ADD busnum = 0
+181:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,4][USB3][xhci_notifier_fn]+
+182:[三 11月 29 19:09:33 2023] [pid:494,cpu7,kworker/7:2,5][USB3][xhci_notifier_fn]-
+```
+
+#### udl_device
+
+```c
+struct udl_device udl
+        -> struct drm_device drm       // /dev/dri/card1
+        // drivers/gpu/drm/udl/udl_fb.c:454 struct udl_device *udl = to_udl(dev); 根据drm_device获取udl设备
+        -> struct udl_fbdev fbdev
+                -> struct drm_fb_helper helper
+                        -> struct fb_info fbdev // dev/fb1
+```
+
+### losf
+
+```bash
+uos@uos-PC:/sys/class/graphics$ lsof /dev/dri/card0
+lsof: WARNING: can't stat() vfat file system /boot/efi
+      Output information may be incomplete.
+COMMAND    PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+kwin_wayl 3848  uos   19u   CHR  226,0      0t0 2539 /dev/dri/card0
+Xwayland  3987  uos    6u   CHR  226,0      0t0 2539 /dev/dri/card0
+dde-deskt 4055  uos   45u   CHR  226,0      0t0 2539 /dev/dri/card0
+dde-dock  4125  uos   33u   CHR  226,0      0t0 2539 /dev/dri/card0
+dde-lock  4800  uos   31u   CHR  226,0      0t0 2539 /dev/dri/card0
+dde-file- 5442  uos   35u   CHR  226,0      0t0 2539 /dev/dri/card0
+
+uos@uos-PC:/sys/class/graphics$ lsof /dev/dri/card1
+lsof: WARNING: can't stat() vfat file system /boot/efi
+      Output information may be incomplete.
+COMMAND    PID USER   FD   TYPE DEVICE SIZE/OFF   NODE NAME
+kwin_wayl 3848  uos  mem    CHR  226,1          132758 /dev/dri/card1
+kwin_wayl 3848  uos   99u   CHR  226,1      0t0 132758 /dev/dri/card1
+Xwayland  3987  uos   52u   CHR  226,1      0t0 132758 /dev/dri/card1
+
+uos@uos-PC:/sys/class/graphics$ lsof /dev/fb1
+lsof: WARNING: can't stat() vfat file system /boot/efi
+      Output information may be incomplete.
+```
+
+### usb_disconnect
+
+```c
+27:[三 11月 29 19:09:31 2023] [2023:11:29 19:09:13][pid:5,cpu0,kworker/0:0,0]usb 1-1.1: new high-speed USB device number 4 using xhci-hcd
+36:[三 11月 29 19:09:31 2023] [pid:5,cpu0,kworker/0:0,9]usb 1-1.1: New USB device found, idVendor=1a40, idProduct=0201, bcdDevice= 1.00
+37:[三 11月 29 19:09:31 2023] [pid:5,cpu0,kworker/0:0,0]usb 1-1.1: New USB device strings: Mfr=0, Product=1, SerialNumber=0
+38:[三 11月 29 19:09:31 2023] [pid:5,cpu0,kworker/0:0,1]usb 1-1.1: Product: USB 2.0 Hub [MTT]
+39:[三 11月 29 19:09:31 2023] [pid:5,cpu0,kworker/0:0,2]hub 1-1.1:1.0: USB hub found
+40:[三 11月 29 19:09:31 2023] [pid:5,cpu0,kworker/0:0,3]hub 1-1.1:1.0: 7 ports detected
+41:[三 11月 29 19:09:31 2023] [pid:5,cpu0,kworker/0:0,4][usb_hub]: USB_BUS_ADD busnum = 0
+42:[三 11月 29 19:09:31 2023] [pid:5,cpu0,kworker/0:0,5][USB3][xhci_notifier_fn]+
+43:[三 11月 29 19:09:31 2023] [pid:5,cpu0,kworker/0:0,6][USB3][xhci_notifier_fn]usb hub don't notify
+1880:[三 11月 29 19:09:55 2023] [2023:11:29 19:09:37][pid:5,cpu0,kworker/0:0,3]usb 1-1.1: USB disconnect, device number 4
+1881:[三 11月 29 19:09:55 2023] [pid:5,cpu0,kworker/0:0,4]usb 1-1.1.1: USB disconnect, device number 5
+1882:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,5]shy ==> udl_usb_disconnect
+1883:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,6]file: drivers/gpu/drm/udl/udl_fb.c, func: udl_fbdev_unplug, line: 507, dev->dev->init_name: (null)
+1884:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,7]CPU: 0 PID: 5 Comm: kworker/0:0 Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
+1885:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,8]Hardware name: HUAWEI HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.53 03/24/2021
+1886:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,9]Workqueue: usb_hub_wq hub_event
+1887:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,0]Call trace:
+1888:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,1] dump_backtrace+0x0/0x2e0
+1889:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,2] show_stack+0x24/0x30
+1890:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,3] dump_stack+0xcc/0x10c
+1891:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,4] unbind_console+0x9c/0x210
+1892:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,5] unlink_framebuffer+0x30/0x40         // drivers/video/fbdev/core/fbmem.c:1863
+1893:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,6] drm_fb_helper_unlink_fbi+0x30/0x40
+1894:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,7] udl_fbdev_unplug+0x60/0x6c [udl]
+1895:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,8] udl_usb_disconnect+0x44/0x60 [udl]
+1896:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,9] usb_unbind_interface+0xcc/0x378
+1897:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,0] device_release_driver_internal+0x258/0x338
+1898:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,1] device_release_driver+0x28/0x38
+1899:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,2] bus_remove_device+0x17c/0x248
+1900:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,3] device_del+0x240/0x560
+1901:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,4] usb_disable_device+0x114/0x338
+1902:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,5] usb_disconnect+0x15c/0x420
+1903:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,6] usb_disconnect+0x124/0x420
+1904:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,7] hub_event+0x9ac/0x1bd0
+1905:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,8] process_one_work+0x4fc/0xc80
+1906:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,9] worker_thread+0x80/0x700
+1907:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,0] kthread+0x208/0x218
+1908:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,1] ret_from_fork+0x10/0x1c
+
+
+
+1909:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,2]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: ffffffd0efecda80, &fb_info->lock:ffffffd0efecda90, &fb_info->lock.owner :ffffffd0efecda90, i: 1, FB_MAX: 32, registered_fb[i]: ffffffd0efecda80
+
+1910:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,3]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: ffffffd0efecda80, &fb_info->lock:ffffffd0efecda90, &fb_info->lock.owner: ffffffd0efecda90, i: 1, ret: 1
+
+
+./scripts/faddr2line vmlinux unlink_framebuffer+0x30/0x40
+unlink_framebuffer+0x30/0x40:
+unlink_framebuffer 于 drivers/video/fbdev/core/fbmem.c:1863
+
+1852 int unlink_framebuffer(struct fb_info *fb_info)
+1853 {
+1854         int ret;
+1855 
+1856         ret = __unlink_framebuffer(fb_info);
+1857         if (ret)
+1858                 return ret;
+1859 
+1860         unbind_console(fb_info);
+1861 
+1862         return 0;
+1863 }
+1864 EXPORT_SYMBOL(unlink_framebuffer);
+
+
+
+
+1919:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,2][usb_hub]: USB_BUS_ADD busnum = 0
+1920:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,3][USB3][xhci_notifier_fn]+
+1921:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,4][USB3][xhci_notifier_fn]-
+1922:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,5]usb 1-1.1.2: USB disconnect, device number 6
+1923:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,6]usb 1-1.1.2.1: USB disconnect, device number 8
+1924:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,7][usb_hub]: USB_BUS_ADD busnum = 0
+1925:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,8][USB3][xhci_notifier_fn]+
+1926:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,9][USB3][xhci_notifier_fn]-
+1927:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,0][usb_hub]: USB_BUS_ADD busnum = 0
+1928:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,1][USB3][xhci_notifier_fn]+
+1929:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,2][USB3][xhci_notifier_fn]-
+1930:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,3]usb 1-1.1.5: USB disconnect, device number 7
+1938:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,1][HISI_DRM I]:hisi_dp_connector_detect: [DP] hisi dp connector detect -:2
+1939:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,2][usb_hub]: USB_BUS_ADD busnum = 0
+1940:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,3][USB3][xhci_notifier_fn]+
+1941:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,4][USB3][xhci_notifier_fn]-
+1942:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,5]usb 1-1.1.7: USB disconnect, device number 9
+1943:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,6][usb_hub]: USB_BUS_ADD busnum = 0
+1944:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,7][USB3][xhci_notifier_fn]+
+1945:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,8][USB3][xhci_notifier_fn]-
+1946:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,9][usb_hub]: USB_BUS_ADD busnum = 0
+1947:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,0][USB3][xhci_notifier_fn]+
+1948:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,1][USB3][xhci_notifier_fn]-
+```
+
+#### log
+
+1909:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,2]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: ffffffd0efecda80, &fb_info->lock:ffffffd0efecda90, &fb_info->lock.owner :ffffffd0efecda90, i: 1, FB_MAX: 32, registered_fb[i]: ffffffd0efecda80
+
+1910:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,3]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: ffffffd0efecda80, &fb_info->lock:ffffffd0efecda90, &fb_info->lock.owner: ffffffd0efecda90, i: 1, ret: 1
+
+#### fb_notifier_call_chain
+
+```c
+1767 static int unbind_console(struct fb_info *fb_info)
+1768 {
+1769         dump_stack();
+1770         struct fb_event event;
+1771         int ret;
+1772         int i = fb_info->node;
+1773 
+1774         printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner :%px, i: %d, FB_MAX: %d, registered_fb[i]: %px\n", __FILE__, __LINE__, __FUNCTION__,      fb_info, &fb_info->lock, &fb_info->lock.owner, i, FB_MAX, registered_fb[i]);
+1775 
+1776         if (i < 0 || i >= FB_MAX || registered_fb[i] != fb_info) {
+1777                 printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner :%px, i: %d\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &f     b_info->lock.owner, i);
+1778                 return -EINVAL;
+1779         }
+1780 
+1781         console_lock();
+1782         if (!lock_fb_info(fb_info)) {
+1783                 printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner :%px, i: %d\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &f     b_info->lock.owner, i);
+1784                 console_unlock();
+1785                 return -ENODEV;
+1786         }
+1787 
+1788         event.info = fb_info;
+1789         ret = fb_notifier_call_chain(FB_EVENT_FB_UNBIND, &event);  // 拔掉udl设备的时候 ret = 1
+1790         printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner: %px, i: %d, ret: %d\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &     fb_info->lock.owner, i, ret);
+1791         unlock_fb_info(fb_info);
+1792         console_unlock();
+1793 
+1794         return ret;
+1795 }
+```
+
+#### do_unregister_framebuffer
+
+```c
+1799 static int do_unregister_framebuffer(struct fb_info *fb_info)
+1800 {
+1801         dump_stack();
+1802         // printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px.", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner);
+1803         printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb     _info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy);
+1804         struct fb_event event;
+1805         int ret;
+1806 
+1807         ret = unbind_console(fb_info);
+1808 
+1809         if (ret) {
+1810                 printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px, ret: %d\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &f     b_info->lock, &fb_info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy, ret);
+1811                 return -EINVAL;    // 这里就结束了
+1812         }
+1813 
+1814         pm_vt_switch_unregister(fb_info->dev);
+1815 
+1816         __unlink_framebuffer(fb_info);
+1817         printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb     _info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy);
+1818         if (fb_info->pixmap.addr &&
+1819             (fb_info->pixmap.flags & FB_PIXMAP_DEFAULT))
+1820                 kfree(fb_info->pixmap.addr);
+1821         fb_destroy_modelist(&fb_info->modelist);
+1822         registered_fb[fb_info->node] = NULL;
+1823         num_registered_fb--;
+1824         fb_cleanup_device(fb_info);
+1825         printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb     _info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy);
+1826         event.info = fb_info;
+1827         console_lock();
+1828         fb_notifier_call_chain(FB_EVENT_FB_UNREGISTERED, &event);
+1829         console_unlock();
+1830 
+1831         /* this may free fb info */
+1832         put_fb_info(fb_info);
+1833         return 0;
+1834 }
+```
+
+### drm_release
+
+```c
+drm_release // drivers/gpu/drm/drm_file.c:466
+└──drm_minor_release // drivers/gpu/drm/drm_file.c:487
+    └──udl_driver_release // drivers/gpu/drm/udl/udl_drv.c:52
+        └──udl_fini // drivers/gpu/drm/udl/udl_main.c:374
+                └──udl_fbdev_cleanup // drivers/gpu/drm/udl/udl_fb.c:494
+                        ├────udl_fbdev_destroy // drivers/gpu/drm/udl/udl_fb.c:438
+                               ├────drm_fb_helper_unregister_fbi // drivers/gpu/drm/drm_fb_helper.c:959
+                               │        └──unregister_framebuffer // drivers/video/fbdev/core/fbmem.c:1923
+                               │                ├──do_unregister_framebuffer // drivers/video/fbdev/core/fbmem.c: 1803 1807
+                               │                │        └──unbind_console // drivers/video/fbdev/core/fbmem.c:1774 1790
+                               │                └──do_unregister_framebuffer // drivers/video/fbdev/core/fbmem.c:1810         // 1811 这里就结束了
+                               │
+                               ├────udl_fbdev_destroy // drivers/gpu/drm/udl/udl_fb.c:439
+                               │        └──drm_fb_helper_fini // drivers/gpu/drm/drm_fb_helper.c:970
+                               ├────udl_fbdev_destroy // drivers/gpu/drm/udl/udl_fb.c:442 444 446
+
 ```
 
 ```c
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6]shy ==> udl_fbdev_cleanup
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7]shy ==> udl_fbdev_destroy
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8]CPU: 4 PID: 2720 Comm: Xwayland Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9]Hardware name: HUAWEI HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.53 03/24/2021
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0]Call trace:
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1] dump_backtrace+0x0/0x2e0
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2] show_stack+0x24/0x30
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3] dump_stack+0xcc/0x10c
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4] do_unregister_framebuffer+0x9c/0x2a8
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5] unregister_framebuffer+0x34/0x50
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] drm_fb_helper_unregister_fbi+0x30/0x40
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] udl_fbdev_cleanup+0x68/0xd8 [udl]
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8] udl_fini+0x38/0x60 [udl]
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9] udl_driver_release+0x20/0x48 [udl]
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0] drm_dev_put.part.0+0x58/0x78
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1] drm_minor_release+0x2c/0x38
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2] drm_release+0x114/0x140
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3] __fput+0xf4/0x2c8
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4] ____fput+0x20/0x30
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5] task_work_run+0xcc/0xf0
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] do_notify_resume+0x17c/0x180
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] work_pending+0x8/0x14
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8]file: drivers/video/fbdev/core/fbmem.c, line: 1803, fun: do_unregister_framebuffer, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner:ffffffe789f53c90, fb_info->fbops: ffffff90025f3160, fb_info->fbops->fb_destroy:0000000000000000
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9]CPU: 4 PID: 2720 Comm: Xwayland Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0]Hardware name: HUAWEI HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.53 03/24/2021
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1]Call trace:
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2] dump_backtrace+0x0/0x2e0
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3] show_stack+0x24/0x30
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4] dump_stack+0xcc/0x10c
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5] unbind_console+0x9c/0x210
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] do_unregister_framebuffer+0xec/0x2a8
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] unregister_framebuffer+0x34/0x50
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8] drm_fb_helper_unregister_fbi+0x30/0x40
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9] udl_fbdev_cleanup+0x68/0xd8 [udl]
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0] udl_fini+0x38/0x60 [udl]
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1] udl_driver_release+0x20/0x48 [udl]
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2] drm_dev_put.part.0+0x58/0x78
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3] drm_minor_release+0x2c/0x38
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4] drm_release+0x114/0x140
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5] __fput+0xf4/0x2c8
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] ____fput+0x20/0x30
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] task_work_run+0xcc/0xf0
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8] do_notify_resume+0x17c/0x180
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9] work_pending+0x8/0x14
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner :ffffffe789f53c90, i: 1, FB_MAX: 32, registered_fb[i]: px
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner: ffffffe789f53c90, i: 1, ret: 1
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2]file: drivers/video/fbdev/core/fbmem.c, line: 1810, fun: do_unregister_framebuffer, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner:ffffffe789f53c90, fb_info->fbops: ffffff90025f3160, fb_info->fbops->fb_destroy:0000000000000000, ret: 1
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3]CPU: 4 PID: 2720 Comm: Xwayland Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4]Hardware name: HUAWEI HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.53 03/24/2021
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5]Call trace:
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] dump_backtrace+0x0/0x2e0
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] show_stack+0x24/0x30
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8] dump_stack+0xcc/0x10c
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9] udl_fbdev_cleanup+0xa8/0xd8 [udl]
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0] udl_fini+0x38/0x60 [udl]
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1] udl_driver_release+0x20/0x48 [udl]
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2] drm_dev_put.part.0+0x58/0x78
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3] drm_minor_release+0x2c/0x38
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4] drm_release+0x114/0x140
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5] __fput+0xf4/0x2c8
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] ____fput+0x20/0x30
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] task_work_run+0xcc/0xf0
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8] do_notify_resume+0x17c/0x180
-[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9] work_pending+0x8/0x14
+1958:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,1]file: drivers/gpu/drm/udl/udl_fb.c, func: udl_fbdev_cleanup, line: 494, dev->dev->init_name: (null)
+1959:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,2]file: drivers/gpu/drm/udl/udl_fb.c, func: udl_fbdev_destroy, line: 437, dev->dev->init_name: (null), &ufbdev->helper: ffffffd0fa999280, ufbdev->ufb.obj: ffffffd0fa1b6c80, &ufbdev->ufb.base: ffffffd0fa9994a0
+
+//  udl_fbdev_cleanup
+        udl_fbdev_destroy
+                drm_fb_helper_unregister_fbi
+                        unregister_framebuffer
+                                do_unregister_framebuffer
+1960:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,3]file: drivers/video/fbdev/core/fbmem.c, line: 1803, fun: do_unregister_framebuffer, fb->info: ffffffd0efecda80, &fb_info->lock:ffffffd0efecda90, &fb_info->lock.owner:ffffffd0efecda90, fb_info->fbops: ffffff90025f3160, fb_info->fbops->fb_destroy:0000000000000000
+
+
+1961:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,4]CPU: 6 PID: 2867 Comm: Xwayland Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
+1962:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,5]Hardware name: HUAWEI HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.53 03/24/2021
+
+
+1963:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,6]Call trace:
+1964:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,7] dump_backtrace+0x0/0x2e0
+1965:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,8] show_stack+0x24/0x30
+1966:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,9] dump_stack+0xcc/0x10c
+1967:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,0] unbind_console+0x9c/0x210
+1968:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,1] do_unregister_framebuffer+0xe8/0x2a4
+1969:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,2] unregister_framebuffer+0x34/0x50
+1970:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,3] drm_fb_helper_unregister_fbi+0x30/0x40
+1971:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,4] udl_fbdev_cleanup+0xdc/0x278 [udl]
+1972:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,5] udl_fini+0x38/0x60 [udl]
+1973:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,6] udl_driver_release+0x20/0x48 [udl]
+1974:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,7] drm_dev_put.part.0+0x58/0x78
+1975:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,8] drm_minor_release+0x2c/0x38
+1976:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,9] drm_release+0x114/0x140
+1977:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,0] __fput+0xf4/0x2c8
+1978:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,1] ____fput+0x20/0x30
+1979:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,2] task_work_run+0xcc/0xf0
+1980:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,3] do_notify_resume+0x17c/0x180
+1981:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,4] work_pending+0x8/0x14
+
+
+
+1982:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,5]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: ffffffd0efecda80, &fb_info->lock:ffffffd0efecda90, &fb_info->lock.owner :ffffffd0efecda90, i: 1, FB_MAX: 32, registered_fb[i]: ffffffd0efecda80
+1983:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,6]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: ffffffd0efecda80, &fb_info->lock:ffffffd0efecda90, &fb_info->lock.owner: ffffffd0efecda90, i: 1, ret: 1
+1984:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,7]file: drivers/video/fbdev/core/fbmem.c, line: 1810, fun: do_unregister_framebuffer, fb->info: ffffffd0efecda80, &fb_info->lock:ffffffd0efecda90, &fb_info->lock.owner:ffffffd0efecda90, fb_info->fbops: ffffff90025f3160, fb_info->fbops->fb_destroy:0000000000000000, ret: 1
+
+
+1985:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,8]file: drivers/gpu/drm/udl/udl_fb.c, func: udl_fbdev_destroy, line: 441, dev->dev->init_name: (null), &ufbdev->helper: ffffffd0fa999280, ufbdev->ufb.obj: ffffffd0fa1b6c80, &ufbdev->ufb.base: ffffffd0fa9994a0
+1986:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,9]file: drivers/gpu/drm/udl/udl_fb.c, func: udl_fbdev_destroy, line: 443, dev->dev->init_name: (null), &ufbdev->helper: ffffffd0fa999280, ufbdev->ufb.obj: ffffffd0fa1b6c80, &ufbdev->ufb.base: ffffffd0fa9994a0
+1987:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,0]file: drivers/gpu/drm/udl/udl_fb.c, func: udl_fbdev_destroy, line: 445, dev->dev->init_name: (null), &ufbdev->helper: ffffffd0fa999280, ufbdev->ufb.obj: ffffffd0fa1b6c80, &ufbdev->ufb.base: ffffffd0fa9994a0, &ufbdev->ufb.obj->base: ffffffd0fa1b6c80
+1988:[三 11月 29 19:09:57 2023] [pid:2867,cpu6,Xwayland,1]file: drivers/gpu/drm/udl/udl_fb.c, func: udl_fbdev_destroy, line: 447, dev->dev->init_name: (null), &ufbdev->helper: ffffffd0fa999280, ufbdev->ufb.obj: ffffffd0fa1b6c80, &ufbdev->ufb.base: ffffffd0fa9994a0, &ufbdev->ufb.obj->base: ffffffd0fa1b6c80
 ```
 
 ```c
@@ -526,3 +825,22 @@ udl_fini 于 /data3/home/yuanqiliang/code/klua-kernel/drivers/gpu/drm/udl/udl_ma
 skipping udl_fbdev_cleanup address at 0x68c due to size mismatch (0xd8 != 0x3c)
 no match for udl_fbdev_cleanup+0xa8/0xd8
 ```
+
+```c
+./scripts/faddr2line vmlinux unregister_framebuffer+0x34/0x50
+unregister_framebuffer+0x34/0x50:
+unregister_framebuffer 于 drivers/video/fbdev/core/fbmem.c:1923
+```
+
+##### log
+
+1013575 2023-11-29 17:22:49 uos-PC kernel: [ 3252.154296s][pid:3987,cpu3,Xwayland,7]shy ==> file: drivers/gpu/drm/udl/udl_fb.c, func: udl_fbdev_cleanup, line: 490, dev->dev->init_name: 0
+1013576 2023-11-29 17:22:49 uos-PC kernel: [ 3252.154327s][pid:3987,cpu3,Xwayland,8]shy ==> udl_fbdev_destroy
+
+1013597 2023-11-29 17:22:49 uos-PC kernel: [ 3252.154846s][pid:3987,cpu3,Xwayland,9]file: drivers/video/fbdev/core/fbmem.c, line: 1803, fun: do_unregister_framebuffer, fb->info: ffffffd3b636e480, &fb_info->lock:ffffffd3b636e490,         &fb_info->lock.owner:ffffffd3b636e490, fb_info->fbops: ffffff90025f3160, fb_info->fbops->fb_destroy:0000000000000000
+
+1013619 2023-11-29 17:22:49 uos-PC kernel: [ 3252.155334s][pid:3987,cpu3,Xwayland,1]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: ffffffd3b636e480, &fb_info->lock:ffffffd3b636e490, &fb_info->l        ock.owner :ffffffd3b636e490, i: 2, FB_MAX: 32, registered_fb[i]: ffffffd3b636e480
+
+1013620 2023-11-29 17:22:49 uos-PC kernel: [ 3252.155364s][pid:3987,cpu3,Xwayland,2]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: ffffffd3b636e480, &fb_info->lock:ffffffd3b636e490, &fb_info->l        ock.owner: ffffffd3b636e490, i: 2, ret: 1
+
+1013621 2023-11-29 17:22:49 uos-PC kernel: [ 3252.155395s][pid:3987,cpu3,Xwayland,3]file: drivers/video/fbdev/core/fbmem.c, line: 1810, fun: do_unregister_framebuffer, fb->info: ffffffd3b636e480, &fb_info->lock:ffffffd3b636e490,         &fb_info->lock.owner:ffffffd3b636e490, fb_info->fbops: ffffff90025f3160, fb_info->fbops->fb_destroy:0000000000000000, ret: 1
