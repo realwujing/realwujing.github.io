@@ -78,7 +78,7 @@
 <4>[  123.175903s][pid:6550,cpu6,lshw-bak,8]6070  2dc12000 ffffffc3 00000000 00000000 00000000 00000007 00000006 00000001
 <4>[  123.175903s][pid:6550,cpu6,lshw-bak,9]
 <4>[  123.175903s]X26: 0xffffffc3491154a8:
-<4>[  123.175903s][pid:6550,cpu6,lshw-bak,0]54a8  491154a0 ffffffc3 6cddbb70 ffffffc3 00000000 00000000 0000182d 84000104
+<4>[  123.175903s][pid:6550,cpu6,lshw-bak,0]54a8  491154a0 ffffffc3 6cddbb70 ffffffc3 00000000 00000000 0000182d 84000104linux-image-4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep-dbg_4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep-6200.57055.6.test_arm64.deb
 <4>[  123.175933s][pid:6550,cpu6,lshw-bak,1]54c8  00000030 db400074 491154d0 ffffffc3 491154d0 ffffffc3 00000000 00000000
 <4>[  123.175933s][pid:6550,cpu6,lshw-bak,2]54e8  00000000 00000000 491154f0 ffffffc3 491154f0 ffffffc3 00000000 00000000
 <4>[  123.175964s][pid:6550,cpu6,lshw-bak,3]5508  00000000 00000000 950caa20 ffffffc3 c0f654c8 ffffffc2 79255fd0 ffffffc3
@@ -317,3 +317,212 @@ Num     Type           Disp Enb Address            What
 当前已用slub_debug、kasan排查内存错误问题，没发现问题。
 
 华为klua-kernel无法开启lockdep检测死锁，当前比较怀疑死锁导致oops。
+
+## 1060
+
+```bash
+root@uos-PC:/home/uos# uname -a
+Linux uos-PC 4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1 SMP PREEMPT Fri Nov 24 09:13:36 CST 2023 aarch64 GNU/Linux
+root@uos-PC:/home/uos# 
+root@uos-PC:/home/uos# 
+root@uos-PC:/home/uos# cat /etc/os-release 
+PRETTY_NAME="UOS Desktop 20 Pro"
+NAME="uos"
+VERSION_ID="20"
+VERSION="20"
+ID=uos
+HOME_URL="https://www.chinauos.com/"
+BUG_REPORT_URL="http://bbs.chinauos.com"
+VERSION_CODENAME=eagle
+root@uos-PC:/home/uos# cat /etc/os-version 
+[Version] 
+SystemName=UOS Desktop
+SystemName[zh_CN]=统信桌面操作系统
+ProductType=Desktop
+ProductType[zh_CN]=桌面
+EditionName=Professional
+EditionName[zh_CN]=专业版
+MajorVersion=20
+MinorVersion=1060
+OsBuild=11014.102.100
+root@uos-PC:/home/uos# cat /etc/pro
+product-info       profile            profile.d/         protocols          proxychains4.conf  
+root@uos-PC:/home/uos# cat /etc/pro
+product-info       profile            profile.d/         protocols          proxychains4.conf  
+root@uos-PC:/home/uos# cat /etc/product-info 
+20231123.build54124
+```
+
+```c
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,1]usb 1-1.1: USB disconnect, device number 4
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,2]usb 1-1.1.1: USB disconnect, device number 5
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,3]shy ==> udl_usb_disconnect
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,4]shy ==> udl_fbdev_unplug
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,5]CPU: 0 PID: 5 Comm: kworker/0:0 Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,6]Hardware name: HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.73 07/15/2023
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,7]Workqueue: usb_hub_wq hub_event
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,8]Call trace:
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,9] dump_backtrace+0x0/0x2e0
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,0] show_stack+0x24/0x30
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,1] dump_stack+0xcc/0x10c
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,2] unbind_console+0x9c/0x210
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,3] unlink_framebuffer+0x30/0x40
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,4] drm_fb_helper_unlink_fbi+0x30/0x40
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,5] udl_fbdev_unplug+0x40/0x4c [udl]
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,6] udl_usb_disconnect+0x44/0x60 [udl]
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,7] usb_unbind_interface+0xcc/0x378
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,8] device_release_driver_internal+0x258/0x338
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,9] device_release_driver+0x28/0x38
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,0] bus_remove_device+0x17c/0x248
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,1] device_del+0x240/0x560
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,2] usb_disable_device+0x114/0x338
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,3] usb_disconnect+0x15c/0x420
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,4] usb_disconnect+0x124/0x420
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,5] hub_event+0x9ac/0x1bd0
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,6] process_one_work+0x4fc/0xc80
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,7] worker_thread+0x80/0x700
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,8] kthread+0x208/0x218
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,9] ret_from_fork+0x10/0x1c
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,0]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: fffffff279415a80, &fb_info->lock:fffffff279415a90, &fb_info->lock.owner :fffffff279415a90, i: 1, FB_MAX: 32, registered_fb[i]: fffffff279415a80
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,1]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: fffffff279415a80, &fb_info->lock:fffffff279415a90, &fb_info->lock.owner: fffffff279415a90, i: 1, ret: 1
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,2][usb_hub]: USB_BUS_ADD busnum = 0
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,3][USB3][xhci_notifier_fn]+
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,4][USB3][xhci_notifier_fn]-
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,5]usb 1-1.1.2: USB disconnect, device number 6
+[三 11月 29 11:14:43 2023] [pid:5,cpu0,kworker/0:0,6]usb 1-1.1.2.1: USB disconnect, device number 8
+```
+
+## 1070
+
+```bash
+root@uos-PC:/home/uos# uname -a
+Linux uos-PC 4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1 SMP PREEMPT Fri Nov 24 09:13:36 CST 2023 aarch64 GNU/Linux
+root@uos-PC:/home/uos# cat /etc/os-release 
+PRETTY_NAME="UOS Desktop 20 Pro"
+NAME="uos"
+VERSION_ID="20"
+VERSION="20"
+ID=uos
+HOME_URL="https://www.chinauos.com/"
+BUG_REPORT_URL="http://bbs.chinauos.com"
+VERSION_CODENAME=eagle
+root@uos-PC:/home/uos# cat /etc/product-info 
+20231118.build54124
+```
+
+```c
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,0]shy ==> udl_usb_disconnect
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,1]shy ==> udl_fbdev_unplug
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,2]CPU: 0 PID: 5 Comm: kworker/0:0 Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,3]Hardware name: HUAWEI HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.53 03/24/2021
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,4]Workqueue: usb_hub_wq hub_event
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,5]Call trace:
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,6] dump_backtrace+0x0/0x2e0
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,7] show_stack+0x24/0x30
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,8] dump_stack+0xcc/0x10c
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,9] unbind_console+0x9c/0x210
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,0] unlink_framebuffer+0x30/0x40
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,1] drm_fb_helper_unlink_fbi+0x30/0x40
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,2] udl_fbdev_unplug+0x40/0x4c [udl]
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,3] udl_usb_disconnect+0x44/0x60 [udl]
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,4] usb_unbind_interface+0xcc/0x378
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,5] device_release_driver_internal+0x258/0x338
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,6] device_release_driver+0x28/0x38
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,7] bus_remove_device+0x17c/0x248
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,8] device_del+0x240/0x560
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,9] usb_disable_device+0x114/0x338
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,0] usb_disconnect+0x15c/0x420
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,1] usb_disconnect+0x124/0x420
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,2] hub_event+0x9ac/0x1bd0
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,3] process_one_work+0x4fc/0xc80
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,4] worker_thread+0x80/0x700
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,5] kthread+0x208/0x218
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,6] ret_from_fork+0x10/0x1c
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,7]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner :ffffffe789f53c90, i: 1, FB_MAX: 32, registered_fb[i]: px
+[三 11月 29 11:18:20 2023] [pid:5,cpu0,kworker/0:0,8]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner: ffffffe789f53c90, i: 1, ret: 1
+```
+
+```c
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6]shy ==> udl_fbdev_cleanup
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7]shy ==> udl_fbdev_destroy
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8]CPU: 4 PID: 2720 Comm: Xwayland Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9]Hardware name: HUAWEI HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.53 03/24/2021
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0]Call trace:
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1] dump_backtrace+0x0/0x2e0
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2] show_stack+0x24/0x30
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3] dump_stack+0xcc/0x10c
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4] do_unregister_framebuffer+0x9c/0x2a8
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5] unregister_framebuffer+0x34/0x50
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] drm_fb_helper_unregister_fbi+0x30/0x40
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] udl_fbdev_cleanup+0x68/0xd8 [udl]
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8] udl_fini+0x38/0x60 [udl]
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9] udl_driver_release+0x20/0x48 [udl]
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0] drm_dev_put.part.0+0x58/0x78
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1] drm_minor_release+0x2c/0x38
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2] drm_release+0x114/0x140
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3] __fput+0xf4/0x2c8
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4] ____fput+0x20/0x30
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5] task_work_run+0xcc/0xf0
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] do_notify_resume+0x17c/0x180
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] work_pending+0x8/0x14
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8]file: drivers/video/fbdev/core/fbmem.c, line: 1803, fun: do_unregister_framebuffer, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner:ffffffe789f53c90, fb_info->fbops: ffffff90025f3160, fb_info->fbops->fb_destroy:0000000000000000
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9]CPU: 4 PID: 2720 Comm: Xwayland Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0]Hardware name: HUAWEI HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.53 03/24/2021
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1]Call trace:
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2] dump_backtrace+0x0/0x2e0
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3] show_stack+0x24/0x30
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4] dump_stack+0xcc/0x10c
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5] unbind_console+0x9c/0x210
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] do_unregister_framebuffer+0xec/0x2a8
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] unregister_framebuffer+0x34/0x50
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8] drm_fb_helper_unregister_fbi+0x30/0x40
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9] udl_fbdev_cleanup+0x68/0xd8 [udl]
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0] udl_fini+0x38/0x60 [udl]
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1] udl_driver_release+0x20/0x48 [udl]
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2] drm_dev_put.part.0+0x58/0x78
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3] drm_minor_release+0x2c/0x38
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4] drm_release+0x114/0x140
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5] __fput+0xf4/0x2c8
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] ____fput+0x20/0x30
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] task_work_run+0xcc/0xf0
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8] do_notify_resume+0x17c/0x180
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9] work_pending+0x8/0x14
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner :ffffffe789f53c90, i: 1, FB_MAX: 32, registered_fb[i]: px
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner: ffffffe789f53c90, i: 1, ret: 1
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2]file: drivers/video/fbdev/core/fbmem.c, line: 1810, fun: do_unregister_framebuffer, fb->info: ffffffe789f53c80, &fb_info->lock:ffffffe789f53c90, &fb_info->lock.owner:ffffffe789f53c90, fb_info->fbops: ffffff90025f3160, fb_info->fbops->fb_destroy:0000000000000000, ret: 1
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3]CPU: 4 PID: 2720 Comm: Xwayland Tainted: G    B             4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4]Hardware name: HUAWEI HUAWEI L410 KLVU-WDU0/SP1KVUM, BIOS 1.00.53 03/24/2021
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5]Call trace:
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] dump_backtrace+0x0/0x2e0
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] show_stack+0x24/0x30
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8] dump_stack+0xcc/0x10c
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9] udl_fbdev_cleanup+0xa8/0xd8 [udl]
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,0] udl_fini+0x38/0x60 [udl]
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,1] udl_driver_release+0x20/0x48 [udl]
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,2] drm_dev_put.part.0+0x58/0x78
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,3] drm_minor_release+0x2c/0x38
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,4] drm_release+0x114/0x140
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,5] __fput+0xf4/0x2c8
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,6] ____fput+0x20/0x30
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,7] task_work_run+0xcc/0xf0
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,8] do_notify_resume+0x17c/0x180
+[三 11月 29 11:18:21 2023] [pid:2720,cpu4,Xwayland,9] work_pending+0x8/0x14
+```
+
+```c
+./scripts/faddr2line ./drivers/gpu/drm/udl/udl_drv.o udl_driver_release+0x20/0x48
+udl_driver_release+0x20/0x48:
+udl_driver_release 于 /data3/home/yuanqiliang/code/klua-kernel/drivers/gpu/drm/udl/udl_drv.c:53
+```
+
+```c
+./scripts/faddr2line ./drivers/gpu/drm/udl/udl_main.o udl_fini+0x38/0x60
+udl_fini+0x38/0x60:
+udl_fini 于 /data3/home/yuanqiliang/code/klua-kernel/drivers/gpu/drm/udl/udl_main.c:375
+```
+
+```c
+./scripts/faddr2line drivers/gpu/drm/udl/udl_fb.o udl_fbdev_cleanup+0xa8/0xd8
+skipping udl_fbdev_cleanup address at 0x68c due to size mismatch (0xd8 != 0x3c)
+no match for udl_fbdev_cleanup+0xa8/0xd8
+```
