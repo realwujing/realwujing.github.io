@@ -527,12 +527,36 @@ udl_driver_create drivers/gpu/drm/udl/udl_drv.c:83 102
 #### udl_device
 
 ```c
+struct udl_device { // drivers/gpu/drm/udl/udl_drv.h:52
+	struct drm_device drm;
+	struct device *dev;
+	struct usb_device *udev;
+	struct drm_crtc *crtc;
+
+	struct mutex gem_lock;
+
+	int sku_pixel_limit;
+
+	struct urb_list urbs;
+	atomic_t lost_pixels; /* 1 = a render op failed. Need screen refresh */
+
+	struct udl_fbdev *fbdev;
+	char mode_buf[1024];
+	uint32_t mode_buf_len;
+	atomic_t bytes_rendered; /* raw pixel-bytes driver asked to render */
+	atomic_t bytes_identical; /* saved effort with backbuffer comparison */
+	atomic_t bytes_sent; /* to usb, after compression including overhead */
+	atomic_t cpu_kcycles_used; /* transpired during pixel processing */
+};
+```
+
+```c
 struct udl_device udl
         -> struct drm_device drm       // /dev/dri/card1
         // drivers/gpu/drm/udl/udl_fb.c:454 struct udl_device *udl = to_udl(dev); 根据drm_device获取udl设备
-        -> struct udl_fbdev fbdev
+        -> struct udl_fbdev *fbdev
                 -> struct drm_fb_helper helper
-                        -> struct fb_info fbdev // dev/fb1
+                        -> struct fb_info *fbdev // dev/fb1
 ```
 
 ### losf
