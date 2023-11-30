@@ -4,6 +4,14 @@
 
 ## 排查思路
 
+- S3: 暂停到内存，唤醒播放提示音前pulseaudio存在
+
+- S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在
+
+- S5: 关机，播放提示音前pulseaudio存在
+
+- reboot: 重新启动，启动时播放提示音前pulseaudio不存在
+
 查看deepin-login-sound.service依赖:
 
 ```bash
