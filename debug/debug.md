@@ -272,6 +272,7 @@
 ## dump_stack
 
 - [【Linux内核调试-dump_stack】](https://blog.csdn.net/cddchina/article/details/125175118)
+- [dump_stack 实现分析](https://blog.csdn.net/sunshineywz/article/details/105763755)
 
 ## objdump
 
