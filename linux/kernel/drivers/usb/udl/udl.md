@@ -1,6 +1,6 @@
 # udl mutex_lock panic
 
-bug: https://pms.uniontech.com/bug-view-229783.html
+bug: <https://pms.uniontech.com/bug-view-229783.html>
 
 ## panic 日志
 
