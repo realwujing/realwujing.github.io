@@ -302,6 +302,8 @@
 - [<font color=Red>Linux 死机复位(oops、panic)问题定位指南</font>](https://blog.csdn.net/pwl999/article/details/106931608)
 - [Linux内核调试的方式以及工具集锦](https://github.com/gatieme/LDD-LinuxDeviceDrivers/blob/master/study/debug/tools/systemtap/01-install/README.md)
 - [如何开机进入Linux命令行](https://www.linuxprobe.com/boot-into-linuxcli.html)
+- [kernel oops (Unable to handle kernel paging request at virtual address )三种内存访问异常](https://blog.csdn.net/xl19862005/article/details/107605906)
+- [LSM Oops 内存错误根因分析与解决](https://www.toutiao.com/article/6868133266415845892)
 
 ## dmesg
 
