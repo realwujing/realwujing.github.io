@@ -54,6 +54,7 @@
 
 ## 插件
 
+- [<font color=Red>vim配置</font>](https://blog.csdn.net/tiantianhaoxinqing__/article/details/123593749)
 - [<font color=Red>https://vimawesome.com/</font>](https://vimawesome.com/)
 - [（转）Vim十大必备插件](https://blog.51cto.com/u_15905375/5919878)
 - [Ubuntu 下 vim+Ctags+Taglist+WinManager工具的安装](https://blog.csdn.net/eric_sunah/article/details/51028874)
@@ -64,6 +65,7 @@
 - [https://github.com/yegappan/taglist](https://github.com/yegappan/taglist)
 
 ```bash
+sudo apt install vim vim-gtk ctags cscope
 git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
 wget -O ~/.vimrc https://github.com/realwujing/realwujing.github.io/blob/main/linux/vim/.vimrc
 vim .
