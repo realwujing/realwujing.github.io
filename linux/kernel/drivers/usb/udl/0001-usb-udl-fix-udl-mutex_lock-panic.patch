@@ -1,0 +1,462 @@
+From 81089c9ab03834e2331711d0abeff4b39d596152 Mon Sep 17 00:00:00 2001
+From: yuanqiliang <yuanqiliang@uniontech.com>
+Date: Fri, 1 Dec 2023 09:52:05 +0800
+Subject: [PATCH] usb: udl: fix udl mutex_lock panic
+
+drivers/video/fbdev/core/fbmem.c: 1811
+
+1807         ret = unbind_console(fb_info);
+1808
+1809         if (ret) {
+1810                 printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px, ret: %d\n", __FILE_     _, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy, ret);
+1811                 // return -EINVAL;
+1812         }
+
+bug: https://pms.uniontech.com/bug-view-229783.html
+Change-Id: Idde9b9486bb4d559852b5d2ec4fd071bc3bd5534
+Signed-off-by: yuanqiliang <yuanqiliang@uniontech.com>
+---
+ .../configs/merge_kirin990_armpc_defconfig    | 13 ++--
+ drivers/gpu/drm/drm_fb_helper.c               | 20 ++++-
+ drivers/gpu/drm/udl/udl_drv.c                 |  3 +
+ drivers/gpu/drm/udl/udl_fb.c                  | 17 ++++-
+ drivers/gpu/drm/udl/udl_main.c                |  3 +-
+ drivers/video/fbdev/core/fbmem.c              | 73 +++++++++++++++++--
+ 6 files changed, 108 insertions(+), 21 deletions(-)
+
+diff --git a/arch/arm64/configs/merge_kirin990_armpc_defconfig b/arch/arm64/configs/merge_kirin990_armpc_defconfig
+index ded3423d1..bd9d8295d 100644
+--- a/arch/arm64/configs/merge_kirin990_armpc_defconfig
++++ b/arch/arm64/configs/merge_kirin990_armpc_defconfig
+@@ -1,5 +1,5 @@
+ # CONFIG_LOCALVERSION_AUTO is not set
+-CONFIG_BUILD_SALT="4.19.71-arm64-desktop"
++CONFIG_BUILD_SALT="4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep"
+ CONFIG_DEFAULT_HOSTNAME="(uos)"
+ CONFIG_SYSVIPC=y
+ CONFIG_POSIX_MQUEUE=y
+@@ -48,7 +48,6 @@ CONFIG_CHECKPOINT_RESTORE=y
+ CONFIG_SCHED_TUNE=y
+ CONFIG_BLK_DEV_INITRD=y
+ CONFIG_HUAWEI_PRINTK_CTRL=y
+-CONFIG_KALLSYMS_ALL=y
+ CONFIG_BPF_SYSCALL=y
+ CONFIG_EMBEDDED=y
+ CONFIG_SLAB_FREELIST_RANDOM=y
+@@ -765,10 +764,7 @@ CONFIG_DDR_HW_VOTE_15BITS=y
+ CONFIG_DDR_FREQ_BACKUP=y
+ CONFIG_DEVFREQ_GOV_GPU_SCENE_AWARE=y
+ CONFIG_GPUFREQ_GOV_POLICY_USING_DTSI=y
+-CONFIG_HISI_L3C_DEVFREQ=y
+-CONFIG_HISI_HW_VOTE_L3C_FREQ=y
+ CONFIG_HISI_DEVFREQ_DEVBW=y
+-CONFIG_ARM_DSU_PMU=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
+ CONFIG_ANDROID_BINDER_IPC_SELFTEST=y
+@@ -956,7 +952,6 @@ CONFIG_NLS_ISO8859_1=y
+ CONFIG_NLS_UTF8=y
+ CONFIG_ENCRYPTED_KEYS=y
+ CONFIG_SECURITY_DMESG_RESTRICT=y
+-CONFIG_SECURITY_PERF_EVENTS_RESTRICT=y
+ CONFIG_SECURITY=y
+ CONFIG_LSM_MMAP_MIN_ADDR=65536
+ CONFIG_HARDENED_USERCOPY=y
+@@ -989,18 +984,22 @@ CONFIG_FONTS=y
+ CONFIG_HISI_SECUREC=y
+ CONFIG_PRINTK_TIME=y
+ CONFIG_CONSOLE_LOGLEVEL_DEFAULT=4
++CONFIG_DYNAMIC_DEBUG=y
+ CONFIG_HISI_TIME=y
+ CONFIG_HISI_PRINTK_EXTENSION=y
+ CONFIG_DEBUG_INFO=y
+ CONFIG_MAGIC_SYSRQ=y
+ CONFIG_MAGIC_SYSRQ_DEFAULT_ENABLE=0x0
++CONFIG_SLUB_DEBUG_ON=y
++CONFIG_SLUB_STATS=y
++CONFIG_KASAN=y
+ CONFIG_SOFTLOCKUP_DETECTOR=y
+ CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=y
+ # CONFIG_DETECT_HUNG_TASK is not set
+ CONFIG_PANIC_TIMEOUT=5
+ CONFIG_SCHEDSTATS=y
+ # CONFIG_DEBUG_PREEMPT is not set
+-CONFIG_DEBUG_SPINLOCK=y
++CONFIG_PROVE_LOCKING=y
+ CONFIG_FTRACE_SYSCALLS=y
+ CONFIG_TRACER_SNAPSHOT=y
+ CONFIG_TRACER_SNAPSHOT_PER_CPU_SWAP=y
+diff --git a/drivers/gpu/drm/drm_fb_helper.c b/drivers/gpu/drm/drm_fb_helper.c
+index 8b546fde1..2a62b93da 100644
+--- a/drivers/gpu/drm/drm_fb_helper.c
++++ b/drivers/gpu/drm/drm_fb_helper.c
+@@ -915,6 +915,7 @@ EXPORT_SYMBOL(drm_fb_helper_init);
+  */
+ struct fb_info *drm_fb_helper_alloc_fbi(struct drm_fb_helper *fb_helper)
+ {
++	dump_stack();
+ 	struct device *dev = fb_helper->dev->dev;
+ 	struct fb_info *info;
+ 	int ret;
+@@ -976,25 +977,36 @@ void drm_fb_helper_fini(struct drm_fb_helper *fb_helper)
+ 
+ 	fb_helper->dev->fb_helper = NULL;
+ 
+-	if (!drm_fbdev_emulation)
++	printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation);
++	if (!drm_fbdev_emulation) { // drm_fbdev_emulation = false 980行才会return，994行才会执行不到
++		printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation);
+ 		return;
++	}
+ 
+ 	cancel_work_sync(&fb_helper->resume_work);
+ 	cancel_work_sync(&fb_helper->dirty_work);
+ 
+ 	info = fb_helper->fbdev;
+ 	if (info) {
++		printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info);
+ 		if (info->cmap.len)
+-			fb_dealloc_cmap(&info->cmap);
+-		framebuffer_release(info);
++			fb_dealloc_cmap(&info->cmap);	// drivers/video/fbdev/core/fbcmap.c:147
++		printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info);
++		framebuffer_release(info);	// drivers/video/fbdev/core/fbsysfs.c:89
++		printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info);
+ 	}
+ 	fb_helper->fbdev = NULL;
+ 
++	printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info);
++
+ 	mutex_lock(&kernel_fb_helper_lock);
+ 	if (!list_empty(&fb_helper->kernel_fb_list)) {
++		printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px, &fb_helper->kernel_fb_list: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info, &fb_helper->kernel_fb_list);
+ 		list_del(&fb_helper->kernel_fb_list);
+-		if (list_empty(&kernel_fb_helper_list))
++		if (list_empty(&kernel_fb_helper_list)) {
++			printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px, &kernel_fb_helper_list: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info, &kernel_fb_helper_list);
+ 			unregister_sysrq_key('v', &sysrq_drm_fb_helper_restore_op);
++		}
+ 	}
+ 	mutex_unlock(&kernel_fb_helper_lock);
+ 
+diff --git a/drivers/gpu/drm/udl/udl_drv.c b/drivers/gpu/drm/udl/udl_drv.c
+index f28703db8..30c17bfbc 100644
+--- a/drivers/gpu/drm/udl/udl_drv.c
++++ b/drivers/gpu/drm/udl/udl_drv.c
+@@ -99,7 +99,9 @@ static struct udl_device *udl_driver_create(struct usb_interface *interface)
+ 	udl->udev = udev;
+ 	udl->drm.dev_private = udl;
+ 
++	printk("file: %s, line: %d, fun: %s, interface: %px, udl: %px", __FILE__, __LINE__, __FUNCTION__, interface, udl);
+ 	r = udl_init(udl);
++	printk("file: %s, line: %d, fun: %s, interface: %px, udl: %px", __FILE__, __LINE__, __FUNCTION__, interface, udl);
+ 	if (r) {
+ 		drm_dev_fini(&udl->drm);
+ 		kfree(udl);
+@@ -137,6 +139,7 @@ static void udl_usb_disconnect(struct usb_interface *interface)
+ {
+ 	struct drm_device *dev = usb_get_intfdata(interface);
+ 
++	printk("file: %s, line: %d, fun: %s, interface: %px, dev: %px", __FILE__, __LINE__, __FUNCTION__, interface, dev);
+ 	drm_kms_helper_poll_disable(dev);
+ 	udl_fbdev_unplug(dev);
+ 	udl_drop_usb(dev);
+diff --git a/drivers/gpu/drm/udl/udl_fb.c b/drivers/gpu/drm/udl/udl_fb.c
+index 4ab101bf1..3a7577f17 100644
+--- a/drivers/gpu/drm/udl/udl_fb.c
++++ b/drivers/gpu/drm/udl/udl_fb.c
+@@ -81,6 +81,7 @@ static uint16_t rgb16(uint32_t col)
+ int udl_handle_damage(struct udl_framebuffer *fb, int x, int y,
+ 		      int width, int height)
+ {
++	dump_stack();
+ 	struct drm_device *dev = fb->base.dev;
+ 	struct udl_device *udl = to_udl(dev);
+ 	int i, ret;
+@@ -101,6 +102,7 @@ int udl_handle_damage(struct udl_framebuffer *fb, int x, int y,
+ 	if (!fb->obj->vmapping) {
+ 		ret = udl_gem_vmap(fb->obj);
+ 		if (ret == -ENOMEM) {
++			dump_stack();
+ 			DRM_ERROR("failed to vmap fb\n");
+ 			return 0;
+ 		}
+@@ -249,11 +251,13 @@ static int udl_fb_open(struct fb_info *info, int user)
+ static int udl_fb_release(struct fb_info *info, int user)
+ {
+ 	struct udl_fbdev *ufbdev = info->par;
+-
++	
+ 	ufbdev->fb_count--;
++	printk("%s, fb count: %d\n", __func__, ufbdev->fb_count);
+ 
+ #ifdef CONFIG_DRM_FBDEV_EMULATION
+ 	if ((ufbdev->fb_count == 0) && (info->fbdefio)) {
++		printk("%s, will call fb_deferred_io_cleanup.\n", __func__);
+ 		fb_deferred_io_cleanup(info);
+ 		kfree(info->fbdefio);
+ 		info->fbdefio = NULL;
+@@ -430,17 +434,24 @@ static const struct drm_fb_helper_funcs udl_fb_helper_funcs = {
+ static void udl_fbdev_destroy(struct drm_device *dev,
+ 			      struct udl_fbdev *ufbdev)
+ {
++	printk("file: %s, func: %s, line: %d, dev->dev->init_name: %s, &ufbdev->helper: %px, ufbdev->ufb.obj: %px, &ufbdev->ufb.base: %px\n", __FILE__, __func__, __LINE__, dev->dev->init_name, &ufbdev->helper, ufbdev->ufb.obj, &ufbdev->ufb.base);
+ 	drm_fb_helper_unregister_fbi(&ufbdev->helper);
+ 	drm_fb_helper_fini(&ufbdev->helper);
+ 	if (ufbdev->ufb.obj) {
++		printk("file: %s, func: %s, line: %d, dev->dev->init_name: %s, &ufbdev->helper: %px, ufbdev->ufb.obj: %px, &ufbdev->ufb.base: %px\n", __FILE__, __func__, __LINE__, dev->dev->init_name, &ufbdev->helper, ufbdev->ufb.obj, &ufbdev->ufb.base);
+ 		drm_framebuffer_unregister_private(&ufbdev->ufb.base);
++		printk("file: %s, func: %s, line: %d, dev->dev->init_name: %s, &ufbdev->helper: %px, ufbdev->ufb.obj: %px, &ufbdev->ufb.base: %px\n", __FILE__, __func__, __LINE__, dev->dev->init_name, &ufbdev->helper, ufbdev->ufb.obj, &ufbdev->ufb.base);
+ 		drm_framebuffer_cleanup(&ufbdev->ufb.base);
++		printk("file: %s, func: %s, line: %d, dev->dev->init_name: %s, &ufbdev->helper: %px, ufbdev->ufb.obj: %px, &ufbdev->ufb.base: %px, &ufbdev->ufb.obj->base: %px\n", __FILE__, __func__, __LINE__, dev->dev->init_name, &ufbdev->helper, ufbdev->ufb.obj, &ufbdev->ufb.base, &ufbdev->ufb.obj->base);
+ 		drm_gem_object_put_unlocked(&ufbdev->ufb.obj->base);
++		printk("file: %s, func: %s, line: %d, dev->dev->init_name: %s, &ufbdev->helper: %px, ufbdev->ufb.obj: %px, &ufbdev->ufb.base: %px, &ufbdev->ufb.obj->base: %px\n", __FILE__, __func__, __LINE__, dev->dev->init_name, &ufbdev->helper, ufbdev->ufb.obj, &ufbdev->ufb.base, &ufbdev->ufb.obj->base);
+ 	}
++	// dump_stack();
+ }
+ 
+ int udl_fbdev_init(struct drm_device *dev)
+ {
++	printk("file: %s, line: %d, fun: %s, dev: %px", __FILE__, __LINE__, __FUNCTION__, dev);
+ 	struct udl_device *udl = to_udl(dev);
+ 	int bpp_sel = fb_bpp;
+ 	struct udl_fbdev *ufbdev;
+@@ -465,7 +476,9 @@ int udl_fbdev_init(struct drm_device *dev)
+ 	/* disable all the possible outputs/crtcs before entering KMS mode */
+ 	drm_helper_disable_unused_functions(dev);
+ 
++	printk("file: %s, line: %d, fun: %s, dev: %px, &ufbdev->helper: %px, bpp_sel: %d", __FILE__, __LINE__, __FUNCTION__, dev, &ufbdev->helper, bpp_sel);
+ 	ret = drm_fb_helper_initial_config(&ufbdev->helper, bpp_sel);
++	printk("file: %s, line: %d, fun: %s, dev: %px, &ufbdev->helper: %px, bpp_sel: %d, ret: %d", __FILE__, __LINE__, __FUNCTION__, dev, &ufbdev->helper, bpp_sel, ret);
+ 	if (ret)
+ 		goto fini;
+ 
+@@ -481,6 +494,7 @@ free:
+ void udl_fbdev_cleanup(struct drm_device *dev)
+ {
+ 	struct udl_device *udl = to_udl(dev);
++	printk("file: %s, func: %s, line: %d, dev->dev->init_name: %s\n", __FILE__, __func__, __LINE__, dev->dev->init_name);
+ 	if (!udl->fbdev)
+ 		return;
+ 
+@@ -493,6 +507,7 @@ void udl_fbdev_unplug(struct drm_device *dev)
+ {
+ 	struct udl_device *udl = to_udl(dev);
+ 	struct udl_fbdev *ufbdev;
++	printk("file: %s, func: %s, line: %d, dev->dev->init_name: %s\n", __FILE__, __func__, __LINE__, dev->dev->init_name);
+ 	if (!udl->fbdev)
+ 		return;
+ 
+diff --git a/drivers/gpu/drm/udl/udl_main.c b/drivers/gpu/drm/udl/udl_main.c
+index 3c0407482..ab43990bf 100644
+--- a/drivers/gpu/drm/udl/udl_main.c
++++ b/drivers/gpu/drm/udl/udl_main.c
+@@ -337,8 +337,9 @@ int udl_init(struct udl_device *udl)
+ 	ret = udl_modeset_init(dev);
+ 	if (ret)
+ 		goto err;
+-
++	printk("file: %s, line: %d, fun: %s, udl: %px", __FILE__, __LINE__, __FUNCTION__, udl);
+ 	ret = udl_fbdev_init(dev);
++	printk("file: %s, line: %d, fun: %s, udl: %px, ret: %d", __FILE__, __LINE__, __FUNCTION__, udl, ret);
+ 	if (ret)
+ 		goto err;
+ 
+diff --git a/drivers/video/fbdev/core/fbmem.c b/drivers/video/fbdev/core/fbmem.c
+index 21e25a59f..e7608185d 100644
+--- a/drivers/video/fbdev/core/fbmem.c
++++ b/drivers/video/fbdev/core/fbmem.c
+@@ -70,10 +70,16 @@ static struct fb_info *get_fb_info(unsigned int idx)
+ 
+ static void put_fb_info(struct fb_info *fb_info)
+ {
++	dump_stack();
++	// printk("shy ==> %s\n", __func__);
++	printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy);
+ 	if (!atomic_dec_and_test(&fb_info->count))
+ 		return;
+-	if (fb_info->fbops->fb_destroy)
++	if (fb_info->fbops->fb_destroy) {
+ 		fb_info->fbops->fb_destroy(fb_info);
++		printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner);
++	}
++		
+ }
+ 
+ int lock_fb_info(struct fb_info *info)
+@@ -1457,17 +1463,39 @@ __releases(&info->lock)
+ 	int res = 0;
+ 
+ 	info = get_fb_info(fbidx);
++	// printk("shy ==> %s, get_fb_info 1, info: %d, idx:%d\n", __func__, info, fbidx);
++	printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, fbidx:%d.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, fbidx);
+ 	if (!info) {
+ 		request_module("fb%d", fbidx);
+ 		info = get_fb_info(fbidx);
+-		if (!info)
++		// printk("shy ==> %s, get_fb_info 2, info: %d, idx:%d\n", __func__, info, fbidx);
++		printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, fbidx:%d.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, fbidx);
++		if (!info) {
++			printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, fbidx:%d.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, fbidx);
+ 			return -ENODEV;
++		}
+ 	}
+-	if (IS_ERR(info))
++	if (IS_ERR(info)) {
++		printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, fbidx:%d.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, fbidx);
+ 		return PTR_ERR(info);
++	}
++
++	// if (((unsigned long long)(&info->lock) & 0x8000000000000000) != 0) {
++	// 	printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, fbidx: %d, &info->lock: %px.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, fbidx, &info->lock);
++	// 	return -ENODEV;
++	// }
++	
++	printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, fbidx: %d, &info->lock: %px.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, fbidx, &info->lock);
++
++	if (!(&info->lock)) {
++		printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, fbidx: %d, &info->lock: %px.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, fbidx, &info->lock);
++		return -ENODEV;
++	}
+ 
+ 	mutex_lock(&info->lock);
++	// printk("%s, call try_module_get\n", __func__);
+ 	if (!try_module_get(info->fbops->owner)) {
++		printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, fbidx: %d, &info->lock: %px, &info->lock.owner:%px.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, fbidx, &info->lock, &info->lock.owner);
+ 		res = -ENODEV;
+ 		goto out;
+ 	}
+@@ -1493,13 +1521,20 @@ fb_release(struct inode *inode, struct file *file)
+ __acquires(&info->lock)
+ __releases(&info->lock)
+ {
++	// dump_stack();
+ 	struct fb_info * const info = file->private_data;
+ 
++	// printk("shy ==> %s\n", __func__);
++	printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, &info->lock: %px, &info->lock.owner:%px.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, &info->lock, &info->lock.owner);
+ 	mutex_lock(&info->lock);
+-	if (info->fbops->fb_release)
++	if (info->fbops->fb_release){
++		printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, &info->lock: %px, &info->lock.owner:%px, info->fbops->fb_release: %px.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, &info->lock, &info->lock.owner, info->fbops->fb_release);
+ 		info->fbops->fb_release(info,1);
++	}
+ 	module_put(info->fbops->owner);
++	printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, &info->lock: %px, &info->lock.owner:%px, info->fbops->fb_release: %px.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, &info->lock, &info->lock.owner, info->fbops->fb_release);
+ 	mutex_unlock(&info->lock);
++	printk("file: %s, line: %d, fun: %s, inode:%px, file: %px, info:%px, &info->lock: %px, &info->lock.owner:%px, info->fbops->fb_release: %px.", __FILE__, __LINE__, __FUNCTION__, inode, file, info, &info->lock, &info->lock.owner, info->fbops->fb_release);
+ 	put_fb_info(info);
+ 	return 0;
+ }
+@@ -1642,6 +1677,7 @@ MODULE_PARM_DESC(lockless_register_fb,
+ 
+ static int do_register_framebuffer(struct fb_info *fb_info)
+ {
++	dump_stack();
+ 	int i, ret;
+ 	struct fb_event event;
+ 	struct fb_videomode mode;
+@@ -1665,6 +1701,7 @@ static int do_register_framebuffer(struct fb_info *fb_info)
+ 	fb_info->node = i;
+ 	atomic_set(&fb_info->count, 1);
+ 	mutex_init(&fb_info->lock);
++	printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px.", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner);
+ 	mutex_init(&fb_info->mm_lock);
+ 
+ 	fb_info->dev = device_create(fb_class, fb_info->device,
+@@ -1729,21 +1766,28 @@ unlock_console:
+ 
+ static int unbind_console(struct fb_info *fb_info)
+ {
++	dump_stack();
+ 	struct fb_event event;
+ 	int ret;
+ 	int i = fb_info->node;
+ 
+-	if (i < 0 || i >= FB_MAX || registered_fb[i] != fb_info)
++	printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner :%px, i: %d, FB_MAX: %d, registered_fb[i]: %px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, i, FB_MAX, registered_fb[i]);
++
++	if (i < 0 || i >= FB_MAX || registered_fb[i] != fb_info) {
++		printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner :%px, i: %d\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, i);
+ 		return -EINVAL;
++	}
+ 
+ 	console_lock();
+ 	if (!lock_fb_info(fb_info)) {
++		printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner :%px, i: %d\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, i);
+ 		console_unlock();
+ 		return -ENODEV;
+ 	}
+ 
+ 	event.info = fb_info;
+ 	ret = fb_notifier_call_chain(FB_EVENT_FB_UNBIND, &event);
++	printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner: %px, i: %d, ret: %d\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, i, ret);
+ 	unlock_fb_info(fb_info);
+ 	console_unlock();
+ 
+@@ -1754,24 +1798,34 @@ static int __unlink_framebuffer(struct fb_info *fb_info);
+ 
+ static int do_unregister_framebuffer(struct fb_info *fb_info)
+ {
++	// dump_stack();
++	// printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px.", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner);
++	printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy);
+ 	struct fb_event event;
+ 	int ret;
+ 
+ 	ret = unbind_console(fb_info);
+ 
+-	if (ret)
+-		return -EINVAL;
++	if (ret) {
++		printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px, ret: %d\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy, ret);
++		// return -EINVAL;
++	}
+ 
+ 	pm_vt_switch_unregister(fb_info->dev);
+ 
+ 	__unlink_framebuffer(fb_info);
++	printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy);
+ 	if (fb_info->pixmap.addr &&
+ 	    (fb_info->pixmap.flags & FB_PIXMAP_DEFAULT))
+ 		kfree(fb_info->pixmap.addr);
+ 	fb_destroy_modelist(&fb_info->modelist);
++	printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy);
+ 	registered_fb[fb_info->node] = NULL;
++	printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy);
+ 	num_registered_fb--;
++	printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy);
+ 	fb_cleanup_device(fb_info);
++	printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy);
+ 	event.info = fb_info;
+ 	console_lock();
+ 	fb_notifier_call_chain(FB_EVENT_FB_UNREGISTERED, &event);
+@@ -1787,6 +1841,7 @@ static int __unlink_framebuffer(struct fb_info *fb_info)
+ 	int i;
+ 
+ 	i = fb_info->node;
++	printk("file: %s, line: %d, fun: %s, fb_info: %px, i:%d, registered_fb[i]: %px, fb_info->dev:%px", __FILE__, __LINE__, __FUNCTION__, fb_info, fb_info->node, registered_fb[i], fb_info->dev);
+ 	if (i < 0 || i >= FB_MAX || registered_fb[i] != fb_info)
+ 		return -EINVAL;
+ 
+@@ -1795,6 +1850,8 @@ static int __unlink_framebuffer(struct fb_info *fb_info)
+ 		fb_info->dev = NULL;
+ 	}
+ 
++	printk("file: %s, line: %d, fun: %s, fb_info: %px, i:%d, registered_fb[i]: %px, fb_info->dev:%px", __FILE__, __LINE__, __FUNCTION__, fb_info, fb_info->node, registered_fb[i], fb_info->dev);
++
+ 	return 0;
+ }
+ 
+@@ -1806,7 +1863,7 @@ int unlink_framebuffer(struct fb_info *fb_info)
+ 	if (ret)
+ 		return ret;
+ 
+-	unbind_console(fb_info);
++	unbind_console(fb_info); // unbind_console return 1，这里没处理返回值
+ 
+ 	return 0;
+ }
+-- 
+2.20.1
+

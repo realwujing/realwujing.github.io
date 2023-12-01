@@ -1,5 +1,9 @@
 # udl mutex_lock panic
 
+bug: https://pms.uniontech.com/bug-view-229783.html
+
+## panic 日志
+
 ```c
 <1>[ 1264.589996s][pid:18926,cpu6,lshw-bak,5]Unable to handle kernel paging request at virtual address 0000080100000058
 <1>[ 1264.590026s][pid:18926,cpu6,lshw-bak,6]Mem abort info:
@@ -126,6 +130,8 @@
 <4>[  123.176391s][pid:6550,cpu6,lshw-bak,3]---[ end trace 3c5fedb524b1a208 ]---
 <0>[  123.176391s][pid:6550,cpu6,lshw-bak,4]Kernel panic - not syncing: Fatal exception
 ```
+
+### 初步定位报错代码
 
 ```c
 ./scripts/faddr2line vmlinux __mutex_lock.isra.1+0x608/0x700
@@ -305,9 +311,13 @@ Num     Type           Disp Enb Address            What
 
 当前已用slub_debug、kasan排查内存错误问题，没发现问题。
 
-华为klua-kernel无法开启lockdep检测死锁，当前比较怀疑死锁导致oops。
+华为klua-kernel开启lockdep检测死锁，也没观察到死锁问题。
+
+接下来进一步分析方向只能转向udl驱动模块代码执行流程。
 
 ## 1060
+
+此问题在1060上不存在。
 
 ```bash
 root@uos-PC:/home/uos# uname -a
@@ -406,6 +416,8 @@ root@uos-PC:/home/uos# cat /etc/product-info
 
 ## 1070
 
+1070上插拔udl设备内核panic。
+
 ```bash
 root@uos-PC:/home/uos# uname -a
 Linux uos-PC 4.19.71-arm64-desktop-udl-slub-debug-kasan-lockdep #1 SMP PREEMPT Fri Nov 24 09:13:36 CST 2023 aarch64 GNU/Linux
@@ -423,7 +435,7 @@ root@uos-PC:/home/uos# cat /etc/product-info
 ```
 
 ```bash
-dmesg -C && (dmesg -w -T | tee udl_1070.log)
+dmesg -C && (dmesg -w -T | tee udl_1070_5.log)
 ```
 
 ### 插入udl设备
@@ -559,168 +571,6 @@ udl_driver_create drivers/gpu/drm/udl/udl_drv.c:83 102
 
 ### 拔掉udl设备
 
-#### udl_device
-
-```c
-struct udl_device { // drivers/gpu/drm/udl/udl_drv.h:52
-	struct drm_device drm;
-	struct device *dev;
-	struct usb_device *udev;
-	struct drm_crtc *crtc;
-
-	struct mutex gem_lock;
-
-	int sku_pixel_limit;
-
-	struct urb_list urbs;
-	atomic_t lost_pixels; /* 1 = a render op failed. Need screen refresh */
-
-	struct udl_fbdev *fbdev;
-	char mode_buf[1024];
-	uint32_t mode_buf_len;
-	atomic_t bytes_rendered; /* raw pixel-bytes driver asked to render */
-	atomic_t bytes_identical; /* saved effort with backbuffer comparison */
-	atomic_t bytes_sent; /* to usb, after compression including overhead */
-	atomic_t cpu_kcycles_used; /* transpired during pixel processing */
-};
-```
-
-```c
-struct udl_device *udl
-        -> struct drm_device drm       // /dev/dri/card1
-        // drivers/gpu/drm/udl/udl_fb.c:454 struct udl_device *udl = to_udl(dev); 根据drm_device获取udl设备
-        -> struct udl_fbdev *fbdev
-                -> struct drm_fb_helper helper
-                        -> struct fb_info *fbdev // dev/fb1
-```
-
-```c
- 970 void drm_fb_helper_fini(struct drm_fb_helper *fb_helper)   // drivers/gpu/drm/drm_fb_helper.c
- 971 {
- 972         struct fb_info *info;
- 973 
- 974         if (!fb_helper)
- 975                 return;
- 976 
- 977         fb_helper->dev->fb_helper = NULL;
- 978 
- 979         printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm     _fbdev_emulation);
- 980         if (!drm_fbdev_emulation) { // drm_fbdev_emulation = false 980行才会return，994行才会执行不到
- 981                 printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fb     dev, drm_fbdev_emulation);
- 982                 return;
- 983         }
- 984 
- 985         cancel_work_sync(&fb_helper->resume_work);
- 986         cancel_work_sync(&fb_helper->dirty_work);
- 987 
- 988         info = fb_helper->fbdev;
- 989         if (info) {
- 990                 if (info->cmap.len)
- 991                         fb_dealloc_cmap(&info->cmap);   // drivers/video/fbdev/core/fbcmap.c:147
- 992                 printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb     _helper->fbdev, drm_fbdev_emulation, info);
- 993                 framebuffer_release(info);      // drivers/video/fbdev/core/fbsysfs.c:89
- 994                 printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb     _helper->fbdev, drm_fbdev_emulation, info);
- 995         }
- 996         fb_helper->fbdev = NULL; // 这里已经将fb_helper->fbdev设置为NULL
- 997 
- 998         printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper-     >fbdev, drm_fbdev_emulation, info);
- 999 
-1000         mutex_lock(&kernel_fb_helper_lock);
-1001         if (!list_empty(&fb_helper->kernel_fb_list)) {
-1002                 printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px, &fb_helper->kernel_fb_list: %px", __FILE__, __LI     NE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info, &fb_helper->kernel_fb_list);
-1003                 list_del(&fb_helper->kernel_fb_list);
-1004                 if (list_empty(&kernel_fb_helper_list)) {
-1005                         printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px, &kernel_fb_helper_list: %px", __FILE__,      __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info, &kernel_fb_helper_list);
-1006                         unregister_sysrq_key('v', &sysrq_drm_fb_helper_restore_op);
-1007                 }
-1008         }
-1009         mutex_unlock(&kernel_fb_helper_lock);
-1010 
-1011         mutex_destroy(&fb_helper->lock);
-1012         drm_fb_helper_crtc_free(fb_helper);
-1013 
-1014 }
-1015 EXPORT_SYMBOL(drm_fb_helper_fini);
-```
-
-```c
-494 void udl_fbdev_cleanup(struct drm_device *dev)      // drivers/gpu/drm/udl/udl_fb.c:501
-495 {
-496         struct udl_device *udl = to_udl(dev);
-497         printk("file: %s, func: %s, line: %d, dev->dev->init_name: %s\n", __FILE__, __func__, __LINE__, dev->dev->init_name);
-498         if (!udl->fbdev)
-499                 return;
-500 
-501         udl_fbdev_destroy(dev, udl->fbdev);
-502         kfree(udl->fbdev);
-503         udl->fbdev = NULL;
-504 }
-```
-
-```c
-grep 'kfree(udl);' . -inr --color --include=*.c 
-./drivers/gpu/drm/udl/udl_drv.c:95:             kfree(udl);
-./drivers/gpu/drm/udl/udl_drv.c:107:            kfree(udl);
-```
-
-struct udl_device *udl 没有主动释放，存在内存泄漏，在内核线程pid:494,cpu7,kworker/7:2退出时回收内存。
-
-```c
-970 void drm_fb_helper_fini(struct drm_fb_helper *fb_helper) // drivers/gpu/drm/drm_fb_helper.c:970
- 971 {
- 972         struct fb_info *info;
- 973 
- 974         if (!fb_helper)
- 975                 return;
- 976 
- 977         fb_helper->dev->fb_helper = NULL;
- 978 
- 979         printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emu     lation);
- 980         if (!drm_fbdev_emulation) { // drm_fbdev_emulation = false 980行才会return，994行才会执行不到
- 981                 printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_f     bdev_emulation);
- 982                 return;
- 983         }
- 984 
- 985         cancel_work_sync(&fb_helper->resume_work);
- 986         cancel_work_sync(&fb_helper->dirty_work);
- 987 
- 988         info = fb_helper->fbdev;
- 989         if (info) {
- 990                 printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->f     bdev, drm_fbdev_emulation, info);
- 991                 if (info->cmap.len)
- 992                         fb_dealloc_cmap(&info->cmap);   // drivers/video/fbdev/core/fbcmap.c:147
- 993                 printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->f     bdev, drm_fbdev_emulation, info);
- 994                 framebuffer_release(info);      // drivers/video/fbdev/core/fbsysfs.c:89 这里释放内存了，但是drivers/video/fbdev/core/fbmem.c中的registered_fb指针数组还是指向这里，有进程改写这块内存，再次访问就会导致踩内存
- 995                 printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->f     bdev, drm_fbdev_emulation, info);
- 996         }
- 997         fb_helper->fbdev = NULL;
- 998 
- 999         printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, dr     m_fbdev_emulation, info);
-1000 
-1001         mutex_lock(&kernel_fb_helper_lock);
-1002         if (!list_empty(&fb_helper->kernel_fb_list)) {
-1003                 printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px, &fb_helper->kernel_fb_list: %px", __FILE__, __LINE__, __FU     NCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info, &fb_helper->kernel_fb_list);
-1004                 list_del(&fb_helper->kernel_fb_list);
-1005                 if (list_empty(&kernel_fb_helper_list)) {
-1006                         printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px, &kernel_fb_helper_list: %px", __FILE__, __LINE__,      __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info, &kernel_fb_helper_list);
-1007                         unregister_sysrq_key('v', &sysrq_drm_fb_helper_restore_op);
-1008                 }
-1009         }
-1010         mutex_unlock(&kernel_fb_helper_lock);
-1011 
-1012         mutex_destroy(&fb_helper->lock);
-1013         drm_fb_helper_crtc_free(fb_helper);
-1014 
-1015 }
-1016 EXPORT_SYMBOL(drm_fb_helper_fini);
-```
-
-drivers/gpu/drm/drm_fb_helper.c:994行的framebuffer_release(info)释放了内存，但是drivers/video/fbdev/core/fbmem.c中的registered_fb指针数组还是指向这里，有进程改写这块内存，再次访问就会导致踩内存。
-
-usb_disconnect、drm_release都会执行到unbind_console，但是unbind_console返回值是1，导致在drivers/video/fbdev/core/fbmem.c:1811结束，导致1823行的registered_fb[fb_info->node] = NULL;无法执行。
-
-执行lshw命令的时候，会通过registered_fb[i]得到指针*info, mutex_lock(&info->lock)加锁的时候刚好访问了被改写的内存，导致踩内存，进一步内核 oops panic。
-
 #### usb_disconnect
 
 ```c
@@ -816,13 +666,9 @@ unlink_framebuffer 于 drivers/video/fbdev/core/fbmem.c:1863
 1948:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,1][USB3][xhci_notifier_fn]-
 ```
 
-##### log
+##### unbind_console
 
-1909:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,2]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: ffffffd0efecda80, &fb_info->lock:ffffffd0efecda90, &fb_info->lock.owner :ffffffd0efecda90, i: 1, FB_MAX: 32, registered_fb[i]: ffffffd0efecda80
-
-1910:[三 11月 29 19:09:56 2023] [pid:5,cpu0,kworker/0:0,3]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: ffffffd0efecda80, &fb_info->lock:ffffffd0efecda90, &fb_info->lock.owner: ffffffd0efecda90, i: 1, ret: 1
-
-##### fb_notifier_call_chain
+fb_notifier_call_chain这里return 1, 导致后续流程终止。
 
 ```c
 1767 static int unbind_console(struct fb_info *fb_info)
@@ -991,15 +837,287 @@ unregister_framebuffer+0x34/0x50:
 unregister_framebuffer 于 drivers/video/fbdev/core/fbmem.c:1923
 ```
 
-##### log
+### 踩内存根因定位
 
-1013575 2023-11-29 17:22:49 uos-PC kernel: [ 3252.154296s][pid:3987,cpu3,Xwayland,7]shy ==> file: drivers/gpu/drm/udl/udl_fb.c, func: udl_fbdev_cleanup, line: 490, dev->dev->init_name: 0
-1013576 2023-11-29 17:22:49 uos-PC kernel: [ 3252.154327s][pid:3987,cpu3,Xwayland,8]shy ==> udl_fbdev_destroy
+#### udl_device
 
-1013597 2023-11-29 17:22:49 uos-PC kernel: [ 3252.154846s][pid:3987,cpu3,Xwayland,9]file: drivers/video/fbdev/core/fbmem.c, line: 1803, fun: do_unregister_framebuffer, fb->info: ffffffd3b636e480, &fb_info->lock:ffffffd3b636e490,         &fb_info->lock.owner:ffffffd3b636e490, fb_info->fbops: ffffff90025f3160, fb_info->fbops->fb_destroy:0000000000000000
+```c
+struct udl_device { // drivers/gpu/drm/udl/udl_drv.h:52
+	struct drm_device drm;
+	struct device *dev;
+	struct usb_device *udev;
+	struct drm_crtc *crtc;
 
-1013619 2023-11-29 17:22:49 uos-PC kernel: [ 3252.155334s][pid:3987,cpu3,Xwayland,1]file: drivers/video/fbdev/core/fbmem.c, line: 1774, fun: unbind_console, fb->info: ffffffd3b636e480, &fb_info->lock:ffffffd3b636e490, &fb_info->l        ock.owner :ffffffd3b636e490, i: 2, FB_MAX: 32, registered_fb[i]: ffffffd3b636e480
+	struct mutex gem_lock;
 
-1013620 2023-11-29 17:22:49 uos-PC kernel: [ 3252.155364s][pid:3987,cpu3,Xwayland,2]file: drivers/video/fbdev/core/fbmem.c, line: 1790, fun: unbind_console, fb->info: ffffffd3b636e480, &fb_info->lock:ffffffd3b636e490, &fb_info->l        ock.owner: ffffffd3b636e490, i: 2, ret: 1
+	int sku_pixel_limit;
 
-1013621 2023-11-29 17:22:49 uos-PC kernel: [ 3252.155395s][pid:3987,cpu3,Xwayland,3]file: drivers/video/fbdev/core/fbmem.c, line: 1810, fun: do_unregister_framebuffer, fb->info: ffffffd3b636e480, &fb_info->lock:ffffffd3b636e490,         &fb_info->lock.owner:ffffffd3b636e490, fb_info->fbops: ffffff90025f3160, fb_info->fbops->fb_destroy:0000000000000000, ret: 1
+	struct urb_list urbs;
+	atomic_t lost_pixels; /* 1 = a render op failed. Need screen refresh */
+
+	struct udl_fbdev *fbdev;
+	char mode_buf[1024];
+	uint32_t mode_buf_len;
+	atomic_t bytes_rendered; /* raw pixel-bytes driver asked to render */
+	atomic_t bytes_identical; /* saved effort with backbuffer comparison */
+	atomic_t bytes_sent; /* to usb, after compression including overhead */
+	atomic_t cpu_kcycles_used; /* transpired during pixel processing */
+};
+```
+
+```c
+struct udl_device *udl
+        -> struct drm_device drm       // /dev/dri/card1
+        // drivers/gpu/drm/udl/udl_fb.c:454 struct udl_device *udl = to_udl(dev); 根据drm_device获取udl设备
+        -> struct udl_fbdev *fbdev
+                -> struct drm_fb_helper helper
+                        -> struct fb_info *fbdev // dev/fb1
+```
+
+#### fb_info内存分配
+
+```c
+916 struct fb_info *drm_fb_helper_alloc_fbi(struct drm_fb_helper *fb_helper) // drivers/gpu/drm/drm_fb_helper.c:923
+ 917 {
+ 918         dump_stack();
+ 919         struct device *dev = fb_helper->dev->dev;
+ 920         struct fb_info *info;
+ 921         int ret;
+ 922 
+ 923         info = framebuffer_alloc(0, dev);
+ 924         if (!info)
+ 925                 return ERR_PTR(-ENOMEM);
+ 926 
+ 927         ret = fb_alloc_cmap(&info->cmap, 256, 0);
+ 928         if (ret)
+ 929                 goto err_release;
+ 930 
+ 931         info->apertures = alloc_apertures(1);
+ 932         if (!info->apertures) {
+ 933                 ret = -ENOMEM;
+ 934                 goto err_free_cmap;
+ 935         }
+ 936 
+ 937         fb_helper->fbdev = info;
+ 938 
+ 939         return info;
+ 940 
+ 941 err_free_cmap:
+ 942         fb_dealloc_cmap(&info->cmap);
+ 943 err_release:
+ 944         framebuffer_release(info);
+ 945         return ERR_PTR(ret);
+ 946 }
+ 947 EXPORT_SYMBOL(drm_fb_helper_alloc_fbi);
+```
+
+```c
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,8]Call trace:
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,9] dump_backtrace+0x0/0x2e0
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,0] show_stack+0x24/0x30
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,1] dump_stack+0xcc/0x10c
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,2] drm_fb_helper_alloc_fbi+0x24/0x108
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,3] udlfb_create+0x134/0x358 [udl]
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,4] __drm_fb_helper_initial_config_and_unlock+0x354/0x6c0
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,5] drm_fb_helper_initial_config+0x50/0x5c
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,6] udl_fbdev_init+0xf8/0x158 [udl]
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,7] udl_init+0x5f4/0x750 [udl]
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,8] udl_usb_probe+0x158/0x1b8 [udl]
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,9] usb_probe_interface+0x178/0x3e0
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,0] really_probe+0x280/0x520
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,1] driver_probe_device+0x88/0x1a8
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,2] __device_attach_driver+0x10c/0x170
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,3] bus_for_each_drv+0xf8/0x158
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,4] __device_attach+0x15c/0x1e8
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,5] device_initial_probe+0x24/0x30
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,6] bus_probe_device+0xf0/0x100
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,7] device_add+0x538/0x958
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,8] usb_set_configuration+0x730/0xca0
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,9] generic_probe+0x70/0xa0
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,0] usb_probe_device+0x68/0xb0
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,1] really_probe+0x280/0x520
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,2] driver_probe_device+0x88/0x1a8
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,3] __device_attach_driver+0x10c/0x170
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,4] bus_for_each_drv+0xf8/0x158
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,5] __device_attach+0x15c/0x1e8
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,6] device_initial_probe+0x24/0x30
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,7] bus_probe_device+0xf0/0x100
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,8] device_add+0x538/0x958
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,9] usb_new_device+0x424/0x998
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,0] hub_event+0xd08/0x1bd0
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,1] process_one_work+0x4fc/0xc80
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,2] worker_thread+0x80/0x700
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,3] kthread+0x208/0x218
+[五 12月  1 09:41:21 2023] [pid:49,cpu7,kworker/7:0,4] ret_from_fork+0x10/0x1c
+```
+
+#### fb_info内存释放
+
+```c
+ 970 void drm_fb_helper_fini(struct drm_fb_helper *fb_helper)   // drivers/gpu/drm/drm_fb_helper.c
+ 971 {
+ 972         struct fb_info *info;
+ 973 
+ 974         if (!fb_helper)
+ 975                 return;
+ 976 
+ 977         fb_helper->dev->fb_helper = NULL;
+ 978 
+ 979         printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm     _fbdev_emulation);
+ 980         if (!drm_fbdev_emulation) { // drm_fbdev_emulation = false 980行才会return，994行才会执行不到
+ 981                 printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fb     dev, drm_fbdev_emulation);
+ 982                 return;
+ 983         }
+ 984 
+ 985         cancel_work_sync(&fb_helper->resume_work);
+ 986         cancel_work_sync(&fb_helper->dirty_work);
+ 987 
+ 988         info = fb_helper->fbdev;
+ 989         if (info) {
+ 990                 if (info->cmap.len)
+ 991                         fb_dealloc_cmap(&info->cmap);   // drivers/video/fbdev/core/fbcmap.c:147
+ 992                 printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb     _helper->fbdev, drm_fbdev_emulation, info);
+ 993                 framebuffer_release(info);      // drivers/video/fbdev/core/fbsysfs.c:89
+ 994                 printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb     _helper->fbdev, drm_fbdev_emulation, info);
+ 995         }
+ 996         fb_helper->fbdev = NULL; // 这里已经将fb_helper->fbdev设置为NULL
+ 997 
+ 998         printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper-     >fbdev, drm_fbdev_emulation, info);
+ 999 
+1000         mutex_lock(&kernel_fb_helper_lock);
+1001         if (!list_empty(&fb_helper->kernel_fb_list)) {
+1002                 printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px, &fb_helper->kernel_fb_list: %px", __FILE__, __LI     NE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info, &fb_helper->kernel_fb_list);
+1003                 list_del(&fb_helper->kernel_fb_list);
+1004                 if (list_empty(&kernel_fb_helper_list)) {
+1005                         printk("file: %s, line: %d, fun: %s, dev: %px, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px, &kernel_fb_helper_list: %px", __FILE__,      __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info, &kernel_fb_helper_list);
+1006                         unregister_sysrq_key('v', &sysrq_drm_fb_helper_restore_op);
+1007                 }
+1008         }
+1009         mutex_unlock(&kernel_fb_helper_lock);
+1010 
+1011         mutex_destroy(&fb_helper->lock);
+1012         drm_fb_helper_crtc_free(fb_helper);
+1013 
+1014 }
+1015 EXPORT_SYMBOL(drm_fb_helper_fini);
+```
+
+```c
+494 void udl_fbdev_cleanup(struct drm_device *dev)      // drivers/gpu/drm/udl/udl_fb.c:501
+495 {
+496         struct udl_device *udl = to_udl(dev);
+497         printk("file: %s, func: %s, line: %d, dev->dev->init_name: %s\n", __FILE__, __func__, __LINE__, dev->dev->init_name);
+498         if (!udl->fbdev)
+499                 return;
+500 
+501         udl_fbdev_destroy(dev, udl->fbdev);
+502         kfree(udl->fbdev);
+503         udl->fbdev = NULL;
+504 }
+```
+
+```c
+grep 'kfree(udl);' . -inr --color --include=*.c 
+./drivers/gpu/drm/udl/udl_drv.c:95:             kfree(udl);
+./drivers/gpu/drm/udl/udl_drv.c:107:            kfree(udl);
+```
+
+struct udl_device *udl 没有主动释放，存在内存泄漏，在udl驱动模块卸载后内核会自动回收内存。
+
+```c
+970 void drm_fb_helper_fini(struct drm_fb_helper *fb_helper) // drivers/gpu/drm/drm_fb_helper.c:970
+ 971 {
+ 972         struct fb_info *info;
+ 973 
+ 974         if (!fb_helper)
+ 975                 return;
+ 976 
+ 977         fb_helper->dev->fb_helper = NULL;
+ 978 
+ 979         printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emu     lation);
+ 980         if (!drm_fbdev_emulation) { // drm_fbdev_emulation = false 980行才会return，994行才会执行不到
+ 981                 printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, drm_f     bdev_emulation);
+ 982                 return;
+ 983         }
+ 984 
+ 985         cancel_work_sync(&fb_helper->resume_work);
+ 986         cancel_work_sync(&fb_helper->dirty_work);
+ 987 
+ 988         info = fb_helper->fbdev;
+ 989         if (info) {
+ 990                 printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->f     bdev, drm_fbdev_emulation, info);
+ 991                 if (info->cmap.len)
+ 992                         fb_dealloc_cmap(&info->cmap);   // drivers/video/fbdev/core/fbcmap.c:147
+ 993                 printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->f     bdev, drm_fbdev_emulation, info);
+ 994                 framebuffer_release(info);      // drivers/video/fbdev/core/fbsysfs.c:89 这里释放内存了，但是drivers/video/fbdev/core/fbmem.c中的registered_fb指针数组还是指向这里，有进程改写这块内存，再次访问就会导致踩内存
+ 995                 printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->f     bdev, drm_fbdev_emulation, info);
+ 996         }
+ 997         fb_helper->fbdev = NULL;
+ 998 
+ 999         printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px", __FILE__, __LINE__, __FUNCTION__, fb_helper, fb_helper->fbdev, dr     m_fbdev_emulation, info);
+1000 
+1001         mutex_lock(&kernel_fb_helper_lock);
+1002         if (!list_empty(&fb_helper->kernel_fb_list)) {
+1003                 printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px, &fb_helper->kernel_fb_list: %px", __FILE__, __LINE__, __FU     NCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info, &fb_helper->kernel_fb_list);
+1004                 list_del(&fb_helper->kernel_fb_list);
+1005                 if (list_empty(&kernel_fb_helper_list)) {
+1006                         printk("file: %s, line: %d, fun: %s, fb_helper: %px, fb_helper->fbdev: %px, drm_fbdev_emulation: %d, info: %px, &kernel_fb_helper_list: %px", __FILE__, __LINE__,      __FUNCTION__, fb_helper, fb_helper->fbdev, drm_fbdev_emulation, info, &kernel_fb_helper_list);
+1007                         unregister_sysrq_key('v', &sysrq_drm_fb_helper_restore_op);
+1008                 }
+1009         }
+1010         mutex_unlock(&kernel_fb_helper_lock);
+1011 
+1012         mutex_destroy(&fb_helper->lock);
+1013         drm_fb_helper_crtc_free(fb_helper);
+1014 
+1015 }
+1016 EXPORT_SYMBOL(drm_fb_helper_fini);
+```
+
+drivers/gpu/drm/drm_fb_helper.c:994行的framebuffer_release(info)释放了内存，但是drivers/video/fbdev/core/fbmem.c中的registered_fb指针数组还是指向这里，有进程改写这块内存，再次访问就会导致踩内存。
+
+usb_disconnect、drm_release都会执行到unbind_console，但是unbind_console返回值是1，导致在drivers/video/fbdev/core/fbmem.c:1811结束，导致1823行的registered_fb[fb_info->node] = NULL;无法执行。
+
+执行lshw命令的时候，会通过registered_fb[i]得到指针*info, mutex_lock(&info->lock)加锁的时候刚好访问了被改写的内存，导致踩内存，进一步内核 oops panic。
+
+#### 修复方案
+
+```bash
+git remote -v
+origin  ssh://ut004487@gerrit.uniontech.com:29418/klua-kernel (fetch)
+origin  ssh://ut004487@gerrit.uniontech.com:29418/klua-kernel (push)
+```
+
+```bash
+git branch 
+* klua-need-merge
+```
+
+```bash
+git log --oneline 
+81089c9ab (HEAD -> klua-need-merge) usb: udl: fix udl mutex_lock panic
+3611cebb9 (origin/klua-need-merge) init/version.c: add linux_commitid_banner for init/main.c
+```
+
+0001-usb-udl-fix-udl-mutex_lock-panic.patch中有本次提交的补丁。
+
+```c
+commit 81089c9ab03834e2331711d0abeff4b39d596152 (HEAD -> klua-need-merge)
+Author: yuanqiliang <yuanqiliang@uniontech.com>
+Date:   Fri Dec 1 09:52:05 2023 +0800
+
+    usb: udl: fix udl mutex_lock panic
+    
+    drivers/video/fbdev/core/fbmem.c: 1811
+    
+    1807         ret = unbind_console(fb_info);
+    1808
+    1809         if (ret) {
+    1810                 printk("file: %s, line: %d, fun: %s, fb->info: %px, &fb_info->lock:%px, &fb_info->lock.owner:%px, fb_info->fbops: %px, fb_info->fbops->fb_destroy:%px, ret: %d\n", __FILE__, __LINE__, __FUNCTION__, fb_info, &fb_info->lock, &fb_info->lock.owner, fb_info->fbops, fb_info->fbops->fb_destroy, ret);
+    1811                 // return -EINVAL;
+    1812         }
+    
+    bug: https://pms.uniontech.com/bug-view-229783.html
+    Change-Id: Idde9b9486bb4d559852b5d2ec4fd071bc3bd5534
+    Signed-off-by: yuanqiliang <yuanqiliang@uniontech.com>
+```
