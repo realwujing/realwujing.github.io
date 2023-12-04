@@ -31,7 +31,7 @@ if version >= 603
 endif  
   
 " 设置配色方案  
-colorscheme murphy  
+"colorscheme murphy  
 "colorscheme molokai
 
 "字体   
