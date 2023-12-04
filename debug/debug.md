@@ -233,12 +233,6 @@
 
 - [How to use kgdb over ethernet (kgdboe)?](https://stackoverflow.com/questions/21300420/how-to-use-kgdb-over-ethernet-kgdboe)
 
-## sysrq-trigger
-
-- [<font color=Red>Linux Magic System Request Key Hacks</font>](https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/sysrq.html)
-- [【调试】sysRq按键使用方法](https://zhuanlan.zhihu.com/p/608948166)
-- [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
-
 ## ptrace
 
 - [Linux GDB的实现原理](https://www.toutiao.com/article/7199644016760554018)
@@ -269,11 +263,6 @@
 - [<font color=Red>golang-进程崩溃后如何输出错误日志？core dump</font>](https://blog.csdn.net/xmcy001122/article/details/105665732)
 - [coredumpctl - Retrieve and process saved core dumps and metadata](https://www.man7.org/linux/man-pages/man1/coredumpctl.1.html)
 
-## dump_stack
-
-- [【Linux内核调试-dump_stack】](https://blog.csdn.net/cddchina/article/details/125175118)
-- [dump_stack 实现分析](https://blog.csdn.net/sunshineywz/article/details/105763755)
-
 ## objdump
 
 - [<font color=Red>objdump反汇编用法示例</font>](https://blog.csdn.net/zoomdy/article/details/50563680)
@@ -297,6 +286,16 @@
 
     这将生成一个包含反汇编代码和源代码行号信息的输出。你可以查看这个输出来分析程序的汇编代码。
 
+## dmesg
+
+- [Linux命令之dmesg命令](https://blog.csdn.net/carefree2005/article/details/120737841)
+- [Linux dmesg命令](https://mp.weixin.qq.com/s/6qpMiy6L5qIazmqNopCd0A)
+
+## dump_stack
+
+- [【Linux内核调试-dump_stack】](https://blog.csdn.net/cddchina/article/details/125175118)
+- [dump_stack 实现分析](https://blog.csdn.net/sunshineywz/article/details/105763755)
+
 ## oops
 
 - [<font color=Red>Linux 死机复位(oops、panic)问题定位指南</font>](https://blog.csdn.net/pwl999/article/details/106931608)
@@ -305,10 +304,96 @@
 - [kernel oops (Unable to handle kernel paging request at virtual address )三种内存访问异常](https://blog.csdn.net/xl19862005/article/details/107605906)
 - [LSM Oops 内存错误根因分析与解决](https://www.toutiao.com/article/6868133266415845892)
 
-## dmesg
+## panic
 
-- [Linux命令之dmesg命令](https://blog.csdn.net/carefree2005/article/details/120737841)
-- [Linux dmesg命令](https://mp.weixin.qq.com/s/6qpMiy6L5qIazmqNopCd0A)
+更改 sysctl 中的某些内核参数可能导致系统不稳定，甚至触发 panic。以下是一些可能会导致系统问题的内核参数，慎重修改：
+
+- kernel.panic
+
+    作用： 设置系统 panic 的延迟时间。
+
+    潜在风险： 如果将其设置得太低，系统可能会在不必要的情况下触发 panic。
+
+    ```bash
+    sysctl -w kernel.panic=5
+    ```
+
+- kernel.panic_on_oops
+
+    作用： 控制在发生内核 oops（可修复的内核错误）时是否触发 panic。
+
+    潜在风险： 如果启用，系统在 oops 时会触发 panic。
+
+    ```bash
+    sysctl -w kernel.panic_on_oops=1
+    ```
+
+- kernel.hung_task_panic
+
+    作用： 控制在系统检测到“挂起”任务（可能是由于死锁）时是否触发 panic。
+
+    潜在风险： 如果启用，系统在检测到挂起任务时会触发 panic。
+
+    ```bash
+    sysctl -w kernel.hung_task_panic=1
+    ```
+
+- kernel.hung_task_timeout_secs：
+
+    作用： 该参数用于设置系统在检测到任务挂起（hanging task）的超时时间。如果系统中的某个任务在指定的时间内没有恢复正常运行，内核将记录信息并采取相应的措施。
+
+    默认值： 通常情况下，kernel.hung_task_timeout_secs 的默认值是 120 秒（2 分钟）。
+
+    潜在风险： 如果将其设置得太低，系统可能会对一些正常但需要一定时间来完成的任务误报为挂起状态。
+
+    ```bash
+    sysctl -w kernel.hung_task_timeout_secs=60
+    ```
+
+- vm.panic_on_oom
+
+    作用： 控制在发生内存耗尽（OOM）时是否触发 panic。
+
+    潜在风险： 如果启用，系统在内存不足时会触发 panic。
+
+    ```bash
+    sysctl -w vm.panic_on_oom=1
+    ```
+
+- kernel.softlockup_panic
+
+    作用： 控制在系统检测到软锁定（内核中的无限循环）时是否触发 panic。
+    潜在风险： 如果启用，系统在检测到软锁定时会触发 panic。
+
+    ```bash
+    sysctl -w kernel.softlockup_panic=1
+    ```
+
+### 任务挂起和睡眠的区别？
+
+任务挂起（hanging task）和睡眠（sleep）是两个概念，涉及到系统中运行的进程和线程的状态。
+
+任务挂起（Hanging Task）：
+
+- 定义： 任务挂起指的是系统中的某个任务（通常是一个进程或线程）由于某种原因而无法继续正常执行，长时间处于一种不响应的状态。
+
+- 原因： 挂起可能是由于死锁、资源争用、错误的程序行为或其他系统问题引起的。
+
+- 检测： 内核通过监视任务的执行状态和超时机制来检测是否有任务挂起。
+
+- 处理： 一旦检测到任务挂起，系统可能会采取相应的措施，例如记录相关信息、触发系统 panic，以及尝试恢复任务的正常执行。
+
+睡眠（Sleep）：
+
+- 定义： 睡眠指的是一个任务主动放弃 CPU 并进入一种等待状态，等待某个事件的发生。在睡眠期间，任务通常不占用 CPU 时间，并允许其他任务执行。
+
+- 原因： 任务可能进入睡眠状态以等待外部事件，例如等待 I/O 操作完成、等待定时器触发、等待信号量或锁的释放等。
+
+- 检测： 睡眠通常是由任务自己通过系统调用（如 sleep、wait）或内核操作引起的，不同于挂起的 passivity（被动性）。
+
+- 处理： 睡眠是一种正常的任务状态，系统不会像在检测到挂起时那样采取紧急措施。任务会在等待的事件发生时被唤醒，继续执行。
+
+总的来说，任务挂起通常是一种异常状态，可能导致系统不稳定，而睡眠是一种正常的、被控制的状态，允许任务在需要时主动放弃 CPU 并等待特定条件的发生。
 
 ## kdump
 
@@ -324,6 +409,19 @@
 - [<font color=Red>centos7 kdump、crash调试内核</font>](https://blog.csdn.net/weixin_45030965/article/details/124960224)
 - [Linux Kdump 机制详解](https://www.toutiao.com/article/7103352500777910821/)
 - [x86 and x86_64 - Some systems can take advantage of the nmi watchdog. Add nmi_watchdog=1 to the boot commandline to turn on the watchdog. The nmi interrupt will call panic if activated.](https://manpages.debian.org/testing/kdump-tools/kdump-tools.5.en.html)
+
+### sysrq-trigger
+
+- [<font color=Red>Linux Magic System Request Key Hacks</font>](https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/sysrq.html)
+- [【调试】sysRq按键使用方法](https://zhuanlan.zhihu.com/p/608948166)
+- [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
+
+“Alt+PrtSc+C”：手动触发kdump，触发后服务器会自动重启。（正常情况下勿按该组合键。）
+
+```bash
+echo 1 > /proc/sys/kernel/sysrq
+echo c > /proc/sysrq-trigger
+```
 
 ### carsh
 
