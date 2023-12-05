@@ -447,6 +447,14 @@ crash 是一个用于分析 Linux 内核转储文件（core dump）的工具，�
 
 总的来说，crash 提供了一种非常强大的工具，用于在不影响系统运行的情况下进行 Linux 内核的调试和分析。
 
+    ```bash
+    git clone https://github.com/crash-utility/crash.git
+    cd crash/
+    git checkout -b 8.0.4 8.0.4
+    make -j16
+    sudo make install
+    ```
+
 - [Linux crash 调试环境搭建](https://blog.csdn.net/qq_42931917/article/details/108236139)
 - [linux内核学习-Linux内核程序调试工具Crash的安装](https://www.cnblogs.com/ssyfj/p/16278883.html)
 - [dump分析工具_ubantu18.04内核奔溃调试工具Crash的搭建](https://blog.csdn.net/weixin_39545102/article/details/111215997)
