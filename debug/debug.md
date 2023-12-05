@@ -3,10 +3,13 @@
 ## 调试工具
 
 - [<font color=Red>Linux 程序开发常用调试工具合集</font>](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&mid=2247483984&idx=2&sn=2672096af3ab1844e7b6d0b6e9de802b&chksm=f96870a4ce1ff9b2183f17c2873f1a35b418469dde92eb4e49f9d3de073aeafb87fe4c5b0002&scene=21#wechat_redirect)
-- [Linux C/C++ 调试的那些“歪门邪道”](https://mp.weixin.qq.com/s/t0BidHMCGqTftchGUU5otw)
 - [Linux内核调试方法](https://blog.csdn.net/u013253075/article/details/120569270)
 - [全面剖析Linux kernel的调试debug技术](https://zhuanlan.zhihu.com/p/543103513)
 - [内核earlyprintk选项](https://blog.csdn.net/sinat_20184565/article/details/111875638)
+
+## fadd2line
+
+- [<font color=Red>https://github.com/torvalds/linux/blob/master/scripts/faddr2line</font>](https://github.com/torvalds/linux/blob/master/scripts/faddr2line)
 
 ## Binutils
 
@@ -17,22 +20,27 @@
 
 - [Linux下addr2line命令用法](https://blog.csdn.net/fengbingchun/article/details/119980076)
 
-### fadd2line
-
-- [<font color=Red>https://github.com/torvalds/linux/blob/master/scripts/faddr2line</font>](https://github.com/torvalds/linux/blob/master/scripts/faddr2line)
-
-### symbols
-
-- [deb debug package-标准的 debian / ubuntu 打 deb 包，通过将可执行文件的符号表通过剥离成独立的 dbg 包，称为 debug package](http://sunyongfeng.com/201802/linux/debian_debug_package)
-- [17GDB使用符号表调试release程序](https://www.cnblogs.com/qiumingcheng/p/15821919.html)
-- [使用GDB调试将符号表与程序分离后的可执行文件](https://www.cnblogs.com/dongc/p/9690754.html)
-- [使用strip, eu-strip, objcopy等剥离与导回符号表及调试信息](https://blog.csdn.net/nirendao/article/details/104107608)
-- [Ubuntu 21.10 安装调试符号](https://blog.csdn.net/dwh0403/article/details/123551691)
+### nm
 
 - [linux——nm命令：查看符号表](https://blog.csdn.net/lgfun/article/details/103600880)
+
+#### symbols
+
+- [deb debug package-标准的 debian / ubuntu 打 deb 包，通过将可执行文件的符号表通过剥离成独立的 dbg 包，称为 debug package](http://sunyongfeng.com/201802/linux/debian_debug_package)
+
+- [Ubuntu 21.10 安装调试符号](https://blog.csdn.net/dwh0403/article/details/123551691)
+
+#### 内核符号表
+
 - [Linux System.map文件](https://blog.csdn.net/ysbj123/article/details/51233618)
 - [linux之vmlinux、vmlinuz、System.map和/proc/kallsyms简介](https://blog.csdn.net/weixin_45030965/article/details/125055828)
 - [Linux内核：符号表详解](https://zhuanlan.zhihu.com/p/445864686)
+
+#### strip
+
+- [使用strip, eu-strip, objcopy等剥离与导回符号表及调试信息](https://blog.csdn.net/nirendao/article/details/104107608)
+- [17GDB使用符号表调试release程序](https://www.cnblogs.com/qiumingcheng/p/15821919.html)
+- [使用GDB调试将符号表与程序分离后的可执行文件](https://www.cnblogs.com/dongc/p/9690754.html)
 
 ### strings
 
@@ -54,7 +62,30 @@
 
 - [linux中的strings命令简介](https://zhuanlan.zhihu.com/p/383038723)
 
-### gdb
+### objdump
+
+- [<font color=Red>objdump反汇编用法示例</font>](https://blog.csdn.net/zoomdy/article/details/50563680)
+- [反汇编代码格式](https://blog.csdn.net/kunkliu/article/details/82992361)
+
+- objdump 反汇编代码带行号:
+
+    ```bash
+    objdump -d -l -S your_binary_file
+    ```
+
+    这个命令中的参数含义如下：
+
+    -d：表示进行反汇编。
+
+    -l：表示生成包含行号信息的输出。
+
+    -S：表示同时输出源代码。
+
+    将 your_binary_file 替换为你要反汇编的二进制文件的路径。
+
+    这将生成一个包含反汇编代码和源代码行号信息的输出。你可以查看这个输出来分析程序的汇编代码。
+
+## gdb
 
 - [<font color=Red>gdb调试常用命令</font>](https://www.cnblogs.com/tzj-kernel/p/14909077.html)
 - [GDB调试](https://blog.codekissyoung.com/C%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1/GDB%E8%B0%83%E8%AF%95%E5%99%A8)
@@ -69,6 +100,7 @@
 - [Linux下GDB调试指令汇总](https://zhuanlan.zhihu.com/p/71519244)
 - [linux gdb详解](https://www.jianshu.com/p/adcf474f5561)
 - [LINUX下GDB的使用方法(简单说说)_longfan的博客-CSDN博客_gdb](https://blog.csdn.net/awm_kar98/article/details/82840811)
+- [Linux C/C++ 调试的那些“歪门邪道”](https://mp.weixin.qq.com/s/t0BidHMCGqTftchGUU5otw)
 
 #### gef
 
@@ -112,11 +144,17 @@
 
 #### gdb assembly
 
+- [gdb反汇编disassemble](https://blog.csdn.net/qq_28499879/article/details/120670684)
+
+    ```bash
+    (gdb) disassemble /m main
+    ```
+
 - [GDB 单步调试汇编](https://www.bbsmax.com/A/mo5kQN04zw/)
 - [<font color=Red>汇编语言和gdb调试汇编</font>](https://zhuanlan.zhihu.com/p/410215049)
 - [静态链接符号地址重定位直观描述](https://mp.weixin.qq.com/s/cq0iHepG_xXKXHLlQpPGZw)
 
-#### gdb源码路径
+#### gdb设置源码路径
 
 - [https://sourceware.org/gdb/current/onlinedocs/gdb/Source-Path.html#index-set-substitute_002dpath](https://sourceware.org/gdb/current/onlinedocs/gdb/Source-Path.html#index-set-substitute_002dpath)
 
@@ -293,29 +331,6 @@
 - [<font color=Red>golang-进程崩溃后如何输出错误日志？core dump</font>](https://blog.csdn.net/xmcy001122/article/details/105665732)
 - [coredumpctl - Retrieve and process saved core dumps and metadata](https://www.man7.org/linux/man-pages/man1/coredumpctl.1.html)
 
-## objdump
-
-- [<font color=Red>objdump反汇编用法示例</font>](https://blog.csdn.net/zoomdy/article/details/50563680)
-- [反汇编代码格式](https://blog.csdn.net/kunkliu/article/details/82992361)
-
-- objdump 反汇编代码带行号:
-
-    ```bash
-    objdump -d -l -S your_binary_file
-    ```
-
-    这个命令中的参数含义如下：
-
-    -d：表示进行反汇编。
-
-    -l：表示生成包含行号信息的输出。
-
-    -S：表示同时输出源代码。
-
-    将 your_binary_file 替换为你要反汇编的二进制文件的路径。
-
-    这将生成一个包含反汇编代码和源代码行号信息的输出。你可以查看这个输出来分析程序的汇编代码。
-
 ## dmesg
 
 - [Linux命令之dmesg命令](https://blog.csdn.net/carefree2005/article/details/120737841)
@@ -333,6 +348,9 @@
 - [如何开机进入Linux命令行](https://www.linuxprobe.com/boot-into-linuxcli.html)
 - [kernel oops (Unable to handle kernel paging request at virtual address )三种内存访问异常](https://blog.csdn.net/xl19862005/article/details/107605906)
 - [LSM Oops 内存错误根因分析与解决](https://www.toutiao.com/article/6868133266415845892)
+
+- [【Linux】内核oops/缺页异常分析](https://blog.csdn.net/qq_21688871/article/details/131114564)
+- [ARM Linux Oops使用小结](http://blog.chinaunix.net/uid-27159438-id-3280213.html)
 
 ## panic
 

@@ -45,11 +45,9 @@
 - [2.4.2 死锁的处理策略-预防死锁（破坏互斥条件、破坏不可剥夺条件、破坏请求和保持条件、破坏循环等待条件）](https://blog.csdn.net/qq_26553393/article/details/122281044)
 - [<font color=Red>Linux下排除死锁详细教程（基于C++11、GDB）</font>](https://blog.csdn.net/zsiming/article/details/126695393)
 - [【开发工具】【lockdep】Linux内核死锁检测工具（lockdep）的使用](https://blog.csdn.net/Ivan804638781/article/details/100740857)
-  - [【Linux】内核oops/缺页异常分析](https://blog.csdn.net/qq_21688871/article/details/131114564)
-  - [ARM Linux Oops使用小结](http://blog.chinaunix.net/uid-27159438-id-3280213.html)
+
   - [linux同步机制 - mutex lock](https://zhuanlan.zhihu.com/p/364130923)
 - [手画图解 | 关于死锁，面试的一切都在这里了](https://mp.weixin.qq.com/s/Jjio-cNapfUMBqEOefi1og)
-- [<font color=Red>内存泄漏检测工具valgrind神器</font>](https://zhuanlan.zhihu.com/p/75416381)
 - [<font color=Red>多线程检测工具ThreadSanitizer 与 Helgrind 的使用</font>](https://zhuanlan.zhihu.com/p/446932523)
 
 #### watchdog
