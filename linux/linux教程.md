@@ -408,6 +408,14 @@
 
 - [Linux PATH环境变量及作用（初学者必读）](http://c.biancheng.net/view/5876.html)
 - [Environment variables (简体中文)](https://wiki.archlinux.org/title/Environment_variables_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87))
+- [<font color=Red>Linux环境变量及其加载顺序</font>](https://blog.csdn.net/niaooer/article/details/100305567)
+
+  在 Ubuntu 等使用 PAM（Pluggable Authentication Modules）的系统中，/etc/environment 是在 PAM 模块中读取的，而 /etc/profile 是由 Bourne Shell（例如 Bash）在启动时读取的。
+
+  具体来说，在用户登录时，PAM 模块首先读取 /etc/environment 中的环境变量，然后 Bash 或其他 Bourne Shell 在启动时读取 /etc/profile。
+
+  所以，/etc/environment 的环境变量会影响整个系统的默认环境，而 /etc/profile 主要影响用户登录 Shell 时的环境。
+
 - [<font color=Red>Linux设置PATH环境变量的几个地方和设置方法</font>](https://blog.csdn.net/Kruck/article/details/50977880)
 - [Ubuntu环境变量——添加与删除_Beanocean-CSDN博客_ubuntu删除环境变量](https://blog.csdn.net/beanocean/article/details/14677833)
 - [<font color=Red>Linux添加路径到PATH环境变量</font>](https://www.cnblogs.com/windyvalley/p/linux_path_append.html)
