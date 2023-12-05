@@ -395,6 +395,7 @@
 
 总的来说，任务挂起通常是一种异常状态，可能导致系统不稳定，而睡眠是一种正常的、被控制的状态，允许任务在需要时主动放弃 CPU 并等待特定条件的发生。
 
+
 ## kdump
 
 - [<font color=Red>Documentation for Kdump - The kexec-based Crash Dumping Solution</font>](https://www.kernel.org/doc/html/latest/admin-guide/kdump/kdump.html)
@@ -415,14 +416,6 @@
 - [<font color=Red>centos7 kdump、crash调试内核</font>](https://blog.csdn.net/weixin_45030965/article/details/124960224)
 - [Linux Kdump 机制详解](https://www.toutiao.com/article/7103352500777910821/)
 - [x86 and x86_64 - Some systems can take advantage of the nmi watchdog. Add nmi_watchdog=1 to the boot commandline to turn on the watchdog. The nmi interrupt will call panic if activated.](https://manpages.debian.org/testing/kdump-tools/kdump-tools.5.en.html)
-
-### sysrq-trigger
-
-- [<font color=Red>Linux Magic System Request Key Hacks</font>](https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/sysrq.html)
-- [【调试】sysRq按键使用方法](https://zhuanlan.zhihu.com/p/608948166)
-- [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
-
-“Alt+PrtSc+C”：手动触发kdump，触发后服务器会自动重启。（正常情况下勿按该组合键。）
 
 ```bash
 echo 1 > /proc/sys/kernel/sysrq
@@ -458,6 +451,14 @@ crash 是一个用于分析 Linux 内核转储文件（core dump）的工具，�
 - [Linux crash 调试环境搭建](https://blog.csdn.net/qq_42931917/article/details/108236139)
 - [linux内核学习-Linux内核程序调试工具Crash的安装](https://www.cnblogs.com/ssyfj/p/16278883.html)
 - [dump分析工具_ubantu18.04内核奔溃调试工具Crash的搭建](https://blog.csdn.net/weixin_39545102/article/details/111215997)
+
+### sysrq-trigger
+
+- [<font color=Red>Linux Magic System Request Key Hacks</font>](https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/sysrq.html)
+- [【调试】sysRq按键使用方法](https://zhuanlan.zhihu.com/p/608948166)
+- [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
+
+“Alt+PrtSc+C”：手动触发kdump，触发后服务器会自动重启。（正常情况下勿按该组合键。）
 
 ## windebug
 
