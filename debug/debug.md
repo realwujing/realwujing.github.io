@@ -395,7 +395,6 @@
 
 总的来说，任务挂起通常是一种异常状态，可能导致系统不稳定，而睡眠是一种正常的、被控制的状态，允许任务在需要时主动放弃 CPU 并等待特定条件的发生。
 
-
 ## kdump
 
 - [<font color=Red>Documentation for Kdump - The kexec-based Crash Dumping Solution</font>](https://www.kernel.org/doc/html/latest/admin-guide/kdump/kdump.html)
@@ -422,7 +421,7 @@ echo 1 > /proc/sys/kernel/sysrq
 echo c > /proc/sysrq-trigger
 ```
 
-### carsh
+## carsh
 
 crash 是一个用于分析 Linux 内核转储文件（core dump）的工具，允许在不中断系统运行的情况下进行诊断。以下是 crash 的一些基本原理：
 
@@ -452,13 +451,18 @@ crash 是一个用于分析 Linux 内核转储文件（core dump）的工具，�
 - [linux内核学习-Linux内核程序调试工具Crash的安装](https://www.cnblogs.com/ssyfj/p/16278883.html)
 - [dump分析工具_ubantu18.04内核奔溃调试工具Crash的搭建](https://blog.csdn.net/weixin_39545102/article/details/111215997)
 
-### sysrq-trigger
+## sysrq-trigger
 
 - [<font color=Red>Linux Magic System Request Key Hacks</font>](https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/sysrq.html)
 - [【调试】sysRq按键使用方法](https://zhuanlan.zhihu.com/p/608948166)
 - [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
 
 “Alt+PrtSc+C”：手动触发kdump，触发后服务器会自动重启。（正常情况下勿按该组合键。）
+
+## pstore
+
+- [linux获取oops的dmesg之ramoops](https://blog.csdn.net/faxiang1230/article/details/103778193)
+- [Linux pstore 实现自动“抓捕”内核崩溃日志](https://www.toutiao.com/article/6888542275027075591/)
 
 ## windebug
 
