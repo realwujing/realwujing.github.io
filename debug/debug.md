@@ -124,6 +124,36 @@
 - [GDB指定和修改搜素源码文件的路径（set substitute-path）](https://blog.csdn.net/jiafu1115/article/details/31790757)
 - [<font color=Red>源码路径查看与设置</font>](https://www.jianshu.com/p/9c211e92d25e)
 - [替换查找源文件的目录 set substitute-path from-path to-path](https://wizardforcel.gitbooks.io/100-gdb-tips/content/substitute-path.html)
+
+    ```bash
+    cd lshw-02.18.85.3
+    gdb lshw
+    b main
+    gef➤  l
+    75      in lshw.cc
+    gef➤  info source
+    Current source file is lshw.cc
+    Compilation directory is /build/lshw-02.18.85.3/src
+    Located in /build/lshw-02.18.85.3/src/lshw.cc
+    Source language is c++.
+    Producer is GNU C++14 8.3.0 -mtune=generic -march=x86-64 -g -O2.
+    Compiled with DWARF 2 debugging format.
+    Does not include preprocessor macro info.
+    gef➤  set substitute-path /build/lshw-02.18.85.3/src ./src
+    gef➤  l
+    warning: Source file is more recent than executable.
+    75      int main(int argc,
+    76      char **argv)
+    77      {
+    78
+    79      #ifndef NONLS
+    80        setlocale (LC_ALL, "");
+    81        bindtextdomain (PACKAGE, LOCALEDIR);
+    82        bind_textdomain_codeset (PACKAGE, "UTF-8");
+    83        textdomain (PACKAGE);
+    84      #endif
+    ```
+
 - [<font color=Red>gdb调试解决找不到源代码的问题</font>](https://blog.csdn.net/nicholas_duan/article/details/117515155)
 - [gdb分析core文件找不到源码](https://blog.csdn.net/jackgo73/article/details/120431609)
 - [gdb调试解决找不到源代码的问题](https://blog.csdn.net/albertsh/article/details/107437084)
