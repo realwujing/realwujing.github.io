@@ -363,7 +363,7 @@
     潜在风险： 如果将其设置得太低，系统可能会在不必要的情况下触发 panic。
 
     ```bash
-    sysctl -w kernel.panic=5
+    sysctl -w kernel.panic=10
     ```
 
 - kernel.panic_on_oops
@@ -410,12 +410,31 @@
 
 - kernel.softlockup_panic
 
-    作用： 控制在系统检测到软锁定（内核中的无限循环）时是否触发 panic。
+    作用： 软死锁是指内核中的一个任务（线程）由于长时间未能释放CPU而导致系统失去响应时是否触发 panic。
+
     潜在风险： 如果启用，系统在检测到软锁定时会触发 panic。
 
     ```bash
     sysctl -w kernel.softlockup_panic=1
     ```
+
+- kernel.panic_on_warn
+
+  作用： 这个参数控制内核在遇到某些非致命性错误（例如警告）时是否触发 panic。
+
+  0： 禁用自动重启。内核在遇到警告时不会触发系统重启，而是继续正常运行。
+
+  1： 启用自动重启。当内核发生某些警告时，系统会自动重启。
+
+  ```bash
+    sysctl -w kernel.panic_on_warn=1
+    ```
+
+  在调试或特殊情况下，禁用自动重启可能有助于保留内核警告的信息以进行故障排除。在生产环境中，通常将其设置为非0，以确保系统在遇到某些严重问题时能够自动重启，尽早恢复正常运行状态。
+
+`sysctl -w kernel.hung_task_panic=1`、`echo 1 > /proc/sys/kernel/hung_task_panic`这两种方法都是在运行时直接生效的，而且都是暂时性的修改。
+
+如果你希望修改是持久的，可以将相应的配置写入 `/etc/sysctl.conf` 文件，并使用 `sysctl -p` 命令使其生效。
 
 ### 任务挂起和睡眠的区别？
 
