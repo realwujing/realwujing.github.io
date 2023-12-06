@@ -257,6 +257,18 @@
 
 - [<font color=Red>Linux下常用的串口助手 —— minicom、putty、cutecom</font>](https://blog.csdn.net/Mculover666/article/details/87647810)
 
+    主机上执行：
+
+    ```bash
+    sudo minicom -s -D /dev/ttyUSB0
+    ```
+
+    被调式机上执行：
+
+    ```bash
+    sudo cutecom
+    ```
+
 - 查询串口波特率：
 
     ```bash
