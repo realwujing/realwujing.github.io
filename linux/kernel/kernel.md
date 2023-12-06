@@ -36,7 +36,7 @@
 - [The kernel's command-line parameters](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html)
 
     ```bash
-    initcall_debug no_console_suspend ignore_loglevel initcall_blacklist=phytium_spi_driver_init module_blacklist=spi_phytium_plat dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p'
+    initcall_debug no_console_suspend ignore_loglevel initcall_blacklist=phytium_spi_driver_init module_blacklist=spi_phytium_plat dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p; file *usb* +p'
     ```
 
 - grub中不加载某个驱动
