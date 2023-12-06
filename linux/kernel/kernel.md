@@ -65,7 +65,7 @@
 - [使用dynamic debug帮助调试](https://blog.csdn.net/dachai/article/details/103807529)
 
     ```bash
-    dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p'
+    dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p; file *usb* +p'
     ```
 
 - [dev_info、dev_dbg、dev_err及动态调试](https://blog.csdn.net/daocaokafei/article/details/116102271)
