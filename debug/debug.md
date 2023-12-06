@@ -263,6 +263,18 @@
     sudo minicom -s -D /dev/ttyUSB0
     ```
 
+    `ls -l /dev/ttyUSB0`找不到设备时可以尝试手动添加:
+
+    ```bash
+    lsusb
+    ```
+
+    ![ls -l /dev/ttyUSB0](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20231206170018.png)
+
+    ```bash
+    echo '067b 23a3' > /sys/bus/usb-serial/drivers/generic/new_id
+    ```
+
     被调式机上执行：
 
     ```bash
