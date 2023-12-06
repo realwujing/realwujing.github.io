@@ -34,7 +34,25 @@
 ### 启动参数
 
 - [The kernel's command-line parameters](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html)
-- grub中不加载某个驱动 `initcall_blacklist=phytium_spi_driver_init`
+
+    ```bash
+    initcall_debug no_console_suspend ignore_loglevel initcall_blacklist=phytium_spi_driver_init module_blacklist=spi_phytium_plat dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p'
+    ```
+
+- grub中不加载某个驱动
+
+    `initcall_blacklist=phytium_spi_driver_init`
+
+    ```bash
+    initcall_blacklist=  [KNL] Do not execute a comma-separated list of
+                        initcall functions.  Useful for debugging built-in
+                        modules and initcalls.
+    ```
+
+    ```bash
+    module_blacklist=  [KNL] Do not load a comma-separated list of
+                        modules.  Useful for debugging problem modules.
+    ```
 
 #### 日志
 
@@ -47,7 +65,7 @@
 - [使用dynamic debug帮助调试](https://blog.csdn.net/dachai/article/details/103807529)
 
     ```bash
-    initcall_debug ignore_loglelvel dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p'
+    dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p'
     ```
 
 - [dev_info、dev_dbg、dev_err及动态调试](https://blog.csdn.net/daocaokafei/article/details/116102271)
