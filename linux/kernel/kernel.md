@@ -165,7 +165,7 @@
 - [<font color=Red>initcall 机制</font>](https://www.bookstack.cn/read/linux-insides-zh/Concepts-linux-cpu-3.md)
 - [linux内核中do_initcalls函数的执行逻辑分析](https://m.elecfans.com/article/1980482.html)
 - [initcall_debug来查看开机慢问题](https://blog.csdn.net/rikeyone/article/details/84258391)
-- [<font color=Red>iLinux 各种 initcall 的调用原理</font>](https://blog.csdn.net/enlaihe/article/details/123904759)
+- [<font color=Red>Linux 各种 initcall 的调用原理</font>](https://blog.csdn.net/enlaihe/article/details/123904759)
 
 ## 根文件系统挂载
 
