@@ -460,6 +460,27 @@
 
 如果你希望修改是持久的，可以将相应的配置写入 `/etc/sysctl.conf` 文件，并使用 `sysctl -p` 命令使其生效。
 
+```bash
+sudo cat << EOF >> /etc/sysctl.conf
+
+# sysrq
+kernel.sysrq=1
+
+# panic
+kernel.panic=10
+kernel.panic_on_oops=1
+kernel.hung_task_panic=1
+kernel.hung_task_timeout_secs=60
+vm.panic_on_oom=1
+kernel.softlockup_panic=1
+kernel.panic_on_warn=1
+EOF
+```
+
+```bash
+sysctl -p
+```
+
 ### 任务挂起和睡眠的区别？
 
 任务挂起（hanging task）和睡眠（sleep）是两个概念，涉及到系统中运行的进程和线程的状态。
@@ -490,6 +511,10 @@
 
 - [<font color=Red>Documentation for Kdump - The kexec-based Crash Dumping Solution</font>](https://www.kernel.org/doc/html/latest/admin-guide/kdump/kdump.html)
 - [<font color=Red>How to on enable kernel crash dump on Debian Linux</font>](https://www.cyberciti.biz/faq/how-to-on-enable-kernel-crash-dump-on-debian-linux/)
+
+    ```bash
+    sudo apt install kdump-tools crash kexec-tools makedumpfile linux-image-$(uname -r)-dbg
+    ```
 
     ```bash
     cat /etc/default/grub.d/kdump-tools.cfg
