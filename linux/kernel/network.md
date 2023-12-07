@@ -110,6 +110,7 @@
 
 ## phy
 
+- [Linux 实现原理 — 网卡驱动程序初始化流程](https://mp.weixin.qq.com/s/jcolfo4bvKPS-eRdeCkRCg)
 - [PHY芯片快速深度理解（持续更新中……）](https://blog.csdn.net/qq_40715266/article/details/124095801)
 - [【网络驱动】ifconfig up 后内核网络驱动做了什么？](https://mp.weixin.qq.com/s/VQWEkycARPQ2pCpDxx_Rnw)
 
