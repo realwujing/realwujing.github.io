@@ -112,3 +112,7 @@
 
 - [PHY芯片快速深度理解（持续更新中……）](https://blog.csdn.net/qq_40715266/article/details/124095801)
 - [【网络驱动】ifconfig up 后内核网络驱动做了什么？](https://mp.weixin.qq.com/s/VQWEkycARPQ2pCpDxx_Rnw)
+
+## 扫描工具
+
+- [【工具更新】内网大杀器Fscan](https://mp.weixin.qq.com/s/HnerPmV34KWKLADVsEx5gA)
