@@ -107,3 +107,8 @@
 - [刚插上网线，电脑怎么知道自己的IP是什么？](https://mp.weixin.qq.com/s/siG1XMxQnduBWdY-hvQO8g)
 
 - [一张图了解八种流行的网络协议](https://mp.weixin.qq.com/s/f19jaSwKA0oTE87yAfyb2w)
+
+## phy
+
+- [PHY芯片快速深度理解（持续更新中……）](https://blog.csdn.net/qq_40715266/article/details/124095801)
+- [【网络驱动】ifconfig up 后内核网络驱动做了什么？](https://mp.weixin.qq.com/s/VQWEkycARPQ2pCpDxx_Rnw)
