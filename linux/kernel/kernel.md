@@ -20,6 +20,8 @@
 ## 启动管理
 
 - [Linux基础- Linux 启动过程](https://www.toutiao.com/article/7271522135665902115/)
+- [你知道Linux的启动过程吗？#程序员##Linux#](https://www.toutiao.com/article/7204305085835346467)
+    ![你知道Linux的启动过程吗？#程序员##Linux#](https://p3-sign.toutiaoimg.com/tos-cn-i-ezhpy3drpa/8e2accc090364ccf9792e064817f091e~tplv-obj:1280:1664.image?_iz=97245&from=post&lk3s=06827d14&x-expires=1709683200&x-signature=v3%2BYkklYHlTKCLZVdIGMx6SqcYQ%3D)
 - [<font color=Red>Linux系统启动管理</font>](http://c.biancheng.net/linux_tutorial/12/)
 - [<font color=Red>grub命令 – 交互式的管理GRUB引导程序</font>](https://www.linuxcool.com/grub)
 - [BIOS和grub](https://blog.csdn.net/qq_43178138/article/details/109524002)
