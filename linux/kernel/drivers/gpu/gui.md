@@ -28,3 +28,5 @@
 
 - [彻底理解显卡与显示器的关系](https://www.toutiao.com/article/7271816041196487229/)
 - [<font color=Red>「小白课程」openKylin登录&锁屏简要介绍</font>](https://www.toutiao.com/article/7174576146997625352)
+
+- [Ubuntu系统开机后类似死机（鼠标键盘失效 但系统时间仍在正常更新）解决办法](https://www.cnblogs.com/yutian-blogs/p/13549657.html)
