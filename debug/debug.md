@@ -390,6 +390,8 @@
     sysctl -w kernel.panic=10
     ```
 
+  - [<font color=Red>Linux kernel Panic后自动重启机器的设置</font>](https://blog.csdn.net/yihui8/article/details/46480627)
+
 - kernel.panic_on_oops
 
     作用： 控制在发生内核 oops（可修复的内核错误）时是否触发 panic。
