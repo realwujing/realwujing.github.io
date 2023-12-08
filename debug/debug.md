@@ -378,6 +378,8 @@
 
 ## panic
 
+- [Linux内核故障分类和排查](https://blog.csdn.net/rikeyone/article/details/105691909)
+
 更改 sysctl 中的某些内核参数可能导致系统不稳定，甚至触发 panic。以下是一些可能会导致系统问题的内核参数，慎重修改：
 
 - kernel.panic
