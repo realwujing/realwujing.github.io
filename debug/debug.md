@@ -576,6 +576,7 @@ sudo make install
 - [<font color=Red>Linux Magic System Request Key Hacks</font>](https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/sysrq.html)
 - [【调试】sysRq按键使用方法](https://zhuanlan.zhihu.com/p/608948166)
 - [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
+- [Linux死机解决办法](https://blog.csdn.net/openswc/article/details/9105071)
 
 “Alt+PrtSc+C”：手动触发kdump，触发后服务器会自动重启。（正常情况下勿按该组合键。）
 
