@@ -141,6 +141,7 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 #### printk
 
 - [Message logging with printk](https://www.kernel.org/doc/html/latest/core-api/printk-basics.html?highlight=loglevel)
+- [Linux 内核调试工具Printk介绍](https://mp.weixin.qq.com/s/Uaq-rm0SLmWUNZMw5krgsw)
 
 ## 内核 Makefile config
 
