@@ -2,6 +2,7 @@
 
 - [菜鸟也能懂的 - 音视频基础知识。](https://mp.weixin.qq.com/s/HzJyf9QLZYjRsacf_veK4g)
 - [耳机插头3.5 三段与四段 的区别](https://www.jianshu.com/p/9355acdfafb2)
+- [深度好文 | Android高性能音频解析](https://mp.weixin.qq.com/s/yQQ5q8vvi7ltVxVQrfcl0Q)
 
 ## alsa
 
