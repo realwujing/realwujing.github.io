@@ -1,5 +1,7 @@
 # assembly
 
+- [第2期 | x86指令集和ARM指令集的区别——从底层原理的角度来理解](https://mp.weixin.qq.com/s/qqjvXXKG-3TtUFeccQ7ZGQ)
+
 ## 汇编语言
 
 - [<font color=Red>图文详解通俗易懂的汇编语言寄存器</font>](https://www.jb51.net/article/230062.htm)
@@ -45,6 +47,7 @@
 - [关于汇编语言中PUSH和POP指令的一个小结](https://blog.csdn.net/qq_44288506/article/details/104767511)
 - [2020-2021-1 20209320 《Linux内核原理与分析》第二周作业](https://www.cnblogs.com/dyyblog/p/13812922.html)
 - [<font color=Red>初步分析汇编代码</font>](https://blog.csdn.net/assiduous_me/article/details/119488503)
+- [一起学习64位ARM平台稳定性分析：函数调用标准](https://mp.weixin.qq.com/s/HRoddV3KuKlTl-3if5HN_w)
 
 ## x86
 

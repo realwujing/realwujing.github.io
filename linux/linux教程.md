@@ -26,6 +26,7 @@
 
 - [汇总了89个系统相关的基本概念！](https://mp.weixin.qq.com/s/UN7lbdp6OardlqFUfyY-nQ)
 - [6个已弃用的Linux命令和您应该使用的替代工具](https://mp.weixin.qq.com/s/s3w1r5BCYAxAq2YQNHaRCw)
+- [技术硬核 | Linux基础操作命令记不住？把这个甩过去！](https://mp.weixin.qq.com/s/VJJWhPRIkAgZDT7D4J6AtQ)
 
 ## history
 
@@ -77,6 +78,7 @@
 
 ## 时间
 
+- [为什么计算机关机重启后的时间始终正确？](https://mp.weixin.qq.com/s/nKzLOfb5aZLXKBzKQmzXpw)
 - [linux中通过date命令获取昨天或明天时间的方法_花落花开，春去秋来！-CSDN博客](https://blog.csdn.net/GGxiaobai/article/details/53504629)
 
 ### 时间协议
@@ -427,6 +429,10 @@
 - [Linux 中 DISPLAY 环境变量设置——本地显示 Linux 服务器GUI程序](https://blog.csdn.net/qq_37698947/article/details/122361495)
 
 - [Linux MIME type](https://www.jianshu.com/p/4617e8e600ad)
+
+## 登录
+
+- [如何在Linux上查找上次登录信息？](https://www.toutiao.com/article/7246400362771612216/)
 
 ## ssh
 

@@ -1,6 +1,8 @@
 
 # network
 
+- [通俗理解数据中心CPU和GPU之后的第三颗关键芯片“DPU”](https://mp.weixin.qq.com/s/SVscsnpOAtsZ6IBk34AYug)
+
 ## 计算机网络
 
 - [计算机网络常见面试题](https://www.cnblogs.com/wuwuyong/p/12198928.html)
