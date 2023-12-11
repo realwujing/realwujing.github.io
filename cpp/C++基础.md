@@ -240,7 +240,7 @@
 
 #### 代码区、常量区、静态区（全局区）、堆区、栈区
 
-- [C语言中各变量/常量的存储模型——静态、全局、堆、栈梳理](https://blog.csdn.net/klq6743/article/details/82535173)
+- [C语言：内存分配---栈区、堆区、全局区、常量区和代码区](https://blog.csdn.net/MQ0522/article/details/114823770)
 - [<font color=Red>什么是代码区、常量区、静态区（全局区）、堆区、栈区？</font>](https://blog.csdn.net/u014470361/article/details/79297601)
 
 ### 虚拟内存
