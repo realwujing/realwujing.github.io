@@ -457,6 +457,10 @@
 
 - [首页>向日葵> Linux及国产化系统> Linux个人版（命令行版本）使用手册](https://service.oray.com/question/11017.html)
 
+### termux
+
+- [Termux 上运行SSH Server](https://zhuanlan.zhihu.com/p/226393968)
+
 ## crontab计划任务
 
 - [linux中crontab计划任务怎么删除?_LINUX_操作系统_脚本之家 (jb51.net)](https://www.jb51.net/LINUXjishu/717266.html)
