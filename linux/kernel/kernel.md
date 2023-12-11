@@ -200,6 +200,20 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 
 - [Linux内核模块HelloWorld](https://blog.csdn.net/u012184539/article/details/120326741)
 - [<font color=Red>Linux内核驱动学习-编写最简单Linux内核模块HelloWorld</font>](https://blog.csdn.net/weixin_46048542/article/details/123171177)
+
+    ```bash
+    KVERS = $(shell uname -r)
+    # Kernel modules
+    obj-m += hello.o
+    # Specify flags for the module compilation. 
+    #EXTRA_CFLAGS=-g -O0 
+    build: kernel_modules
+    kernel_modules: 
+    	make -C /lib/modules/$(KVERS)/build M=$(CURDIR) modules
+    clean:
+    	make -C /lib/modules/$(KVERS)/build M=$(CURDIR) clean
+    ```
+
 - [linux内核模块加载命令](https://blog.csdn.net/Lihuihui006/article/details/112199469)
 - [<font color=Red>Linux内核模块通信 | 符号导出解析</font>](https://mp.weixin.qq.com/s/zNfS2XULX2by1d2O_qQTtg)
 - [Linux驱动程序Makefile文件见解](https://juejin.cn/post/7242186721784938556)
