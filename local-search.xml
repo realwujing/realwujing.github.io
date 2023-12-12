@@ -105,6 +105,31 @@
   
   
   <entry>
+    <title>hdmi-audio</title>
+    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
+    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
+    
+    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>drivers</category>
+      
+      <category>sound</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>ALC885_1-1</title>
     <link href="/linux/kernel/drivers/sound/ALC885_1-1/"/>
     <url>/linux/kernel/drivers/sound/ALC885_1-1/</url>
@@ -130,31 +155,6 @@
       <tag>git</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>hdmi-audio</title>
-    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
-    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
-    
-    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>drivers</category>
-      
-      <category>sound</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -1072,6 +1072,39 @@
   
   
   <entry>
+    <title>bpftrace</title>
+    <link href="/debug/bpf/bpftrace/"/>
+    <url>/debug/bpf/bpftrace/</url>
+    
+    <content type="html"><![CDATA[<h1 id="bpftrace">bpftrace</h1><h2 id="source-install">source install</h2><p>git clone bpftrace:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/iovisor/bpftrace.git<br>git checkout -b v0.16.0<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure><h2 id="depends">depends</h2><p>查看宿主机已安装llvm版本：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg -l | grep libllvm<br></code></pre></td></tr></table></figure><p>结果输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">ii  libllvm11:amd64                               1:11.0.1-2                                 amd64        Modular compiler and toolchain technologies, runtime library<br></code></pre></td></tr></table></figure><p>下方安装llvm、clang时版本需要选定为11。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install -y \<br>bison \<br>cmake \<br>flex \<br>g++ \<br>git \<br>libelf-dev \<br>zlib1g-dev \<br>libfl-dev \<br>systemtap-sdt-dev \<br>binutils-dev \<br>libcereal-dev \<br>llvm-11-dev \<br>llvm-11-runtime \<br>libclang-11-dev \<br>clang-11 \<br>libpcap-dev \<br>libgtest-dev \<br>libgmock-dev \<br>asciidoctor<br></code></pre></td></tr></table></figure><h2 id="cmake-build-and-install">cmake build and install</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> bpftrace<br><span class="hljs-built_in">mkdir</span> build<br><span class="hljs-built_in">cd</span> build<br>../build-libs.sh<br>cmake -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release .. <span class="hljs-comment"># 此处关闭单元测试，是因为单元测试跑不过</span><br>make -j8<br>sudo make install<br></code></pre></td></tr></table></figure><h2 id="environment-variable-configuration">Environment variable configuration</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;export PATH=<span class="hljs-variable">$PATH</span>:/usr/local/share/bpftrace/tools&quot;</span> &gt;&gt; /etc/profile<br></code></pre></td></tr></table></figure><p>add /usr/local/share/bpftrace/tools to /etc/sudoers:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo visudo<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Defaults        secure_path=&quot;/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/bpftrace/tools&quot;<br></code></pre></td></tr></table></figure><h2 id="get-started">Get started</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo bpftrace -l<br>sudo execsnoop.bt<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://github.com/iovisor/bpftrace.git">https://github.com/iovisor/bpftrace.git</a></li><li><a href="https://github.com/iovisor/bpftrace/blob/master/INSTALL.md">bpftrace Install</a></li><li><a href="http://1.117.71.82/os/bpf%E4%B9%8B%E5%B7%85-%E6%B4%9E%E6%82%89linux%E7%B3%BB%E7%BB%9F%E5%92%8C%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD/">BPF之巅--洞悉Linux系统和应用性能</a></li><li><a href="https://blog.csdn.net/qq_31220203/article/details/118686482">BPF之巅--洞悉Linux系统和应用性能 Brendan Gregg</a></li><li><a href="https://pan.baidu.com/disk/pdfview?path=%2F%E6%88%91%E7%9A%84%E8%B5%84%E6%BA%90%2FBPF.Performance.Tools.2019.12.pdf&amp;fsid=947754417850329&amp;size=8414043">BPF.Performance.Tools.2019.12.pdf</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>debug</category>
+      
+      <category>bpf</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>git</tag>
+      
+      <tag>bpf</tag>
+      
+      <tag>linux</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>bcc</title>
     <link href="/debug/bpf/bcc/"/>
     <url>/debug/bpf/bcc/</url>
@@ -1101,39 +1134,6 @@
       <tag>HTML</tag>
       
       <tag>bcc</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>bpftrace</title>
-    <link href="/debug/bpf/bpftrace/"/>
-    <url>/debug/bpf/bpftrace/</url>
-    
-    <content type="html"><![CDATA[<h1 id="bpftrace">bpftrace</h1><h2 id="source-install">source install</h2><p>git clone bpftrace:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/iovisor/bpftrace.git<br>git checkout -b v0.16.0<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure><h2 id="depends">depends</h2><p>查看宿主机已安装llvm版本：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg -l | grep libllvm<br></code></pre></td></tr></table></figure><p>结果输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">ii  libllvm11:amd64                               1:11.0.1-2                                 amd64        Modular compiler and toolchain technologies, runtime library<br></code></pre></td></tr></table></figure><p>下方安装llvm、clang时版本需要选定为11。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install -y \<br>bison \<br>cmake \<br>flex \<br>g++ \<br>git \<br>libelf-dev \<br>zlib1g-dev \<br>libfl-dev \<br>systemtap-sdt-dev \<br>binutils-dev \<br>libcereal-dev \<br>llvm-11-dev \<br>llvm-11-runtime \<br>libclang-11-dev \<br>clang-11 \<br>libpcap-dev \<br>libgtest-dev \<br>libgmock-dev \<br>asciidoctor<br></code></pre></td></tr></table></figure><h2 id="cmake-build-and-install">cmake build and install</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> bpftrace<br><span class="hljs-built_in">mkdir</span> build<br><span class="hljs-built_in">cd</span> build<br>../build-libs.sh<br>cmake -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release .. <span class="hljs-comment"># 此处关闭单元测试，是因为单元测试跑不过</span><br>make -j8<br>sudo make install<br></code></pre></td></tr></table></figure><h2 id="environment-variable-configuration">Environment variable configuration</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;export PATH=<span class="hljs-variable">$PATH</span>:/usr/local/share/bpftrace/tools&quot;</span> &gt;&gt; /etc/profile<br></code></pre></td></tr></table></figure><p>add /usr/local/share/bpftrace/tools to /etc/sudoers:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo visudo<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Defaults        secure_path=&quot;/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/bpftrace/tools&quot;<br></code></pre></td></tr></table></figure><h2 id="get-started">Get started</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo bpftrace -l<br>sudo execsnoop.bt<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://github.com/iovisor/bpftrace.git">https://github.com/iovisor/bpftrace.git</a></li><li><a href="https://github.com/iovisor/bpftrace/blob/master/INSTALL.md">bpftrace Install</a></li><li><a href="http://1.117.71.82/os/bpf%E4%B9%8B%E5%B7%85-%E6%B4%9E%E6%82%89linux%E7%B3%BB%E7%BB%9F%E5%92%8C%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD/">BPF之巅--洞悉Linux系统和应用性能</a></li><li><a href="https://blog.csdn.net/qq_31220203/article/details/118686482">BPF之巅--洞悉Linux系统和应用性能 Brendan Gregg</a></li><li><a href="https://pan.baidu.com/disk/pdfview?path=%2F%E6%88%91%E7%9A%84%E8%B5%84%E6%BA%90%2FBPF.Performance.Tools.2019.12.pdf&amp;fsid=947754417850329&amp;size=8414043">BPF.Performance.Tools.2019.12.pdf</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>debug</category>
-      
-      <category>bpf</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>git</tag>
-      
-      <tag>bpf</tag>
-      
-      <tag>linux</tag>
       
     </tags>
     
@@ -2048,6 +2048,39 @@
   
   
   <entry>
+    <title>C++多线程</title>
+    <link href="/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/"/>
+    <url>/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/</url>
+    
+    <content type="html"><![CDATA[<h1 id="多线程">多线程</h1><h2 id="基础">基础</h2><ul><li><a href="https://mp.weixin.qq.com/s/Z07Hc9SRfGz6n8XhFHGVyA">高并发高性能服务器是如何实现的</a></li><li><a href="https://blog.csdn.net/github_37382319/article/details/108478589">看完这篇还不懂高并发中的线程与线程池你来打我(内含20张图)</a></li><li><a href="https://mp.weixin.qq.com/s/2eetiUAtedavND8c-sQM5w">Linux 多线程全面解析</a></li><li><a href="https://www.vxbus.com/post/linux/linux-kernel-source-code-data-structure-mutex.html">带你走进Linux内核源码中最常见的数据结构之「mutex」</a></li><li><a href="https://www.cnblogs.com/chen-cs/p/13055211.html">【C++多线程】join()及注意 - Chen沉尘 - 博客园 (cnblogs.com)</a></li></ul><h3 id="pthread">pthread</h3><ul><li><p><a href="https://mp.weixin.qq.com/s/CCzEFnyxXKp6a1iVSBD78w">写给大忙人看的进程和线程</a></p></li><li><p><a href="https://www.cnblogs.com/yjboke/p/8911220.html">详解多线程</a></p></li><li><p><a href="https://blog.csdn.net/w903414/article/details/110005612"><font color=Red>【Linux】多线程详解，一篇文章彻底搞懂多线程中各个难点！！！</font></a></p></li><li><p><a href="https://www.cnblogs.com/yinbiao/p/11190336.html"><font color=Red>【Linux】多线程同步的四种方式 - Y先森0.0 - 博客园 (cnblogs.com)</font></a></p></li><li><p><a href="https://blog.csdn.net/guoping16/article/details/6584043"><font color=Red>信号量函数（semget、semop、semctl）及其范例</font></a></p></li><li><p><a href="https://www.toutiao.com/article/6978007709220291111">「linux」深入理解RCU核心原理</a></p></li><li><p><a href="https://www.toutiao.com/article/7106767459059089923"><font color=Red>linux c/c++开发：多线程并发锁：互斥锁、自旋锁、原子操作、CAS</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/1-YpIr20KhYlpzub7JUU-A">Linux内核中的各种锁：信号量/互斥锁/读写锁/原子锁/自旋锁/内存屏障等</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/QITWTjR1T9eVBwPJ6sGZBA">详解Linux多线程中互斥锁、读写锁、自旋锁、条件变量、信号量</a></p></li><li><p><a href="https://blog.csdn.net/hairetz/article/details/4535920"><font color=Red>pthread_cond_wait()用法分析</font></a></p></li><li><p><a href="https://blog.csdn.net/wteruiycbqqvwt/article/details/99707580"><font color=Red>linux对线程等待和唤醒操作（pthread_cond_timedwait 详解）</font></a></p></li></ul><h4 id="信号量">信号量</h4><ul><li><a href="https://www.toutiao.com/article/7159838260959740457/">深入讲解读写信号量（上）</a></li><li><a href="https://www.toutiao.com/article/7159867610317390372">深入讲解读写信号量（下）</a></li></ul><h3 id="c11多线程">C++11多线程</h3><ul><li><p><a href="https://www.toutiao.com/article/7153230059011686948/">从无栈协程到 C++异步框架</a></p></li><li><p><a href="https://blog.csdn.net/fanyun_01/article/details/100178104">c++11中关于std::thread的join函数详解_fanyun的博客-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3284540.html">C++11 并发指南系列 - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3252041.html">C++11 并发指南五(std::condition_variable 详解) - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/feikudai8460/article/details/109604690">C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客_c++ notify_one</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/WsYEvRays-l58KAOwwzP-w">C++11是如何封装Thread库的？</a></p></li></ul><h3 id="死锁">死锁</h3><ul><li><a href="https://www.toutiao.com/article/7131231200097862158">手把手带你实现一个死锁检测组件</a></li><li><a href="https://blog.csdn.net/qq_26553393/article/details/122281044">2.4.2 死锁的处理策略-预防死锁（破坏互斥条件、破坏不可剥夺条件、破坏请求和保持条件、破坏循环等待条件）</a></li><li><a href="https://blog.csdn.net/zsiming/article/details/126695393"><font color=Red>Linux下排除死锁详细教程（基于C++11、GDB）</font></a></li><li><a href="https://blog.csdn.net/Ivan804638781/article/details/100740857">【开发工具】【lockdep】Linux内核死锁检测工具（lockdep）的使用</a></li><li><a href="https://www.cnblogs.com/arnoldlu/p/8580387.html"><font color=Red>Linux死锁检测-Lockdep</font></a><ul><li><a href="https://zhuanlan.zhihu.com/p/364130923">linux同步机制 - mutex lock</a></li></ul></li><li><a href="https://mp.weixin.qq.com/s/Jjio-cNapfUMBqEOefi1og">手画图解 | 关于死锁，面试的一切都在这里了</a></li><li><a href="https://zhuanlan.zhihu.com/p/446932523"><font color=Red>多线程检测工具ThreadSanitizer 与 Helgrind 的使用</font></a></li></ul><h4 id="watchdog">watchdog</h4><ul><li><p><a href="https://cloud.tencent.com/developer/article/1843976">禁用watchdog方法汇总</a></p></li><li><p><a href="https://blog.csdn.net/jiexijihe945/article/details/128021600">Linux watchdog配置</a></p></li><li><p><a href="https://blog.csdn.net/qq_28278079/article/details/104218588">Linux禁用watchdog</a></p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs text">nmi_watchdog=   [KNL,BUGS=X86] Debugging features for SMP kernels<br>                      Format: [panic,][nopanic,][num]<br>                      Valid num: 0 or 1<br>                      0 - turn hardlockup detector in nmi_watchdog off<br>                      1 - turn hardlockup detector in nmi_watchdog on<br>                      When panic is specified, panic when an NMI watchdog<br>                      timeout occurs (or &#x27;nopanic&#x27; to not panic on an NMI<br>                      watchdog, if CONFIG_BOOTPARAM_HARDLOCKUP_PANIC is set)<br>                      To disable both hard and soft lockup detectors,<br>                      please see &#x27;nowatchdog&#x27;.<br>                      This is useful when you use a panic=... timeout and<br>                      need the box quickly up again.<br><br>                      These settings can be accessed at runtime via<br>                      the nmi_watchdog and hardlockup_panic sysctls.<br></code></pre></td></tr></table></figure></li></ul><h2 id="线程池">线程池</h2><ul><li><a href="https://blog.csdn.net/MOU_IT/article/details/88712090">C++实现线程池_蓬莱道人的博客-CSDN博客_c++实现线程池</a></li><li><a href="https://www.cnblogs.com/oloroso/p/5881863.html">C++11的简单线程池代码阅读-乌合之众-博客园(cnblogs.com)</a></li><li><a href="https://wangpengcheng.github.io/2019/05/17/cplusplus_theadpool/"><font color=Red>C++ 线程池</font></a></li><li><a href="https://blog.csdn.net/zzhongcy/article/details/89453370">c++11：线程池，boost threadpool、thread_group example_zzhongcy的专栏-CSDN博客_boost 线程池</a></li><li><a href="https://www.cnblogs.com/lidabo/p/3328402.html">线程池原理及创建（C++实现）- DoubleLi -博客园(cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/cpper-kaixuan/articles/3640485.html">C++线程池原理及创建（转）- cpper-kaixuan -博客园(cnblogs.com)</a></li><li><a href="https://www.jb51.net/article/75295.htm">深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/qq_36359022/article/details/78796784">线程池原理及C语言实现线程池</a></li><li><a href="https://blog.csdn.net/robothj/article/details/80172287">c++/c实现线程池</a></li><li><a href="https://github.com/lzpong/threadpool/blob/master/Main.cpp">threadpool/Main.cpp at master · lzpong/threadpool (github.com)</a></li><li><a href="https://www.cnblogs.com/lzpong/p/6397997.html">基于C++11的线程池(threadpool),简洁且可以带任意多的参数 - _Ong - 博客园 (cnblogs.com)</a></li></ul><h2 id="数据库连接池">数据库连接池</h2><ul><li><a href="https://blog.csdn.net/weixin_43825537/article/details/104516274">C++数据库连接池的设计与实现_暮明已逝的博客-CSDN博客_c++数据库连接池</a></li><li><a href="https://www.toutiao.com/i7004734534830801420/">基于c++的数据库连接池的实现与理解(toutiao.com)</a></li></ul><h2 id="其他">其他</h2><ul><li><p><a href="https://www.coder.work/article/1954428">c++ - 执行并行任务而无需等待C++中的结果</a></p></li><li><p><a href="https://github.com/seanmiddleditch/jobxx" class="uri">https://github.com/seanmiddleditch/jobxx</a></p></li><li><p><a href="https://github.com/cdwfs/cds_job" class="uri">https://github.com/cdwfs/cds_job</a></p></li><li><p><a href="https://github.com/delscorcho/basic-job-system" class="uri">https://github.com/delscorcho/basic-job-system</a></p></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>C++基础</title>
     <link href="/cpp/C++%E5%9F%BA%E7%A1%80/"/>
     <url>/cpp/C++%E5%9F%BA%E7%A1%80/</url>
@@ -2075,39 +2108,6 @@
       <tag>HTML</tag>
       
       <tag>Java</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>C++多线程</title>
-    <link href="/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/"/>
-    <url>/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/</url>
-    
-    <content type="html"><![CDATA[<h1 id="多线程">多线程</h1><h2 id="基础">基础</h2><ul><li><a href="https://mp.weixin.qq.com/s/Z07Hc9SRfGz6n8XhFHGVyA">高并发高性能服务器是如何实现的</a></li><li><a href="https://blog.csdn.net/github_37382319/article/details/108478589">看完这篇还不懂高并发中的线程与线程池你来打我(内含20张图)</a></li><li><a href="https://mp.weixin.qq.com/s/2eetiUAtedavND8c-sQM5w">Linux 多线程全面解析</a></li><li><a href="https://www.vxbus.com/post/linux/linux-kernel-source-code-data-structure-mutex.html">带你走进Linux内核源码中最常见的数据结构之「mutex」</a></li><li><a href="https://www.cnblogs.com/chen-cs/p/13055211.html">【C++多线程】join()及注意 - Chen沉尘 - 博客园 (cnblogs.com)</a></li></ul><h3 id="pthread">pthread</h3><ul><li><p><a href="https://mp.weixin.qq.com/s/CCzEFnyxXKp6a1iVSBD78w">写给大忙人看的进程和线程</a></p></li><li><p><a href="https://www.cnblogs.com/yjboke/p/8911220.html">详解多线程</a></p></li><li><p><a href="https://blog.csdn.net/w903414/article/details/110005612"><font color=Red>【Linux】多线程详解，一篇文章彻底搞懂多线程中各个难点！！！</font></a></p></li><li><p><a href="https://www.cnblogs.com/yinbiao/p/11190336.html"><font color=Red>【Linux】多线程同步的四种方式 - Y先森0.0 - 博客园 (cnblogs.com)</font></a></p></li><li><p><a href="https://blog.csdn.net/guoping16/article/details/6584043"><font color=Red>信号量函数（semget、semop、semctl）及其范例</font></a></p></li><li><p><a href="https://www.toutiao.com/article/6978007709220291111">「linux」深入理解RCU核心原理</a></p></li><li><p><a href="https://www.toutiao.com/article/7106767459059089923"><font color=Red>linux c/c++开发：多线程并发锁：互斥锁、自旋锁、原子操作、CAS</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/1-YpIr20KhYlpzub7JUU-A">Linux内核中的各种锁：信号量/互斥锁/读写锁/原子锁/自旋锁/内存屏障等</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/QITWTjR1T9eVBwPJ6sGZBA">详解Linux多线程中互斥锁、读写锁、自旋锁、条件变量、信号量</a></p></li><li><p><a href="https://blog.csdn.net/hairetz/article/details/4535920"><font color=Red>pthread_cond_wait()用法分析</font></a></p></li><li><p><a href="https://blog.csdn.net/wteruiycbqqvwt/article/details/99707580"><font color=Red>linux对线程等待和唤醒操作（pthread_cond_timedwait 详解）</font></a></p></li></ul><h4 id="信号量">信号量</h4><ul><li><a href="https://www.toutiao.com/article/7159838260959740457/">深入讲解读写信号量（上）</a></li><li><a href="https://www.toutiao.com/article/7159867610317390372">深入讲解读写信号量（下）</a></li></ul><h3 id="c11多线程">C++11多线程</h3><ul><li><p><a href="https://www.toutiao.com/article/7153230059011686948/">从无栈协程到 C++异步框架</a></p></li><li><p><a href="https://blog.csdn.net/fanyun_01/article/details/100178104">c++11中关于std::thread的join函数详解_fanyun的博客-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3284540.html">C++11 并发指南系列 - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3252041.html">C++11 并发指南五(std::condition_variable 详解) - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/feikudai8460/article/details/109604690">C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客_c++ notify_one</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/WsYEvRays-l58KAOwwzP-w">C++11是如何封装Thread库的？</a></p></li></ul><h3 id="死锁">死锁</h3><ul><li><a href="https://www.toutiao.com/article/7131231200097862158">手把手带你实现一个死锁检测组件</a></li><li><a href="https://blog.csdn.net/qq_26553393/article/details/122281044">2.4.2 死锁的处理策略-预防死锁（破坏互斥条件、破坏不可剥夺条件、破坏请求和保持条件、破坏循环等待条件）</a></li><li><a href="https://blog.csdn.net/zsiming/article/details/126695393"><font color=Red>Linux下排除死锁详细教程（基于C++11、GDB）</font></a></li><li><a href="https://blog.csdn.net/Ivan804638781/article/details/100740857">【开发工具】【lockdep】Linux内核死锁检测工具（lockdep）的使用</a></li><li><a href="https://www.cnblogs.com/arnoldlu/p/8580387.html"><font color=Red>Linux死锁检测-Lockdep</font></a><ul><li><a href="https://zhuanlan.zhihu.com/p/364130923">linux同步机制 - mutex lock</a></li></ul></li><li><a href="https://mp.weixin.qq.com/s/Jjio-cNapfUMBqEOefi1og">手画图解 | 关于死锁，面试的一切都在这里了</a></li><li><a href="https://zhuanlan.zhihu.com/p/446932523"><font color=Red>多线程检测工具ThreadSanitizer 与 Helgrind 的使用</font></a></li></ul><h4 id="watchdog">watchdog</h4><ul><li><p><a href="https://cloud.tencent.com/developer/article/1843976">禁用watchdog方法汇总</a></p></li><li><p><a href="https://blog.csdn.net/jiexijihe945/article/details/128021600">Linux watchdog配置</a></p></li><li><p><a href="https://blog.csdn.net/qq_28278079/article/details/104218588">Linux禁用watchdog</a></p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs text">nmi_watchdog=   [KNL,BUGS=X86] Debugging features for SMP kernels<br>                      Format: [panic,][nopanic,][num]<br>                      Valid num: 0 or 1<br>                      0 - turn hardlockup detector in nmi_watchdog off<br>                      1 - turn hardlockup detector in nmi_watchdog on<br>                      When panic is specified, panic when an NMI watchdog<br>                      timeout occurs (or &#x27;nopanic&#x27; to not panic on an NMI<br>                      watchdog, if CONFIG_BOOTPARAM_HARDLOCKUP_PANIC is set)<br>                      To disable both hard and soft lockup detectors,<br>                      please see &#x27;nowatchdog&#x27;.<br>                      This is useful when you use a panic=... timeout and<br>                      need the box quickly up again.<br><br>                      These settings can be accessed at runtime via<br>                      the nmi_watchdog and hardlockup_panic sysctls.<br></code></pre></td></tr></table></figure></li></ul><h2 id="线程池">线程池</h2><ul><li><a href="https://blog.csdn.net/MOU_IT/article/details/88712090">C++实现线程池_蓬莱道人的博客-CSDN博客_c++实现线程池</a></li><li><a href="https://www.cnblogs.com/oloroso/p/5881863.html">C++11的简单线程池代码阅读-乌合之众-博客园(cnblogs.com)</a></li><li><a href="https://wangpengcheng.github.io/2019/05/17/cplusplus_theadpool/"><font color=Red>C++ 线程池</font></a></li><li><a href="https://blog.csdn.net/zzhongcy/article/details/89453370">c++11：线程池，boost threadpool、thread_group example_zzhongcy的专栏-CSDN博客_boost 线程池</a></li><li><a href="https://www.cnblogs.com/lidabo/p/3328402.html">线程池原理及创建（C++实现）- DoubleLi -博客园(cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/cpper-kaixuan/articles/3640485.html">C++线程池原理及创建（转）- cpper-kaixuan -博客园(cnblogs.com)</a></li><li><a href="https://www.jb51.net/article/75295.htm">深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/qq_36359022/article/details/78796784">线程池原理及C语言实现线程池</a></li><li><a href="https://blog.csdn.net/robothj/article/details/80172287">c++/c实现线程池</a></li><li><a href="https://github.com/lzpong/threadpool/blob/master/Main.cpp">threadpool/Main.cpp at master · lzpong/threadpool (github.com)</a></li><li><a href="https://www.cnblogs.com/lzpong/p/6397997.html">基于C++11的线程池(threadpool),简洁且可以带任意多的参数 - _Ong - 博客园 (cnblogs.com)</a></li></ul><h2 id="数据库连接池">数据库连接池</h2><ul><li><a href="https://blog.csdn.net/weixin_43825537/article/details/104516274">C++数据库连接池的设计与实现_暮明已逝的博客-CSDN博客_c++数据库连接池</a></li><li><a href="https://www.toutiao.com/i7004734534830801420/">基于c++的数据库连接池的实现与理解(toutiao.com)</a></li></ul><h2 id="其他">其他</h2><ul><li><p><a href="https://www.coder.work/article/1954428">c++ - 执行并行任务而无需等待C++中的结果</a></p></li><li><p><a href="https://github.com/seanmiddleditch/jobxx" class="uri">https://github.com/seanmiddleditch/jobxx</a></p></li><li><p><a href="https://github.com/cdwfs/cds_job" class="uri">https://github.com/cdwfs/cds_job</a></p></li><li><p><a href="https://github.com/delscorcho/basic-job-system" class="uri">https://github.com/delscorcho/basic-job-system</a></p></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
       
     </tags>
     
@@ -2238,6 +2238,35 @@
   
   
   <entry>
+    <title>cmake编译链接参数</title>
+    <link href="/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/"/>
+    <url>/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/</url>
+    
+    <content type="html"><![CDATA[<h1 id="cmake编译链接参数">cmake编译链接参数</h1><h2 id="cmake编译链接参数-1">cmake编译链接参数</h2><ul><li><p><a href="https://blog.51cto.com/u_15064646/3462077">cmake编译选项</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/513148985">GCC编译选项参数</a></p></li><li><p><a href="https://blog.51cto.com/u_15064646/3462077">添加-O0 -g，生成gdb的调试信息和不进行代码优化</a></p></li><li><p><a href="https://elloop.github.io/tools/2016-04-10/learning-cmake-2-commands">【使用CMake组织C++工程】2：调试包不优化</a></p></li><li><p><a href="https://blog.csdn.net/sandalphon4869/article/details/102503224">CMake解决c++11的phread库问题：undefined reference to `pthread_create’</a></p></li><li><p><a href="https://www.jianshu.com/p/10bf5d27dcfc">cmake编译缺失pthread_create等thread库解决方案</a></p></li><li><p><a href="http://blog.chinaunix.net/uid-69906223-id-5817313.html">gcc -lpthread和gcc -pthread的区别</a></p></li><li><p><a href="https://www.5axxw.com/questions/content/ratnvg">CMake: link options</a></p></li><li><p><a href="https://www.dovov.com/cmakecmakelists-txtldflags.html">CMake：如何在CMakeLists.txt中设置LDFLAGS？</a></p></li><li><p><a href="https://blog.csdn.net/dongjideyu/article/details/79267683">CMAKE 中　add_definitions的用法．</a></p></li><li><p><a href="https://blog.csdn.net/10km/article/details/51731959">cmake:设置编译选项的讲究(add_compile_options和CMAKE_CXX_FLAGS的区别)</a></p></li><li><p><a href="https://blog.csdn.net/fb_941219/article/details/88638503">ubuntu16.04cmake、gcc/g++版本更换</a></p></li></ul><h2 id="dynamic-code-analysis">Dynamic code analysis</h2><ul><li><a href="https://www.cnblogs.com/gladiatorplus/p/14437059.html">cmake 内存泄露检查asan</a></li><li><a href="https://www.jetbrains.com/help/clion/profiling-tools.html">动态代码分析 Clion</a></li><li><a href="https://blog.csdn.net/register_k/article/details/120319834">libasan使用和遇到的问题</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>cmake</title>
     <link href="/cpp/cmake/"/>
     <url>/cpp/cmake/</url>
@@ -2261,35 +2290,6 @@
       <tag>git</tag>
       
       <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>cmake编译链接参数</title>
-    <link href="/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/"/>
-    <url>/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/</url>
-    
-    <content type="html"><![CDATA[<h1 id="cmake编译链接参数">cmake编译链接参数</h1><h2 id="cmake编译链接参数-1">cmake编译链接参数</h2><ul><li><p><a href="https://blog.51cto.com/u_15064646/3462077">cmake编译选项</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/513148985">GCC编译选项参数</a></p></li><li><p><a href="https://blog.51cto.com/u_15064646/3462077">添加-O0 -g，生成gdb的调试信息和不进行代码优化</a></p></li><li><p><a href="https://elloop.github.io/tools/2016-04-10/learning-cmake-2-commands">【使用CMake组织C++工程】2：调试包不优化</a></p></li><li><p><a href="https://blog.csdn.net/sandalphon4869/article/details/102503224">CMake解决c++11的phread库问题：undefined reference to `pthread_create’</a></p></li><li><p><a href="https://www.jianshu.com/p/10bf5d27dcfc">cmake编译缺失pthread_create等thread库解决方案</a></p></li><li><p><a href="http://blog.chinaunix.net/uid-69906223-id-5817313.html">gcc -lpthread和gcc -pthread的区别</a></p></li><li><p><a href="https://www.5axxw.com/questions/content/ratnvg">CMake: link options</a></p></li><li><p><a href="https://www.dovov.com/cmakecmakelists-txtldflags.html">CMake：如何在CMakeLists.txt中设置LDFLAGS？</a></p></li><li><p><a href="https://blog.csdn.net/dongjideyu/article/details/79267683">CMAKE 中　add_definitions的用法．</a></p></li><li><p><a href="https://blog.csdn.net/10km/article/details/51731959">cmake:设置编译选项的讲究(add_compile_options和CMAKE_CXX_FLAGS的区别)</a></p></li><li><p><a href="https://blog.csdn.net/fb_941219/article/details/88638503">ubuntu16.04cmake、gcc/g++版本更换</a></p></li></ul><h2 id="dynamic-code-analysis">Dynamic code analysis</h2><ul><li><a href="https://www.cnblogs.com/gladiatorplus/p/14437059.html">cmake 内存泄露检查asan</a></li><li><a href="https://www.jetbrains.com/help/clion/profiling-tools.html">动态代码分析 Clion</a></li><li><a href="https://blog.csdn.net/register_k/article/details/120319834">libasan使用和遇到的问题</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
       
       <tag>HTML</tag>
       
@@ -2761,9 +2761,9 @@
       
       <tag>HTML</tag>
       
-      <tag>namespace</tag>
-      
       <tag>Golang</tag>
+      
+      <tag>namespace</tag>
       
     </tags>
     
