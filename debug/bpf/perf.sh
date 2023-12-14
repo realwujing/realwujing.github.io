@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# 获取本 shell 的 PID
-parent_pid=$$
-
 # 安装必要的工具
 function apt_install() {
   apt install linux-perf dstat sysstat iotop -y
@@ -22,7 +19,7 @@ function iostat_record() {
   timestamp=$(date +%Y%m%d%H%M%S)
   iostat_full_command="iostat -x 1 >> "$iostat_output_dir/iostat_$timestamp.log""
   echo "Running command: $iostat_full_command"
-  nohup iostat -x 1 >> "$iostat_output_dir/iostat_$timestamp.log" 2>&1 &
+  (iostat -x 1 >> "$iostat_output_dir/iostat_$timestamp.log" &)
 }
 
 # 找到 IO 占用高的进程
@@ -39,7 +36,7 @@ function pidstat_record() {
   timestamp=$(date +%Y%m%d%H%M%S)
   pidstat_full_command="pidstat -d 1 >> "$pidstat_output_dir/pidstat_$timestamp.log""
   echo "Running command: $pidstat_full_command"
-  nohup pidstat -d 1 >> "$pidstat_output_dir/pidstat_$timestamp.log" 2>&1 &
+  (pidstat -d 1 >> "$pidstat_output_dir/pidstat_$timestamp.log" &)
 }
 
 # 实时报告系统的进程资源占用
@@ -57,7 +54,7 @@ function top_record() {
   timestamp=$(date +%Y%m%d%H%M%S)
   top_full_command="top -d 5 -b >> "$top_output_dir/top_$timestamp.log""
   echo "Running command: $top_full_command"
-  nohup top -d 5 -b >> "$top_output_dir/top_$timestamp.log" 2>&1 &
+  (top -d 5 -b >> "$top_output_dir/top_$timestamp.log" &)
 }
 
 # 实时报告系统的性能热点
@@ -73,22 +70,14 @@ function perf_record() {
     chown $USER:$USER "$perf_output_dir"
   fi
 
-  count=1
-
   while true; do
     timestamp=$(date +%Y%m%d%H%M%S)
-    if [ $count -eq 1 ]; then
-        echo "Recording iteration at timestamp $timestamp for $duration seconds"
-    fi
     perf_record_full_command="$perf_path record -F 999 -g -o $perf_output_dir/perf_$timestamp.data -- sleep $duration"
-    if [ $count -eq 1 ]; then
-        echo "Running command: $perf_record_full_command"
-    fi
-    nohup $perf_record_full_command > /dev/null 2>&1 &
+    echo "Running command: $perf_record_full_command"
+    ($perf_record_full_command &)
     wait $!
     # 在这里可以添加其他操作或休眠时间
     sleep 1
-    ((count++))
   done
 }
 
@@ -98,17 +87,17 @@ function start_record() {
   iostat_record
   pidstat_record
   top_record
-  (perf_record "$@" &)  # 传递所有参数给 perf_record 函数
+  perf_record "$@"  # 传递所有参数给 perf_record 函数
 }
 
 # 停止所有记录函数
 function stop_record() {
   # killall $0 iostat pidstat top
-  ps aux | grep -Ew "$0|iostat|pidstat|top" | grep -v grep | awk {'print $2'} | xargs -n1 -I {} sudo kill -9 {}
+  ps aux | grep -Ew "$0|iostat|pidstat|top" | grep -v grep | awk {'print $2'} | xargs -n1 -I {} kill -9 {}
   
   # killall perf
-  pidof $perf_path | xargs -n1 -I {} sudo kill -2 {}
-  pidof $perf_path | xargs -n1 -I {} sudo kill -2 {}
+  pidof $perf_path | xargs -n1 -I {} kill -2 {}
+  pidof $perf_path | xargs -n1 -I {} kill -2 {}
 }
 
 # 检查参数，根据参数调用相应的函数
