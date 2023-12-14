@@ -105,31 +105,6 @@
   
   
   <entry>
-    <title>hdmi-audio</title>
-    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
-    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
-    
-    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>drivers</category>
-      
-      <category>sound</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>ALC885_1-1</title>
     <link href="/linux/kernel/drivers/sound/ALC885_1-1/"/>
     <url>/linux/kernel/drivers/sound/ALC885_1-1/</url>
@@ -155,6 +130,31 @@
       <tag>git</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>hdmi-audio</title>
+    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
+    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
+    
+    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>drivers</category>
+      
+      <category>sound</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -983,6 +983,27 @@
   
   
   <entry>
+    <title>README</title>
+    <link href="/debug/binary-analysis/README/"/>
+    <url>/debug/binary-analysis/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>debug</category>
+      
+      <category>binary-analysis</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>assembly</title>
     <link href="/debug/assembly/assembly/"/>
     <url>/debug/assembly/assembly/</url>
@@ -1012,27 +1033,6 @@
       <tag>HTML</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/debug/binary-analysis/README/"/>
-    <url>/debug/binary-analysis/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>debug</category>
-      
-      <category>binary-analysis</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -1105,6 +1105,41 @@
   
   
   <entry>
+    <title>性能之巅</title>
+    <link href="/debug/bpf/%E6%80%A7%E8%83%BD%E4%B9%8B%E5%B7%85/"/>
+    <url>/debug/bpf/%E6%80%A7%E8%83%BD%E4%B9%8B%E5%B7%85/</url>
+    
+    <content type="html"><![CDATA[<h1 id="性能之巅">性能之巅</h1><ul><li><a href="http://www.javashuo.com/article/p-gycyrpiy-me.html">性能之巅 洞悉系统、企业与云计算PDF（完整版）</a></li><li><a href="https://pan.baidu.com/s/17iUesk0w5DzdON6-Y06fYQ?pwd=abq8">性能之巅 洞悉系统、企业与云计算PDF（完整版）提取码: abq8</a></li><li><a href="https://blog.csdn.net/qq_31220203/article/details/120067331">性能之巅——洞悉系统、企业与云计算 Brendan Gregg</a></li><li><a href="http://download.eeworld.com.cn/detail/%E6%8A%9B%E7%A0%96%E5%BC%95%E7%8E%89/628714">BPF之巅 洞悉Linux系统和应用性能</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>debug</category>
+      
+      <category>bpf</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>bpf</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+      <tag>Java</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>bcc</title>
     <link href="/debug/bpf/bcc/"/>
     <url>/debug/bpf/bcc/</url>
@@ -1142,46 +1177,11 @@
   
   
   <entry>
-    <title>性能之巅</title>
-    <link href="/debug/bpf/%E6%80%A7%E8%83%BD%E4%B9%8B%E5%B7%85/"/>
-    <url>/debug/bpf/%E6%80%A7%E8%83%BD%E4%B9%8B%E5%B7%85/</url>
-    
-    <content type="html"><![CDATA[<h1 id="性能之巅">性能之巅</h1><ul><li><a href="http://www.javashuo.com/article/p-gycyrpiy-me.html">性能之巅 洞悉系统、企业与云计算PDF（完整版）</a></li><li><a href="https://pan.baidu.com/s/17iUesk0w5DzdON6-Y06fYQ?pwd=abq8">性能之巅 洞悉系统、企业与云计算PDF（完整版）提取码: abq8</a></li><li><a href="https://blog.csdn.net/qq_31220203/article/details/120067331">性能之巅——洞悉系统、企业与云计算 Brendan Gregg</a></li><li><a href="http://download.eeworld.com.cn/detail/%E6%8A%9B%E7%A0%96%E5%BC%95%E7%8E%89/628714">BPF之巅 洞悉Linux系统和应用性能</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>debug</category>
-      
-      <category>bpf</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>bpf</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-      <tag>Java</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>性能调优</title>
     <link href="/debug/bpf/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/"/>
     <url>/debug/bpf/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/</url>
     
-    <content type="html"><![CDATA[<h1 id="性能调优">性能调优</h1><ul><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&amp;mid=2247498209&amp;idx=1&amp;sn=80567d62967575953d0d33132841d907&amp;chksm=f96b8b15ce1c0203b09acee19f2570a011678987077c7a0c3905a6ba108cfeae21ee121ca9da&amp;token=526082791&amp;lang=zh_CN&amp;scene=21#wechat_redirect">Linux性能调优工具9张图-你肯定会用到</a></p></li><li><p><a href="https://www.cnblogs.com/alantu2018/p/8997149.html">Linux内核调试方法总结</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/n42ngcgBdbCdF927ncTa3Q">Linux 性能分析工具汇总</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/uMPr0ZlRtLmIperu8hA0EQ">性能优化基础：深入理解Linux文件系统</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Cv_9-wxXQ9GrUMjQ606sbw">技术硬核 | Linux性能优化总结，赞！赞！赞！咱熬夜也要读完！</a></p></li><li><p><a href="https://linux.cn/article-9424-1.html">Linux跟踪器之选</a></p></li><li><p><a href="https://linux.cn/article-8038-1.html">Linux 中的 DTrace ：BPF 进入 4.9 内核</a></p></li><li><p><a href="https://linux.cn/article-9507-1.html">深入理解 BPF：一个阅读清单</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1698426">Linux超能力BPF技术介绍及学习分享（技术创作101训练营）</a></p></li><li><p><a href="https://www.toutiao.com/article/7077801491347833374"><font color=Red>Linux动态追踪技术概念介绍</font></a></p></li><li><p><a href="https://lzz5235.github.io/2013/11/22/ltrace-strace-ftrace.html"><font color=Red>调试工具ltrace strace ftrace的使用</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/NoVJlGQFh02NiuE3d355XQ">Linux 中 CPU 利用率是如何算出来的？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/bxuKq1up9xs3VfZaPfbkxw">Linux 中 CPU 利用率是如何算出来的？</a></p></li><li><p><a href="http://arthurchiao.art/blog/linux-tracing-basis-zh/#412-%E5%8A%9F%E8%83%BD%E4%BA%8C%E8%B0%83%E7%94%A8%E6%A0%88%E5%B1%95%E5%BC%80stack-unwinding">Linux tracing/profiling 基础：符号表、调用栈、perf/bpftrace 示例等（2022）</a></p></li><li><p><a href="https://blog.csdn.net/wzx8731/article/details/106631071">gdb、strace、pmap、perf等跟踪调试工具使用介绍</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/_PYGtj-7my9uGyuRbbkD1g">改了一行代码，数组遍历耗时从10.3秒降到了0.5秒！</a></p></li></ul><h2 id="ltrace">ltrace</h2><ul><li><a href="https://www.cnblogs.com/machangwei-8/p/10388938.html">ltrace命令详解</a></li><li><a href="https://www.toutiao.com/article/6793545198694564355">Linux库函数调用工具—ltrace命令</a></li></ul><h2 id="strace">strace</h2><ul><li><a href="https://www.cnblogs.com/kongzhongqijing/articles/4913192.html">linux命令—— strace命令（跟踪进程中的系统调用）</a></li><li><a href="https://blog.csdn.net/a6864657/article/details/123915757">Linux之strace命令</a></li><li><a href="https://linuxtools-rst.readthedocs.io/zh_CN/latest/tool/gdb.html">strace 跟踪进程中的系统调用</a></li><li><a href="https://www.toutiao.com/article/7090332571376337408">Linux strace 跟踪进程中的系统调用</a></li></ul><h2 id="ftrace">ftrace</h2><ul><li><p><a href="https://carlyleliu.github.io/2021/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E8%AF%95%EF%BC%88%E4%B8%80%EF%BC%89ftrace/"><font color=Red>Linux内核调试（一）ftrace</font></a></p></li><li><p><a href="https://blog.csdn.net/Luckiers/article/details/124646205">ftrace命令调试内核详细总结（快速掌握附实例讲解）</a></p></li><li><p><a href="https://blog.csdn.net/longerzone/article/details/16884703">Linux内核调试工具 Ftrace 进阶使用手册</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/644133270"><font color=Red>通过Ftrace实现高效、精确的内核调试与分析</font></a></p></li><li><p><a href="https://blog.csdn.net/scarecrow_byr/article/details/102748967">使用ftrace跟踪函数</a></p></li><li><p><a href="https://www.toutiao.com/w/1737234292871172">实时获取linux内核函数的调用栈以及各个子函数的执行时间，linux ftrace是最适合的</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/33267453">ftrace：跟踪你的内核函数！</a></p></li><li><p><a href="https://linux.cn/article-13852-1.html"><font color=Red>使用 trace-cmd 追踪内核</font></a></p></li><li><p><a href="https://blog.csdn.net/Rong_Toa/article/details/116718182">Linux内核 eBPF基础：ftrace基础-ftrace_init初始化</a></p></li><li><p><a href="https://blog.csdn.net/u012489236/article/details/119519361">linux性能工具--ftrace使用</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd list -f snd_usb_audio<br>trace-cmd record -p function_graph -g usb_audio_probe<br>trace-cmd report<br></code></pre></td></tr></table></figure></p></li></ul><h2 id="perf">perf</h2><ul><li><p><a href="https://blog.csdn.net/zhangpeterx/article/details/98505349">debian/ubuntu 安装和使用perf</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/2Hu-D0k9a42-j-IfRzXPxw">Linux perf：掀开性能分析的神秘面纱</a></p></li><li><p><a href="https://ruanyifeng.com/blog/2017/09/flame-graph.html"><font color=Red>L如何读懂火焰图？</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/530622057"><font color=Red>硬核干货！perf工具简介及火焰图制作与解读</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/54276509"><font color=Red>Linux Perf 性能分析工具及火焰图浅析</font></a></p></li><li><p><a href="https://kernel.0voice.com/forum.php?mod=viewthread&amp;tid=6072">Linux Perf 性能分析工具及火焰图浅析</a></p></li><li><p><a href="https://github.com/brendangregg/FlameGraph">https://github.com/brendangregg/FlameGraph</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/134721612"><font color=Red>用Perf寻找程序中的性能热点</font></a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install linux-perf-`version` <span class="hljs-comment"># deepin上version为内核uname -r对应的前两位版本号，如：5.15</span><br>git <span class="hljs-built_in">clone</span> https://github.com/brendangregg/FlameGraph.git<br><span class="hljs-built_in">cd</span> FlameGraph<br>sudo perf record -F 99 -p 512318 -g -- <span class="hljs-built_in">sleep</span> 30<br>sudo perf script | ./stackcollapse-perf.pl | ./flamegraph.pl &gt; WXWork.exe.svg<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.toutiao.com/article/7154336826105266726/">一文看懂 Linux 性能分析｜perf 源码实现（超详细~）</a></p></li><li><p><a href="https://www.toutiao.com/article/7154278740749517347/">一文看懂 Linux 性能分析｜perf原理（超详细~）</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/AubfEBTfwcyslSqWLYl6ag">Perfetto工具集之traced_perf</a></p></li></ul><h3 id="perf实践">perf实践</h3><ul><li><a href="https://www.bbsmax.com/A/QW5YvYZ9dm/"><font color=Red>Linux性能优化实战学习笔记：第四十九讲</font></a></li><li><a href="https://pingcap.com/zh/blog/online-environment-analysis-system">线上环境 Linux 系统调用追踪丨TiDB 应用实践 perf trace traceloop</a></li></ul><h2 id="ebpf">eBPF</h2><ul><li><p><a href="http://kerneltravel.net/blog/2021/ebpf_beginner/ebpf.pdf"><font color=Red>高效入门eBPF</font></a></p></li><li><p><a href="http://kerneltravel.net/blog/2020/ebpf_ljr_no1/">EBPF学习——EBPF简介、安装和简单示例</a></p></li><li><p><a href="https://blog.csdn.net/qq_33344148/article/details/123255679">BCC在ubuntu18.04源码安装</a></p></li><li><p><a href="https://github.com/iovisor/bcc" class="uri">https://github.com/iovisor/bcc</a></p></li><li><p><a href="https://github.com/realwujing/ebpf-learning/blob/main/BCC.md"><font color=Red>BCC安装教程</font></a></p></li><li><p><a href="https://github.com/DavadDi/bpf_study">bpf 学习仓库</a></p></li><li><p><a href="https://github.com/zoidbergwill/awesome-ebpf">https://github.com/zoidbergwill/awesome-ebpf</a></p></li><li><p><a href="https://github.com/iovisor/bpftrace/blob/master/docs/tutorial_one_liners_chinese.md"><font color=Red>bpftrace一行教程</font></a></p></li><li><p><a href="https://github.com/iovisor/bpftrace/blob/master/docs/reference_guide.md"><font color=Red>bpftrace 参考指南</font></a></p></li><li><p><a href="https://blog.csdn.net/qq_31220203/article/details/118686482"><font color=Red>BPF之巅洞悉Linux系统和应用性能 Brendan Gregg</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/98XAzJ-9SByM2RzhUcYsMQ">BCC小白写测试上下文切换延时程序</a></p></li><li><p><a href="https://www.toutiao.com/article/7168812402375787043/">eunomia-bpf项目重磅开源！eBPF 轻量级开发框架来了 | 龙蜥技术</a></p></li><li><p><a href="https://www.toutiao.com/article/7156057067848106530">中国工商银行基于eBPF技术的云原生可观测图谱探索与实践</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/zx-zxoKZQqsaK2pU0fj7FQ">使用 ChatGPT ，通过自然语言编写 eBPF 程序和追踪 Linux 系统</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/iwpV4akZDIukDVFH-PJ7lA">eBPF程序注入到内核中的流程，现在就带你研究(上）</a></p></li></ul><h3 id="bpftrace">bpftrace</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;tracepoint:signal:signal_generate &#123; printf(&quot;Process %d %s sent SIGNAL %d to process %d %s\n&quot;, pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); &#125;&#x27;</span><br></code></pre></td></tr></table></figure><p>您提供的命令是使用 bpftrace 工具来跟踪信号生成事件，并打印相关信息。让我解释一下这个命令的含义：</p><p>bpftrace：是一个强大的跟踪和探查工具，它使用BPF（Berkley Packet Filter）技术来提供对内核和用户空间的动态跟踪能力。</p><p>-e：这是 bpftrace 命令的选项，用于指定要执行的跟踪程序。</p><p>'tracepoint:signal:signal_generate { printf("Process %d %s sent SIGNAL %d to process %d %s", pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); }'：这是要执行的 bpftrace 跟踪程序。</p><p>跟踪程序的含义是：当信号生成事件（signal_generate）发生时，打印相关信息。具体来说，它打印了发送信号的进程的进程ID（pid）、进程名称（comm），以及接收信号的进程的进程ID（args-&gt;pid）和进程名称（args-&gt;comm）。</p><p>这个命令可以帮助您跟踪信号的生成情况，并提供有关发送和接收信号的进程信息。您可以根据需要修改打印的信息或添加其他的跟踪逻辑来满足您的需求。请注意，使用 bpftrace 跟踪程序需要在支持BPF的内核版本上运行，并具有足够的权限。</p><h2 id="pstack">pstack</h2><ul><li><a href="https://blog.csdn.net/jusu10/article/details/121745153">linux命令-- pstack命令(跟踪进程栈)</a></li><li><a href="https://www.cnblogs.com/chenxinshuo/p/11986858.html">Debug 利器：pstack &amp; strace</a></li></ul><h2 id="内存检测">内存检测</h2><ul><li><a href="https://carlyleliu.github.io/2021/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E8%AF%95%EF%BC%88%E4%BA%8C%EF%BC%89%E5%86%85%E5%AD%98%E6%A3%80%E6%B5%8B/">Linux内核调试（二）内存检测</a></li></ul><h2 id="method-tracing">method tracing</h2><ul><li><a href="https://mp.weixin.qq.com/s/j-zgr50wCY5beppYpXGAyQ">ART虚拟机method tracing技术解析</a></li></ul><h2 id="性能优化">性能优化</h2><ul><li><p><a href="https://www.toutiao.com/article/7103456440978997763">从通用的协议栈层面来优化Redis性能的实践</a></p></li><li><p><a href="https://www.toutiao.com/article/7146843167709594147/">Nginx性能调优实战</a></p></li><li><p><a href="https://www.toutiao.com/article/7090814899458146855/">Linux性能问题分析流程与性能优化思路</a></p></li><li><p><a href="https://www.toutiao.com/article/7152791666980651531/">linux性能优化之网络篇</a></p></li><li><p><a href="https://www.toutiao.com/article/7152410220101583401/">linux性能优化之内存篇</a></p></li><li><p><a href="https://www.toutiao.com/article/7199661075120669216">网易二面：CPU狂飙900%，该怎么处理？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/H2P0-WcnZDzMCnLm0xcZ6A">如何排查网络丢包问题</a></p></li></ul><h2 id="其它">其它</h2><ul><li><a href="https://mp.weixin.qq.com/s/wPXcfzfFXygyAOatypVwxQ">CPU 空闲时在干嘛？</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="性能调优">性能调优</h1><ul><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&amp;mid=2247498209&amp;idx=1&amp;sn=80567d62967575953d0d33132841d907&amp;chksm=f96b8b15ce1c0203b09acee19f2570a011678987077c7a0c3905a6ba108cfeae21ee121ca9da&amp;token=526082791&amp;lang=zh_CN&amp;scene=21#wechat_redirect">Linux性能调优工具9张图-你肯定会用到</a></p></li><li><p><a href="https://www.cnblogs.com/alantu2018/p/8997149.html">Linux内核调试方法总结</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/n42ngcgBdbCdF927ncTa3Q">Linux 性能分析工具汇总</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/uMPr0ZlRtLmIperu8hA0EQ">性能优化基础：深入理解Linux文件系统</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Cv_9-wxXQ9GrUMjQ606sbw">技术硬核 | Linux性能优化总结，赞！赞！赞！咱熬夜也要读完！</a></p></li><li><p><a href="https://linux.cn/article-9424-1.html">Linux跟踪器之选</a></p></li><li><p><a href="https://linux.cn/article-8038-1.html">Linux 中的 DTrace ：BPF 进入 4.9 内核</a></p></li><li><p><a href="https://linux.cn/article-9507-1.html">深入理解 BPF：一个阅读清单</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1698426">Linux超能力BPF技术介绍及学习分享（技术创作101训练营）</a></p></li><li><p><a href="https://www.toutiao.com/article/7077801491347833374"><font color=Red>Linux动态追踪技术概念介绍</font></a></p></li><li><p><a href="https://lzz5235.github.io/2013/11/22/ltrace-strace-ftrace.html"><font color=Red>调试工具ltrace strace ftrace的使用</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/NoVJlGQFh02NiuE3d355XQ">Linux 中 CPU 利用率是如何算出来的？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/bxuKq1up9xs3VfZaPfbkxw">Linux 中 CPU 利用率是如何算出来的？</a></p></li><li><p><a href="http://arthurchiao.art/blog/linux-tracing-basis-zh/#412-%E5%8A%9F%E8%83%BD%E4%BA%8C%E8%B0%83%E7%94%A8%E6%A0%88%E5%B1%95%E5%BC%80stack-unwinding">Linux tracing/profiling 基础：符号表、调用栈、perf/bpftrace 示例等（2022）</a></p></li><li><p><a href="https://blog.csdn.net/wzx8731/article/details/106631071">gdb、strace、pmap、perf等跟踪调试工具使用介绍</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/_PYGtj-7my9uGyuRbbkD1g">改了一行代码，数组遍历耗时从10.3秒降到了0.5秒！</a></p></li></ul><h2 id="ltrace">ltrace</h2><ul><li><a href="https://www.cnblogs.com/machangwei-8/p/10388938.html">ltrace命令详解</a></li><li><a href="https://www.toutiao.com/article/6793545198694564355">Linux库函数调用工具—ltrace命令</a></li></ul><h2 id="strace">strace</h2><ul><li><a href="https://www.cnblogs.com/kongzhongqijing/articles/4913192.html">linux命令—— strace命令（跟踪进程中的系统调用）</a></li><li><a href="https://blog.csdn.net/a6864657/article/details/123915757">Linux之strace命令</a></li><li><a href="https://linuxtools-rst.readthedocs.io/zh_CN/latest/tool/gdb.html">strace 跟踪进程中的系统调用</a></li><li><a href="https://www.toutiao.com/article/7090332571376337408">Linux strace 跟踪进程中的系统调用</a></li></ul><h2 id="ftrace">ftrace</h2><ul><li><p><a href="https://carlyleliu.github.io/2021/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E8%AF%95%EF%BC%88%E4%B8%80%EF%BC%89ftrace/"><font color=Red>Linux内核调试（一）ftrace</font></a></p></li><li><p><a href="https://blog.csdn.net/Luckiers/article/details/124646205">ftrace命令调试内核详细总结（快速掌握附实例讲解）</a></p></li><li><p><a href="https://blog.csdn.net/longerzone/article/details/16884703">Linux内核调试工具 Ftrace 进阶使用手册</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/644133270"><font color=Red>通过Ftrace实现高效、精确的内核调试与分析</font></a></p></li><li><p><a href="https://blog.csdn.net/scarecrow_byr/article/details/102748967">使用ftrace跟踪函数</a></p></li><li><p><a href="https://www.toutiao.com/w/1737234292871172">实时获取linux内核函数的调用栈以及各个子函数的执行时间，linux ftrace是最适合的</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/33267453">ftrace：跟踪你的内核函数！</a></p></li><li><p><a href="https://linux.cn/article-13852-1.html"><font color=Red>使用 trace-cmd 追踪内核</font></a></p></li><li><p><a href="https://blog.csdn.net/Rong_Toa/article/details/116718182">Linux内核 eBPF基础：ftrace基础-ftrace_init初始化</a></p></li><li><p><a href="https://blog.csdn.net/u012489236/article/details/119519361">linux性能工具--ftrace使用</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd list -f snd_usb_audio<br>trace-cmd record -p function_graph -g usb_audio_probe<br>trace-cmd report<br></code></pre></td></tr></table></figure></p></li></ul><h2 id="perf">perf</h2><ul><li><p><a href="https://blog.csdn.net/zhangpeterx/article/details/98505349">debian/ubuntu 安装和使用perf</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/2Hu-D0k9a42-j-IfRzXPxw">Linux perf：掀开性能分析的神秘面纱</a></p></li><li><p><a href="https://ruanyifeng.com/blog/2017/09/flame-graph.html"><font color=Red>L如何读懂火焰图？</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/530622057"><font color=Red>硬核干货！perf工具简介及火焰图制作与解读</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/54276509"><font color=Red>Linux Perf 性能分析工具及火焰图浅析</font></a></p></li><li><p><a href="https://kernel.0voice.com/forum.php?mod=viewthread&amp;tid=6072">Linux Perf 性能分析工具及火焰图浅析</a></p></li><li><p><a href="https://github.com/brendangregg/FlameGraph">https://github.com/brendangregg/FlameGraph</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/134721612"><font color=Red>用Perf寻找程序中的性能热点</font></a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install linux-perf<br>git <span class="hljs-built_in">clone</span> https://github.com/brendangregg/FlameGraph.git<br><span class="hljs-built_in">cd</span> FlameGraph<br>sudo perf record -F 99 -p 512318 -g -- <span class="hljs-built_in">sleep</span> 30<br>sudo perf report -i perf.data<br>sudo perf script | ./stackcollapse-perf.pl | ./flamegraph.pl &gt; WXWork.exe.svg<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.toutiao.com/article/7154336826105266726/">一文看懂 Linux 性能分析｜perf 源码实现（超详细~）</a></p></li><li><p><a href="https://www.toutiao.com/article/7154278740749517347/">一文看懂 Linux 性能分析｜perf原理（超详细~）</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/AubfEBTfwcyslSqWLYl6ag">Perfetto工具集之traced_perf</a></p></li></ul><h3 id="perf实践">perf实践</h3><ul><li><a href="https://www.bbsmax.com/A/QW5YvYZ9dm/"><font color=Red>Linux性能优化实战学习笔记：第四十九讲</font></a></li><li><a href="https://pingcap.com/zh/blog/online-environment-analysis-system">线上环境 Linux 系统调用追踪丨TiDB 应用实践 perf trace traceloop</a></li></ul><h2 id="ebpf">eBPF</h2><ul><li><p><a href="http://kerneltravel.net/blog/2021/ebpf_beginner/ebpf.pdf"><font color=Red>高效入门eBPF</font></a></p></li><li><p><a href="http://kerneltravel.net/blog/2020/ebpf_ljr_no1/">EBPF学习——EBPF简介、安装和简单示例</a></p></li><li><p><a href="https://blog.csdn.net/qq_33344148/article/details/123255679">BCC在ubuntu18.04源码安装</a></p></li><li><p><a href="https://github.com/iovisor/bcc" class="uri">https://github.com/iovisor/bcc</a></p></li><li><p><a href="https://github.com/realwujing/ebpf-learning/blob/main/BCC.md"><font color=Red>BCC安装教程</font></a></p></li><li><p><a href="https://github.com/DavadDi/bpf_study">bpf 学习仓库</a></p></li><li><p><a href="https://github.com/zoidbergwill/awesome-ebpf">https://github.com/zoidbergwill/awesome-ebpf</a></p></li><li><p><a href="https://github.com/iovisor/bpftrace/blob/master/docs/tutorial_one_liners_chinese.md"><font color=Red>bpftrace一行教程</font></a></p></li><li><p><a href="https://github.com/iovisor/bpftrace/blob/master/docs/reference_guide.md"><font color=Red>bpftrace 参考指南</font></a></p></li><li><p><a href="https://blog.csdn.net/qq_31220203/article/details/118686482"><font color=Red>BPF之巅洞悉Linux系统和应用性能 Brendan Gregg</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/98XAzJ-9SByM2RzhUcYsMQ">BCC小白写测试上下文切换延时程序</a></p></li><li><p><a href="https://www.toutiao.com/article/7168812402375787043/">eunomia-bpf项目重磅开源！eBPF 轻量级开发框架来了 | 龙蜥技术</a></p></li><li><p><a href="https://www.toutiao.com/article/7156057067848106530">中国工商银行基于eBPF技术的云原生可观测图谱探索与实践</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/zx-zxoKZQqsaK2pU0fj7FQ">使用 ChatGPT ，通过自然语言编写 eBPF 程序和追踪 Linux 系统</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/iwpV4akZDIukDVFH-PJ7lA">eBPF程序注入到内核中的流程，现在就带你研究(上）</a></p></li></ul><h3 id="bpftrace">bpftrace</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;tracepoint:signal:signal_generate &#123; printf(&quot;Process %d %s sent SIGNAL %d to process %d %s\n&quot;, pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); &#125;&#x27;</span><br></code></pre></td></tr></table></figure><p>您提供的命令是使用 bpftrace 工具来跟踪信号生成事件，并打印相关信息。让我解释一下这个命令的含义：</p><p>bpftrace：是一个强大的跟踪和探查工具，它使用BPF（Berkley Packet Filter）技术来提供对内核和用户空间的动态跟踪能力。</p><p>-e：这是 bpftrace 命令的选项，用于指定要执行的跟踪程序。</p><p>'tracepoint:signal:signal_generate { printf("Process %d %s sent SIGNAL %d to process %d %s", pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); }'：这是要执行的 bpftrace 跟踪程序。</p><p>跟踪程序的含义是：当信号生成事件（signal_generate）发生时，打印相关信息。具体来说，它打印了发送信号的进程的进程ID（pid）、进程名称（comm），以及接收信号的进程的进程ID（args-&gt;pid）和进程名称（args-&gt;comm）。</p><p>这个命令可以帮助您跟踪信号的生成情况，并提供有关发送和接收信号的进程信息。您可以根据需要修改打印的信息或添加其他的跟踪逻辑来满足您的需求。请注意，使用 bpftrace 跟踪程序需要在支持BPF的内核版本上运行，并具有足够的权限。</p><h2 id="pstack">pstack</h2><ul><li><a href="https://blog.csdn.net/jusu10/article/details/121745153">linux命令-- pstack命令(跟踪进程栈)</a></li><li><a href="https://www.cnblogs.com/chenxinshuo/p/11986858.html">Debug 利器：pstack &amp; strace</a></li></ul><h2 id="内存检测">内存检测</h2><ul><li><a href="https://carlyleliu.github.io/2021/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E8%AF%95%EF%BC%88%E4%BA%8C%EF%BC%89%E5%86%85%E5%AD%98%E6%A3%80%E6%B5%8B/">Linux内核调试（二）内存检测</a></li></ul><h2 id="method-tracing">method tracing</h2><ul><li><a href="https://mp.weixin.qq.com/s/j-zgr50wCY5beppYpXGAyQ">ART虚拟机method tracing技术解析</a></li></ul><h2 id="性能优化">性能优化</h2><ul><li><p><a href="https://www.toutiao.com/article/7103456440978997763">从通用的协议栈层面来优化Redis性能的实践</a></p></li><li><p><a href="https://www.toutiao.com/article/7146843167709594147/">Nginx性能调优实战</a></p></li><li><p><a href="https://www.toutiao.com/article/7090814899458146855/">Linux性能问题分析流程与性能优化思路</a></p></li><li><p><a href="https://www.toutiao.com/article/7152791666980651531/">linux性能优化之网络篇</a></p></li><li><p><a href="https://www.toutiao.com/article/7152410220101583401/">linux性能优化之内存篇</a></p></li><li><p><a href="https://www.toutiao.com/article/7199661075120669216">网易二面：CPU狂飙900%，该怎么处理？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/H2P0-WcnZDzMCnLm0xcZ6A">如何排查网络丢包问题</a></p></li></ul><h2 id="其它">其它</h2><ul><li><a href="https://mp.weixin.qq.com/s/wPXcfzfFXygyAOatypVwxQ">CPU 空闲时在干嘛？</a></li></ul>]]></content>
     
     
     <categories>
@@ -2048,39 +2048,6 @@
   
   
   <entry>
-    <title>C++多线程</title>
-    <link href="/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/"/>
-    <url>/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/</url>
-    
-    <content type="html"><![CDATA[<h1 id="多线程">多线程</h1><h2 id="基础">基础</h2><ul><li><a href="https://mp.weixin.qq.com/s/Z07Hc9SRfGz6n8XhFHGVyA">高并发高性能服务器是如何实现的</a></li><li><a href="https://blog.csdn.net/github_37382319/article/details/108478589">看完这篇还不懂高并发中的线程与线程池你来打我(内含20张图)</a></li><li><a href="https://mp.weixin.qq.com/s/2eetiUAtedavND8c-sQM5w">Linux 多线程全面解析</a></li><li><a href="https://www.vxbus.com/post/linux/linux-kernel-source-code-data-structure-mutex.html">带你走进Linux内核源码中最常见的数据结构之「mutex」</a></li><li><a href="https://www.cnblogs.com/chen-cs/p/13055211.html">【C++多线程】join()及注意 - Chen沉尘 - 博客园 (cnblogs.com)</a></li></ul><h3 id="pthread">pthread</h3><ul><li><p><a href="https://mp.weixin.qq.com/s/CCzEFnyxXKp6a1iVSBD78w">写给大忙人看的进程和线程</a></p></li><li><p><a href="https://www.cnblogs.com/yjboke/p/8911220.html">详解多线程</a></p></li><li><p><a href="https://blog.csdn.net/w903414/article/details/110005612"><font color=Red>【Linux】多线程详解，一篇文章彻底搞懂多线程中各个难点！！！</font></a></p></li><li><p><a href="https://www.cnblogs.com/yinbiao/p/11190336.html"><font color=Red>【Linux】多线程同步的四种方式 - Y先森0.0 - 博客园 (cnblogs.com)</font></a></p></li><li><p><a href="https://blog.csdn.net/guoping16/article/details/6584043"><font color=Red>信号量函数（semget、semop、semctl）及其范例</font></a></p></li><li><p><a href="https://www.toutiao.com/article/6978007709220291111">「linux」深入理解RCU核心原理</a></p></li><li><p><a href="https://www.toutiao.com/article/7106767459059089923"><font color=Red>linux c/c++开发：多线程并发锁：互斥锁、自旋锁、原子操作、CAS</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/1-YpIr20KhYlpzub7JUU-A">Linux内核中的各种锁：信号量/互斥锁/读写锁/原子锁/自旋锁/内存屏障等</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/QITWTjR1T9eVBwPJ6sGZBA">详解Linux多线程中互斥锁、读写锁、自旋锁、条件变量、信号量</a></p></li><li><p><a href="https://blog.csdn.net/hairetz/article/details/4535920"><font color=Red>pthread_cond_wait()用法分析</font></a></p></li><li><p><a href="https://blog.csdn.net/wteruiycbqqvwt/article/details/99707580"><font color=Red>linux对线程等待和唤醒操作（pthread_cond_timedwait 详解）</font></a></p></li></ul><h4 id="信号量">信号量</h4><ul><li><a href="https://www.toutiao.com/article/7159838260959740457/">深入讲解读写信号量（上）</a></li><li><a href="https://www.toutiao.com/article/7159867610317390372">深入讲解读写信号量（下）</a></li></ul><h3 id="c11多线程">C++11多线程</h3><ul><li><p><a href="https://www.toutiao.com/article/7153230059011686948/">从无栈协程到 C++异步框架</a></p></li><li><p><a href="https://blog.csdn.net/fanyun_01/article/details/100178104">c++11中关于std::thread的join函数详解_fanyun的博客-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3284540.html">C++11 并发指南系列 - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3252041.html">C++11 并发指南五(std::condition_variable 详解) - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/feikudai8460/article/details/109604690">C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客_c++ notify_one</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/WsYEvRays-l58KAOwwzP-w">C++11是如何封装Thread库的？</a></p></li></ul><h3 id="死锁">死锁</h3><ul><li><a href="https://www.toutiao.com/article/7131231200097862158">手把手带你实现一个死锁检测组件</a></li><li><a href="https://blog.csdn.net/qq_26553393/article/details/122281044">2.4.2 死锁的处理策略-预防死锁（破坏互斥条件、破坏不可剥夺条件、破坏请求和保持条件、破坏循环等待条件）</a></li><li><a href="https://blog.csdn.net/zsiming/article/details/126695393"><font color=Red>Linux下排除死锁详细教程（基于C++11、GDB）</font></a></li><li><a href="https://blog.csdn.net/Ivan804638781/article/details/100740857">【开发工具】【lockdep】Linux内核死锁检测工具（lockdep）的使用</a></li><li><a href="https://www.cnblogs.com/arnoldlu/p/8580387.html"><font color=Red>Linux死锁检测-Lockdep</font></a><ul><li><a href="https://zhuanlan.zhihu.com/p/364130923">linux同步机制 - mutex lock</a></li></ul></li><li><a href="https://mp.weixin.qq.com/s/Jjio-cNapfUMBqEOefi1og">手画图解 | 关于死锁，面试的一切都在这里了</a></li><li><a href="https://zhuanlan.zhihu.com/p/446932523"><font color=Red>多线程检测工具ThreadSanitizer 与 Helgrind 的使用</font></a></li></ul><h4 id="watchdog">watchdog</h4><ul><li><p><a href="https://cloud.tencent.com/developer/article/1843976">禁用watchdog方法汇总</a></p></li><li><p><a href="https://blog.csdn.net/jiexijihe945/article/details/128021600">Linux watchdog配置</a></p></li><li><p><a href="https://blog.csdn.net/qq_28278079/article/details/104218588">Linux禁用watchdog</a></p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs text">nmi_watchdog=   [KNL,BUGS=X86] Debugging features for SMP kernels<br>                      Format: [panic,][nopanic,][num]<br>                      Valid num: 0 or 1<br>                      0 - turn hardlockup detector in nmi_watchdog off<br>                      1 - turn hardlockup detector in nmi_watchdog on<br>                      When panic is specified, panic when an NMI watchdog<br>                      timeout occurs (or &#x27;nopanic&#x27; to not panic on an NMI<br>                      watchdog, if CONFIG_BOOTPARAM_HARDLOCKUP_PANIC is set)<br>                      To disable both hard and soft lockup detectors,<br>                      please see &#x27;nowatchdog&#x27;.<br>                      This is useful when you use a panic=... timeout and<br>                      need the box quickly up again.<br><br>                      These settings can be accessed at runtime via<br>                      the nmi_watchdog and hardlockup_panic sysctls.<br></code></pre></td></tr></table></figure></li></ul><h2 id="线程池">线程池</h2><ul><li><a href="https://blog.csdn.net/MOU_IT/article/details/88712090">C++实现线程池_蓬莱道人的博客-CSDN博客_c++实现线程池</a></li><li><a href="https://www.cnblogs.com/oloroso/p/5881863.html">C++11的简单线程池代码阅读-乌合之众-博客园(cnblogs.com)</a></li><li><a href="https://wangpengcheng.github.io/2019/05/17/cplusplus_theadpool/"><font color=Red>C++ 线程池</font></a></li><li><a href="https://blog.csdn.net/zzhongcy/article/details/89453370">c++11：线程池，boost threadpool、thread_group example_zzhongcy的专栏-CSDN博客_boost 线程池</a></li><li><a href="https://www.cnblogs.com/lidabo/p/3328402.html">线程池原理及创建（C++实现）- DoubleLi -博客园(cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/cpper-kaixuan/articles/3640485.html">C++线程池原理及创建（转）- cpper-kaixuan -博客园(cnblogs.com)</a></li><li><a href="https://www.jb51.net/article/75295.htm">深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/qq_36359022/article/details/78796784">线程池原理及C语言实现线程池</a></li><li><a href="https://blog.csdn.net/robothj/article/details/80172287">c++/c实现线程池</a></li><li><a href="https://github.com/lzpong/threadpool/blob/master/Main.cpp">threadpool/Main.cpp at master · lzpong/threadpool (github.com)</a></li><li><a href="https://www.cnblogs.com/lzpong/p/6397997.html">基于C++11的线程池(threadpool),简洁且可以带任意多的参数 - _Ong - 博客园 (cnblogs.com)</a></li></ul><h2 id="数据库连接池">数据库连接池</h2><ul><li><a href="https://blog.csdn.net/weixin_43825537/article/details/104516274">C++数据库连接池的设计与实现_暮明已逝的博客-CSDN博客_c++数据库连接池</a></li><li><a href="https://www.toutiao.com/i7004734534830801420/">基于c++的数据库连接池的实现与理解(toutiao.com)</a></li></ul><h2 id="其他">其他</h2><ul><li><p><a href="https://www.coder.work/article/1954428">c++ - 执行并行任务而无需等待C++中的结果</a></p></li><li><p><a href="https://github.com/seanmiddleditch/jobxx" class="uri">https://github.com/seanmiddleditch/jobxx</a></p></li><li><p><a href="https://github.com/cdwfs/cds_job" class="uri">https://github.com/cdwfs/cds_job</a></p></li><li><p><a href="https://github.com/delscorcho/basic-job-system" class="uri">https://github.com/delscorcho/basic-job-system</a></p></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>C++基础</title>
     <link href="/cpp/C++%E5%9F%BA%E7%A1%80/"/>
     <url>/cpp/C++%E5%9F%BA%E7%A1%80/</url>
@@ -2108,6 +2075,39 @@
       <tag>HTML</tag>
       
       <tag>Java</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>C++多线程</title>
+    <link href="/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/"/>
+    <url>/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/</url>
+    
+    <content type="html"><![CDATA[<h1 id="多线程">多线程</h1><h2 id="基础">基础</h2><ul><li><a href="https://mp.weixin.qq.com/s/Z07Hc9SRfGz6n8XhFHGVyA">高并发高性能服务器是如何实现的</a></li><li><a href="https://blog.csdn.net/github_37382319/article/details/108478589">看完这篇还不懂高并发中的线程与线程池你来打我(内含20张图)</a></li><li><a href="https://mp.weixin.qq.com/s/2eetiUAtedavND8c-sQM5w">Linux 多线程全面解析</a></li><li><a href="https://www.vxbus.com/post/linux/linux-kernel-source-code-data-structure-mutex.html">带你走进Linux内核源码中最常见的数据结构之「mutex」</a></li><li><a href="https://www.cnblogs.com/chen-cs/p/13055211.html">【C++多线程】join()及注意 - Chen沉尘 - 博客园 (cnblogs.com)</a></li></ul><h3 id="pthread">pthread</h3><ul><li><p><a href="https://mp.weixin.qq.com/s/CCzEFnyxXKp6a1iVSBD78w">写给大忙人看的进程和线程</a></p></li><li><p><a href="https://www.cnblogs.com/yjboke/p/8911220.html">详解多线程</a></p></li><li><p><a href="https://blog.csdn.net/w903414/article/details/110005612"><font color=Red>【Linux】多线程详解，一篇文章彻底搞懂多线程中各个难点！！！</font></a></p></li><li><p><a href="https://www.cnblogs.com/yinbiao/p/11190336.html"><font color=Red>【Linux】多线程同步的四种方式 - Y先森0.0 - 博客园 (cnblogs.com)</font></a></p></li><li><p><a href="https://blog.csdn.net/guoping16/article/details/6584043"><font color=Red>信号量函数（semget、semop、semctl）及其范例</font></a></p></li><li><p><a href="https://www.toutiao.com/article/6978007709220291111">「linux」深入理解RCU核心原理</a></p></li><li><p><a href="https://www.toutiao.com/article/7106767459059089923"><font color=Red>linux c/c++开发：多线程并发锁：互斥锁、自旋锁、原子操作、CAS</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/1-YpIr20KhYlpzub7JUU-A">Linux内核中的各种锁：信号量/互斥锁/读写锁/原子锁/自旋锁/内存屏障等</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/QITWTjR1T9eVBwPJ6sGZBA">详解Linux多线程中互斥锁、读写锁、自旋锁、条件变量、信号量</a></p></li><li><p><a href="https://blog.csdn.net/hairetz/article/details/4535920"><font color=Red>pthread_cond_wait()用法分析</font></a></p></li><li><p><a href="https://blog.csdn.net/wteruiycbqqvwt/article/details/99707580"><font color=Red>linux对线程等待和唤醒操作（pthread_cond_timedwait 详解）</font></a></p></li></ul><h4 id="信号量">信号量</h4><ul><li><a href="https://www.toutiao.com/article/7159838260959740457/">深入讲解读写信号量（上）</a></li><li><a href="https://www.toutiao.com/article/7159867610317390372">深入讲解读写信号量（下）</a></li></ul><h3 id="c11多线程">C++11多线程</h3><ul><li><p><a href="https://www.toutiao.com/article/7153230059011686948/">从无栈协程到 C++异步框架</a></p></li><li><p><a href="https://blog.csdn.net/fanyun_01/article/details/100178104">c++11中关于std::thread的join函数详解_fanyun的博客-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3284540.html">C++11 并发指南系列 - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3252041.html">C++11 并发指南五(std::condition_variable 详解) - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/feikudai8460/article/details/109604690">C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客_c++ notify_one</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/WsYEvRays-l58KAOwwzP-w">C++11是如何封装Thread库的？</a></p></li></ul><h3 id="死锁">死锁</h3><ul><li><a href="https://www.toutiao.com/article/7131231200097862158">手把手带你实现一个死锁检测组件</a></li><li><a href="https://blog.csdn.net/qq_26553393/article/details/122281044">2.4.2 死锁的处理策略-预防死锁（破坏互斥条件、破坏不可剥夺条件、破坏请求和保持条件、破坏循环等待条件）</a></li><li><a href="https://blog.csdn.net/zsiming/article/details/126695393"><font color=Red>Linux下排除死锁详细教程（基于C++11、GDB）</font></a></li><li><a href="https://blog.csdn.net/Ivan804638781/article/details/100740857">【开发工具】【lockdep】Linux内核死锁检测工具（lockdep）的使用</a></li><li><a href="https://www.cnblogs.com/arnoldlu/p/8580387.html"><font color=Red>Linux死锁检测-Lockdep</font></a><ul><li><a href="https://zhuanlan.zhihu.com/p/364130923">linux同步机制 - mutex lock</a></li></ul></li><li><a href="https://mp.weixin.qq.com/s/Jjio-cNapfUMBqEOefi1og">手画图解 | 关于死锁，面试的一切都在这里了</a></li><li><a href="https://zhuanlan.zhihu.com/p/446932523"><font color=Red>多线程检测工具ThreadSanitizer 与 Helgrind 的使用</font></a></li></ul><h4 id="watchdog">watchdog</h4><ul><li><p><a href="https://cloud.tencent.com/developer/article/1843976">禁用watchdog方法汇总</a></p></li><li><p><a href="https://blog.csdn.net/jiexijihe945/article/details/128021600">Linux watchdog配置</a></p></li><li><p><a href="https://blog.csdn.net/qq_28278079/article/details/104218588">Linux禁用watchdog</a></p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs text">nmi_watchdog=   [KNL,BUGS=X86] Debugging features for SMP kernels<br>                      Format: [panic,][nopanic,][num]<br>                      Valid num: 0 or 1<br>                      0 - turn hardlockup detector in nmi_watchdog off<br>                      1 - turn hardlockup detector in nmi_watchdog on<br>                      When panic is specified, panic when an NMI watchdog<br>                      timeout occurs (or &#x27;nopanic&#x27; to not panic on an NMI<br>                      watchdog, if CONFIG_BOOTPARAM_HARDLOCKUP_PANIC is set)<br>                      To disable both hard and soft lockup detectors,<br>                      please see &#x27;nowatchdog&#x27;.<br>                      This is useful when you use a panic=... timeout and<br>                      need the box quickly up again.<br><br>                      These settings can be accessed at runtime via<br>                      the nmi_watchdog and hardlockup_panic sysctls.<br></code></pre></td></tr></table></figure></li></ul><h2 id="线程池">线程池</h2><ul><li><a href="https://blog.csdn.net/MOU_IT/article/details/88712090">C++实现线程池_蓬莱道人的博客-CSDN博客_c++实现线程池</a></li><li><a href="https://www.cnblogs.com/oloroso/p/5881863.html">C++11的简单线程池代码阅读-乌合之众-博客园(cnblogs.com)</a></li><li><a href="https://wangpengcheng.github.io/2019/05/17/cplusplus_theadpool/"><font color=Red>C++ 线程池</font></a></li><li><a href="https://blog.csdn.net/zzhongcy/article/details/89453370">c++11：线程池，boost threadpool、thread_group example_zzhongcy的专栏-CSDN博客_boost 线程池</a></li><li><a href="https://www.cnblogs.com/lidabo/p/3328402.html">线程池原理及创建（C++实现）- DoubleLi -博客园(cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/cpper-kaixuan/articles/3640485.html">C++线程池原理及创建（转）- cpper-kaixuan -博客园(cnblogs.com)</a></li><li><a href="https://www.jb51.net/article/75295.htm">深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/qq_36359022/article/details/78796784">线程池原理及C语言实现线程池</a></li><li><a href="https://blog.csdn.net/robothj/article/details/80172287">c++/c实现线程池</a></li><li><a href="https://github.com/lzpong/threadpool/blob/master/Main.cpp">threadpool/Main.cpp at master · lzpong/threadpool (github.com)</a></li><li><a href="https://www.cnblogs.com/lzpong/p/6397997.html">基于C++11的线程池(threadpool),简洁且可以带任意多的参数 - _Ong - 博客园 (cnblogs.com)</a></li></ul><h2 id="数据库连接池">数据库连接池</h2><ul><li><a href="https://blog.csdn.net/weixin_43825537/article/details/104516274">C++数据库连接池的设计与实现_暮明已逝的博客-CSDN博客_c++数据库连接池</a></li><li><a href="https://www.toutiao.com/i7004734534830801420/">基于c++的数据库连接池的实现与理解(toutiao.com)</a></li></ul><h2 id="其他">其他</h2><ul><li><p><a href="https://www.coder.work/article/1954428">c++ - 执行并行任务而无需等待C++中的结果</a></p></li><li><p><a href="https://github.com/seanmiddleditch/jobxx" class="uri">https://github.com/seanmiddleditch/jobxx</a></p></li><li><p><a href="https://github.com/cdwfs/cds_job" class="uri">https://github.com/cdwfs/cds_job</a></p></li><li><p><a href="https://github.com/delscorcho/basic-job-system" class="uri">https://github.com/delscorcho/basic-job-system</a></p></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2238,35 +2238,6 @@
   
   
   <entry>
-    <title>cmake编译链接参数</title>
-    <link href="/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/"/>
-    <url>/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/</url>
-    
-    <content type="html"><![CDATA[<h1 id="cmake编译链接参数">cmake编译链接参数</h1><h2 id="cmake编译链接参数-1">cmake编译链接参数</h2><ul><li><p><a href="https://blog.51cto.com/u_15064646/3462077">cmake编译选项</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/513148985">GCC编译选项参数</a></p></li><li><p><a href="https://blog.51cto.com/u_15064646/3462077">添加-O0 -g，生成gdb的调试信息和不进行代码优化</a></p></li><li><p><a href="https://elloop.github.io/tools/2016-04-10/learning-cmake-2-commands">【使用CMake组织C++工程】2：调试包不优化</a></p></li><li><p><a href="https://blog.csdn.net/sandalphon4869/article/details/102503224">CMake解决c++11的phread库问题：undefined reference to `pthread_create’</a></p></li><li><p><a href="https://www.jianshu.com/p/10bf5d27dcfc">cmake编译缺失pthread_create等thread库解决方案</a></p></li><li><p><a href="http://blog.chinaunix.net/uid-69906223-id-5817313.html">gcc -lpthread和gcc -pthread的区别</a></p></li><li><p><a href="https://www.5axxw.com/questions/content/ratnvg">CMake: link options</a></p></li><li><p><a href="https://www.dovov.com/cmakecmakelists-txtldflags.html">CMake：如何在CMakeLists.txt中设置LDFLAGS？</a></p></li><li><p><a href="https://blog.csdn.net/dongjideyu/article/details/79267683">CMAKE 中　add_definitions的用法．</a></p></li><li><p><a href="https://blog.csdn.net/10km/article/details/51731959">cmake:设置编译选项的讲究(add_compile_options和CMAKE_CXX_FLAGS的区别)</a></p></li><li><p><a href="https://blog.csdn.net/fb_941219/article/details/88638503">ubuntu16.04cmake、gcc/g++版本更换</a></p></li></ul><h2 id="dynamic-code-analysis">Dynamic code analysis</h2><ul><li><a href="https://www.cnblogs.com/gladiatorplus/p/14437059.html">cmake 内存泄露检查asan</a></li><li><a href="https://www.jetbrains.com/help/clion/profiling-tools.html">动态代码分析 Clion</a></li><li><a href="https://blog.csdn.net/register_k/article/details/120319834">libasan使用和遇到的问题</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>cmake</title>
     <link href="/cpp/cmake/"/>
     <url>/cpp/cmake/</url>
@@ -2300,11 +2271,11 @@
   
   
   <entry>
-    <title>gcc</title>
-    <link href="/cpp/gcc/"/>
-    <url>/cpp/gcc/</url>
+    <title>cmake编译链接参数</title>
+    <link href="/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/"/>
+    <url>/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/</url>
     
-    <content type="html"><![CDATA[<h1 id="gcc">gcc</h1><h2 id="gcc-1">gcc</h2><ul><li><p><a href="http://c.biancheng.net/view/679.html">GCC的组成部分以及使用到的软件</a></p></li><li><p><a href="http://c.biancheng.net/view/7936.html">gcc和g++是什么，有什么区别？</a></p></li><li><p><a href="https://docs.oracle.com/cd/E19205-01/820-1214/bkacs/index.html">使用 C++ 编译器选项</a></p></li><li><p><a href="https://www.runoob.com/w3cnote/gcc-parameter-detail.html">GCC 参数详解</a></p></li><li><p><a href="https://blog.csdn.net/chosen0ne/article/details/7210946">linux下C include搜索的路径_娄振林专栏-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/bigfi/p/9487427.html">linux下C/C++编译时系统搜索 include 和 链接库 文件路径的指定</a></p></li><li><p><a href="https://blog.csdn.net/u014618114/article/details/103230906">gcc编译链接头文件和库文件</a></p></li><li><p><a href="https://www.jianshu.com/p/3eb25114576e">LINUX下默认搜索头文件及库文件的路径</a></p></li><li><p><a href="https://blog.csdn.net/zvvzxzko2006/article/details/110467542">gcc交叉编译时设置了"–sysroot"会产生哪些影响</a></p></li><li><p><a href="https://blog.csdn.net/qq_34269988/article/details/103064318">如何查看和修改gcc、g++默认include路径</a></p></li><li><p><a href="https://blog.51cto.com/u_13913090/2155979"><font color=Red>gcc的头文件、库文件默认搜索路径</font></a></p></li><li><p><a href="https://blog.csdn.net/wishfly/article/details/45694231"><font color=Red>gcc 生成动态库时-fpic选项是什么意思</font></a></p></li><li><p><a href="https://blog.csdn.net/bjrxyz/article/details/121146434">GCC编译静态库的-fPIC选项</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/28dTkwcYlowRzu58DB7MjA">Linux 程序编译过程详解</a></p></li><li><p><a href="https://blog.csdn.net/weixin_42018112/article/details/82289971">C++编译链接过程详解</a></p></li><li><p><a href="https://zhidao.baidu.com/question/1512552100872530100.html"><font color=Red>C语言 如何在一个文件中调用另一个文件的函数 用头文件</font></a></p></li></ul><h2 id="编译优化">编译优化</h2><ul><li><a href="https://blog.csdn.net/qq_31108501/article/details/51842166">gcc -O0 -O1 -O2 -O3 四级优化选项及每级分别做什么优化</a></li><li><a href="https://blog.csdn.net/wuxing26jiayou/article/details/96132721">gcc编译优化-O0 -O1 -O2 -O3 -OS解析</a></li><li><a href="https://zhuanlan.zhihu.com/p/381490718">编译器常用的8种优化方法</a></li><li><a href="https://zhuanlan.zhihu.com/p/50812510">被知乎大佬嘲讽后的一个月，我重新研究了一下内联函数</a></li><li><a href="https://www.coder.work/article/176992">c - gcc -g0 并且没有 -g 选项</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="cmake编译链接参数">cmake编译链接参数</h1><h2 id="cmake编译链接参数-1">cmake编译链接参数</h2><ul><li><p><a href="https://blog.51cto.com/u_15064646/3462077">cmake编译选项</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/513148985">GCC编译选项参数</a></p></li><li><p><a href="https://blog.51cto.com/u_15064646/3462077">添加-O0 -g，生成gdb的调试信息和不进行代码优化</a></p></li><li><p><a href="https://elloop.github.io/tools/2016-04-10/learning-cmake-2-commands">【使用CMake组织C++工程】2：调试包不优化</a></p></li><li><p><a href="https://blog.csdn.net/sandalphon4869/article/details/102503224">CMake解决c++11的phread库问题：undefined reference to `pthread_create’</a></p></li><li><p><a href="https://www.jianshu.com/p/10bf5d27dcfc">cmake编译缺失pthread_create等thread库解决方案</a></p></li><li><p><a href="http://blog.chinaunix.net/uid-69906223-id-5817313.html">gcc -lpthread和gcc -pthread的区别</a></p></li><li><p><a href="https://www.5axxw.com/questions/content/ratnvg">CMake: link options</a></p></li><li><p><a href="https://www.dovov.com/cmakecmakelists-txtldflags.html">CMake：如何在CMakeLists.txt中设置LDFLAGS？</a></p></li><li><p><a href="https://blog.csdn.net/dongjideyu/article/details/79267683">CMAKE 中　add_definitions的用法．</a></p></li><li><p><a href="https://blog.csdn.net/10km/article/details/51731959">cmake:设置编译选项的讲究(add_compile_options和CMAKE_CXX_FLAGS的区别)</a></p></li><li><p><a href="https://blog.csdn.net/fb_941219/article/details/88638503">ubuntu16.04cmake、gcc/g++版本更换</a></p></li></ul><h2 id="dynamic-code-analysis">Dynamic code analysis</h2><ul><li><a href="https://www.cnblogs.com/gladiatorplus/p/14437059.html">cmake 内存泄露检查asan</a></li><li><a href="https://www.jetbrains.com/help/clion/profiling-tools.html">动态代码分析 Clion</a></li><li><a href="https://blog.csdn.net/register_k/article/details/120319834">libasan使用和遇到的问题</a></li></ul>]]></content>
     
     
     <categories>
@@ -2316,11 +2287,9 @@
     
     <tags>
       
-      <tag>Linux</tag>
-      
       <tag>C++</tag>
       
-      <tag>linux</tag>
+      <tag>git</tag>
       
       <tag>HTML</tag>
       
@@ -2350,6 +2319,37 @@
       <tag>Linux</tag>
       
       <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>gcc</title>
+    <link href="/cpp/gcc/"/>
+    <url>/cpp/gcc/</url>
+    
+    <content type="html"><![CDATA[<h1 id="gcc">gcc</h1><h2 id="gcc-1">gcc</h2><ul><li><p><a href="http://c.biancheng.net/view/679.html">GCC的组成部分以及使用到的软件</a></p></li><li><p><a href="http://c.biancheng.net/view/7936.html">gcc和g++是什么，有什么区别？</a></p></li><li><p><a href="https://docs.oracle.com/cd/E19205-01/820-1214/bkacs/index.html">使用 C++ 编译器选项</a></p></li><li><p><a href="https://www.runoob.com/w3cnote/gcc-parameter-detail.html">GCC 参数详解</a></p></li><li><p><a href="https://blog.csdn.net/chosen0ne/article/details/7210946">linux下C include搜索的路径_娄振林专栏-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/bigfi/p/9487427.html">linux下C/C++编译时系统搜索 include 和 链接库 文件路径的指定</a></p></li><li><p><a href="https://blog.csdn.net/u014618114/article/details/103230906">gcc编译链接头文件和库文件</a></p></li><li><p><a href="https://www.jianshu.com/p/3eb25114576e">LINUX下默认搜索头文件及库文件的路径</a></p></li><li><p><a href="https://blog.csdn.net/zvvzxzko2006/article/details/110467542">gcc交叉编译时设置了"–sysroot"会产生哪些影响</a></p></li><li><p><a href="https://blog.csdn.net/qq_34269988/article/details/103064318">如何查看和修改gcc、g++默认include路径</a></p></li><li><p><a href="https://blog.51cto.com/u_13913090/2155979"><font color=Red>gcc的头文件、库文件默认搜索路径</font></a></p></li><li><p><a href="https://blog.csdn.net/wishfly/article/details/45694231"><font color=Red>gcc 生成动态库时-fpic选项是什么意思</font></a></p></li><li><p><a href="https://blog.csdn.net/bjrxyz/article/details/121146434">GCC编译静态库的-fPIC选项</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/28dTkwcYlowRzu58DB7MjA">Linux 程序编译过程详解</a></p></li><li><p><a href="https://blog.csdn.net/weixin_42018112/article/details/82289971">C++编译链接过程详解</a></p></li><li><p><a href="https://zhidao.baidu.com/question/1512552100872530100.html"><font color=Red>C语言 如何在一个文件中调用另一个文件的函数 用头文件</font></a></p></li></ul><h2 id="编译优化">编译优化</h2><ul><li><a href="https://blog.csdn.net/qq_31108501/article/details/51842166">gcc -O0 -O1 -O2 -O3 四级优化选项及每级分别做什么优化</a></li><li><a href="https://blog.csdn.net/wuxing26jiayou/article/details/96132721">gcc编译优化-O0 -O1 -O2 -O3 -OS解析</a></li><li><a href="https://zhuanlan.zhihu.com/p/381490718">编译器常用的8种优化方法</a></li><li><a href="https://zhuanlan.zhihu.com/p/50812510">被知乎大佬嘲讽后的一个月，我重新研究了一下内联函数</a></li><li><a href="https://www.coder.work/article/176992">c - gcc -g0 并且没有 -g 选项</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>C++</tag>
       
       <tag>linux</tag>
       
@@ -2551,39 +2551,6 @@
   
   
   <entry>
-    <title>git教程</title>
-    <link href="/git/git%E6%95%99%E7%A8%8B/"/>
-    <url>/git/git%E6%95%99%E7%A8%8B/</url>
-    
-    <content type="html"><![CDATA[<h1 id="git教程">git教程</h1><h2 id="github.token">Github.token</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">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<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/purplego/article/details/78657521"><font color=Red>git client 配置以及连接GitHub、Bitbucket_purplego的博客-CSDN博客</font></a></li><li><a href="https://www.wdssmq.com/post/20201216004.html">【VSCode 笔记】Git： Host key verification failed</a></li><li><a href="https://www.jianshu.com/p/0503722f69af">[ github ] github clone private repo克隆私有项目详细-简书(jianshu.com)</a></li><li><a href="https://blog.csdn.net/purplego/article/details/78657521">git client 配置以及连接GitHub、Bitbucket</a></li><li><a href="https://www.jianshu.com/p/affe1af6781c">github项目如何快速git clone https</a></li></ul><h2 id="密码">密码</h2><ul><li><p><a href="https://www.cnblogs.com/qdlhj/p/13215158.html">GitLab使用手册配置Git永久记住密码，免去重复输入的烦恼 - 心向阳 - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_42050406/article/details/115251109">向gitlab提交代码时记住用户名和密码_胡桃夹夹子的博客-CSDN博客_gitlab记住密码</a></p></li><li><p><a href="https://www.donnadie.top/set-git-proxy"><font color=Red>为git设置代理解决远程仓库无法连接问题</font></a></p></li><li><p><a href="https://blog.csdn.net/yuzhiqiang_1993/article/details/127032178">github配置了公钥依旧提示git@github.com‘s password: Permission denied, please try again.的解决办法</a></p></li><li><p><a href="https://blog.csdn.net/syzdev/article/details/126921031">Git报错：git@github.com: Permission denied (publickey)</a></p></li></ul><h2 id="config">config</h2><ul><li><a href="https://www.maixj.net/ict/git-config-unset-21515">git config的删除命令 | 云上小悟 (maixj.net)</a></li></ul><h2 id="命令">命令</h2><ul><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzU3NTgyODQ1Nw==&amp;mid=2247522045&amp;idx=2&amp;sn=f97685dcac7470d9b8fc1990aba7a7a8&amp;chksm=fd1fee7bca68676db0e438c67294cf0975958f9c1fbf04caeb25d3cafd5b64ac18f4d1003b7a&amp;mpshare=1&amp;scene=1&amp;srcid=0319RvIZ2fucLHLShthVdegk&amp;sharer_sharetime=1648042404990&amp;sharer_shareid=2dfdf936388dba04865b3e883d5a3225&amp;version=3.1.12.6001&amp;platform=win#rd"><font color=Red>Git 不要只会 pull 和 push，试试这 5 条提高效率的命令</font></a></p></li><li><p><a href="https://juejin.cn/post/6844903746166587405">如何在大型项目中使用Git子模块开发</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/0g1RDnKaSw7WYPfcp_gmKw">Git 各指令的本质，真是通俗易懂啊 (qq.com)</a></p></li><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzAxODQxMDM0Mw==&amp;mid=2247485544&amp;idx=1&amp;sn=afc9d9f72d811ec847fa64108d5c7412&amp;scene=21#wechat_redirect"><font color=Red>我用四个命令，总结了 Git 的所有套路</font></a></p></li><li><p><a href="https://blog.csdn.net/weixin_46087056/article/details/124741158"><font color=Red>git常用命令 1.分支开发 2.代码冲突处理</font></a></p></li></ul><h2 id="reset">reset</h2><ul><li><a href="https://www.runoob.com/git/git-reset.html">git reset 命令</a></li></ul><h2 id="commit">commit</h2><ul><li><p><a href="https://blog.csdn.net/keeplook/article/details/39324971">Git怎样合并最近两次commit</a></p></li><li><p><a href="https://www.jianshu.com/p/7d40838883af">对之前的commit 提交进行修改</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1730774"><font color=Red>Git 修改已提交 commit 的信息</font></a></p></li><li><p><a href="https://www.cnblogs.com/boshen-hzb/p/9764835.html"><font color=Red>git只合并某一个分支的某个commit</font></a></p></li><li><p><a href="https://blog.csdn.net/ybdesire/article/details/42145597"><font color=Red>Git合并特定commits 到另一个分支</font></a></p></li><li><p><a href="https://blog.csdn.net/qq_32077121/article/details/111150662">git如何恢复本地删除的文件夹</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39580031/article/details/123826439"><font color=Red>git 回退一个文件的版本</font></a></p></li></ul><h2 id="head">head</h2><ul><li><a href="https://blog.csdn.net/raoxiaoya/article/details/110862360">git深入理解(二)：HEAD是什么</a></li><li><a href="https://geek-docs.com/git/git-cmds/git-head.html">Git – Head</a></li></ul><h2 id="statsh">statsh</h2><ul><li><a href="https://www.cnblogs.com/shoshana-kong/p/11194256.html">git stash详解</a></li></ul><h2 id="rebase-merge">rebase merge</h2><ul><li><p><a href="https://docs.github.com/cn/get-started/using-git/resolving-merge-conflicts-after-a-git-rebase">解决 Git 变基后的合并冲突</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull origin master rebase<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.jianshu.com/p/025aaa1a2c34">GIT使用 rebase 和 merge 的正确姿势（转）</a></p></li><li><p><a href="https://blog.csdn.net/textdemo123/article/details/107867211">Linux :关于git：您尚未完成合并(MERGE_HEAD存在)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/462530860">使用交互式 git rebase 工具压缩 Git 提交</a></p></li><li><p><a href="http://quibbler.cn/?thread-232.htm&amp;user=1"><font color=Red>git rebase调整commit之间顺序</font></a></p></li><li><p><a href="https://www.jianshu.com/p/f247827d60bb">git强制合并分支</a></p></li><li><p><a href="https://blog.csdn.net/junruitian/article/details/88361895">refusing to merge unrelated histories的解决方案（本地/远程）综合</a></p></li></ul><h2 id="pull">pull</h2><ul><li><a href="https://man7.org/linux/man-pages/man3/pthread_create.3.html">如何使用 Git Pull 覆盖本地文件</a></li><li><a href="https://mp.weixin.qq.com/s/3jxG4pdjSiCA1tgo5zau3g">Git 合并到底使用Merge还是Rebase</a></li></ul><h2 id="pull-request">pull request</h2><ul><li><a href="https://www.ruanyifeng.com/blog/2017/07/pull_request.html">Pull Request 的命令行管理</a></li></ul><h2 id="push">push</h2><ul><li><p><a href="https://github.com/LeachZhou/blog/issues/11">Gitlab强制推送提示"You are not allowed to force push code to a protected branch on this project." · Issue #11 · LeachZhou/blog (github.com)</a></p></li><li><p><a href="https://www.cnblogs.com/zishu/p/9191815.html">Github远程推送一直Everything up-to-date - sinatJ - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_30304375/article/details/99984494">submodule 子项目提交代码后无法push到远程仓库_三叔的负能量的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/qq_45893999/article/details/106273214">error: failed to push some refs to如何解决_尘客-追梦的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/D939030515/article/details/105490835"><font color=Red>git 仓库提交分支到另外一个仓库</font></a></p></li><li><p><a href="https://www.freesion.com/article/2366930198/">GIT 清除本地 REMOTES/ORIGIN/*</a></p></li><li><p><a href="https://www.itranslater.com/qa/details/2583713236583449600">git-警告：忽略损坏的ref refs / remotes / origin / HEAD</a></p></li></ul><h2 id="tag">tag</h2><ul><li><a href="https://git-scm.com/book/zh/v2/Git-%E5%9F%BA%E7%A1%80-%E6%89%93%E6%A0%87%E7%AD%BE"><font color=Red>2.6 Git基础-打标签</font></a></li><li><a href="https://blog.csdn.net/QH_JAVA/article/details/77979622">git tag创建、远程推送、回退以及强推push -f</a></li></ul><h2 id="submodule">submodule</h2><ul><li><p><a href="https://blog.csdn.net/weixin_43455581/article/details/120174578"><font color=Red>git中子模块/子仓库的使用</font></a></p></li><li><p><a href="https://knightyun.github.io/2021/03/21/git-submodule"><font color=Red>Git submodule 知识总结</font></a></p></li><li><p><a href="https://git-scm.com/book/zh/v2/Git-%E5%B7%A5%E5%85%B7-%E5%AD%90%E6%A8%A1%E5%9D%97">7.11 Git工具-子模块</a></p></li><li><p><a href="https://www.jianshu.com/p/f8a55b972972/">git submodule 使用小结 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.jianshu.com/p/e27a978ddb88">git submodule 的使用 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.cnblogs.com/nicksheng/p/6201711.html">Git Submodule管理项目子模块 - nicksheng - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/qq_38292379/article/details/124950163">git submodule update 游离分支 临时分支问题记录 解决办法</a></p></li><li><p><a href="https://www.cnblogs.com/hustcpp/p/13092625.html">git添加submodule以及更名</a></p></li><li><p><a href="https://blog.csdn.net/weixin_45115705/article/details/104303730">Git修改.Submodule文件url生效</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39673293/article/details/111786946">submodule切换分支_Git submodule-切换submodule的分支</a></p></li><li><p><a href="https://qa.1r1g.com/sf/ask/2815344661/">git submodule 分支是否与主项目的分支一起切换？</a></p><p>设置永久记住密码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 设置永久记住密码 </span><br><br>git config --global credential.helper store <br>git pull  <br><br><br><span class="hljs-comment"># 拉取所有子模块 </span><br><br>git submodule update --init --recursive <br><br><br><br><br>git submodule foreach git pull origin master <br><br><br><br><br>git submodule foreach git checkout master <br><br><br><br><br><span class="hljs-comment"># 取消永久记住密码 </span><br><br><span class="hljs-comment"># git config --global --unset credential.helper </span><br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://juejin.cn/post/6934107291621228558">Git详解10-Git子库：submodule与subtree</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/594835463">将git仓库从submodule转换为subtree</a></p></li><li><p><a href="https://www.cnblogs.com/anliven/p/13681894.html">Git - - subtree与submodule - Anliven -博客园(cnblogs.com)</a></p></li><li><p><a href="https://juejin.cn/post/6936459179049615397">Git SubTree使用</a></p></li></ul><h2 id="gitignore">.gitignore</h2><ul><li><a href="https://learnku.com/articles/18380">.gitignore 在已忽略文件夹中不忽略指定文件、文件夹... | Laravel China 社区 (learnku.com)</a></li></ul><h2 id="gitkeep">.gitkeep</h2><ul><li><a href="https://blog.csdn.net/fengchao2016/article/details/52769151">git提交空文件夹_fengchao2016的博客-CSDN博客_git空文件夹不能提交</a></li><li><a href="https://www.cnblogs.com/everfight/p/keep_empty_dir_in_git_repo.html">如何向git仓库提交空文件夹？.gitignore和.gitkeep配合 - everfight - 博客园 (cnblogs.com)</a></li></ul><h2 id="gerrit">gerrit</h2><ul><li><p><a href="https://www.jianshu.com/p/e1b466df12de">Gerrit - not clone with commit-msg hook</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review dev -r origin<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git cherry-pick c6611ca831bb97ac646dbd22bbf9f5216741c09d<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://blog.csdn.net/weixin_38419133/article/details/113600907">gerrit 将代码从一个分支合并到另外一个分支 Cherry Pick的使用</a></p></li><li><p><a href="https://www.cnblogs.com/111testing/p/9450530.html">gerrit 使用教程（一）</a></p></li><li><p><a href="https://blog.csdn.net/yangshujuan91/article/details/113741972">gerrit 缺少change-Id</a></p></li><li><p><a href="https://www.cnblogs.com/tsalita/p/16500429.html">VSCode_git&amp;svn 的冲突译文</a></p></li></ul><h2 id="github-action">Github Action</h2><ul><li><a href="https://www.it610.com/article/1527116916244676608.htm">通过 GitHub Actions 将 GitHub 仓库自动备份到 Gitee、GitLab</a></li><li><a href="https://stackoverflow.com/questions/66626814/github-action-error-process-completed-with-exit-code-1">bash - Github Action - Error: Process completed with exit code 1 - Stack Overflow</a></li><li><a href="https://github.com/orgs/community/discussions/26928"><font color=Red>Github actions git log only output one line</font></a></li></ul><h2 id="patch">patch</h2><ul><li><a href="https://www.toutiao.com/article/6652488964823319052">使用Git生成patch和应用patch，看完这一篇文章就全懂了</a></li><li><a href="https://blog.csdn.net/qq_30624591/article/details/89474571">git生成patch和打patch的操作命令</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>git</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-      <tag>Java</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>submodule</title>
     <link href="/git/submodule/"/>
     <url>/git/submodule/</url>
@@ -2609,6 +2576,39 @@
       <tag>linux</tag>
       
       <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>git教程</title>
+    <link href="/git/git%E6%95%99%E7%A8%8B/"/>
+    <url>/git/git%E6%95%99%E7%A8%8B/</url>
+    
+    <content type="html"><![CDATA[<h1 id="git教程">git教程</h1><h2 id="github.token">Github.token</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">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<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/purplego/article/details/78657521"><font color=Red>git client 配置以及连接GitHub、Bitbucket_purplego的博客-CSDN博客</font></a></li><li><a href="https://www.wdssmq.com/post/20201216004.html">【VSCode 笔记】Git： Host key verification failed</a></li><li><a href="https://www.jianshu.com/p/0503722f69af">[ github ] github clone private repo克隆私有项目详细-简书(jianshu.com)</a></li><li><a href="https://blog.csdn.net/purplego/article/details/78657521">git client 配置以及连接GitHub、Bitbucket</a></li><li><a href="https://www.jianshu.com/p/affe1af6781c">github项目如何快速git clone https</a></li></ul><h2 id="密码">密码</h2><ul><li><p><a href="https://www.cnblogs.com/qdlhj/p/13215158.html">GitLab使用手册配置Git永久记住密码，免去重复输入的烦恼 - 心向阳 - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_42050406/article/details/115251109">向gitlab提交代码时记住用户名和密码_胡桃夹夹子的博客-CSDN博客_gitlab记住密码</a></p></li><li><p><a href="https://www.donnadie.top/set-git-proxy"><font color=Red>为git设置代理解决远程仓库无法连接问题</font></a></p></li><li><p><a href="https://blog.csdn.net/yuzhiqiang_1993/article/details/127032178">github配置了公钥依旧提示git@github.com‘s password: Permission denied, please try again.的解决办法</a></p></li><li><p><a href="https://blog.csdn.net/syzdev/article/details/126921031">Git报错：git@github.com: Permission denied (publickey)</a></p></li></ul><h2 id="config">config</h2><ul><li><a href="https://www.maixj.net/ict/git-config-unset-21515">git config的删除命令 | 云上小悟 (maixj.net)</a></li></ul><h2 id="命令">命令</h2><ul><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzU3NTgyODQ1Nw==&amp;mid=2247522045&amp;idx=2&amp;sn=f97685dcac7470d9b8fc1990aba7a7a8&amp;chksm=fd1fee7bca68676db0e438c67294cf0975958f9c1fbf04caeb25d3cafd5b64ac18f4d1003b7a&amp;mpshare=1&amp;scene=1&amp;srcid=0319RvIZ2fucLHLShthVdegk&amp;sharer_sharetime=1648042404990&amp;sharer_shareid=2dfdf936388dba04865b3e883d5a3225&amp;version=3.1.12.6001&amp;platform=win#rd"><font color=Red>Git 不要只会 pull 和 push，试试这 5 条提高效率的命令</font></a></p></li><li><p><a href="https://juejin.cn/post/6844903746166587405">如何在大型项目中使用Git子模块开发</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/0g1RDnKaSw7WYPfcp_gmKw">Git 各指令的本质，真是通俗易懂啊 (qq.com)</a></p></li><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzAxODQxMDM0Mw==&amp;mid=2247485544&amp;idx=1&amp;sn=afc9d9f72d811ec847fa64108d5c7412&amp;scene=21#wechat_redirect"><font color=Red>我用四个命令，总结了 Git 的所有套路</font></a></p></li><li><p><a href="https://blog.csdn.net/weixin_46087056/article/details/124741158"><font color=Red>git常用命令 1.分支开发 2.代码冲突处理</font></a></p></li></ul><h2 id="reset">reset</h2><ul><li><a href="https://www.runoob.com/git/git-reset.html">git reset 命令</a></li></ul><h2 id="commit">commit</h2><ul><li><p><a href="https://blog.csdn.net/keeplook/article/details/39324971">Git怎样合并最近两次commit</a></p></li><li><p><a href="https://www.jianshu.com/p/7d40838883af">对之前的commit 提交进行修改</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1730774"><font color=Red>Git 修改已提交 commit 的信息</font></a></p></li><li><p><a href="https://www.cnblogs.com/boshen-hzb/p/9764835.html"><font color=Red>git只合并某一个分支的某个commit</font></a></p></li><li><p><a href="https://blog.csdn.net/ybdesire/article/details/42145597"><font color=Red>Git合并特定commits 到另一个分支</font></a></p></li><li><p><a href="https://blog.csdn.net/qq_32077121/article/details/111150662">git如何恢复本地删除的文件夹</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39580031/article/details/123826439"><font color=Red>git 回退一个文件的版本</font></a></p></li></ul><h2 id="head">head</h2><ul><li><a href="https://blog.csdn.net/raoxiaoya/article/details/110862360">git深入理解(二)：HEAD是什么</a></li><li><a href="https://geek-docs.com/git/git-cmds/git-head.html">Git – Head</a></li></ul><h2 id="statsh">statsh</h2><ul><li><a href="https://www.cnblogs.com/shoshana-kong/p/11194256.html">git stash详解</a></li></ul><h2 id="rebase-merge">rebase merge</h2><ul><li><p><a href="https://docs.github.com/cn/get-started/using-git/resolving-merge-conflicts-after-a-git-rebase">解决 Git 变基后的合并冲突</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull origin master rebase<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.jianshu.com/p/025aaa1a2c34">GIT使用 rebase 和 merge 的正确姿势（转）</a></p></li><li><p><a href="https://blog.csdn.net/textdemo123/article/details/107867211">Linux :关于git：您尚未完成合并(MERGE_HEAD存在)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/462530860">使用交互式 git rebase 工具压缩 Git 提交</a></p></li><li><p><a href="http://quibbler.cn/?thread-232.htm&amp;user=1"><font color=Red>git rebase调整commit之间顺序</font></a></p></li><li><p><a href="https://www.jianshu.com/p/f247827d60bb">git强制合并分支</a></p></li><li><p><a href="https://blog.csdn.net/junruitian/article/details/88361895">refusing to merge unrelated histories的解决方案（本地/远程）综合</a></p></li></ul><h2 id="pull">pull</h2><ul><li><a href="https://man7.org/linux/man-pages/man3/pthread_create.3.html">如何使用 Git Pull 覆盖本地文件</a></li><li><a href="https://mp.weixin.qq.com/s/3jxG4pdjSiCA1tgo5zau3g">Git 合并到底使用Merge还是Rebase</a></li></ul><h2 id="pull-request">pull request</h2><ul><li><a href="https://www.ruanyifeng.com/blog/2017/07/pull_request.html">Pull Request 的命令行管理</a></li></ul><h2 id="push">push</h2><ul><li><p><a href="https://github.com/LeachZhou/blog/issues/11">Gitlab强制推送提示"You are not allowed to force push code to a protected branch on this project." · Issue #11 · LeachZhou/blog (github.com)</a></p></li><li><p><a href="https://www.cnblogs.com/zishu/p/9191815.html">Github远程推送一直Everything up-to-date - sinatJ - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_30304375/article/details/99984494">submodule 子项目提交代码后无法push到远程仓库_三叔的负能量的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/qq_45893999/article/details/106273214">error: failed to push some refs to如何解决_尘客-追梦的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/D939030515/article/details/105490835"><font color=Red>git 仓库提交分支到另外一个仓库</font></a></p></li><li><p><a href="https://www.freesion.com/article/2366930198/">GIT 清除本地 REMOTES/ORIGIN/*</a></p></li><li><p><a href="https://www.itranslater.com/qa/details/2583713236583449600">git-警告：忽略损坏的ref refs / remotes / origin / HEAD</a></p></li></ul><h2 id="tag">tag</h2><ul><li><a href="https://git-scm.com/book/zh/v2/Git-%E5%9F%BA%E7%A1%80-%E6%89%93%E6%A0%87%E7%AD%BE"><font color=Red>2.6 Git基础-打标签</font></a></li><li><a href="https://blog.csdn.net/QH_JAVA/article/details/77979622">git tag创建、远程推送、回退以及强推push -f</a></li></ul><h2 id="submodule">submodule</h2><ul><li><p><a href="https://blog.csdn.net/weixin_43455581/article/details/120174578"><font color=Red>git中子模块/子仓库的使用</font></a></p></li><li><p><a href="https://knightyun.github.io/2021/03/21/git-submodule"><font color=Red>Git submodule 知识总结</font></a></p></li><li><p><a href="https://git-scm.com/book/zh/v2/Git-%E5%B7%A5%E5%85%B7-%E5%AD%90%E6%A8%A1%E5%9D%97">7.11 Git工具-子模块</a></p></li><li><p><a href="https://www.jianshu.com/p/f8a55b972972/">git submodule 使用小结 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.jianshu.com/p/e27a978ddb88">git submodule 的使用 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.cnblogs.com/nicksheng/p/6201711.html">Git Submodule管理项目子模块 - nicksheng - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/qq_38292379/article/details/124950163">git submodule update 游离分支 临时分支问题记录 解决办法</a></p></li><li><p><a href="https://www.cnblogs.com/hustcpp/p/13092625.html">git添加submodule以及更名</a></p></li><li><p><a href="https://blog.csdn.net/weixin_45115705/article/details/104303730">Git修改.Submodule文件url生效</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39673293/article/details/111786946">submodule切换分支_Git submodule-切换submodule的分支</a></p></li><li><p><a href="https://qa.1r1g.com/sf/ask/2815344661/">git submodule 分支是否与主项目的分支一起切换？</a></p><p>设置永久记住密码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 设置永久记住密码 </span><br><br>git config --global credential.helper store <br>git pull  <br><br><br><span class="hljs-comment"># 拉取所有子模块 </span><br><br>git submodule update --init --recursive <br><br><br><br><br>git submodule foreach git pull origin master <br><br><br><br><br>git submodule foreach git checkout master <br><br><br><br><br><span class="hljs-comment"># 取消永久记住密码 </span><br><br><span class="hljs-comment"># git config --global --unset credential.helper </span><br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://juejin.cn/post/6934107291621228558">Git详解10-Git子库：submodule与subtree</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/594835463">将git仓库从submodule转换为subtree</a></p></li><li><p><a href="https://www.cnblogs.com/anliven/p/13681894.html">Git - - subtree与submodule - Anliven -博客园(cnblogs.com)</a></p></li><li><p><a href="https://juejin.cn/post/6936459179049615397">Git SubTree使用</a></p></li></ul><h2 id="gitignore">.gitignore</h2><ul><li><a href="https://learnku.com/articles/18380">.gitignore 在已忽略文件夹中不忽略指定文件、文件夹... | Laravel China 社区 (learnku.com)</a></li></ul><h2 id="gitkeep">.gitkeep</h2><ul><li><a href="https://blog.csdn.net/fengchao2016/article/details/52769151">git提交空文件夹_fengchao2016的博客-CSDN博客_git空文件夹不能提交</a></li><li><a href="https://www.cnblogs.com/everfight/p/keep_empty_dir_in_git_repo.html">如何向git仓库提交空文件夹？.gitignore和.gitkeep配合 - everfight - 博客园 (cnblogs.com)</a></li></ul><h2 id="gerrit">gerrit</h2><ul><li><p><a href="https://www.jianshu.com/p/e1b466df12de">Gerrit - not clone with commit-msg hook</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review dev -r origin<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git cherry-pick c6611ca831bb97ac646dbd22bbf9f5216741c09d<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://blog.csdn.net/weixin_38419133/article/details/113600907">gerrit 将代码从一个分支合并到另外一个分支 Cherry Pick的使用</a></p></li><li><p><a href="https://www.cnblogs.com/111testing/p/9450530.html">gerrit 使用教程（一）</a></p></li><li><p><a href="https://blog.csdn.net/yangshujuan91/article/details/113741972">gerrit 缺少change-Id</a></p></li><li><p><a href="https://www.cnblogs.com/tsalita/p/16500429.html">VSCode_git&amp;svn 的冲突译文</a></p></li></ul><h2 id="github-action">Github Action</h2><ul><li><a href="https://www.it610.com/article/1527116916244676608.htm">通过 GitHub Actions 将 GitHub 仓库自动备份到 Gitee、GitLab</a></li><li><a href="https://stackoverflow.com/questions/66626814/github-action-error-process-completed-with-exit-code-1">bash - Github Action - Error: Process completed with exit code 1 - Stack Overflow</a></li><li><a href="https://github.com/orgs/community/discussions/26928"><font color=Red>Github actions git log only output one line</font></a></li></ul><h2 id="patch">patch</h2><ul><li><a href="https://www.toutiao.com/article/6652488964823319052">使用Git生成patch和应用patch，看完这一篇文章就全懂了</a></li><li><a href="https://blog.csdn.net/qq_30624591/article/details/89474571">git生成patch和打patch的操作命令</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>git</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+      <tag>Java</tag>
       
     </tags>
     
@@ -2761,9 +2761,9 @@
       
       <tag>HTML</tag>
       
-      <tag>Golang</tag>
-      
       <tag>namespace</tag>
+      
+      <tag>Golang</tag>
       
     </tags>
     
@@ -2829,26 +2829,20 @@
   
   <entry>
     <title>README</title>
-    <link href="/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/"/>
-    <url>/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/</url>
+    <link href="/cpp/valgrind/README/"/>
+    <url>/cpp/valgrind/README/</url>
     
-    <content type="html"><![CDATA[<p><a href="https://blog.csdn.net/tmhanks/article/details/89110833?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-1.no_search_link&amp;depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-1.no_search_link">GDB查看C++对象布局_tmhanks的博客-CSDN博客</a></p><figure class="highlight gams"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs gams">GDB查看对象如下：<br>(gdb) <span class="hljs-keyword">set</span> print <span class="hljs-comment">object on</span><br>(gdb) <span class="hljs-keyword">set</span> <span class="hljs-comment">print vtbl on</span><br>(gdb) <span class="hljs-keyword">set</span> <span class="hljs-comment">print pretty on</span><br>((gdb) p <span class="hljs-comment">base</span><br>$7 = (Base) &#123;<br>_vptr.Base <span class="hljs-comment">= 0x403a50 &lt;vtable for Base+16&gt;,</span><br>m_base <span class="hljs-comment">= 0,</span><br>static <span class="hljs-comment">m_tmp = 1</span><br>&#125;<br>(gdb) info <span class="hljs-comment">vtbl base</span><br>vtable <span class="hljs-comment">for</span> ‘<span class="hljs-comment">Base</span>’ <span class="hljs-comment">@ 0x403a50 (subobject @ 0x7fffffffdf60):</span><br>[0]: 0x402830 <span class="hljs-comment">Base::</span>~<span class="hljs-comment">Base()</span><br>[1]: 0x402930 <span class="hljs-comment">Base::</span>~<span class="hljs-comment">Base()</span><br>[2]: 0x402ae0 <span class="hljs-comment">&lt;Base::print() const&gt;</span><br>————————————————<br>版权声明：本文为CSDN博主「流水之川」的原创文章，遵循CC <span class="hljs-comment">4.0 BY-SA</span>版权协议，转载请附上原文出处链接及本声明。<br>原文链接：https:<span class="hljs-comment">//blog.csdn.net/tmhanks/article/details/89110833</span><br></code></pre></td></tr></table></figure>]]></content>
+    <content type="html"><![CDATA[<p><a href="https://zhuanlan.zhihu.com/p/75416381">内存泄漏检测工具valgrind神器</a></p>]]></content>
     
     
     <categories>
       
       <category>cpp</category>
       
-      <category>C++对象的内存布局</category>
+      <category>valgrind</category>
       
     </categories>
     
-    
-    <tags>
-      
-      <tag>C++</tag>
-      
-    </tags>
     
   </entry>
   
@@ -2877,20 +2871,26 @@
   
   <entry>
     <title>README</title>
-    <link href="/cpp/valgrind/README/"/>
-    <url>/cpp/valgrind/README/</url>
+    <link href="/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/"/>
+    <url>/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/</url>
     
-    <content type="html"><![CDATA[<p><a href="https://zhuanlan.zhihu.com/p/75416381">内存泄漏检测工具valgrind神器</a></p>]]></content>
+    <content type="html"><![CDATA[<p><a href="https://blog.csdn.net/tmhanks/article/details/89110833?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-1.no_search_link&amp;depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-1.no_search_link">GDB查看C++对象布局_tmhanks的博客-CSDN博客</a></p><figure class="highlight gams"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs gams">GDB查看对象如下：<br>(gdb) <span class="hljs-keyword">set</span> print <span class="hljs-comment">object on</span><br>(gdb) <span class="hljs-keyword">set</span> <span class="hljs-comment">print vtbl on</span><br>(gdb) <span class="hljs-keyword">set</span> <span class="hljs-comment">print pretty on</span><br>((gdb) p <span class="hljs-comment">base</span><br>$7 = (Base) &#123;<br>_vptr.Base <span class="hljs-comment">= 0x403a50 &lt;vtable for Base+16&gt;,</span><br>m_base <span class="hljs-comment">= 0,</span><br>static <span class="hljs-comment">m_tmp = 1</span><br>&#125;<br>(gdb) info <span class="hljs-comment">vtbl base</span><br>vtable <span class="hljs-comment">for</span> ‘<span class="hljs-comment">Base</span>’ <span class="hljs-comment">@ 0x403a50 (subobject @ 0x7fffffffdf60):</span><br>[0]: 0x402830 <span class="hljs-comment">Base::</span>~<span class="hljs-comment">Base()</span><br>[1]: 0x402930 <span class="hljs-comment">Base::</span>~<span class="hljs-comment">Base()</span><br>[2]: 0x402ae0 <span class="hljs-comment">&lt;Base::print() const&gt;</span><br>————————————————<br>版权声明：本文为CSDN博主「流水之川」的原创文章，遵循CC <span class="hljs-comment">4.0 BY-SA</span>版权协议，转载请附上原文出处链接及本声明。<br>原文链接：https:<span class="hljs-comment">//blog.csdn.net/tmhanks/article/details/89110833</span><br></code></pre></td></tr></table></figure>]]></content>
     
     
     <categories>
       
       <category>cpp</category>
       
-      <category>valgrind</category>
+      <category>C++对象的内存布局</category>
       
     </categories>
     
+    
+    <tags>
+      
+      <tag>C++</tag>
+      
+    </tags>
     
   </entry>
   
@@ -2989,29 +2989,6 @@
   
   <entry>
     <title>README</title>
-    <link href="/cpp/qt-learning/dbus/README/"/>
-    <url>/cpp/qt-learning/dbus/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="service实现">service实现</h1><h2 id="方式一创建服务并注册对象建立到session-bus的连接">方式一、创建服务并注册对象，建立到session bus的连接</h2><p>启动程序后，在命令行打开qdbusviewer，查看session bus。 双击Method方法会调用该方法。</p><p>代码位于目录service下。</p><h2 id="方式二使用adapter注册object推荐方式">方式二、使用Adapter注册Object（推荐方式）</h2><p>可以直接把test类注册为消息总线上的一个Object，但QT4不推荐。QT4推荐使用Adapter来注册Object。 大多数情况下，可能只需要把自定义的类里的方法有选择的发布到消息总线上，使用Adapter可以很方便的实现选择性发布。 生成Adapter类的流程如下： 使用工具 qdbuscpp2xml从test.h生成XML文件</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbuscpp2xml -M test<span class="hljs-selector-class">.h</span> -o com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span>.xml<br></code></pre></td></tr></table></figure><p>编辑com.scorpio.test.xml，选择需要发布的method，不需要发布的删除。 使用工具qdbusxml2cpp从XML文件生成继承自QDBusInterface的类</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbusxml2cpp com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span><span class="hljs-selector-class">.xml</span> -<span class="hljs-selector-tag">i</span> test<span class="hljs-selector-class">.h</span> -<span class="hljs-selector-tag">a</span> valueAdaptor<br></code></pre></td></tr></table></figure><p>生成两个文件：valueAdaptor.cpp和valueAdaptor.h</p><p>代码位于目录adaptor下，建议先阅读该目录下的README.md。</p><h1 id="控制台访问service实现">控制台访问service实现</h1><h2 id="方式一通过qdbusmessage访问service">方式一、通过QDBusMessage访问Service</h2><h2 id="方式二通过qdbusinterface-访问service">方式二、通过QDBusInterface 访问Service</h2><h2 id="方式三从d-bus-xml自动生成proxy类调用proxy类访问service">方式三、从D-Bus XML自动生成Proxy类，调用Proxy类访问Service</h2><p>代码位于目录proxy下，建议先阅读该目录下的README.md。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">/data/opt/Qt5.6.3/5.6.3/gcc_64/lib/cmake/Qt5DBus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/src/dbus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/tests/auto/cmake/test_dbus_module/CMakeLists.txt:22:qt5_generate_dbus_interface(<br>    <br>/data/opt/Qt5.6.3/5.6.3/Src/qtdoc/doc/src/development/cmake-manual.qdoc:249:    row li qt5_generate_dbus_interface( header [interfacename] OPTIONS ...)<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>qt-learning</category>
-      
-      <category>dbus</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
     <link href="/cpp/qt-learning/qprocess_wget/README/"/>
     <url>/cpp/qt-learning/qprocess_wget/README/</url>
     
@@ -3025,6 +3002,29 @@
       <category>qt-learning</category>
       
       <category>qprocess_wget</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/cpp/qt-learning/dbus/README/"/>
+    <url>/cpp/qt-learning/dbus/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="service实现">service实现</h1><h2 id="方式一创建服务并注册对象建立到session-bus的连接">方式一、创建服务并注册对象，建立到session bus的连接</h2><p>启动程序后，在命令行打开qdbusviewer，查看session bus。 双击Method方法会调用该方法。</p><p>代码位于目录service下。</p><h2 id="方式二使用adapter注册object推荐方式">方式二、使用Adapter注册Object（推荐方式）</h2><p>可以直接把test类注册为消息总线上的一个Object，但QT4不推荐。QT4推荐使用Adapter来注册Object。 大多数情况下，可能只需要把自定义的类里的方法有选择的发布到消息总线上，使用Adapter可以很方便的实现选择性发布。 生成Adapter类的流程如下： 使用工具 qdbuscpp2xml从test.h生成XML文件</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbuscpp2xml -M test<span class="hljs-selector-class">.h</span> -o com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span>.xml<br></code></pre></td></tr></table></figure><p>编辑com.scorpio.test.xml，选择需要发布的method，不需要发布的删除。 使用工具qdbusxml2cpp从XML文件生成继承自QDBusInterface的类</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbusxml2cpp com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span><span class="hljs-selector-class">.xml</span> -<span class="hljs-selector-tag">i</span> test<span class="hljs-selector-class">.h</span> -<span class="hljs-selector-tag">a</span> valueAdaptor<br></code></pre></td></tr></table></figure><p>生成两个文件：valueAdaptor.cpp和valueAdaptor.h</p><p>代码位于目录adaptor下，建议先阅读该目录下的README.md。</p><h1 id="控制台访问service实现">控制台访问service实现</h1><h2 id="方式一通过qdbusmessage访问service">方式一、通过QDBusMessage访问Service</h2><h2 id="方式二通过qdbusinterface-访问service">方式二、通过QDBusInterface 访问Service</h2><h2 id="方式三从d-bus-xml自动生成proxy类调用proxy类访问service">方式三、从D-Bus XML自动生成Proxy类，调用Proxy类访问Service</h2><p>代码位于目录proxy下，建议先阅读该目录下的README.md。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">/data/opt/Qt5.6.3/5.6.3/gcc_64/lib/cmake/Qt5DBus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/src/dbus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/tests/auto/cmake/test_dbus_module/CMakeLists.txt:22:qt5_generate_dbus_interface(<br>    <br>/data/opt/Qt5.6.3/5.6.3/Src/qtdoc/doc/src/development/cmake-manual.qdoc:249:    row li qt5_generate_dbus_interface( header [interfacename] OPTIONS ...)<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>qt-learning</category>
+      
+      <category>dbus</category>
       
     </categories>
     
@@ -3137,6 +3137,37 @@
   
   <entry>
     <title>README</title>
+    <link href="/cpp/thread/thread/hello_world/README/"/>
+    <url>/cpp/thread/thread/hello_world/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="stdthread-hello-world">std::thread "Hello world"</h1><p>下面是一个最简单的使用 std::thread 类的例子：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;iostream&gt;</span> <span class="hljs-comment">// std::cout</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;thread&gt;</span>   <span class="hljs-comment">// std::thread</span></span><br><br><span class="hljs-function"><span class="hljs-type">void</span> <span class="hljs-title">thread_task</span><span class="hljs-params">()</span> </span>&#123;<br>    std::cout &lt;&lt; <span class="hljs-string">&quot;hello thread&quot;</span> &lt;&lt; std::endl;<br>&#125;<br><br><span class="hljs-function"><span class="hljs-type">int</span> <span class="hljs-title">main</span><span class="hljs-params">(<span class="hljs-type">int</span> argc, <span class="hljs-type">const</span> <span class="hljs-type">char</span> *argv[])</span></span><br><span class="hljs-function"></span>&#123;<br>    <span class="hljs-function">std::thread <span class="hljs-title">t</span><span class="hljs-params">(thread_task)</span></span>;<br>    t.<span class="hljs-built_in">join</span>();<br><br>    <span class="hljs-keyword">return</span> EXIT_SUCCESS;<br>&#125;<br></code></pre></td></tr></table></figure><figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs makefile"><span class="hljs-section">all:hello_world</span><br><br>CC=g++<br>CPPFLAGS=-Wall -std=c++11 -ggdb<br>LDFLAGS=-pthread<br><br><span class="hljs-section">hello_world:hello_world.o</span><br><span class="hljs-variable">$(CC)</span> <span class="hljs-variable">$(LDFLAGS)</span> -o <span class="hljs-variable">$@</span> <span class="hljs-variable">$^</span><br><br><span class="hljs-section">hello_world.o:hello_world.cpp</span><br><span class="hljs-variable">$(CC)</span> <span class="hljs-variable">$(CPPFLAGS)</span> -o <span class="hljs-variable">$@</span> -c <span class="hljs-variable">$^</span><br><br><span class="hljs-meta"><span class="hljs-keyword">.PHONY</span>:</span><br>clean<br><br><span class="hljs-section">clean:</span><br>rm hello_world.o hello_world<br></code></pre></td></tr></table></figure><p><a href="https://www.cnblogs.com/haippy/p/3235560.html">C++11 并发指南一(C++11 多线程初探)</a></p>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>thread</category>
+      
+      <category>hello_world</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>C++</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/cpp/thread/pthread/sync/README/"/>
     <url>/cpp/thread/pthread/sync/README/</url>
     
@@ -3161,37 +3192,6 @@
       <tag>Linux</tag>
       
       <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/thread/thread/hello_world/README/"/>
-    <url>/cpp/thread/thread/hello_world/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="stdthread-hello-world">std::thread "Hello world"</h1><p>下面是一个最简单的使用 std::thread 类的例子：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;iostream&gt;</span> <span class="hljs-comment">// std::cout</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;thread&gt;</span>   <span class="hljs-comment">// std::thread</span></span><br><br><span class="hljs-function"><span class="hljs-type">void</span> <span class="hljs-title">thread_task</span><span class="hljs-params">()</span> </span>&#123;<br>    std::cout &lt;&lt; <span class="hljs-string">&quot;hello thread&quot;</span> &lt;&lt; std::endl;<br>&#125;<br><br><span class="hljs-function"><span class="hljs-type">int</span> <span class="hljs-title">main</span><span class="hljs-params">(<span class="hljs-type">int</span> argc, <span class="hljs-type">const</span> <span class="hljs-type">char</span> *argv[])</span></span><br><span class="hljs-function"></span>&#123;<br>    <span class="hljs-function">std::thread <span class="hljs-title">t</span><span class="hljs-params">(thread_task)</span></span>;<br>    t.<span class="hljs-built_in">join</span>();<br><br>    <span class="hljs-keyword">return</span> EXIT_SUCCESS;<br>&#125;<br></code></pre></td></tr></table></figure><figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs makefile"><span class="hljs-section">all:hello_world</span><br><br>CC=g++<br>CPPFLAGS=-Wall -std=c++11 -ggdb<br>LDFLAGS=-pthread<br><br><span class="hljs-section">hello_world:hello_world.o</span><br><span class="hljs-variable">$(CC)</span> <span class="hljs-variable">$(LDFLAGS)</span> -o <span class="hljs-variable">$@</span> <span class="hljs-variable">$^</span><br><br><span class="hljs-section">hello_world.o:hello_world.cpp</span><br><span class="hljs-variable">$(CC)</span> <span class="hljs-variable">$(CPPFLAGS)</span> -o <span class="hljs-variable">$@</span> -c <span class="hljs-variable">$^</span><br><br><span class="hljs-meta"><span class="hljs-keyword">.PHONY</span>:</span><br>clean<br><br><span class="hljs-section">clean:</span><br>rm hello_world.o hello_world<br></code></pre></td></tr></table></figure><p><a href="https://www.cnblogs.com/haippy/p/3235560.html">C++11 并发指南一(C++11 多线程初探)</a></p>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>thread</category>
-      
-      <category>hello_world</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>C++</tag>
       
       <tag>HTML</tag>
       
@@ -3503,17 +3503,17 @@
   
   <entry>
     <title>README</title>
-    <link href="/javascript/todolist/README/"/>
-    <url>/javascript/todolist/README/</url>
+    <link href="/javascript/my-project/README/"/>
+    <url>/javascript/my-project/README/</url>
     
-    <content type="html"><![CDATA[<h1 id="todolist">todolist</h1><blockquote><p>A Vue.js project</p></blockquote><h2 id="build-setup">Build Setup</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># install dependencies</span><br>npm install<br><br><span class="hljs-comment"># serve with hot reload at localhost:8080</span><br>npm run dev<br><br><span class="hljs-comment"># build for production with minification</span><br>npm run build<br><br><span class="hljs-comment"># build for production and view the bundle analyzer report</span><br>npm run build --report<br><br><span class="hljs-comment"># run unit tests</span><br>npm run unit<br><br><span class="hljs-comment"># run e2e tests</span><br>npm run e2e<br><br><span class="hljs-comment"># run all tests</span><br>npm <span class="hljs-built_in">test</span><br></code></pre></td></tr></table></figure><p>For a detailed explanation on how things work, check out the <a href="http://vuejs-templates.github.io/webpack/">guide</a> and <a href="http://vuejs.github.io/vue-loader">docs for vue-loader</a>.</p>]]></content>
+    <content type="html"><![CDATA[<h1 id="test">test</h1><blockquote><p>A Vue.js project</p></blockquote><h2 id="build-setup">Build Setup</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># install dependencies</span><br>npm install<br><br><span class="hljs-comment"># serve with hot reload at localhost:8080</span><br>npm run dev<br><br><span class="hljs-comment"># build for production with minification</span><br>npm run build<br><br><span class="hljs-comment"># build for production and view the bundle analyzer report</span><br>npm run build --report<br><br><span class="hljs-comment"># run unit tests</span><br>npm run unit<br><br><span class="hljs-comment"># run e2e tests</span><br>npm run e2e<br><br><span class="hljs-comment"># run all tests</span><br>npm <span class="hljs-built_in">test</span><br></code></pre></td></tr></table></figure><p>For a detailed explanation on how things work, check out the <a href="http://vuejs-templates.github.io/webpack/">guide</a> and <a href="http://vuejs.github.io/vue-loader">docs for vue-loader</a>.</p>]]></content>
     
     
     <categories>
       
       <category>javascript</category>
       
-      <category>todolist</category>
+      <category>my-project</category>
       
     </categories>
     
@@ -3532,17 +3532,17 @@
   
   <entry>
     <title>README</title>
-    <link href="/javascript/my-project/README/"/>
-    <url>/javascript/my-project/README/</url>
+    <link href="/javascript/todolist/README/"/>
+    <url>/javascript/todolist/README/</url>
     
-    <content type="html"><![CDATA[<h1 id="test">test</h1><blockquote><p>A Vue.js project</p></blockquote><h2 id="build-setup">Build Setup</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># install dependencies</span><br>npm install<br><br><span class="hljs-comment"># serve with hot reload at localhost:8080</span><br>npm run dev<br><br><span class="hljs-comment"># build for production with minification</span><br>npm run build<br><br><span class="hljs-comment"># build for production and view the bundle analyzer report</span><br>npm run build --report<br><br><span class="hljs-comment"># run unit tests</span><br>npm run unit<br><br><span class="hljs-comment"># run e2e tests</span><br>npm run e2e<br><br><span class="hljs-comment"># run all tests</span><br>npm <span class="hljs-built_in">test</span><br></code></pre></td></tr></table></figure><p>For a detailed explanation on how things work, check out the <a href="http://vuejs-templates.github.io/webpack/">guide</a> and <a href="http://vuejs.github.io/vue-loader">docs for vue-loader</a>.</p>]]></content>
+    <content type="html"><![CDATA[<h1 id="todolist">todolist</h1><blockquote><p>A Vue.js project</p></blockquote><h2 id="build-setup">Build Setup</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># install dependencies</span><br>npm install<br><br><span class="hljs-comment"># serve with hot reload at localhost:8080</span><br>npm run dev<br><br><span class="hljs-comment"># build for production with minification</span><br>npm run build<br><br><span class="hljs-comment"># build for production and view the bundle analyzer report</span><br>npm run build --report<br><br><span class="hljs-comment"># run unit tests</span><br>npm run unit<br><br><span class="hljs-comment"># run e2e tests</span><br>npm run e2e<br><br><span class="hljs-comment"># run all tests</span><br>npm <span class="hljs-built_in">test</span><br></code></pre></td></tr></table></figure><p>For a detailed explanation on how things work, check out the <a href="http://vuejs-templates.github.io/webpack/">guide</a> and <a href="http://vuejs.github.io/vue-loader">docs for vue-loader</a>.</p>]]></content>
     
     
     <categories>
       
       <category>javascript</category>
       
-      <category>my-project</category>
+      <category>todolist</category>
       
     </categories>
     
@@ -4517,6 +4517,39 @@
   
   
   <entry>
+    <title>mac下基于qemu调试ubuntu-22</title>
+    <link href="/linux/kernel/qemu/mac%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E8%B0%83%E8%AF%95ubuntu-22.04.01/"/>
+    <url>/linux/kernel/qemu/mac%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E8%B0%83%E8%AF%95ubuntu-22.04.01/</url>
+    
+    <content type="html"><![CDATA[<h1 id="mac下基于qemu调试ubuntu-22.04.01">mac下基于qemu调试ubuntu-22.04.01</h1><h2 id="安装环境">安装环境</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">brew install qemu<br></code></pre></td></tr></table></figure><h2 id="创建磁盘映像">创建磁盘映像</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-img create -f qcow2 ubuntu-22.04.1-desktop-amd64.qcow2 20G<br></code></pre></td></tr></table></figure><h2 id="安装-ubuntu">安装 Ubuntu</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 \<br>    -machine <span class="hljs-built_in">type</span>=q35,accel=hvf \<br>    -smp 2 \<br>    -hda /Users/wujing/code/qemu/ubuntu-22.04.1-desktop-amd64.qcow2 \<br>    -cdrom /Users/wujing/Downloads/ubuntu-22.04.1-desktop-amd64.iso \<br>    -m 4G \<br>    -vga virtio \<br>    -usb \<br>    -device usb-tablet \<br>    -display default,show-cursor=on<br></code></pre></td></tr></table></figure><h2 id="运行-ubuntu">运行 Ubuntu</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 \<br>    -machine <span class="hljs-built_in">type</span>=q35,accel=hvf \<br>    -smp 2 \<br>    -hda /Users/wujing/code/qemu/ubuntu-22.04.1-desktop-amd64.qcow2 \<br>    -m 4G \<br>    -vga virtio \<br>    -usb \<br>    -device usb-tablet \<br>    -display default,show-cursor=on \<br>    -net user,hostfwd=tcp::2222-:22 -net nic<br></code></pre></td></tr></table></figure><p>运行 VM 时，我们不需要挂载 Ubuntu ISO，可以通过省略以下选项将其删除：-cdrom。 增加-net选项把host的127.0.0.1:2222端口转发到guest的22端口，我们可以使用ssh来连接guest系统。</p><p>在宿主机上执行下方命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh wujing@127.0.0.1 -p 2222<br></code></pre></td></tr></table></figure><h2 id="调试-ubuntu">调试 Ubuntu</h2><p>添加 -dbgsym.ddeb 包 仓库源：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;deb http://ddebs.ubuntu.com <span class="hljs-subst">$(lsb_release -cs)</span> main restricted universe multiverse</span><br><span class="hljs-string">deb http://ddebs.ubuntu.com <span class="hljs-subst">$(lsb_release -cs)</span>-updates main restricted universe multiverse</span><br><span class="hljs-string">deb http://ddebs.ubuntu.com <span class="hljs-subst">$(lsb_release -cs)</span>-proposed main restricted universe multiverse&quot;</span> | \<br>sudo <span class="hljs-built_in">tee</span> -a /etc/apt/sources.list.d/ddebs.list<br></code></pre></td></tr></table></figure><p>从 Ubuntu 服务器导入调试符号存档签名密钥。在 Ubuntu 18.04 LTS 及更高版本上：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install ubuntu-dbgsym-keyring<br></code></pre></td></tr></table></figure><p>在早期版本的 Ubuntu 使用：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F2EDC64DC5AEE1F6B9C621F0C8CAB6595FDFF622<br></code></pre></td></tr></table></figure><p>在虚拟机中下载内核调试包，三个deb包版本号要保持一致：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install linux-headers-$(<span class="hljs-built_in">uname</span> -r)=5.19.0-38.39~22.04.1 linux-i<br>mage-$(<span class="hljs-built_in">uname</span> -r)-dbgsym=5.19.0-38.39~22.04.1<br></code></pre></td></tr></table></figure><p>在虚拟机中下载内核源码：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install dpkg-dev<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt <span class="hljs-built_in">source</span> linux-image-$(<span class="hljs-built_in">uname</span> -r)<br></code></pre></td></tr></table></figure><p>复制内核源码到宿主机：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">scp -r linux-signed-hwe-5.19-5.19.0 wujing@192.168.31.9:~/code<br></code></pre></td></tr></table></figure><p>复制带调试符号的内核二进制vmlinux到宿主机：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">scp /lib/debug/boot/vmlinux-5.19.0-38-generic wujing@192.168.31.9:~/code/linux-signed-hwe-5.19-5.19.0<br></code></pre></td></tr></table></figure><p>在宿主机上执行下方命令:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 \<br>    -machine <span class="hljs-built_in">type</span>=q35,accel=hvf \<br>    -smp 2 \<br>    -hda /Users/wujing/code/qemu/ubuntu-22.04.1-desktop-amd64.qcow2 \<br>    -m 4G \<br>    -vga virtio \<br>    -usb \<br>    -device usb-tablet \<br>    -display default,show-cursor=on \<br>    -net user,hostfwd=tcp::2222-:22 -net nic \<br>    -S -s<br></code></pre></td></tr></table></figure><p>报错如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">qemu-system-x86_64: -s: gdbstub: current accelerator doesn&#x27;t support guest debugging<br></code></pre></td></tr></table></figure><p>看来想在mac上使用hvf作为加速器调试目前还行不通。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>qemu</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>qemu</tag>
+      
+      <tag>linux</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>linux内核调试</title>
     <link href="/linux/kernel/qemu/linux%E5%86%85%E6%A0%B8%E8%B0%83%E8%AF%95/"/>
     <url>/linux/kernel/qemu/linux%E5%86%85%E6%A0%B8%E8%B0%83%E8%AF%95/</url>
@@ -4546,39 +4579,6 @@
       <tag>HTML</tag>
       
       <tag>initramfs</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>mac下基于qemu调试ubuntu-22</title>
-    <link href="/linux/kernel/qemu/mac%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E8%B0%83%E8%AF%95ubuntu-22.04.01/"/>
-    <url>/linux/kernel/qemu/mac%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E8%B0%83%E8%AF%95ubuntu-22.04.01/</url>
-    
-    <content type="html"><![CDATA[<h1 id="mac下基于qemu调试ubuntu-22.04.01">mac下基于qemu调试ubuntu-22.04.01</h1><h2 id="安装环境">安装环境</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">brew install qemu<br></code></pre></td></tr></table></figure><h2 id="创建磁盘映像">创建磁盘映像</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-img create -f qcow2 ubuntu-22.04.1-desktop-amd64.qcow2 20G<br></code></pre></td></tr></table></figure><h2 id="安装-ubuntu">安装 Ubuntu</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 \<br>    -machine <span class="hljs-built_in">type</span>=q35,accel=hvf \<br>    -smp 2 \<br>    -hda /Users/wujing/code/qemu/ubuntu-22.04.1-desktop-amd64.qcow2 \<br>    -cdrom /Users/wujing/Downloads/ubuntu-22.04.1-desktop-amd64.iso \<br>    -m 4G \<br>    -vga virtio \<br>    -usb \<br>    -device usb-tablet \<br>    -display default,show-cursor=on<br></code></pre></td></tr></table></figure><h2 id="运行-ubuntu">运行 Ubuntu</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 \<br>    -machine <span class="hljs-built_in">type</span>=q35,accel=hvf \<br>    -smp 2 \<br>    -hda /Users/wujing/code/qemu/ubuntu-22.04.1-desktop-amd64.qcow2 \<br>    -m 4G \<br>    -vga virtio \<br>    -usb \<br>    -device usb-tablet \<br>    -display default,show-cursor=on \<br>    -net user,hostfwd=tcp::2222-:22 -net nic<br></code></pre></td></tr></table></figure><p>运行 VM 时，我们不需要挂载 Ubuntu ISO，可以通过省略以下选项将其删除：-cdrom。 增加-net选项把host的127.0.0.1:2222端口转发到guest的22端口，我们可以使用ssh来连接guest系统。</p><p>在宿主机上执行下方命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh wujing@127.0.0.1 -p 2222<br></code></pre></td></tr></table></figure><h2 id="调试-ubuntu">调试 Ubuntu</h2><p>添加 -dbgsym.ddeb 包 仓库源：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;deb http://ddebs.ubuntu.com <span class="hljs-subst">$(lsb_release -cs)</span> main restricted universe multiverse</span><br><span class="hljs-string">deb http://ddebs.ubuntu.com <span class="hljs-subst">$(lsb_release -cs)</span>-updates main restricted universe multiverse</span><br><span class="hljs-string">deb http://ddebs.ubuntu.com <span class="hljs-subst">$(lsb_release -cs)</span>-proposed main restricted universe multiverse&quot;</span> | \<br>sudo <span class="hljs-built_in">tee</span> -a /etc/apt/sources.list.d/ddebs.list<br></code></pre></td></tr></table></figure><p>从 Ubuntu 服务器导入调试符号存档签名密钥。在 Ubuntu 18.04 LTS 及更高版本上：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install ubuntu-dbgsym-keyring<br></code></pre></td></tr></table></figure><p>在早期版本的 Ubuntu 使用：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F2EDC64DC5AEE1F6B9C621F0C8CAB6595FDFF622<br></code></pre></td></tr></table></figure><p>在虚拟机中下载内核调试包，三个deb包版本号要保持一致：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install linux-headers-$(<span class="hljs-built_in">uname</span> -r)=5.19.0-38.39~22.04.1 linux-i<br>mage-$(<span class="hljs-built_in">uname</span> -r)-dbgsym=5.19.0-38.39~22.04.1<br></code></pre></td></tr></table></figure><p>在虚拟机中下载内核源码：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install dpkg-dev<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt <span class="hljs-built_in">source</span> linux-image-$(<span class="hljs-built_in">uname</span> -r)<br></code></pre></td></tr></table></figure><p>复制内核源码到宿主机：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">scp -r linux-signed-hwe-5.19-5.19.0 wujing@192.168.31.9:~/code<br></code></pre></td></tr></table></figure><p>复制带调试符号的内核二进制vmlinux到宿主机：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">scp /lib/debug/boot/vmlinux-5.19.0-38-generic wujing@192.168.31.9:~/code/linux-signed-hwe-5.19-5.19.0<br></code></pre></td></tr></table></figure><p>在宿主机上执行下方命令:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 \<br>    -machine <span class="hljs-built_in">type</span>=q35,accel=hvf \<br>    -smp 2 \<br>    -hda /Users/wujing/code/qemu/ubuntu-22.04.1-desktop-amd64.qcow2 \<br>    -m 4G \<br>    -vga virtio \<br>    -usb \<br>    -device usb-tablet \<br>    -display default,show-cursor=on \<br>    -net user,hostfwd=tcp::2222-:22 -net nic \<br>    -S -s<br></code></pre></td></tr></table></figure><p>报错如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">qemu-system-x86_64: -s: gdbstub: current accelerator doesn&#x27;t support guest debugging<br></code></pre></td></tr></table></figure><p>看来想在mac上使用hvf作为加速器调试目前还行不通。</p>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>qemu</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>qemu</tag>
-      
-      <tag>linux</tag>
       
     </tags>
     
