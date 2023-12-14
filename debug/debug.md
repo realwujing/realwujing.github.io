@@ -350,7 +350,26 @@
 - [【Linux】core文件存储位置和命名](https://zhengyun.blog.csdn.net/article/details/107365187)
 - [一文读懂 | coredump文件是如何生成的](https://cloud.tencent.com/developer/article/1860631)
 - [linux下产生core文件以及不产生core文件的条件](https://www.cnblogs.com/huixinquan/p/14941880.html)
-- [<font color=Red>linux中的dmesg命令简介没有core文件时如何定位core dump问题</font>](https://blog.csdn.net/stpeace/article/details/49843897)
+- [<font color=Red>程序死掉了，没有 core 文件怎么查？</font>](https://blog.csdn.net/qq_36580990/article/details/125540487)
+
+    ```c
+    core[1161856]: segfault at 0 ip 0000000000401136 sp 00007ffcdbaf3240 error 6 in core[401000+1000] likely on CPU 2 (core 2, socket 0)
+    ```
+
+  - core[1161856]: 这可能是指示生成的 core dump 文件名。在这里，core 文件名为 "core"，后缀为 "1161856"，这可能是一个进程 ID 或其他唯一标识符。
+
+  - segfault at 0: 这表示一个段错误（Segmentation Fault）发生在地址 0 处。这通常是因为程序试图访问一个无效的内存地址。
+
+  - ip 0000000000401136: 这是导致段错误的指令的地址。在这里，ip（Instruction Pointer）指向地址 0000000000401136 的指令。
+
+  - sp 00007ffcdbaf3240: 这是栈指针（Stack Pointer），指向栈的当前顶部。在这里，sp 指向地址 00007ffcdbaf3240。
+
+  - error 6: 这是一个错误代码，表示导致段错误的原因。在 Linux 中，错误代码 6 通常表示尝试执行非法的指令。
+
+  - core[401000+1000]: 这表示 core dump 文件的内存范围。在这里，core 文件捕获了从地址 401000 开始的 1000 个字节的内存内容。
+
+  - likely on CPU 2 (core 2, socket 0): 这是指示错误可能发生在第二个 CPU 核心上，该核心位于第一个物理 CPU 插槽上。
+
 - [Linux如何使用gdb查看core堆栈信息](https://www.cnblogs.com/lynsen/p/8439550.html)
 - [<font color=Red>golang-进程崩溃后如何输出错误日志？core dump</font>](https://blog.csdn.net/xmcy001122/article/details/105665732)
 - [coredumpctl - Retrieve and process saved core dumps and metadata](https://www.man7.org/linux/man-pages/man1/coredumpctl.1.html)
