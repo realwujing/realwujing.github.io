@@ -24,7 +24,7 @@
 <meta property="og:description" content="233267天翼云内核卡死问题 https:&#x2F;&#x2F;pms.uniontech.com&#x2F;bug-view-233267.html dmesg warning 12345678910111213141516171819202122232425262728293031323334353637383940[201866.888630] WARNING: CPU: 2 PID: 67 at fs&#x2F;dcache">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2023-12-12T21:37:53.000Z">
-<meta property="article:modified_time" content="2023-12-12T21:37:53.000Z">
+<meta property="article:modified_time" content="2023-12-15T10:58:31.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="qemu">
@@ -290,7 +290,7 @@
         
         
         
-          202 分钟
+          203 分钟
         
       </span>
     
@@ -329,6 +329,14 @@
           <article class="post-content mx-auto">
             <!-- SEO header -->
             <h1 style="display: none">233267天翼云内核卡死问题</h1>
+            
+              <p class="note note-info">
+                
+                  
+                    本文最后更新于：2023年12月15日 上午
+                  
+                
+              </p>
             
             
               <div class="markdown-body">
@@ -435,23 +443,20 @@
 <li>2：表示系统启用了严格的内存分配机制，即只有当系统确保将分配的内存全部使用时，才会允许内存分配。</li>
 </ul>
 <h3 id="查看当前的oom调节器水位线设置">查看当前的OOM调节器水位线设置</h3>
+<p>overcommit_ratio、overcommit_kbytes在overcommit_memory=2时才有用。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_ratio<br></code></pre></td></tr></table></figure>
 <p>输出的值表示OOM调节器的水位线百分比。例如，如果值为 50，则表示当系统内存使用达到物理内存的50%时，OOM Killer会被触发。</p>
 <p>注意：如果输出的值为0，则表示系统使用了默认的水位线设置。在这种情况下，可以查看 <code>/proc/sys/vm/overcommit_kbytes</code> 文件以查看内存回收的水位线值。</p>
 <h3 id="查看内存回收的水位线值">查看内存回收的水位线值</h3>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_kbytes<br></code></pre></td></tr></table></figure>
 <p>输出的值表示以KB为单位的内存回收水位线。例如，如果值为 8192，则表示当系统剩余可用内存低于 8192KB 时，OOM Killer会被触发。</p>
+<h3 id="当前机器overcommit_memory配置">当前机器overcommit_memory配置</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_memory<br>0<br><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_ratio<br>50<br><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_kbytes<br>0<br></code></pre></td></tr></table></figure>
+<p>单次申请的内存大小不能超过以下值，否则本次申请就会失败。</p>
+<p>free memory + free swap + pagecache的大小 + SLAB</p>
+<p>Linux对大部分申请内存的请求都回复"yes"，以便能跑更多更大的程序。因为申请内存后，并不会马上使用内存。这种技术叫做Overcommit。当linux发现内存不足时，会发生OOM killer(OOM=out-of-memory)。它会选择杀死一些进程(用户态进程，不是内核线程)，以便释放内存。</p>
+<p>当oom-killer发生时，linux会选择杀死哪些进程？选择进程的函数是oom_badness函数(在mm/oom_kill.c中)，该函数会计算每个进程的点数(0~1000)。点数越高，这个进程越有可能被杀死。每个进程的点数跟oom_score_adj有关，而且oom_score_adj可以被设置(-1000最低，1000最高)。</p>
 <h2 id="优化方案">优化方案</h2>
-<h3 id="设置oom调节器的参数">设置OOM调节器的参数</h3>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo vim /etc/sysctl.conf<br><br><span class="hljs-comment"># 设置OOM调节器为经典模式</span><br>vm.overcommit_memory = 0<br><br><span class="hljs-comment"># 设置OOM调节器的水位线百分比</span><br>vm.overcommit_ratio = &lt;value&gt;<br></code></pre></td></tr></table></figure>
-<p>vm.overcommit_ratio 参数：</p>
-<ul>
-<li>水位线百分比的推荐值通常在 50 到 90 之间。较低的值意味着更早触发OOM Killer，以保持可用内存的较高水平。较高的值则更容易允许内存分配，但可能增加系统发生OOM的风险。</li>
-</ul>
-<p>替换 <code>&lt;value&gt;</code> 为您希望设置的水位线百分比值，例如 50 表示50%。这里将OOM调节器设置为经典模式（<code>vm.overcommit_memory = 0</code>），意味着系统根据实际内存使用情况触发OOM Killer。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo sysctl -p<br></code></pre></td></tr></table></figure>
-<p>这将重新加载配置并应用新的OOM调节器设置。</p>
-<h3 id="建议配置">建议配置</h3>
 <p>启用swap分区：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">dd</span> <span class="hljs-keyword">if</span>=/dev/zero of=/tmp/swap bs=1M count=32768<br>sudo <span class="hljs-built_in">chmod</span> 600 /tmp/swap<br>sudo mkswap /tmp/swap<br>sudo swapon /tmp/swap<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> &lt;&lt; <span class="hljs-string">EOF &gt;&gt; /etc/sysctl.conf</span><br><span class="hljs-string">vm.dirty_background_ratio=3 # 当脏页面占系统内存的3%时触发后台写回</span><br><span class="hljs-string">vm.dirty_ratio=80 # 当脏页面占系统内存的80%时停止用户进程，开始写回</span><br><span class="hljs-string">vm.dirty_writeback_centisecs=100 # 每100毫秒检查一次是否需要写回脏页面</span><br><span class="hljs-string">vm.nr_hugepages=128 # 系统中的大页面数量设置为128</span><br><span class="hljs-string">vm.overcommit_memory=2 # 启用严格的内存分配机制</span><br><span class="hljs-string">vm.overcommit_ratio=90 # 允许系统内存超过物理内存大小的80%</span><br><span class="hljs-string">net.ipv4.tcp_fastopen=3 # 启用 TCP Fast Open 并使用 Cookie 来防止连接污染攻击</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure>
@@ -459,6 +464,7 @@
 <ul>
 <li><a target="_blank" rel="noopener" href="https://blog.csdn.net/zyqash/article/details/122860393">Overcommitting Memory （过度使用内存）</a></li>
 <li><a target="_blank" rel="noopener" href="https://zhangzhuo.ltd/articles/2021/08/10/1628565705959.html">内存不足：OOM</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/xsxb_yl/article/details/121412094">内存分配策略：overcommit_memory</a></li>
 </ul>
 
                 
