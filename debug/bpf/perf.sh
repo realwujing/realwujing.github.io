@@ -74,8 +74,7 @@ function perf_record() {
     timestamp=$(date +%Y%m%d%H%M%S)
     perf_record_full_command="$perf_path record -F 999 -g -o $perf_output_dir/perf_$timestamp.data -- sleep $duration"
     echo "Running command: $perf_record_full_command"
-    ($perf_record_full_command &)
-    wait $!
+    $perf_record_full_command
     # 在这里可以添加其他操作或休眠时间
     sleep 1
   done
