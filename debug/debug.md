@@ -81,9 +81,16 @@
 
     -S：表示同时输出源代码。
 
+    -C：如果二进制文件包含 C++ 符号，使用 C++ 符号名进行显示，而不是使用原始符号名。
+
     将 your_binary_file 替换为你要反汇编的二进制文件的路径。
 
     这将生成一个包含反汇编代码和源代码行号信息的输出。你可以查看这个输出来分析程序的汇编代码。
+
+  - 注意事项:[cmake-objdump](cpp/cmake-objdump)
+    - cmake中使用参数-DCMAKE_BUILD_TYPE=Release编译出来的版本在coredump时生成的dmesg报错中的ip地址与使用-DCMAKE_BUILD_TYPE=Debug编出来的版本再使用objdump反汇编得到的汇编代码对不上。
+    - cmkke中-DCMAKE_BUILD_TYPE=Release编译出来的版本在coredump时生成的dmesg报错中的ip地址与在CMakeLists.txt中额外添加set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")编译选项后再使用objdump反汇编得到的汇编代码对应的上。
+    - cmake中-DCMAKE_BUILD_TYPE=Debug编译出来的版本后用strip得到的不含调试包的版本在coredump时生成的dmesg报错中的ip地址与使用-DCMAKE_BUILD_TYPE=Debug编出来的版本再使用objdump反汇编得到的汇编代码对应的上。
 
 ## gdb
 
@@ -372,7 +379,12 @@
 
 - [Linux如何使用gdb查看core堆栈信息](https://www.cnblogs.com/lynsen/p/8439550.html)
 - [<font color=Red>golang-进程崩溃后如何输出错误日志？core dump</font>](https://blog.csdn.net/xmcy001122/article/details/105665732)
+
+### cotrdumctl
+
 - [coredumpctl - Retrieve and process saved core dumps and metadata](https://www.man7.org/linux/man-pages/man1/coredumpctl.1.html)
+- [使用systemd的coredump工具分析程序崩溃问题](https://blog.csdn.net/wentian901218/article/details/119845991)
+- [18 使用 systemd-coredump 针对应用程序崩溃进行调试](https://documentation.suse.com/zh-cn/sles/15-SP2/html/SLES-all/cha-tuning-systemd-coredump.html)
 
 ## dmesg
 

@@ -39,6 +39,7 @@
 - [<font color=Red>C语言内联汇编使用方法__asm__</font>](https://blog.csdn.net/qq_42931917/article/details/117779286)
 - [Linux 0.11内核分析03：系统调用 中断描述符安装函数](https://blog.csdn.net/chenchengwudi/article/details/121089099#t5)
 - [程序的机器级表示-汇编](https://pvcstillingradschool.github.io/miniWiki/programming/csapp/3_machine_level_programming.html)
+- [main函数和启动例程 汇编程序的入口是_start，而C程序的入口是main函数。](https://www.cnblogs.com/xiaojianliu/articles/8733568.html)
 
 ## 栈帧
 
