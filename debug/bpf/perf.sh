@@ -17,9 +17,9 @@ function iostat_record() {
 
   # Run iostat command in the background and redirect output to iostat.log
   timestamp=$(date +%Y%m%d%H%M%S)
-  iostat_full_command="iostat -x 1 >> "$iostat_output_dir/iostat_$timestamp.log""
+  iostat_full_command="iostat -txz 1 >> "$iostat_output_dir/iostat_$timestamp.log""
   echo "Running command: $iostat_full_command"
-  (iostat -x 1 >> "$iostat_output_dir/iostat_$timestamp.log" &)
+  (iostat -txz 1 >> "$iostat_output_dir/iostat_$timestamp.log" &)
 }
 
 # 找到 IO 占用高的进程
