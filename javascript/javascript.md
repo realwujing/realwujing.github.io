@@ -2,6 +2,37 @@
 
 ## node npm
 
+安装nodejs管理工具nvm:
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+```
+
+安装nodejs版本:
+
+```bash
+nvm install v18.18.2
+```
+
+添加环境变量:
+
+```bash
+cat << EOF >> ~/.bashrc
+export PATH=$PATH:$HOME/.nvm/nvm.sh
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+nvm use --silent v18.18.2  # switch to Node.js version v18.18.2 silently
+EOF
+```
+
+刷新环境变量:
+
+```bash
+source ~/.bashrc
+```
+
+- [Linux下安装多个版本nodejs并切换使用](https://blog.csdn.net/u012762641/article/details/106050625)
 - [如何在Debian 10 Linux上安装Node.js和npm](https://www.myfreax.com/how-to-install-node-js-on-debian-10/)
 - [使用 nvm 管理不同版本的 node 与 npm](https://www.runoob.com/w3cnote/nvm-manager-node-versions.html)
 
