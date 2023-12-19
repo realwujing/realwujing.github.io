@@ -378,6 +378,44 @@
 - [linux的mount bind命令](https://blog.csdn.net/langb2014/article/details/115454647)
 - [Linux 中列出挂载驱动器的 4 个命令](https://mp.weixin.qq.com/s/dbSZmESQmZaommTFd3-UPA)
 
+### /etc/fstab
+
+```bash
+cat /etc/fstab 
+# /dev/nvme0n1p3
+UUID=b8785205-a668-4d32-8cd8-e506b9850f01       /               ext4            rw,relatime     0 1
+
+# /dev/nvme0n1p2
+UUID=89d974e1-1e99-49ac-a814-b340cc37b17a       /boot           ext4            rw,relatime     0 2
+
+# /dev/nvme0n1p1
+UUID=1762-ADDC          /boot/efi       vfat            rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,utf8,errors=remount-ro       0 2
+
+# /dev/nvme0n1p5
+UUID=c614a533-2615-48e9-812d-dccc8871fcea       /data           ext4            rw,relatime     0 2
+
+# /dev/nvme0n1p6
+UUID=5a93ac13-1983-4a13-9e03-97494cf04f79       /recovery       ext4            rw,relatime     0 2
+
+
+
+
+
+# /dev/nvme0n1p7
+UUID=3ac2cbc4-96f5-44ae-b7fc-449e3e963508       none            swap            defaults,pri=-2 0 0
+
+/data/home /home none defaults,bind 0 0
+/data/opt /opt none defaults,bind 0 0
+/data/root /root none defaults,bind 0 0
+/data/var /var none defaults,bind 0 0
+
+# /dev/sda1
+UUID=cc5da720-dbfb-4bc2-8f35-f566d1603508       /media/wujing/data      ext4            rw,relatime     0 2
+/media/wujing/data/Downloads /home/wujing/Downloads none defaults,bind 0 0
+/media/wujing/data/Documents /home/wujing/Documents none defaults,bind 0 0
+/media/wujing/data/code /home/wujing/code none defaults,bind 0 0
+```
+
 ## 软链接和硬链接
 
 - [linux里创建快捷方式和查看快捷方式的指向](https://blog.csdn.net/ljw_jiawei/article/details/91044595)
