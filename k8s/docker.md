@@ -33,9 +33,57 @@
 - [Install Docker Engine on Debian](https://docs.docker.com/engine/install/debian/)
 - [Deepin v20 正式版安装 Docker](https://www.cnblogs.com/langkyeSir/p/14032801.html)
 
-## docker源
+```bash
+sudo apt install docker-ce
+sudo groupadd docker            # 有则不用创建
+sudo usermod -aG docker $USER   # USER 为加入 docker 组的用户
+newgrp docker                   # 刷新 docker 组
+docker run hello-world          # 测试无 root 权限能否使用 docker
+```
+
+### docker源
+
+编辑 Docker 配置文件:
+
+```bash
+sudo -s
+cat << EOF > /etc/docker/daemon.json
+{
+    "registry-mirrors": [
+        "https://dockerproxy.com",
+        "https://hub-mirror.c.163.com",
+        "https://mirror.baidubce.com",
+        "https://ccr.ccs.tencentyun.com"
+    ]
+}
+EOF
+```
+
+重启 Docker:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
 
 - [阿里云Docker镜像仓库](https://cr.console.aliyun.com/cn-hangzhou/instance/dashboard)
+- [Docker 配置国内源加速(2023/05/14)](https://blog.csdn.net/qq_44797987/article/details/112681224)
+
+查看是否成功:
+
+```bash
+docker info
+```
+
+出现以下字段代表配置成功:
+
+```text
+Registry Mirrors:
+  https://dockerproxy.com/
+  https://hub-mirror.c.163.com/
+  https://mirror.baidubce.com/
+  https://ccr.ccs.tencentyun.com/
+```
 
 ## DockerFile
 
