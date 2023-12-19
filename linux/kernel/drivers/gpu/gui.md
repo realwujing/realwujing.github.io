@@ -24,6 +24,14 @@
 - [linux（ubuntu）系统什么叫：桌面管理器，窗口管理器？](https://my.oschina.net/aspirs/blog/607710)
 - [Linux桌面环境（桌面系统）大比拼[附带优缺点]](http://c.biancheng.net/view/2912.html)
 
+## GNOME 桌面
+
+```bash
+sudo apt install task-gnome-desktop
+```
+
+- [https://wiki.debian.org/zh_CN/Gnome](https://wiki.debian.org/zh_CN/Gnome)
+
 ## 其他
 
 - [彻底理解显卡与显示器的关系](https://www.toutiao.com/article/7271816041196487229/)
