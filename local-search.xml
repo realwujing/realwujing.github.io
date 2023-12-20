@@ -74,17 +74,17 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
+      <tag>git</tag>
+      
       <tag>bpf</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -113,13 +113,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -159,11 +159,11 @@
   
   
   <entry>
-    <title>hda_codec</title>
-    <link href="/linux/kernel/drivers/sound/hda_codec/"/>
-    <url>/linux/kernel/drivers/sound/hda_codec/</url>
+    <title>hdmi-audio</title>
+    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
+    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
     
-    <content type="html"><![CDATA[<p>mv /usr/bin/pulseaudio /usr/bin/pulseaudio_bak mv /sbin/alsactl /sbin/alsactl_bak</p><p>ps aux | grep -i alsactl ps aux | grep -i pulseaudio</p><p>killall alsactl pulseaudio</p><p>cd /sys/class/sound/hwC0D0</p><p>echo 1 &gt; reconfig</p><p>snd_hda_gen_parse_auto_config+0x1 [kernel] snd_hda_parse_generic_codec+0xa3 [kernel] hda_codec_driver_probe+0x74 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>snd_pcm_new+0x1 [kernel] snd_hda_attach_pcm_stream+0x8e [kernel] snd_hda_codec_build_pcms+0x102 [kernel] hda_codec_driver_probe+0x82 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>./sound/pci/hda/hda_sysfs.c:436:int snd_hda_get_bool_hint(struct hda_codec <em>codec, const char </em>key) ./sound/pci/hda/hda_sysfs.c:420:const char <em>snd_hda_get_hint(struct hda_codec </em>codec, const char <em>key) ./sound/pci/hda/hda_sysfs.c:281:static struct hda_hint </em>get_hint(struct hda_codec <em>codec, const char </em>key)</p><p>./sound/pci/hda/hda_auto_parser.c:176:int snd_hda_parse_pin_defcfg(struct hda_codec <em>codec, struct auto_pin_cfg </em>cfg, const hda_nid_t <em>ignore_nids, unsigned int cond_flags) ./sound/pci/hda/hda_codec.c:unsigned int snd_hda_codec_get_pincfg(struct hda_codec </em>codec, hda_nid_t nid)</p><p>sound/pci/hda/hda_codec.c:560:init_pins</p><p>./sound/pci/hda/hda_codec.c:445:static int read_pin_defaults(struct hda_codec *codec)</p><p>混音器 pcm 转换器 codec 端 card</p>]]></content>
+    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
     
     
     <categories>
@@ -184,11 +184,11 @@
   
   
   <entry>
-    <title>hdmi-audio</title>
-    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
-    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
+    <title>hda_codec</title>
+    <link href="/linux/kernel/drivers/sound/hda_codec/"/>
+    <url>/linux/kernel/drivers/sound/hda_codec/</url>
     
-    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
+    <content type="html"><![CDATA[<p>mv /usr/bin/pulseaudio /usr/bin/pulseaudio_bak mv /sbin/alsactl /sbin/alsactl_bak</p><p>ps aux | grep -i alsactl ps aux | grep -i pulseaudio</p><p>killall alsactl pulseaudio</p><p>cd /sys/class/sound/hwC0D0</p><p>echo 1 &gt; reconfig</p><p>snd_hda_gen_parse_auto_config+0x1 [kernel] snd_hda_parse_generic_codec+0xa3 [kernel] hda_codec_driver_probe+0x74 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>snd_pcm_new+0x1 [kernel] snd_hda_attach_pcm_stream+0x8e [kernel] snd_hda_codec_build_pcms+0x102 [kernel] hda_codec_driver_probe+0x82 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>./sound/pci/hda/hda_sysfs.c:436:int snd_hda_get_bool_hint(struct hda_codec <em>codec, const char </em>key) ./sound/pci/hda/hda_sysfs.c:420:const char <em>snd_hda_get_hint(struct hda_codec </em>codec, const char <em>key) ./sound/pci/hda/hda_sysfs.c:281:static struct hda_hint </em>get_hint(struct hda_codec <em>codec, const char </em>key)</p><p>./sound/pci/hda/hda_auto_parser.c:176:int snd_hda_parse_pin_defcfg(struct hda_codec <em>codec, struct auto_pin_cfg </em>cfg, const hda_nid_t <em>ignore_nids, unsigned int cond_flags) ./sound/pci/hda/hda_codec.c:unsigned int snd_hda_codec_get_pincfg(struct hda_codec </em>codec, hda_nid_t nid)</p><p>sound/pci/hda/hda_codec.c:560:init_pins</p><p>./sound/pci/hda/hda_codec.c:445:static int read_pin_defaults(struct hda_codec *codec)</p><p>混音器 pcm 转换器 codec 端 card</p>]]></content>
     
     
     <categories>
@@ -231,13 +231,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -268,15 +268,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -588,9 +588,9 @@
     
     <tags>
       
-      <tag>git</tag>
-      
       <tag>Linux</tag>
+      
+      <tag>git</tag>
       
       <tag>linux</tag>
       
@@ -625,13 +625,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>strings</tag>
       
@@ -699,11 +699,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Java</tag>
       
@@ -738,9 +738,9 @@
     
     <tags>
       
-      <tag>git</tag>
-      
       <tag>Linux</tag>
+      
+      <tag>git</tag>
       
       <tag>linux</tag>
       
@@ -839,17 +839,17 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
       
       <tag>architect</tag>
+      
+      <tag>HTML</tag>
       
       <tag>initramfs</tag>
       
@@ -880,17 +880,17 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
       <tag>C++</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>initramfs</tag>
       
@@ -921,15 +921,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>initramfs</tag>
       
@@ -956,19 +956,19 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
+      
+      <tag>git</tag>
       
       <tag>bpf</tag>
       
       <tag>assembly</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Golang</tag>
       
@@ -1020,9 +1020,9 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>assembly</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -1049,17 +1049,38 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
-      
-      <tag>Linux</tag>
       
       <tag>assembly</tag>
       
       <tag>linux</tag>
       
+      <tag>HTML</tag>
+      
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/debug/binary-analysis/README/"/>
+    <url>/debug/binary-analysis/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>debug</category>
+      
+      <category>binary-analysis</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -1099,27 +1120,6 @@
   
   
   <entry>
-    <title>README</title>
-    <link href="/debug/binary-analysis/README/"/>
-    <url>/debug/binary-analysis/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>debug</category>
-      
-      <category>binary-analysis</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>bcc</title>
     <link href="/debug/bpf/bcc/"/>
     <url>/debug/bpf/bcc/</url>
@@ -1138,15 +1138,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
-      
-      <tag>Linux</tag>
       
       <tag>bpf</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>bcc</tag>
       
@@ -1175,9 +1175,9 @@
     
     <tags>
       
-      <tag>git</tag>
-      
       <tag>Linux</tag>
+      
+      <tag>git</tag>
       
       <tag>bpf</tag>
       
@@ -1208,13 +1208,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>bpf</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Java</tag>
       
@@ -1243,15 +1243,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
-      
-      <tag>Linux</tag>
       
       <tag>bpf</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>bcc</tag>
       
@@ -1305,13 +1305,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -1342,11 +1342,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -1377,11 +1377,11 @@
     
     <tags>
       
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
+      
+      <tag>git</tag>
       
       <tag>linux</tag>
       
@@ -1414,11 +1414,11 @@
     
     <tags>
       
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
+      
+      <tag>git</tag>
       
       <tag>linux</tag>
       
@@ -1449,13 +1449,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>namespace</tag>
       
@@ -1530,39 +1530,6 @@
   
   
   <entry>
-    <title>uos-1060 kgdb 修复</title>
-    <link href="/linux/kernel/sysrq_trigger/uos-1060%20kgdb%20%E4%BF%AE%E5%A4%8D/"/>
-    <url>/linux/kernel/sysrq_trigger/uos-1060%20kgdb%20%E4%BF%AE%E5%A4%8D/</url>
-    
-    <content type="html"><![CDATA[<h1 id="uos-1060-kgdb-修复">uos-1060 kgdb 修复</h1><h2 id="修复代码">修复代码</h2><p>将<code>x86-kernel</code> 分支<code>4.19-rc8</code>中的<code>kernel/debug</code>目录、<code>include/linux/sysrq.h</code>、<code>drivers/tty/sysrq.c</code>覆盖<code>4.19内核 6026</code>对应位置文件。 编译过程中会遇到<code>include/linux/security2.h</code>中的<code>void security_set_audit_started(int started)</code>重复定义，注释掉154-156行即可。</p><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20230711164047.png" alt="" /><figcaption>涉及到的源码</figcaption></figure><ul><li><code>4.19-rc8</code> 对应commit id：35a7f35ad1b1</li><li><code>4.19内核 6026</code>对应commit id：69a08e713fb2</li></ul><h3 id="生成patch">生成patch</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git format-patch -1 c907106159ca -o kgdb_not_work.patch<br></code></pre></td></tr></table></figure><p>patch下载地址：<a href="https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/sysrq_trigger">kgdb_not_work.patch</a></p><h3 id="应用patch">应用patch</h3><p>先检查patch文件：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git apply --<span class="hljs-built_in">stat</span> kgdb_not_work.patch<br></code></pre></td></tr></table></figure><p>检查能否应用成功：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git apply --check kgdb_not_work.patch<br></code></pre></td></tr></table></figure><p>打补丁：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git am --signoff &lt; kgdb_not_work.patch<br></code></pre></td></tr></table></figure><h2 id="内核kgdb编译选项">内核kgdb编译选项</h2><h3 id="kgdb相关">kgdb相关</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">CONFIG_KGDB = y     # 加入KGDB支持<br>CONFIG_KGDB_SERIAL_CONSOLE = y      # 使KGDB通过串口与主机通信(打开这个选项，默认会打开CONFIG_CONSOLE_POLL和CONFIG_MAGIC_SYSRQ)<br>CONFIG_KGDB_KDB = y     # 加入KDB支持<br>CONFIG_DEBUG_KERNEL = y     #包含驱动调试信息<br>CONFIG_DEBUG_INFO = y       # 使内核包含基本调试信息<br></code></pre></td></tr></table></figure><h3 id="vmlinux-gdb.py相关">vmlinux-gdb.py相关</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">CONFIG_GDB_SCRIPTS = y # gdb脚本<br></code></pre></td></tr></table></figure><h3 id="关闭内核随机地址选项">关闭内核随机地址选项</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">CONFIG_RANDOMIZE_BASE = n<br></code></pre></td></tr></table></figure><h2 id="编译内核deb包">编译内核deb包</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make bindeb-pkg -j`<span class="hljs-built_in">expr</span> $(<span class="hljs-built_in">nproc</span>) / 2`<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>sysrq_trigger</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>git</tag>
-      
-      <tag>Linux</tag>
-      
-      <tag>linux</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>基于kgdb调试uos-1060-6026</title>
     <link href="/linux/kernel/sysrq_trigger/%E5%9F%BA%E4%BA%8Ekgdb%E8%B0%83%E8%AF%95uos-1060-6026/"/>
     <url>/linux/kernel/sysrq_trigger/%E5%9F%BA%E4%BA%8Ekgdb%E8%B0%83%E8%AF%95uos-1060-6026/</url>
@@ -1586,6 +1553,39 @@
       <tag>Linux</tag>
       
       <tag>qemu</tag>
+      
+      <tag>linux</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>uos-1060 kgdb 修复</title>
+    <link href="/linux/kernel/sysrq_trigger/uos-1060%20kgdb%20%E4%BF%AE%E5%A4%8D/"/>
+    <url>/linux/kernel/sysrq_trigger/uos-1060%20kgdb%20%E4%BF%AE%E5%A4%8D/</url>
+    
+    <content type="html"><![CDATA[<h1 id="uos-1060-kgdb-修复">uos-1060 kgdb 修复</h1><h2 id="修复代码">修复代码</h2><p>将<code>x86-kernel</code> 分支<code>4.19-rc8</code>中的<code>kernel/debug</code>目录、<code>include/linux/sysrq.h</code>、<code>drivers/tty/sysrq.c</code>覆盖<code>4.19内核 6026</code>对应位置文件。 编译过程中会遇到<code>include/linux/security2.h</code>中的<code>void security_set_audit_started(int started)</code>重复定义，注释掉154-156行即可。</p><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20230711164047.png" alt="" /><figcaption>涉及到的源码</figcaption></figure><ul><li><code>4.19-rc8</code> 对应commit id：35a7f35ad1b1</li><li><code>4.19内核 6026</code>对应commit id：69a08e713fb2</li></ul><h3 id="生成patch">生成patch</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git format-patch -1 c907106159ca -o kgdb_not_work.patch<br></code></pre></td></tr></table></figure><p>patch下载地址：<a href="https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/sysrq_trigger">kgdb_not_work.patch</a></p><h3 id="应用patch">应用patch</h3><p>先检查patch文件：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git apply --<span class="hljs-built_in">stat</span> kgdb_not_work.patch<br></code></pre></td></tr></table></figure><p>检查能否应用成功：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git apply --check kgdb_not_work.patch<br></code></pre></td></tr></table></figure><p>打补丁：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git am --signoff &lt; kgdb_not_work.patch<br></code></pre></td></tr></table></figure><h2 id="内核kgdb编译选项">内核kgdb编译选项</h2><h3 id="kgdb相关">kgdb相关</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">CONFIG_KGDB = y     # 加入KGDB支持<br>CONFIG_KGDB_SERIAL_CONSOLE = y      # 使KGDB通过串口与主机通信(打开这个选项，默认会打开CONFIG_CONSOLE_POLL和CONFIG_MAGIC_SYSRQ)<br>CONFIG_KGDB_KDB = y     # 加入KDB支持<br>CONFIG_DEBUG_KERNEL = y     #包含驱动调试信息<br>CONFIG_DEBUG_INFO = y       # 使内核包含基本调试信息<br></code></pre></td></tr></table></figure><h3 id="vmlinux-gdb.py相关">vmlinux-gdb.py相关</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">CONFIG_GDB_SCRIPTS = y # gdb脚本<br></code></pre></td></tr></table></figure><h3 id="关闭内核随机地址选项">关闭内核随机地址选项</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">CONFIG_RANDOMIZE_BASE = n<br></code></pre></td></tr></table></figure><h2 id="编译内核deb包">编译内核deb包</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make bindeb-pkg -j`<span class="hljs-built_in">expr</span> $(<span class="hljs-built_in">nproc</span>) / 2`<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>sysrq_trigger</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>git</tag>
       
       <tag>linux</tag>
       
@@ -1649,15 +1649,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -1742,13 +1742,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -1773,11 +1773,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>C++</tag>
       
       <tag>git</tag>
       
-      <tag>C++</tag>
+      <tag>HTML</tag>
       
     </tags>
     
@@ -1873,13 +1873,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -1929,9 +1929,9 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>architect</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -1956,11 +1956,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -1985,11 +1985,30 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>git</tag>
       
+      <tag>HTML</tag>
+      
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>考试介绍及备考攻略</title>
+    <link href="/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/"/>
+    <url>/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/</url>
+    
+    <content type="html"><![CDATA[<h1 id="考试介绍及备考攻略">考试介绍及备考攻略</h1><ul><li>核心<ul><li>软件工程</li><li>软件架构设计</li><li>操作系统</li></ul></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>architect</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -2012,9 +2031,9 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>git</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2023,11 +2042,11 @@
   
   
   <entry>
-    <title>考试介绍及备考攻略</title>
-    <link href="/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/"/>
-    <url>/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/</url>
+    <title>计算机网络</title>
+    <link href="/architect/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/"/>
+    <url>/architect/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/</url>
     
-    <content type="html"><![CDATA[<h1 id="考试介绍及备考攻略">考试介绍及备考攻略</h1><ul><li>核心<ul><li>软件工程</li><li>软件架构设计</li><li>操作系统</li></ul></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="计算机网络">计算机网络</h1><h2 id="tcpip协议族">TCP/IP协议族</h2><!-- ![TCP/IP协议族](images/TCP-IP%E5%8D%8F%E8%AE%AE%E6%97%8F.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/TCP-IP协议族.png" alt="" /><figcaption>TCP-IP协议族</figcaption></figure><!-- ![TCP-IP协议族2](images/TCP-IP%E5%8D%8F%E8%AE%AE%E6%97%8F2.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/TCP-IP协议族2.png" alt="" /><figcaption>TCP-IP协议族2</figcaption></figure><h2 id="dhcp">DHCP</h2><!-- ![DHCP](images/DHCP.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/DHCP.png" alt="" /><figcaption>DHCP</figcaption></figure><h2 id="dns">DNS</h2><p>域名系统（DNS, Domain Name System）</p><!-- ![DNS](images/DNS.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/DNS.png" alt="" /><figcaption>DNS</figcaption></figure><!-- ![DNS2](images/DNS2.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/DNS2.png" alt="" /><figcaption>DNS2</figcaption></figure><ul><li><p><a href="https://www.ruanyifeng.com/blog/2018/05/root-domain.html">根域名的知识</a></p></li><li><p><a href="https://blog.csdn.net/weixin_43914604/article/details/105583806">6.2 详解DNS域名解析系统（域名、域名服务器[根、顶级、授权/权限、本地]、域名解析过程[递归与迭代]）</a></p></li><li><p><a href="https://www.jianshu.com/p/476a92a39b45">linux环境下/etc/hosts文件详解</a></p></li></ul><h2 id="网络规划与设计">网络规划与设计</h2><h3 id="需求分析">需求分析</h3><ul><li>功能需求</li><li>通信需求</li><li>性能需求</li><li>可靠性需求</li><li>安全需求</li><li>运行与维护需求</li><li>管理需求</li></ul><!-- ![网络规划与设计-需求分析](images/%E7%BD%91%E7%BB%9C%E8%A7%84%E5%88%92%E4%B8%8E%E8%AE%BE%E8%AE%A1-%E9%9C%80%E6%B1%82%E5%88%86%E6%9E%90.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/网络规划与设计-需求分析.png" alt="" /><figcaption>网络规划与设计-需求分析</figcaption></figure><!-- ![网络规划与设计](images/%E7%BD%91%E7%BB%9C%E8%A7%84%E5%88%92%E4%B8%8E%E8%AE%BE%E8%AE%A1.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/网络规划与设计.png" alt="" /><figcaption>网络规划与设计</figcaption></figure><h3 id="逻辑网络设计">逻辑网络设计</h3><p>利用需求分析和现有网络体系分析的结果来设计逻辑网络结构，最后得到一份逻辑网络设计文档，输出内容包括以下几点：</p><ul><li>逻辑网络设计图</li><li>IP地址方案</li><li>安全方案</li><li>招聘和培训网络员工的具体说明</li><li>软硬件、服务、员工和培训的费用初步估计</li></ul><h3 id="物理网络设计">物理网络设计</h3><p>物理网络设计是对逻辑网络设计的物理实现，通过对设备的具体物理分布、运行环境等确定，确保网络的物理连接符合逻辑连接的要求。输出如下内容：</p><ul><li>网络物理结构图和布线方案</li><li>设备和部件的详细列表清单</li><li>软硬件和安装费用的估算</li><li>安装后的测试计划</li><li>用户的培训计划</li></ul><h3 id="分层设计">分层设计</h3><!-- ![分层设计](images/%E5%88%86%E5%B1%82%E8%AE%BE%E8%AE%A1.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/分层设计.png" alt="" /><figcaption>分层设计</figcaption></figure><h2 id="网络存储技术">网络存储技术</h2><h3 id="分类">分类</h3><!-- ![网络存储技术-分类](images/网络存储技术-分类.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/网络存储技术-分类.png" alt="" /><figcaption>网络存储技术-分类</figcaption></figure><!-- ![网络存储技术-分类2](images/网络存储技术-分类2.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/网络存储技术-分类2.png" alt="" /><figcaption>网络存储技术-分类2</figcaption></figure><h3 id="raid">Raid</h3><!-- ![Raid](images/Raid.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/Raid.png" alt="" /><figcaption>Raid</figcaption></figure><figure><img src="images/Raid2.png" alt="" /><figcaption>Raid2</figcaption></figure><figure><img src="images/Raid3.png" alt="" /><figcaption>Raid3</figcaption></figure><h2 id="ipv6">IPv6</h2><figure><img src="images/IPv6.png" alt="" /><figcaption>IPv6</figcaption></figure><figure><img src="images/IPv62.png" alt="" /><figcaption>IPv62</figcaption></figure><figure><img src="images/IPv63.png" alt="" /><figcaption>IPv63</figcaption></figure><figure><img src="images/IPv64.png" alt="" /><figcaption>IPv64</figcaption></figure><h2 id="网络接入技术">网络接入技术</h2><figure><img src="images/%E7%BD%91%E7%BB%9C%E6%8E%A5%E5%85%A5%E6%8A%80%E6%9C%AF.png" alt="" /><figcaption>网络接入技术</figcaption></figure><figure><img src="images/%E7%BD%91%E7%BB%9C%E6%8E%A5%E5%85%A5%E6%8A%80%E6%9C%AF2.png" alt="" /><figcaption>网络接入技术2</figcaption></figure><h2 id="综合布线系统">综合布线系统</h2><figure><img src="images/%E7%BB%BC%E5%90%88%E5%B8%83%E7%BA%BF%E7%B3%BB%E7%BB%9F.png" alt="" /><figcaption>综合布线系统</figcaption></figure><figure><img src="images/%E7%BB%BC%E5%90%88%E5%B8%83%E7%BA%BF%E7%B3%BB%E7%BB%9F2.png" alt="" /><figcaption>综合布线系统2</figcaption></figure>]]></content>
     
     
     <categories>
@@ -2036,6 +2055,16 @@
       
     </categories>
     
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
     
   </entry>
   
@@ -2067,35 +2096,6 @@
   
   
   <entry>
-    <title>计算机网络</title>
-    <link href="/architect/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/"/>
-    <url>/architect/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/</url>
-    
-    <content type="html"><![CDATA[<h1 id="计算机网络">计算机网络</h1><h2 id="tcpip协议族">TCP/IP协议族</h2><!-- ![TCP/IP协议族](images/TCP-IP%E5%8D%8F%E8%AE%AE%E6%97%8F.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/TCP-IP协议族.png" alt="" /><figcaption>TCP-IP协议族</figcaption></figure><!-- ![TCP-IP协议族2](images/TCP-IP%E5%8D%8F%E8%AE%AE%E6%97%8F2.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/TCP-IP协议族2.png" alt="" /><figcaption>TCP-IP协议族2</figcaption></figure><h2 id="dhcp">DHCP</h2><!-- ![DHCP](images/DHCP.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/DHCP.png" alt="" /><figcaption>DHCP</figcaption></figure><h2 id="dns">DNS</h2><p>域名系统（DNS, Domain Name System）</p><!-- ![DNS](images/DNS.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/DNS.png" alt="" /><figcaption>DNS</figcaption></figure><!-- ![DNS2](images/DNS2.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/DNS2.png" alt="" /><figcaption>DNS2</figcaption></figure><ul><li><p><a href="https://www.ruanyifeng.com/blog/2018/05/root-domain.html">根域名的知识</a></p></li><li><p><a href="https://blog.csdn.net/weixin_43914604/article/details/105583806">6.2 详解DNS域名解析系统（域名、域名服务器[根、顶级、授权/权限、本地]、域名解析过程[递归与迭代]）</a></p></li><li><p><a href="https://www.jianshu.com/p/476a92a39b45">linux环境下/etc/hosts文件详解</a></p></li></ul><h2 id="网络规划与设计">网络规划与设计</h2><h3 id="需求分析">需求分析</h3><ul><li>功能需求</li><li>通信需求</li><li>性能需求</li><li>可靠性需求</li><li>安全需求</li><li>运行与维护需求</li><li>管理需求</li></ul><!-- ![网络规划与设计-需求分析](images/%E7%BD%91%E7%BB%9C%E8%A7%84%E5%88%92%E4%B8%8E%E8%AE%BE%E8%AE%A1-%E9%9C%80%E6%B1%82%E5%88%86%E6%9E%90.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/网络规划与设计-需求分析.png" alt="" /><figcaption>网络规划与设计-需求分析</figcaption></figure><!-- ![网络规划与设计](images/%E7%BD%91%E7%BB%9C%E8%A7%84%E5%88%92%E4%B8%8E%E8%AE%BE%E8%AE%A1.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/网络规划与设计.png" alt="" /><figcaption>网络规划与设计</figcaption></figure><h3 id="逻辑网络设计">逻辑网络设计</h3><p>利用需求分析和现有网络体系分析的结果来设计逻辑网络结构，最后得到一份逻辑网络设计文档，输出内容包括以下几点：</p><ul><li>逻辑网络设计图</li><li>IP地址方案</li><li>安全方案</li><li>招聘和培训网络员工的具体说明</li><li>软硬件、服务、员工和培训的费用初步估计</li></ul><h3 id="物理网络设计">物理网络设计</h3><p>物理网络设计是对逻辑网络设计的物理实现，通过对设备的具体物理分布、运行环境等确定，确保网络的物理连接符合逻辑连接的要求。输出如下内容：</p><ul><li>网络物理结构图和布线方案</li><li>设备和部件的详细列表清单</li><li>软硬件和安装费用的估算</li><li>安装后的测试计划</li><li>用户的培训计划</li></ul><h3 id="分层设计">分层设计</h3><!-- ![分层设计](images/%E5%88%86%E5%B1%82%E8%AE%BE%E8%AE%A1.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/分层设计.png" alt="" /><figcaption>分层设计</figcaption></figure><h2 id="网络存储技术">网络存储技术</h2><h3 id="分类">分类</h3><!-- ![网络存储技术-分类](images/网络存储技术-分类.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/网络存储技术-分类.png" alt="" /><figcaption>网络存储技术-分类</figcaption></figure><!-- ![网络存储技术-分类2](images/网络存储技术-分类2.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/网络存储技术-分类2.png" alt="" /><figcaption>网络存储技术-分类2</figcaption></figure><h3 id="raid">Raid</h3><!-- ![Raid](images/Raid.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/Raid.png" alt="" /><figcaption>Raid</figcaption></figure><figure><img src="images/Raid2.png" alt="" /><figcaption>Raid2</figcaption></figure><figure><img src="images/Raid3.png" alt="" /><figcaption>Raid3</figcaption></figure><h2 id="ipv6">IPv6</h2><figure><img src="images/IPv6.png" alt="" /><figcaption>IPv6</figcaption></figure><figure><img src="images/IPv62.png" alt="" /><figcaption>IPv62</figcaption></figure><figure><img src="images/IPv63.png" alt="" /><figcaption>IPv63</figcaption></figure><figure><img src="images/IPv64.png" alt="" /><figcaption>IPv64</figcaption></figure><h2 id="网络接入技术">网络接入技术</h2><figure><img src="images/%E7%BD%91%E7%BB%9C%E6%8E%A5%E5%85%A5%E6%8A%80%E6%9C%AF.png" alt="" /><figcaption>网络接入技术</figcaption></figure><figure><img src="images/%E7%BD%91%E7%BB%9C%E6%8E%A5%E5%85%A5%E6%8A%80%E6%9C%AF2.png" alt="" /><figcaption>网络接入技术2</figcaption></figure><h2 id="综合布线系统">综合布线系统</h2><figure><img src="images/%E7%BB%BC%E5%90%88%E5%B8%83%E7%BA%BF%E7%B3%BB%E7%BB%9F.png" alt="" /><figcaption>综合布线系统</figcaption></figure><figure><img src="images/%E7%BB%BC%E5%90%88%E5%B8%83%E7%BA%BF%E7%B3%BB%E7%BB%9F2.png" alt="" /><figcaption>综合布线系统2</figcaption></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>architect</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>HTML</tag>
-      
-      <tag>Linux</tag>
-      
-      <tag>linux</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>C++基础</title>
     <link href="/cpp/C++%E5%9F%BA%E7%A1%80/"/>
     <url>/cpp/C++%E5%9F%BA%E7%A1%80/</url>
@@ -2112,15 +2112,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Java</tag>
       
@@ -2147,15 +2147,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2180,15 +2180,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2213,15 +2213,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Java</tag>
       
@@ -2250,9 +2250,9 @@
     
     <tags>
       
-      <tag>git</tag>
-      
       <tag>C++</tag>
+      
+      <tag>git</tag>
       
     </tags>
     
@@ -2302,15 +2302,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2335,11 +2335,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>C++</tag>
       
       <tag>git</tag>
       
-      <tag>C++</tag>
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2364,13 +2364,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2395,13 +2395,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2445,15 +2445,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2478,11 +2478,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>C++</tag>
       
       <tag>git</tag>
       
-      <tag>C++</tag>
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2507,13 +2507,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2599,39 +2599,6 @@
   
   
   <entry>
-    <title>git教程</title>
-    <link href="/git/git%E6%95%99%E7%A8%8B/"/>
-    <url>/git/git%E6%95%99%E7%A8%8B/</url>
-    
-    <content type="html"><![CDATA[<h1 id="git教程">git教程</h1><h2 id="github.token">Github.token</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">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<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/purplego/article/details/78657521"><font color=Red>git client 配置以及连接GitHub、Bitbucket_purplego的博客-CSDN博客</font></a></li><li><a href="https://www.wdssmq.com/post/20201216004.html">【VSCode 笔记】Git： Host key verification failed</a></li><li><a href="https://www.jianshu.com/p/0503722f69af">[ github ] github clone private repo克隆私有项目详细-简书(jianshu.com)</a></li><li><a href="https://blog.csdn.net/purplego/article/details/78657521">git client 配置以及连接GitHub、Bitbucket</a></li><li><a href="https://www.jianshu.com/p/affe1af6781c">github项目如何快速git clone https</a></li></ul><h2 id="密码">密码</h2><ul><li><p><a href="https://www.cnblogs.com/qdlhj/p/13215158.html">GitLab使用手册配置Git永久记住密码，免去重复输入的烦恼 - 心向阳 - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_42050406/article/details/115251109">向gitlab提交代码时记住用户名和密码_胡桃夹夹子的博客-CSDN博客_gitlab记住密码</a></p></li><li><p><a href="https://www.donnadie.top/set-git-proxy"><font color=Red>为git设置代理解决远程仓库无法连接问题</font></a></p></li><li><p><a href="https://blog.csdn.net/yuzhiqiang_1993/article/details/127032178">github配置了公钥依旧提示git@github.com‘s password: Permission denied, please try again.的解决办法</a></p></li><li><p><a href="https://blog.csdn.net/syzdev/article/details/126921031">Git报错：git@github.com: Permission denied (publickey)</a></p></li></ul><h2 id="config">config</h2><ul><li><a href="https://www.maixj.net/ict/git-config-unset-21515">git config的删除命令 | 云上小悟 (maixj.net)</a></li></ul><h2 id="命令">命令</h2><ul><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzU3NTgyODQ1Nw==&amp;mid=2247522045&amp;idx=2&amp;sn=f97685dcac7470d9b8fc1990aba7a7a8&amp;chksm=fd1fee7bca68676db0e438c67294cf0975958f9c1fbf04caeb25d3cafd5b64ac18f4d1003b7a&amp;mpshare=1&amp;scene=1&amp;srcid=0319RvIZ2fucLHLShthVdegk&amp;sharer_sharetime=1648042404990&amp;sharer_shareid=2dfdf936388dba04865b3e883d5a3225&amp;version=3.1.12.6001&amp;platform=win#rd"><font color=Red>Git 不要只会 pull 和 push，试试这 5 条提高效率的命令</font></a></p></li><li><p><a href="https://juejin.cn/post/6844903746166587405">如何在大型项目中使用Git子模块开发</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/0g1RDnKaSw7WYPfcp_gmKw">Git 各指令的本质，真是通俗易懂啊 (qq.com)</a></p></li><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzAxODQxMDM0Mw==&amp;mid=2247485544&amp;idx=1&amp;sn=afc9d9f72d811ec847fa64108d5c7412&amp;scene=21#wechat_redirect"><font color=Red>我用四个命令，总结了 Git 的所有套路</font></a></p></li><li><p><a href="https://blog.csdn.net/weixin_46087056/article/details/124741158"><font color=Red>git常用命令 1.分支开发 2.代码冲突处理</font></a></p></li></ul><h2 id="reset">reset</h2><ul><li><a href="https://www.runoob.com/git/git-reset.html">git reset 命令</a></li></ul><h2 id="commit">commit</h2><ul><li><p><a href="https://blog.csdn.net/keeplook/article/details/39324971">Git怎样合并最近两次commit</a></p></li><li><p><a href="https://www.jianshu.com/p/7d40838883af">对之前的commit 提交进行修改</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1730774"><font color=Red>Git 修改已提交 commit 的信息</font></a></p></li><li><p><a href="https://www.cnblogs.com/boshen-hzb/p/9764835.html"><font color=Red>git只合并某一个分支的某个commit</font></a></p></li><li><p><a href="https://blog.csdn.net/ybdesire/article/details/42145597"><font color=Red>Git合并特定commits 到另一个分支</font></a></p></li><li><p><a href="https://blog.csdn.net/qq_32077121/article/details/111150662">git如何恢复本地删除的文件夹</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39580031/article/details/123826439"><font color=Red>git 回退一个文件的版本</font></a></p></li></ul><h2 id="head">head</h2><ul><li><a href="https://blog.csdn.net/raoxiaoya/article/details/110862360">git深入理解(二)：HEAD是什么</a></li><li><a href="https://geek-docs.com/git/git-cmds/git-head.html">Git – Head</a></li></ul><h2 id="statsh">statsh</h2><ul><li><a href="https://www.cnblogs.com/shoshana-kong/p/11194256.html">git stash详解</a></li></ul><h2 id="rebase-merge">rebase merge</h2><ul><li><p><a href="https://docs.github.com/cn/get-started/using-git/resolving-merge-conflicts-after-a-git-rebase">解决 Git 变基后的合并冲突</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull origin master rebase<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.jianshu.com/p/025aaa1a2c34">GIT使用 rebase 和 merge 的正确姿势（转）</a></p></li><li><p><a href="https://blog.csdn.net/textdemo123/article/details/107867211">Linux :关于git：您尚未完成合并(MERGE_HEAD存在)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/462530860">使用交互式 git rebase 工具压缩 Git 提交</a></p></li><li><p><a href="http://quibbler.cn/?thread-232.htm&amp;user=1"><font color=Red>git rebase调整commit之间顺序</font></a></p></li><li><p><a href="https://www.jianshu.com/p/f247827d60bb">git强制合并分支</a></p></li><li><p><a href="https://blog.csdn.net/junruitian/article/details/88361895">refusing to merge unrelated histories的解决方案（本地/远程）综合</a></p></li></ul><h2 id="pull">pull</h2><ul><li><a href="https://man7.org/linux/man-pages/man3/pthread_create.3.html">如何使用 Git Pull 覆盖本地文件</a></li><li><a href="https://mp.weixin.qq.com/s/3jxG4pdjSiCA1tgo5zau3g">Git 合并到底使用Merge还是Rebase</a></li></ul><h2 id="pull-request">pull request</h2><ul><li><a href="https://www.ruanyifeng.com/blog/2017/07/pull_request.html">Pull Request 的命令行管理</a></li></ul><h2 id="push">push</h2><ul><li><p><a href="https://github.com/LeachZhou/blog/issues/11">Gitlab强制推送提示"You are not allowed to force push code to a protected branch on this project." · Issue #11 · LeachZhou/blog (github.com)</a></p></li><li><p><a href="https://www.cnblogs.com/zishu/p/9191815.html">Github远程推送一直Everything up-to-date - sinatJ - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_30304375/article/details/99984494">submodule 子项目提交代码后无法push到远程仓库_三叔的负能量的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/qq_45893999/article/details/106273214">error: failed to push some refs to如何解决_尘客-追梦的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/D939030515/article/details/105490835"><font color=Red>git 仓库提交分支到另外一个仓库</font></a></p></li><li><p><a href="https://www.freesion.com/article/2366930198/">GIT 清除本地 REMOTES/ORIGIN/*</a></p></li><li><p><a href="https://www.itranslater.com/qa/details/2583713236583449600">git-警告：忽略损坏的ref refs / remotes / origin / HEAD</a></p></li></ul><h2 id="tag">tag</h2><ul><li><a href="https://git-scm.com/book/zh/v2/Git-%E5%9F%BA%E7%A1%80-%E6%89%93%E6%A0%87%E7%AD%BE"><font color=Red>2.6 Git基础-打标签</font></a></li><li><a href="https://blog.csdn.net/QH_JAVA/article/details/77979622">git tag创建、远程推送、回退以及强推push -f</a></li></ul><h2 id="submodule">submodule</h2><ul><li><p><a href="https://blog.csdn.net/weixin_43455581/article/details/120174578"><font color=Red>git中子模块/子仓库的使用</font></a></p></li><li><p><a href="https://knightyun.github.io/2021/03/21/git-submodule"><font color=Red>Git submodule 知识总结</font></a></p></li><li><p><a href="https://git-scm.com/book/zh/v2/Git-%E5%B7%A5%E5%85%B7-%E5%AD%90%E6%A8%A1%E5%9D%97">7.11 Git工具-子模块</a></p></li><li><p><a href="https://www.jianshu.com/p/f8a55b972972/">git submodule 使用小结 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.jianshu.com/p/e27a978ddb88">git submodule 的使用 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.cnblogs.com/nicksheng/p/6201711.html">Git Submodule管理项目子模块 - nicksheng - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/qq_38292379/article/details/124950163">git submodule update 游离分支 临时分支问题记录 解决办法</a></p></li><li><p><a href="https://www.cnblogs.com/hustcpp/p/13092625.html">git添加submodule以及更名</a></p></li><li><p><a href="https://blog.csdn.net/weixin_45115705/article/details/104303730">Git修改.Submodule文件url生效</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39673293/article/details/111786946">submodule切换分支_Git submodule-切换submodule的分支</a></p></li><li><p><a href="https://qa.1r1g.com/sf/ask/2815344661/">git submodule 分支是否与主项目的分支一起切换？</a></p><p>设置永久记住密码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 设置永久记住密码 </span><br><br>git config --global credential.helper store <br>git pull  <br><br><br><span class="hljs-comment"># 拉取所有子模块 </span><br><br>git submodule update --init --recursive <br><br><br><br><br>git submodule foreach git pull origin master <br><br><br><br><br>git submodule foreach git checkout master <br><br><br><br><br><span class="hljs-comment"># 取消永久记住密码 </span><br><br><span class="hljs-comment"># git config --global --unset credential.helper </span><br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://juejin.cn/post/6934107291621228558">Git详解10-Git子库：submodule与subtree</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/594835463">将git仓库从submodule转换为subtree</a></p></li><li><p><a href="https://www.cnblogs.com/anliven/p/13681894.html">Git - - subtree与submodule - Anliven -博客园(cnblogs.com)</a></p></li><li><p><a href="https://juejin.cn/post/6936459179049615397">Git SubTree使用</a></p></li></ul><h2 id="gitignore">.gitignore</h2><ul><li><a href="https://learnku.com/articles/18380">.gitignore 在已忽略文件夹中不忽略指定文件、文件夹... | Laravel China 社区 (learnku.com)</a></li></ul><h2 id="gitkeep">.gitkeep</h2><ul><li><a href="https://blog.csdn.net/fengchao2016/article/details/52769151">git提交空文件夹_fengchao2016的博客-CSDN博客_git空文件夹不能提交</a></li><li><a href="https://www.cnblogs.com/everfight/p/keep_empty_dir_in_git_repo.html">如何向git仓库提交空文件夹？.gitignore和.gitkeep配合 - everfight - 博客园 (cnblogs.com)</a></li></ul><h2 id="gerrit">gerrit</h2><ul><li><p><a href="https://www.jianshu.com/p/e1b466df12de">Gerrit - not clone with commit-msg hook</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review dev -r origin<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git cherry-pick c6611ca831bb97ac646dbd22bbf9f5216741c09d<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://blog.csdn.net/weixin_38419133/article/details/113600907">gerrit 将代码从一个分支合并到另外一个分支 Cherry Pick的使用</a></p></li><li><p><a href="https://www.cnblogs.com/111testing/p/9450530.html">gerrit 使用教程（一）</a></p></li><li><p><a href="https://blog.csdn.net/yangshujuan91/article/details/113741972">gerrit 缺少change-Id</a></p></li><li><p><a href="https://www.cnblogs.com/tsalita/p/16500429.html">VSCode_git&amp;svn 的冲突译文</a></p></li></ul><h2 id="github-action">Github Action</h2><ul><li><a href="https://www.it610.com/article/1527116916244676608.htm">通过 GitHub Actions 将 GitHub 仓库自动备份到 Gitee、GitLab</a></li><li><a href="https://stackoverflow.com/questions/66626814/github-action-error-process-completed-with-exit-code-1">bash - Github Action - Error: Process completed with exit code 1 - Stack Overflow</a></li><li><a href="https://github.com/orgs/community/discussions/26928"><font color=Red>Github actions git log only output one line</font></a></li></ul><h2 id="patch">patch</h2><ul><li><a href="https://www.toutiao.com/article/6652488964823319052">使用Git生成patch和应用patch，看完这一篇文章就全懂了</a></li><li><a href="https://blog.csdn.net/qq_30624591/article/details/89474571">git生成patch和打patch的操作命令</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>git</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
-      <tag>Linux</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>Java</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>submodule</title>
     <link href="/git/submodule/"/>
     <url>/git/submodule/</url>
@@ -2648,15 +2615,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
-      
-      <tag>Linux</tag>
       
       <tag>assembly</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2665,31 +2632,29 @@
   
   
   <entry>
-    <title>java-learning</title>
-    <link href="/java/java-learning/"/>
-    <url>/java/java-learning/</url>
+    <title>git教程</title>
+    <link href="/git/git%E6%95%99%E7%A8%8B/"/>
+    <url>/git/git%E6%95%99%E7%A8%8B/</url>
     
-    <content type="html"><![CDATA[<h1 id="java">Java</h1><ul><li><p><a href="https://snailclimb.gitee.io/javaguide/#/" class="uri">https://snailclimb.gitee.io/javaguide/#/</a></p></li><li><p><a href="https://github.com/Snailclimb/JavaGuide">JavaGuide</a></p></li><li><p><a href="https://github.com/CyC2018/CS-Notes">CyC2018/CS-Notes: 技术面试必备基础知识、Leetcode、计算机操作系统、计算机网络、系统设计 (github.com)</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1584463">史上最全的Java命名规范[转] - 云+社区 - 腾讯云 (tencent.com)</a></p></li></ul><h2 id="java环境">Java环境</h2><ul><li><a href="https://www.cnblogs.com/luoli-/p/9247952.html">Ubuntu18.04安装jdk1.8</a></li><li><a href="https://blog.csdn.net/bestsongs/article/details/104905060">jdk1.8下载与安装教程（win10）超详细！</a></li><li><a href="https://blog.csdn.net/weixin_38168198/article/details/99906459">E: Unable to locate package openjdk-8-jdk 及java version 切换_weixin_38168198的博客-CSDN博客</a></li><li><a href="https://www.cnblogs.com/imzhizi/p/macos-jdk-installation-homebrew.html">macOS所有版本JDK安装指南(with Homebrew) -质子-博客园(cnblogs.com)</a></li><li><a href="https://blog.csdn.net/sun8112133/article/details/79905401">Linux Ubuntu 下安装与卸载 JDK，亲测有效~_小异常的博客-CSDN博客_ubuntu卸载jdk</a></li><li><a href="https://dev1galaxy.org/viewtopic.php?id=649">[SOLVED] update-alternatives warning: broken link group? / Desktop and Multimedia / Dev1 Galaxy Forum</a></li><li><a href="https://zhuanlan.zhihu.com/p/92654421">Java升级那么快，多个版本如何灵活切换和管理？-知乎(zhihu.com)Java升级那么快，多个版本如何灵活切换和管理？-知乎(zhihu.com)</a></li></ul><h2 id="maven">maven</h2><ul><li><a href="https://www.linuxidc.com/Linux/2020-04/162861.htm">Maven常用命令详解_Linux教程_Linux公社-Linux系统门户网站 (linuxidc.com)</a></li><li><a href="https://blog.csdn.net/weixin_38936572/article/details/104938305">关于maven打包时的报错： Return code is: 501 , ReasonPhrase:HTTPS Required._爱吃猪蹄的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/qq_29695701/article/details/90705181">Ubuntu安装maven_Learning-CSDN博客</a></li><li><a href="https://blog.csdn.net/qq_22041375/article/details/103491941">maven下载依赖时候忽略SSL证书校验_方方园园的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/longqizhanshen/article/details/107119808">2021最新 Maven之阿里云镜像仓库配置_longqizhanshen的博客-CSDN博客_maven阿里云镜像仓库</a></li><li><a href="https://blog.csdn.net/wushengjun753/article/details/114883662">java.security.InvalidAlgorithmParameterException: the trustAnchors parameter must be non-empty_小龙舟的工具书-CSDN博客</a></li><li><a href="https://www.cnblogs.com/huyuchengus/p/10987515.html">Maven 在 pom.xml 文件中配置 repositories 仓库 - huyuchengus - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/caiwenfeng_for_23/article/details/44514947">maven打包报错：Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:2.5:test_蚂蚁的专栏-CSDN博客</a></li><li><a href="https://www.hangge.com/blog/cache/detail_2844.html">使用Nexus搭建Maven私服教程（附：配置并使用私服教程） (hangge.com)</a></li><li><a href="https://blog.csdn.net/weixin_41806245/article/details/87812500">Nexus 3 Docker仓库（hosted、proxy、group）模式 讲解_xiliangMa的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/lijingjingchn/article/details/105510584">Maven deploy上传jar包到远程仓库_李京京的博客-CSDN博客_maven上传jar包到远程仓库</a></li><li><a href="https://mp.weixin.qq.com/s/TnpokzoiZGaGcIVJWFHw3w">悲剧！IDEA突然找不到类了？</a></li></ul><h2 id="spring-boot">spring-boot</h2><ul><li><a href="https://www.cnblogs.com/alltime/p/6729295.html">依赖注入的简单理解 - nowthink - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/weixin_53601359/article/details/114378460?utm_source=app&amp;app_version=4.13.0">Java常用注解(Annotation)详解汇总_布诺的博客-CSDN博客_java的注解</a></li><li><a href="http://c.biancheng.net/spring_boot/">Spring Boot框架入门教程（快速学习版） (biancheng.net)</a></li><li><a href="https://www.cnblogs.com/songxingzhu/p/9597927.html">使用SpringBoot的推荐项目目录结构 - 宋兴柱 - 博客园 (cnblogs.com)</a></li><li><a href="https://github.com/ityouknow/spring-boot-examples">ityouknow/spring-boot-examples: about learning Spring Boot via examples. Spring Boot 教程、技术栈示例代码，快速简单上手教程。 (github.com)</a></li><li><a href="https://github.com/dyc87112/SpringBoot-Learning">dyc87112/SpringBoot-Learning: Spring Boot基础教程，Spring Boot 2.x版本连载中！！！ (github.com)</a></li><li><a href="https://blog.didispace.com/java-lombok-how-to-use/">Java开发神器Lombok的使用与原理 | 程序猿DD (didispace.com)</a></li><li><a href="http://www.ityouknow.com/springboot/2017/05/09/spring-boot-deploy.html">Spring Boot(十二)：Spring Boot 如何测试打包部署 - 纯洁的微笑博客 (ityouknow.com)</a></li><li><a href="https://blog.didispace.com/spring-boot-learning-21-2-1/">Spring Boot 2.x基础教程：构建RESTful API与单元测试 | 程序猿DD (didispace.com)</a></li><li><a href="https://www.cnblogs.com/ASPNET2008/p/6511500.html">Spring Cache扩展：注解失效时间+主动刷新缓存 - min.jiang - 博客园 (cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/hopeofthevillage/p/11427438.html">Mybatis的一级缓存和二级缓存的理解以及用法 - 全me村的希望 - 博客园 (cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/cxuanBlog/p/11333021.html">MyBatis 二级缓存全详解 - 程序员cxuan - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/xiaolyuh123/article/details/78819898">Spring Boot缓存实战 Redis 设置有效时间和自动刷新缓存-2_xiaolyuh的专栏-CSDN博客</a></li><li><a href="https://www.jb51.net/article/197772.htm">详解SpringBoot的三种缓存技术(Spring Cache、Layering Cache 框架、Alibaba JetCache 框架)_java_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/qq_45173404/article/details/108693030">SpringBoot配置文件&amp;YAML配置注入（详解）_欢迎来到 Baret~H 的博客-CSDN博客_springboot yml配置文件</a></li><li><a href="https://blog.csdn.net/weixin_36775115/article/details/79539811">SpringBoot配置-读取 .yml配置文件_总该长大了的博客-CSDN博客_spring读取yml配置文件</a></li><li><a href="https://www.cnblogs.com/hsbt2333/p/9347249.html">使用springboot + druid + mybatisplus完成多数据源配置 - 快乐在角落里 - 博客园 (cnblogs.com)</a></li><li><a href="https://mp.weixin.qq.com/s/M8N67DfWegiGEpwP02aJkQ">SpringCloud+SpringBoot+OAuth2+Spring Security+Redis实现的微服务统一认证授权 (qq.com)</a></li><li><a href="https://blog.csdn.net/qq_37933127/article/details/106248546">VS Code运行SpringBoot项目_陈灬大灬海-CSDN博客</a></li><li><a href="https://mp.weixin.qq.com/s/BRRgcrphENx0iHSBljQtsA">用好Spring AOP，天降大锅从容应对！</a></li><li><a href="https://www.liaoxuefeng.com/wiki/1252599548343744/1266265125480448">使用AOP - 廖雪峰的官方网站 (liaoxuefeng.com)</a></li><li><a href="https://www.jianshu.com/p/421f7be8627c">SpringBoot+Mybatis配置多数据源及事务方案 - 简书 (jianshu.com)</a></li><li><a href="https://www.hangge.com/blog/cache/detail_2485.html">SpringBoot - 获取POST请求参数详解（附样例：表单数据、json、数组、对象） (hangge.com)</a></li><li><a href="https://blog.csdn.net/wang48430327/article/details/81064220">ApplicationContextAware使用_累死的青蛙-CSDN博客</a></li><li><span class="citation" data-cites="Configuration的使用">[spring4.0之二：@Configuration的使用 - duanxz - 博客园 (cnblogs.com)]</span>(https://www.cnblogs.com/duanxz/p/7493276.html)</li><li><a href="https://mp.weixin.qq.com/s/GprHnr0Y8vMIn5Pqujv3rw">金九银十到来，盘点今年截止八月的 80 篇原创文章列表，建议收藏慢慢看！ (qq.com)</a></li></ul><h2 id="动态crontab-quartz">动态crontab Quartz</h2><ul><li><a href="https://www.cnblogs.com/fandc/p/7277905.html">Java cron 任务执行表达式 - 开心就好也 - 博客园 (cnblogs.com)</a></li><li><a href="https://www.matools.com/cron/">在线Cron表达式生成器 - 码工具 (matools.com)</a></li><li><a href="https://www.jb51.net/article/207667.htm">spring schedule配置多任务动态cron(增删启停)_java_脚本之家 (jb51.net)</a></li><li><a href="https://juejin.cn/post/6974659450260488200">利用Spring Boot轻松实现动态定时器开发！ (juejin.cn)</a></li><li><a href="https://blog.csdn.net/upxiaofeng/article/details/79415108">SpringBoot集成Quartz动态定时任务_upxiaofeng的专栏-CSDN博客_springboot集成quartz</a></li><li><a href="https://blog.csdn.net/weixin_40375601/article/details/109526971">springboot集成quartz，简版-通俗易懂_红桃∩-CSDN博客</a></li><li><a href="https://www.cnblogs.com/laoyeye/p/9352002.html">Quartz实现JAVA定时任务的动态配置 - 小卖铺的老爷爷 - 博客园 (cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/jpfss/p/10857077.html">SpringBoot整合Quartz实现定时任务 - 星朝 - 博客园 (cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/daxin/archive/2013/05/29/3105830.html">Quartz JobListener 任务监听器 - 大新博客 - 博客园 (cnblogs.com)</a></li><li><a href="https://cloud.tencent.com/developer/article/1640190">springboot整合quartz实现定时任务的动态修改，启动，暂停等操作 - 云+社区 - 腾讯云 (tencent.com)</a></li><li><a href="https://github.com/EalenXie/SpringBoot-Quartz">EalenXie/SpringBoot-Quartz: SpringBoot整合Quartz作为调度中心使用完整实例 (github.com)</a></li><li><a href="https://www.cnblogs.com/ealenxie/p/9134602.html">SpringBoot整合Quartz作为调度中心完整实用例子 - EalenXie - 博客园 (cnblogs.com)</a></li><li><a href="https://github.com/nkcoder/quartz-explained">nkcoder/quartz-explained: 对定时任务调度框架quartz源码的阅读和注释(comments on quartz-core source) (github.com)</a></li><li><a href="http://ifeve.com/quartz-tutorial-using-quartz/">Quartz教程一：使用quartz | 并发编程网 – ifeve.com</a></li><li><a href="https://blog.csdn.net/u012907049/article/details/73801122">Spring Boot集成持久化Quartz定时任务管理和界面展示_天降风云的博客-CSDN博客</a></li><li><a href="https://mp.weixin.qq.com/s/zJSPzcsFl72JNoqZpkH94A">SpringBoot 整合 Quartz 实现分布式调度 (qq.com)</a></li></ul><h2 id="mybatis">Mybatis</h2><ul><li><a href="http://c.biancheng.net/mybatis/">Java Mybatis框架入门教程</a></li><li><a href="http://c.biancheng.net/view/4309.html">第一个MyBatis程序 (biancheng.net)</a></li><li><a href="https://github.com/baomidou/awesome-mybatis-plus">baomidou/awesome-mybatis-plus:🎉A curated list of awesome things related to MyBatis-Plus (github.com)</a></li><li><a href="https://www.jb51.net/article/96242.htm">Mybatis Generator最完美配置文件详解(完整版)_java_脚本之家(jb51.net)</a></li><li><a href="https://github.com/zouzg/mybatis-generator-gui">zouzg/mybatis-generator-gui: mybatis-generator界面工具，让你生成代码更简单更快捷(github.com)</a></li><li><a href="https://blog.csdn.net/ftfy123/article/details/113763182">MyBatis Generator 超详细配置_ftfy123的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/liu649983697/article/details/113930493">mybatis-plus代码自动生成generator配置实现_liu649983697的专栏-CSDN博客</a></li><li><span class="citation" data-cites="MapperScan和">[Spring Boot的MyBatis注解：@MapperScan和@Mapper - MyBatis中文官网]</span>(http://www.mybatis.cn/archives/862.html)</li><li><a href="https://blog.csdn.net/mj_940620/article/details/110356785">springboot 配置多数据源（Aop+注解实现）_mj的博客-CSDN博客_springboot多数据源</a></li><li><a href="https://blog.csdn.net/chinawangfei/article/details/113618469">springboot整合mybatis-plus、druid连接池和多数据源配置_WorldMvp的专栏-CSDN博客_springboot整合mybatisplus多数据源</a></li><li><a href="https://mp.weixin.qq.com/s/EWiq8BS11FPKA4exKpOwdA">熟练掌握 MyBatis-Plus，这一篇就够了！ (qq.com)</a></li></ul><h2 id="设计模式">设计模式</h2><ul><li><a href="https://mp.weixin.qq.com/s/fnDvgOD7IKJ5ilVf3l3inA">23种设计模式的通俗解释，虽然有点污，但是秒懂</a></li><li><a href="https://www.runoob.com/design-pattern/design-pattern-tutorial.html">设计模式</a></li></ul><h2 id="java注解">Java注解</h2><ul><li><a href="https://zhuanlan.zhihu.com/p/37701743">java注解-最通俗易懂的讲解</a></li><li><a href="https://www.runoob.com/w3cnote/java-annotation.html">Java注解（Annotation）</a></li></ul><h2 id="消息队列">消息队列</h2><h2 id="kafka">Kafka</h2><ul><li><a href="https://zhuanlan.zhihu.com/p/37405836">Kafka简明教程 - 知乎 (zhihu.com)</a></li><li><a href="https://blog.csdn.net/weixin_45366499/article/details/106943229">(1条消息) Kafka基本原理详解（超详细！）_蔡政洁的博客-CSDN博客_kafka</a></li><li><a href="https://www.jianshu.com/p/a036405f989c">Zookeeper在Kafka中的作用-简书(jianshu.com)</a></li><li><a href="https://support.huaweicloud.com/devg-kafka/kafka-python.html">Python_分布式消息服务 Kafka_开发指南_华为云 (huaweicloud.com)</a></li><li><a href="https://my.oschina.net/u/4395907/blog/3356363">kafka python 指定分区消费 与 offset - osc_3o8lxtf4的个人空间 - OSCHINA - 中文开源技术交流社区</a></li><li><a href="https://mp.weixin.qq.com/s/CfyfnGHcT0_ZpYis2wq7Dg" class="uri">https://mp.weixin.qq.com/s/CfyfnGHcT0_ZpYis2wq7Dg</a></li></ul><h2 id="rabbitmq">RabbitMQ</h2><ul><li><a href="https://www.jb51.net/os/Ubuntu/683325.html">Ubuntu 16.04 RabbitMq 安装与运行方法（安装篇）_Ubuntu/Debian_操作系统_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/u010134642/article/details/102525490">(1条消息) RabbitMQ 启动报错 Failed to check/redeclare auto-delete queue(s) access to vhost '/' refused for user_流浪的喵的博客-CSDN博客</a></li></ul><h2 id="elasticsearch">Elasticsearch</h2><ul><li><a href="https://blog.didispace.com/books/elasticsearch-definitive-guide-cn/010_Intro/05_What_is_it.html">是什么 · Elasticsearch 权威指南（中文版） (didispace.com)</a></li></ul><h2 id="spider-flow">spider-flow</h2><ul><li><a href="https://www.bookstack.cn/read/spiderflow-0.5.0/620e86c3c5a46c8b.md">使用教程 - 表达式语法 - 《spider-flow v0.5.0 使用手册》 - 书栈网 · BookStack</a></li><li><a href="https://www.spiderflow.org/">spider-flow (spiderflow.org)</a></li></ul><h2 id="日志">日志</h2><ul><li><a href="https://blog.csdn.net/weixin_34344677/article/details/92073333">(3条消息) Logback不同业务日志写入不同文件_weixin_34344677的博客-CSDN博客</a></li><li><a href="https://www.cnblogs.com/zeng1994/p/f9bff238b13a0bf8fb8bf88c41db7a34.html">SpringBoot+logback实现按业务输出日志到不同的文件 - zeng1994 - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/white_ice/article/details/85065219?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-1.control&amp;depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-1.control">springboot使用logback日志框架超详细教程_white_ice的博客-CSDN博客</a></li><li><a href="https://www.cnblogs.com/gavincoder/p/10091757.html">logback配置文件-logback.xml详解 - 马非白即黑 - 博客园 (cnblogs.com)</a></li><li><a href="https://cloud.tencent.com/developer/article/1445599">springboot超级详细的日志配置(基于logback) - 云+社区 - 腾讯云 (tencent.com)</a></li><li><a href="https://www.cnblogs.com/cb0327/p/5770794.html">logback 配置详解（二）——appender - 灰太郎^_^ - 博客园 (cnblogs.com)</a></li><li><a href="https://www.php.cn/java-article-406687.html">如何使用java代码编写logback配置-java教程-PHP中文网</a></li><li><a href="http://www.51gjie.com/javaweb/1113.html">RollingFileAppender详解 (51gjie.com)</a></li><li><a href="https://www.cnblogs.com/Hlingoes/p/13109918.html">java代码动态自定义logback日志Appender - Hlingoes - 博客园 (cnblogs.com)</a></li></ul><h2 id="datax">DataX</h2><ul><li><a href="https://blog.csdn.net/qq_39945938/article/details/117959051">Datax 源码打包报错与解决方法_终回首的博客-CSDN博客</a></li><li><a href="https://developer.aliyun.com/article/642896">【DataX】Java中集成DataX开发-阿里云开发者社区 (aliyun.com)</a></li><li><a href="https://www.jb51.net/article/168672.htm">关于通过java调用datax,返回任务执行的方法_java_脚本之家 (jb51.net)</a></li></ul><h2 id="其他">其他</h2><ul><li><a href="https://www.cnblogs.com/xiaoniu-666/p/9491897.html">C++ 对象实例化（转）</a></li><li><a href="https://blog.csdn.net/sinat_38259539/article/details/71799078">Java基础之—反射（非常重要）_sinat_38259539的博客-CSDN博客_java反射</a></li><li><a href="https://www.xuxueli.com/xxl-job/">分布式任务调度平台XXL-JOB (xuxueli.com)</a></li><li><a href="https://www.jianshu.com/p/e2850153c6f0">Quartz 使用：Job、Trigger、Schedule - 简书 (jianshu.com)</a></li><li><a href="https://blog.csdn.net/qq_33667967/article/details/95602890">ubuntu16 jdk1.8 java new Date()获取的时间与服务器不一致_qq_33667967的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/L_it123/article/details/106845391">【已解决】com.mysql.jdbc.exceptions.jdbc4.CommunicationsExcepti：Communications link failure mysql连接报错_L_it123的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/weixin_44778151/article/details/116265825">springboot项目的.gitignore模板_Anjude的博客-CSDN博客</a></li><li><a href="http://www.seaxiang.com/blog/vsimp">vscode跳转到接口方法的实现类 (seaxiang.com)</a></li><li><a href="https://www.cnblogs.com/116970u/p/11408508.html">IntelliJ IDEA 接口类跳转到实现类及实现类跳转到接口 - 清晨的第一抹阳光 - 博客园 (cnblogs.com)</a></li><li><a href="https://geek-docs.com/vscode/vscode-tutorials/vs-code-definition-implementation-jump.html">VSCode 定义和实现间跳转|极客教程 (geek-docs.com)</a></li><li><a href="https://mp.weixin.qq.com/s/1rhVo2DG9zq5tt_RrpYaJw" class="uri">https://mp.weixin.qq.com/s/1rhVo2DG9zq5tt_RrpYaJw</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="git教程">git教程</h1><h2 id="github.token">Github.token</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">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<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/purplego/article/details/78657521"><font color=Red>git client 配置以及连接GitHub、Bitbucket_purplego的博客-CSDN博客</font></a></li><li><a href="https://www.wdssmq.com/post/20201216004.html">【VSCode 笔记】Git： Host key verification failed</a></li><li><a href="https://www.jianshu.com/p/0503722f69af">[ github ] github clone private repo克隆私有项目详细-简书(jianshu.com)</a></li><li><a href="https://blog.csdn.net/purplego/article/details/78657521">git client 配置以及连接GitHub、Bitbucket</a></li><li><a href="https://www.jianshu.com/p/affe1af6781c">github项目如何快速git clone https</a></li></ul><h2 id="密码">密码</h2><ul><li><p><a href="https://www.cnblogs.com/qdlhj/p/13215158.html">GitLab使用手册配置Git永久记住密码，免去重复输入的烦恼 - 心向阳 - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_42050406/article/details/115251109">向gitlab提交代码时记住用户名和密码_胡桃夹夹子的博客-CSDN博客_gitlab记住密码</a></p></li><li><p><a href="https://www.donnadie.top/set-git-proxy"><font color=Red>为git设置代理解决远程仓库无法连接问题</font></a></p></li><li><p><a href="https://blog.csdn.net/yuzhiqiang_1993/article/details/127032178">github配置了公钥依旧提示git@github.com‘s password: Permission denied, please try again.的解决办法</a></p></li><li><p><a href="https://blog.csdn.net/syzdev/article/details/126921031">Git报错：git@github.com: Permission denied (publickey)</a></p></li></ul><h2 id="config">config</h2><ul><li><a href="https://www.maixj.net/ict/git-config-unset-21515">git config的删除命令 | 云上小悟 (maixj.net)</a></li></ul><h2 id="命令">命令</h2><ul><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzU3NTgyODQ1Nw==&amp;mid=2247522045&amp;idx=2&amp;sn=f97685dcac7470d9b8fc1990aba7a7a8&amp;chksm=fd1fee7bca68676db0e438c67294cf0975958f9c1fbf04caeb25d3cafd5b64ac18f4d1003b7a&amp;mpshare=1&amp;scene=1&amp;srcid=0319RvIZ2fucLHLShthVdegk&amp;sharer_sharetime=1648042404990&amp;sharer_shareid=2dfdf936388dba04865b3e883d5a3225&amp;version=3.1.12.6001&amp;platform=win#rd"><font color=Red>Git 不要只会 pull 和 push，试试这 5 条提高效率的命令</font></a></p></li><li><p><a href="https://juejin.cn/post/6844903746166587405">如何在大型项目中使用Git子模块开发</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/0g1RDnKaSw7WYPfcp_gmKw">Git 各指令的本质，真是通俗易懂啊 (qq.com)</a></p></li><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzAxODQxMDM0Mw==&amp;mid=2247485544&amp;idx=1&amp;sn=afc9d9f72d811ec847fa64108d5c7412&amp;scene=21#wechat_redirect"><font color=Red>我用四个命令，总结了 Git 的所有套路</font></a></p></li><li><p><a href="https://blog.csdn.net/weixin_46087056/article/details/124741158"><font color=Red>git常用命令 1.分支开发 2.代码冲突处理</font></a></p></li></ul><h2 id="reset">reset</h2><ul><li><a href="https://www.runoob.com/git/git-reset.html">git reset 命令</a></li></ul><h2 id="commit">commit</h2><ul><li><p><a href="https://blog.csdn.net/keeplook/article/details/39324971">Git怎样合并最近两次commit</a></p></li><li><p><a href="https://www.jianshu.com/p/7d40838883af">对之前的commit 提交进行修改</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1730774"><font color=Red>Git 修改已提交 commit 的信息</font></a></p></li><li><p><a href="https://www.cnblogs.com/boshen-hzb/p/9764835.html"><font color=Red>git只合并某一个分支的某个commit</font></a></p></li><li><p><a href="https://blog.csdn.net/ybdesire/article/details/42145597"><font color=Red>Git合并特定commits 到另一个分支</font></a></p></li><li><p><a href="https://blog.csdn.net/qq_32077121/article/details/111150662">git如何恢复本地删除的文件夹</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39580031/article/details/123826439"><font color=Red>git 回退一个文件的版本</font></a></p></li></ul><h2 id="head">head</h2><ul><li><a href="https://blog.csdn.net/raoxiaoya/article/details/110862360">git深入理解(二)：HEAD是什么</a></li><li><a href="https://geek-docs.com/git/git-cmds/git-head.html">Git – Head</a></li></ul><h2 id="statsh">statsh</h2><ul><li><a href="https://www.cnblogs.com/shoshana-kong/p/11194256.html">git stash详解</a></li></ul><h2 id="rebase-merge">rebase merge</h2><ul><li><p><a href="https://docs.github.com/cn/get-started/using-git/resolving-merge-conflicts-after-a-git-rebase">解决 Git 变基后的合并冲突</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull origin master rebase<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.jianshu.com/p/025aaa1a2c34">GIT使用 rebase 和 merge 的正确姿势（转）</a></p></li><li><p><a href="https://blog.csdn.net/textdemo123/article/details/107867211">Linux :关于git：您尚未完成合并(MERGE_HEAD存在)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/462530860">使用交互式 git rebase 工具压缩 Git 提交</a></p></li><li><p><a href="http://quibbler.cn/?thread-232.htm&amp;user=1"><font color=Red>git rebase调整commit之间顺序</font></a></p></li><li><p><a href="https://www.jianshu.com/p/f247827d60bb">git强制合并分支</a></p></li><li><p><a href="https://blog.csdn.net/junruitian/article/details/88361895">refusing to merge unrelated histories的解决方案（本地/远程）综合</a></p></li></ul><h2 id="pull">pull</h2><ul><li><a href="https://man7.org/linux/man-pages/man3/pthread_create.3.html">如何使用 Git Pull 覆盖本地文件</a></li><li><a href="https://mp.weixin.qq.com/s/3jxG4pdjSiCA1tgo5zau3g">Git 合并到底使用Merge还是Rebase</a></li></ul><h2 id="pull-request">pull request</h2><ul><li><a href="https://www.ruanyifeng.com/blog/2017/07/pull_request.html">Pull Request 的命令行管理</a></li></ul><h2 id="push">push</h2><ul><li><p><a href="https://github.com/LeachZhou/blog/issues/11">Gitlab强制推送提示"You are not allowed to force push code to a protected branch on this project." · Issue #11 · LeachZhou/blog (github.com)</a></p></li><li><p><a href="https://www.cnblogs.com/zishu/p/9191815.html">Github远程推送一直Everything up-to-date - sinatJ - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_30304375/article/details/99984494">submodule 子项目提交代码后无法push到远程仓库_三叔的负能量的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/qq_45893999/article/details/106273214">error: failed to push some refs to如何解决_尘客-追梦的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/D939030515/article/details/105490835"><font color=Red>git 仓库提交分支到另外一个仓库</font></a></p></li><li><p><a href="https://www.freesion.com/article/2366930198/">GIT 清除本地 REMOTES/ORIGIN/*</a></p></li><li><p><a href="https://www.itranslater.com/qa/details/2583713236583449600">git-警告：忽略损坏的ref refs / remotes / origin / HEAD</a></p></li></ul><h2 id="tag">tag</h2><ul><li><a href="https://git-scm.com/book/zh/v2/Git-%E5%9F%BA%E7%A1%80-%E6%89%93%E6%A0%87%E7%AD%BE"><font color=Red>2.6 Git基础-打标签</font></a></li><li><a href="https://blog.csdn.net/QH_JAVA/article/details/77979622">git tag创建、远程推送、回退以及强推push -f</a></li></ul><h2 id="submodule">submodule</h2><ul><li><p><a href="https://blog.csdn.net/weixin_43455581/article/details/120174578"><font color=Red>git中子模块/子仓库的使用</font></a></p></li><li><p><a href="https://knightyun.github.io/2021/03/21/git-submodule"><font color=Red>Git submodule 知识总结</font></a></p></li><li><p><a href="https://git-scm.com/book/zh/v2/Git-%E5%B7%A5%E5%85%B7-%E5%AD%90%E6%A8%A1%E5%9D%97">7.11 Git工具-子模块</a></p></li><li><p><a href="https://www.jianshu.com/p/f8a55b972972/">git submodule 使用小结 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.jianshu.com/p/e27a978ddb88">git submodule 的使用 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.cnblogs.com/nicksheng/p/6201711.html">Git Submodule管理项目子模块 - nicksheng - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/qq_38292379/article/details/124950163">git submodule update 游离分支 临时分支问题记录 解决办法</a></p></li><li><p><a href="https://www.cnblogs.com/hustcpp/p/13092625.html">git添加submodule以及更名</a></p></li><li><p><a href="https://blog.csdn.net/weixin_45115705/article/details/104303730">Git修改.Submodule文件url生效</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39673293/article/details/111786946">submodule切换分支_Git submodule-切换submodule的分支</a></p></li><li><p><a href="https://qa.1r1g.com/sf/ask/2815344661/">git submodule 分支是否与主项目的分支一起切换？</a></p><p>设置永久记住密码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 设置永久记住密码 </span><br><br>git config --global credential.helper store <br>git pull  <br><br><br><span class="hljs-comment"># 拉取所有子模块 </span><br><br>git submodule update --init --recursive <br><br><br><br><br>git submodule foreach git pull origin master <br><br><br><br><br>git submodule foreach git checkout master <br><br><br><br><br><span class="hljs-comment"># 取消永久记住密码 </span><br><br><span class="hljs-comment"># git config --global --unset credential.helper </span><br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://juejin.cn/post/6934107291621228558">Git详解10-Git子库：submodule与subtree</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/594835463">将git仓库从submodule转换为subtree</a></p></li><li><p><a href="https://www.cnblogs.com/anliven/p/13681894.html">Git - - subtree与submodule - Anliven -博客园(cnblogs.com)</a></p></li><li><p><a href="https://juejin.cn/post/6936459179049615397">Git SubTree使用</a></p></li></ul><h2 id="gitignore">.gitignore</h2><ul><li><a href="https://learnku.com/articles/18380">.gitignore 在已忽略文件夹中不忽略指定文件、文件夹... | Laravel China 社区 (learnku.com)</a></li></ul><h2 id="gitkeep">.gitkeep</h2><ul><li><a href="https://blog.csdn.net/fengchao2016/article/details/52769151">git提交空文件夹_fengchao2016的博客-CSDN博客_git空文件夹不能提交</a></li><li><a href="https://www.cnblogs.com/everfight/p/keep_empty_dir_in_git_repo.html">如何向git仓库提交空文件夹？.gitignore和.gitkeep配合 - everfight - 博客园 (cnblogs.com)</a></li></ul><h2 id="gerrit">gerrit</h2><ul><li><p><a href="https://www.jianshu.com/p/e1b466df12de">Gerrit - not clone with commit-msg hook</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review dev -r origin<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git cherry-pick c6611ca831bb97ac646dbd22bbf9f5216741c09d<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://blog.csdn.net/weixin_38419133/article/details/113600907">gerrit 将代码从一个分支合并到另外一个分支 Cherry Pick的使用</a></p></li><li><p><a href="https://www.cnblogs.com/111testing/p/9450530.html">gerrit 使用教程（一）</a></p></li><li><p><a href="https://blog.csdn.net/yangshujuan91/article/details/113741972">gerrit 缺少change-Id</a></p></li><li><p><a href="https://www.cnblogs.com/tsalita/p/16500429.html">VSCode_git&amp;svn 的冲突译文</a></p></li></ul><h2 id="github-action">Github Action</h2><ul><li><a href="https://www.it610.com/article/1527116916244676608.htm">通过 GitHub Actions 将 GitHub 仓库自动备份到 Gitee、GitLab</a></li><li><a href="https://stackoverflow.com/questions/66626814/github-action-error-process-completed-with-exit-code-1">bash - Github Action - Error: Process completed with exit code 1 - Stack Overflow</a></li><li><a href="https://github.com/orgs/community/discussions/26928"><font color=Red>Github actions git log only output one line</font></a></li></ul><h2 id="patch">patch</h2><ul><li><a href="https://www.toutiao.com/article/6652488964823319052">使用Git生成patch和应用patch，看完这一篇文章就全懂了</a></li><li><a href="https://blog.csdn.net/qq_30624591/article/details/89474571">git生成patch和打patch的操作命令</a></li></ul>]]></content>
     
     
     <categories>
       
-      <category>java</category>
+      <category>git</category>
       
     </categories>
     
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
-      <tag>C++</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Java</tag>
       
@@ -2715,6 +2680,41 @@
     
     
     <tags>
+      
+      <tag>Java</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>java-learning</title>
+    <link href="/java/java-learning/"/>
+    <url>/java/java-learning/</url>
+    
+    <content type="html"><![CDATA[<h1 id="java">Java</h1><ul><li><p><a href="https://snailclimb.gitee.io/javaguide/#/" class="uri">https://snailclimb.gitee.io/javaguide/#/</a></p></li><li><p><a href="https://github.com/Snailclimb/JavaGuide">JavaGuide</a></p></li><li><p><a href="https://github.com/CyC2018/CS-Notes">CyC2018/CS-Notes: 技术面试必备基础知识、Leetcode、计算机操作系统、计算机网络、系统设计 (github.com)</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1584463">史上最全的Java命名规范[转] - 云+社区 - 腾讯云 (tencent.com)</a></p></li></ul><h2 id="java环境">Java环境</h2><ul><li><a href="https://www.cnblogs.com/luoli-/p/9247952.html">Ubuntu18.04安装jdk1.8</a></li><li><a href="https://blog.csdn.net/bestsongs/article/details/104905060">jdk1.8下载与安装教程（win10）超详细！</a></li><li><a href="https://blog.csdn.net/weixin_38168198/article/details/99906459">E: Unable to locate package openjdk-8-jdk 及java version 切换_weixin_38168198的博客-CSDN博客</a></li><li><a href="https://www.cnblogs.com/imzhizi/p/macos-jdk-installation-homebrew.html">macOS所有版本JDK安装指南(with Homebrew) -质子-博客园(cnblogs.com)</a></li><li><a href="https://blog.csdn.net/sun8112133/article/details/79905401">Linux Ubuntu 下安装与卸载 JDK，亲测有效~_小异常的博客-CSDN博客_ubuntu卸载jdk</a></li><li><a href="https://dev1galaxy.org/viewtopic.php?id=649">[SOLVED] update-alternatives warning: broken link group? / Desktop and Multimedia / Dev1 Galaxy Forum</a></li><li><a href="https://zhuanlan.zhihu.com/p/92654421">Java升级那么快，多个版本如何灵活切换和管理？-知乎(zhihu.com)Java升级那么快，多个版本如何灵活切换和管理？-知乎(zhihu.com)</a></li></ul><h2 id="maven">maven</h2><ul><li><a href="https://www.linuxidc.com/Linux/2020-04/162861.htm">Maven常用命令详解_Linux教程_Linux公社-Linux系统门户网站 (linuxidc.com)</a></li><li><a href="https://blog.csdn.net/weixin_38936572/article/details/104938305">关于maven打包时的报错： Return code is: 501 , ReasonPhrase:HTTPS Required._爱吃猪蹄的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/qq_29695701/article/details/90705181">Ubuntu安装maven_Learning-CSDN博客</a></li><li><a href="https://blog.csdn.net/qq_22041375/article/details/103491941">maven下载依赖时候忽略SSL证书校验_方方园园的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/longqizhanshen/article/details/107119808">2021最新 Maven之阿里云镜像仓库配置_longqizhanshen的博客-CSDN博客_maven阿里云镜像仓库</a></li><li><a href="https://blog.csdn.net/wushengjun753/article/details/114883662">java.security.InvalidAlgorithmParameterException: the trustAnchors parameter must be non-empty_小龙舟的工具书-CSDN博客</a></li><li><a href="https://www.cnblogs.com/huyuchengus/p/10987515.html">Maven 在 pom.xml 文件中配置 repositories 仓库 - huyuchengus - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/caiwenfeng_for_23/article/details/44514947">maven打包报错：Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:2.5:test_蚂蚁的专栏-CSDN博客</a></li><li><a href="https://www.hangge.com/blog/cache/detail_2844.html">使用Nexus搭建Maven私服教程（附：配置并使用私服教程） (hangge.com)</a></li><li><a href="https://blog.csdn.net/weixin_41806245/article/details/87812500">Nexus 3 Docker仓库（hosted、proxy、group）模式 讲解_xiliangMa的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/lijingjingchn/article/details/105510584">Maven deploy上传jar包到远程仓库_李京京的博客-CSDN博客_maven上传jar包到远程仓库</a></li><li><a href="https://mp.weixin.qq.com/s/TnpokzoiZGaGcIVJWFHw3w">悲剧！IDEA突然找不到类了？</a></li></ul><h2 id="spring-boot">spring-boot</h2><ul><li><a href="https://www.cnblogs.com/alltime/p/6729295.html">依赖注入的简单理解 - nowthink - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/weixin_53601359/article/details/114378460?utm_source=app&amp;app_version=4.13.0">Java常用注解(Annotation)详解汇总_布诺的博客-CSDN博客_java的注解</a></li><li><a href="http://c.biancheng.net/spring_boot/">Spring Boot框架入门教程（快速学习版） (biancheng.net)</a></li><li><a href="https://www.cnblogs.com/songxingzhu/p/9597927.html">使用SpringBoot的推荐项目目录结构 - 宋兴柱 - 博客园 (cnblogs.com)</a></li><li><a href="https://github.com/ityouknow/spring-boot-examples">ityouknow/spring-boot-examples: about learning Spring Boot via examples. Spring Boot 教程、技术栈示例代码，快速简单上手教程。 (github.com)</a></li><li><a href="https://github.com/dyc87112/SpringBoot-Learning">dyc87112/SpringBoot-Learning: Spring Boot基础教程，Spring Boot 2.x版本连载中！！！ (github.com)</a></li><li><a href="https://blog.didispace.com/java-lombok-how-to-use/">Java开发神器Lombok的使用与原理 | 程序猿DD (didispace.com)</a></li><li><a href="http://www.ityouknow.com/springboot/2017/05/09/spring-boot-deploy.html">Spring Boot(十二)：Spring Boot 如何测试打包部署 - 纯洁的微笑博客 (ityouknow.com)</a></li><li><a href="https://blog.didispace.com/spring-boot-learning-21-2-1/">Spring Boot 2.x基础教程：构建RESTful API与单元测试 | 程序猿DD (didispace.com)</a></li><li><a href="https://www.cnblogs.com/ASPNET2008/p/6511500.html">Spring Cache扩展：注解失效时间+主动刷新缓存 - min.jiang - 博客园 (cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/hopeofthevillage/p/11427438.html">Mybatis的一级缓存和二级缓存的理解以及用法 - 全me村的希望 - 博客园 (cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/cxuanBlog/p/11333021.html">MyBatis 二级缓存全详解 - 程序员cxuan - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/xiaolyuh123/article/details/78819898">Spring Boot缓存实战 Redis 设置有效时间和自动刷新缓存-2_xiaolyuh的专栏-CSDN博客</a></li><li><a href="https://www.jb51.net/article/197772.htm">详解SpringBoot的三种缓存技术(Spring Cache、Layering Cache 框架、Alibaba JetCache 框架)_java_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/qq_45173404/article/details/108693030">SpringBoot配置文件&amp;YAML配置注入（详解）_欢迎来到 Baret~H 的博客-CSDN博客_springboot yml配置文件</a></li><li><a href="https://blog.csdn.net/weixin_36775115/article/details/79539811">SpringBoot配置-读取 .yml配置文件_总该长大了的博客-CSDN博客_spring读取yml配置文件</a></li><li><a href="https://www.cnblogs.com/hsbt2333/p/9347249.html">使用springboot + druid + mybatisplus完成多数据源配置 - 快乐在角落里 - 博客园 (cnblogs.com)</a></li><li><a href="https://mp.weixin.qq.com/s/M8N67DfWegiGEpwP02aJkQ">SpringCloud+SpringBoot+OAuth2+Spring Security+Redis实现的微服务统一认证授权 (qq.com)</a></li><li><a href="https://blog.csdn.net/qq_37933127/article/details/106248546">VS Code运行SpringBoot项目_陈灬大灬海-CSDN博客</a></li><li><a href="https://mp.weixin.qq.com/s/BRRgcrphENx0iHSBljQtsA">用好Spring AOP，天降大锅从容应对！</a></li><li><a href="https://www.liaoxuefeng.com/wiki/1252599548343744/1266265125480448">使用AOP - 廖雪峰的官方网站 (liaoxuefeng.com)</a></li><li><a href="https://www.jianshu.com/p/421f7be8627c">SpringBoot+Mybatis配置多数据源及事务方案 - 简书 (jianshu.com)</a></li><li><a href="https://www.hangge.com/blog/cache/detail_2485.html">SpringBoot - 获取POST请求参数详解（附样例：表单数据、json、数组、对象） (hangge.com)</a></li><li><a href="https://blog.csdn.net/wang48430327/article/details/81064220">ApplicationContextAware使用_累死的青蛙-CSDN博客</a></li><li><span class="citation" data-cites="Configuration的使用">[spring4.0之二：@Configuration的使用 - duanxz - 博客园 (cnblogs.com)]</span>(https://www.cnblogs.com/duanxz/p/7493276.html)</li><li><a href="https://mp.weixin.qq.com/s/GprHnr0Y8vMIn5Pqujv3rw">金九银十到来，盘点今年截止八月的 80 篇原创文章列表，建议收藏慢慢看！ (qq.com)</a></li></ul><h2 id="动态crontab-quartz">动态crontab Quartz</h2><ul><li><a href="https://www.cnblogs.com/fandc/p/7277905.html">Java cron 任务执行表达式 - 开心就好也 - 博客园 (cnblogs.com)</a></li><li><a href="https://www.matools.com/cron/">在线Cron表达式生成器 - 码工具 (matools.com)</a></li><li><a href="https://www.jb51.net/article/207667.htm">spring schedule配置多任务动态cron(增删启停)_java_脚本之家 (jb51.net)</a></li><li><a href="https://juejin.cn/post/6974659450260488200">利用Spring Boot轻松实现动态定时器开发！ (juejin.cn)</a></li><li><a href="https://blog.csdn.net/upxiaofeng/article/details/79415108">SpringBoot集成Quartz动态定时任务_upxiaofeng的专栏-CSDN博客_springboot集成quartz</a></li><li><a href="https://blog.csdn.net/weixin_40375601/article/details/109526971">springboot集成quartz，简版-通俗易懂_红桃∩-CSDN博客</a></li><li><a href="https://www.cnblogs.com/laoyeye/p/9352002.html">Quartz实现JAVA定时任务的动态配置 - 小卖铺的老爷爷 - 博客园 (cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/jpfss/p/10857077.html">SpringBoot整合Quartz实现定时任务 - 星朝 - 博客园 (cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/daxin/archive/2013/05/29/3105830.html">Quartz JobListener 任务监听器 - 大新博客 - 博客园 (cnblogs.com)</a></li><li><a href="https://cloud.tencent.com/developer/article/1640190">springboot整合quartz实现定时任务的动态修改，启动，暂停等操作 - 云+社区 - 腾讯云 (tencent.com)</a></li><li><a href="https://github.com/EalenXie/SpringBoot-Quartz">EalenXie/SpringBoot-Quartz: SpringBoot整合Quartz作为调度中心使用完整实例 (github.com)</a></li><li><a href="https://www.cnblogs.com/ealenxie/p/9134602.html">SpringBoot整合Quartz作为调度中心完整实用例子 - EalenXie - 博客园 (cnblogs.com)</a></li><li><a href="https://github.com/nkcoder/quartz-explained">nkcoder/quartz-explained: 对定时任务调度框架quartz源码的阅读和注释(comments on quartz-core source) (github.com)</a></li><li><a href="http://ifeve.com/quartz-tutorial-using-quartz/">Quartz教程一：使用quartz | 并发编程网 – ifeve.com</a></li><li><a href="https://blog.csdn.net/u012907049/article/details/73801122">Spring Boot集成持久化Quartz定时任务管理和界面展示_天降风云的博客-CSDN博客</a></li><li><a href="https://mp.weixin.qq.com/s/zJSPzcsFl72JNoqZpkH94A">SpringBoot 整合 Quartz 实现分布式调度 (qq.com)</a></li></ul><h2 id="mybatis">Mybatis</h2><ul><li><a href="http://c.biancheng.net/mybatis/">Java Mybatis框架入门教程</a></li><li><a href="http://c.biancheng.net/view/4309.html">第一个MyBatis程序 (biancheng.net)</a></li><li><a href="https://github.com/baomidou/awesome-mybatis-plus">baomidou/awesome-mybatis-plus:🎉A curated list of awesome things related to MyBatis-Plus (github.com)</a></li><li><a href="https://www.jb51.net/article/96242.htm">Mybatis Generator最完美配置文件详解(完整版)_java_脚本之家(jb51.net)</a></li><li><a href="https://github.com/zouzg/mybatis-generator-gui">zouzg/mybatis-generator-gui: mybatis-generator界面工具，让你生成代码更简单更快捷(github.com)</a></li><li><a href="https://blog.csdn.net/ftfy123/article/details/113763182">MyBatis Generator 超详细配置_ftfy123的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/liu649983697/article/details/113930493">mybatis-plus代码自动生成generator配置实现_liu649983697的专栏-CSDN博客</a></li><li><span class="citation" data-cites="MapperScan和">[Spring Boot的MyBatis注解：@MapperScan和@Mapper - MyBatis中文官网]</span>(http://www.mybatis.cn/archives/862.html)</li><li><a href="https://blog.csdn.net/mj_940620/article/details/110356785">springboot 配置多数据源（Aop+注解实现）_mj的博客-CSDN博客_springboot多数据源</a></li><li><a href="https://blog.csdn.net/chinawangfei/article/details/113618469">springboot整合mybatis-plus、druid连接池和多数据源配置_WorldMvp的专栏-CSDN博客_springboot整合mybatisplus多数据源</a></li><li><a href="https://mp.weixin.qq.com/s/EWiq8BS11FPKA4exKpOwdA">熟练掌握 MyBatis-Plus，这一篇就够了！ (qq.com)</a></li></ul><h2 id="设计模式">设计模式</h2><ul><li><a href="https://mp.weixin.qq.com/s/fnDvgOD7IKJ5ilVf3l3inA">23种设计模式的通俗解释，虽然有点污，但是秒懂</a></li><li><a href="https://www.runoob.com/design-pattern/design-pattern-tutorial.html">设计模式</a></li></ul><h2 id="java注解">Java注解</h2><ul><li><a href="https://zhuanlan.zhihu.com/p/37701743">java注解-最通俗易懂的讲解</a></li><li><a href="https://www.runoob.com/w3cnote/java-annotation.html">Java注解（Annotation）</a></li></ul><h2 id="消息队列">消息队列</h2><h2 id="kafka">Kafka</h2><ul><li><a href="https://zhuanlan.zhihu.com/p/37405836">Kafka简明教程 - 知乎 (zhihu.com)</a></li><li><a href="https://blog.csdn.net/weixin_45366499/article/details/106943229">(1条消息) Kafka基本原理详解（超详细！）_蔡政洁的博客-CSDN博客_kafka</a></li><li><a href="https://www.jianshu.com/p/a036405f989c">Zookeeper在Kafka中的作用-简书(jianshu.com)</a></li><li><a href="https://support.huaweicloud.com/devg-kafka/kafka-python.html">Python_分布式消息服务 Kafka_开发指南_华为云 (huaweicloud.com)</a></li><li><a href="https://my.oschina.net/u/4395907/blog/3356363">kafka python 指定分区消费 与 offset - osc_3o8lxtf4的个人空间 - OSCHINA - 中文开源技术交流社区</a></li><li><a href="https://mp.weixin.qq.com/s/CfyfnGHcT0_ZpYis2wq7Dg" class="uri">https://mp.weixin.qq.com/s/CfyfnGHcT0_ZpYis2wq7Dg</a></li></ul><h2 id="rabbitmq">RabbitMQ</h2><ul><li><a href="https://www.jb51.net/os/Ubuntu/683325.html">Ubuntu 16.04 RabbitMq 安装与运行方法（安装篇）_Ubuntu/Debian_操作系统_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/u010134642/article/details/102525490">(1条消息) RabbitMQ 启动报错 Failed to check/redeclare auto-delete queue(s) access to vhost '/' refused for user_流浪的喵的博客-CSDN博客</a></li></ul><h2 id="elasticsearch">Elasticsearch</h2><ul><li><a href="https://blog.didispace.com/books/elasticsearch-definitive-guide-cn/010_Intro/05_What_is_it.html">是什么 · Elasticsearch 权威指南（中文版） (didispace.com)</a></li></ul><h2 id="spider-flow">spider-flow</h2><ul><li><a href="https://www.bookstack.cn/read/spiderflow-0.5.0/620e86c3c5a46c8b.md">使用教程 - 表达式语法 - 《spider-flow v0.5.0 使用手册》 - 书栈网 · BookStack</a></li><li><a href="https://www.spiderflow.org/">spider-flow (spiderflow.org)</a></li></ul><h2 id="日志">日志</h2><ul><li><a href="https://blog.csdn.net/weixin_34344677/article/details/92073333">(3条消息) Logback不同业务日志写入不同文件_weixin_34344677的博客-CSDN博客</a></li><li><a href="https://www.cnblogs.com/zeng1994/p/f9bff238b13a0bf8fb8bf88c41db7a34.html">SpringBoot+logback实现按业务输出日志到不同的文件 - zeng1994 - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/white_ice/article/details/85065219?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-1.control&amp;depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-1.control">springboot使用logback日志框架超详细教程_white_ice的博客-CSDN博客</a></li><li><a href="https://www.cnblogs.com/gavincoder/p/10091757.html">logback配置文件-logback.xml详解 - 马非白即黑 - 博客园 (cnblogs.com)</a></li><li><a href="https://cloud.tencent.com/developer/article/1445599">springboot超级详细的日志配置(基于logback) - 云+社区 - 腾讯云 (tencent.com)</a></li><li><a href="https://www.cnblogs.com/cb0327/p/5770794.html">logback 配置详解（二）——appender - 灰太郎^_^ - 博客园 (cnblogs.com)</a></li><li><a href="https://www.php.cn/java-article-406687.html">如何使用java代码编写logback配置-java教程-PHP中文网</a></li><li><a href="http://www.51gjie.com/javaweb/1113.html">RollingFileAppender详解 (51gjie.com)</a></li><li><a href="https://www.cnblogs.com/Hlingoes/p/13109918.html">java代码动态自定义logback日志Appender - Hlingoes - 博客园 (cnblogs.com)</a></li></ul><h2 id="datax">DataX</h2><ul><li><a href="https://blog.csdn.net/qq_39945938/article/details/117959051">Datax 源码打包报错与解决方法_终回首的博客-CSDN博客</a></li><li><a href="https://developer.aliyun.com/article/642896">【DataX】Java中集成DataX开发-阿里云开发者社区 (aliyun.com)</a></li><li><a href="https://www.jb51.net/article/168672.htm">关于通过java调用datax,返回任务执行的方法_java_脚本之家 (jb51.net)</a></li></ul><h2 id="其他">其他</h2><ul><li><a href="https://www.cnblogs.com/xiaoniu-666/p/9491897.html">C++ 对象实例化（转）</a></li><li><a href="https://blog.csdn.net/sinat_38259539/article/details/71799078">Java基础之—反射（非常重要）_sinat_38259539的博客-CSDN博客_java反射</a></li><li><a href="https://www.xuxueli.com/xxl-job/">分布式任务调度平台XXL-JOB (xuxueli.com)</a></li><li><a href="https://www.jianshu.com/p/e2850153c6f0">Quartz 使用：Job、Trigger、Schedule - 简书 (jianshu.com)</a></li><li><a href="https://blog.csdn.net/qq_33667967/article/details/95602890">ubuntu16 jdk1.8 java new Date()获取的时间与服务器不一致_qq_33667967的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/L_it123/article/details/106845391">【已解决】com.mysql.jdbc.exceptions.jdbc4.CommunicationsExcepti：Communications link failure mysql连接报错_L_it123的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/weixin_44778151/article/details/116265825">springboot项目的.gitignore模板_Anjude的博客-CSDN博客</a></li><li><a href="http://www.seaxiang.com/blog/vsimp">vscode跳转到接口方法的实现类 (seaxiang.com)</a></li><li><a href="https://www.cnblogs.com/116970u/p/11408508.html">IntelliJ IDEA 接口类跳转到实现类及实现类跳转到接口 - 清晨的第一抹阳光 - 博客园 (cnblogs.com)</a></li><li><a href="https://geek-docs.com/vscode/vscode-tutorials/vs-code-definition-implementation-jump.html">VSCode 定义和实现间跳转|极客教程 (geek-docs.com)</a></li><li><a href="https://mp.weixin.qq.com/s/1rhVo2DG9zq5tt_RrpYaJw" class="uri">https://mp.weixin.qq.com/s/1rhVo2DG9zq5tt_RrpYaJw</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>java</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Java</tag>
       
@@ -2766,15 +2766,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
-      
-      <tag>Linux</tag>
       
       <tag>k8s</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2799,15 +2799,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
-      
-      <tag>Linux</tag>
       
       <tag>k8s</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Golang</tag>
       
@@ -2836,8 +2836,6 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>bpf</tag>
@@ -2846,30 +2844,11 @@
       
       <tag>architect</tag>
       
+      <tag>HTML</tag>
+      
       <tag>namespace</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/"/>
-    <url>/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/</url>
-    
-    <content type="html"><![CDATA[<p><a href="https://blog.csdn.net/onlyshi/article/details/81672279">C 语言实现面向对象编程_onlyshi的专栏-CSDN博客_c 面向对象</a></p>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>C 实现 C++ 类</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -2897,6 +2876,27 @@
       <tag>C++</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/"/>
+    <url>/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/</url>
+    
+    <content type="html"><![CDATA[<p><a href="https://blog.csdn.net/onlyshi/article/details/81672279">C 语言实现面向对象编程_onlyshi的专栏-CSDN博客_c 面向对象</a></p>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>C 实现 C++ 类</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -2963,11 +2963,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>git</tag>
       
       <tag>k8s</tag>
+      
+      <tag>HTML</tag>
       
       <tag>namespace</tag>
       
@@ -3060,6 +3060,27 @@
   
   <entry>
     <title>README</title>
+    <link href="/cpp/thread/thread/README/"/>
+    <url>/cpp/thread/thread/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="stdthread">std::thread</h1><h2 id="stdthread-hello_world"><a href="hello_world">std::thread hello_world</a></h2>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>thread</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/cpp/qt-learning/qprocess_wget/README/"/>
     <url>/cpp/qt-learning/qprocess_wget/README/</url>
     
@@ -3073,27 +3094,6 @@
       <category>qt-learning</category>
       
       <category>qprocess_wget</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/thread/thread/README/"/>
-    <url>/cpp/thread/thread/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="stdthread">std::thread</h1><h2 id="stdthread-hello_world"><a href="hello_world">std::thread hello_world</a></h2>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>thread</category>
       
     </categories>
     
@@ -3154,6 +3154,41 @@
   
   <entry>
     <title>README</title>
+    <link href="/cpp/thread/pthread/sync/README/"/>
+    <url>/cpp/thread/pthread/sync/README/</url>
+    
+    <content type="html"><![CDATA[<!-- * @Author: wujing * @Date: 2021-02-24 00:15:46 * @LastEditTime: 2021-02-24 00:17:33 * @LastEditors: wujing * @Description:  * @FilePath: /code/CPlusPlusProject/pthread/sync/README.md * @可以输入预定的版权声明、个性签名、空行等--><p><a href="https://www.cnblogs.com/yinbiao/p/11190336.html#:~:text=%E3%80%90Linux%E3%80%91%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%90%8C%E6%AD%A5%E7%9A%84%E5%9B%9B%E7%A7%8D%E6%96%B9%E5%BC%8F%201%20PTHREAD_MUTEX_NOMAL%3A%E6%A0%87%E5%87%86%E4%BA%92%E6%96%A5%E9%94%81%EF%BC%8C%E7%AC%AC%E4%B8%80%20...%202%20PTHREAD_MUTEX_RECURSIVE%3A%E9%80%92%E5%BD%92%E4%BA%92%E6%96%A5,...%203%20PTHREAD_MUTEX_ERRORCHECK%3A%E6%A3%80%E6%9F%A5%E4%BA%92%20...%204%20PTHREAD_MUTEX_DEFAULT%3A%E9%BB%98%E8%AE%A4%E4%BA%92%E6%96%A5%E9%94%81%EF%BC%8C%20">【Linux】多线程同步的四种方式</a></p>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>thread</category>
+      
+      <category>pthread</category>
+      
+      <category>sync</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/cpp/thread/pthread/ThreadPool/README/"/>
     <url>/cpp/thread/pthread/ThreadPool/README/</url>
     
@@ -3185,41 +3220,6 @@
   
   <entry>
     <title>README</title>
-    <link href="/cpp/thread/pthread/sync/README/"/>
-    <url>/cpp/thread/pthread/sync/README/</url>
-    
-    <content type="html"><![CDATA[<!-- * @Author: wujing * @Date: 2021-02-24 00:15:46 * @LastEditTime: 2021-02-24 00:17:33 * @LastEditors: wujing * @Description:  * @FilePath: /code/CPlusPlusProject/pthread/sync/README.md * @可以输入预定的版权声明、个性签名、空行等--><p><a href="https://www.cnblogs.com/yinbiao/p/11190336.html#:~:text=%E3%80%90Linux%E3%80%91%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%90%8C%E6%AD%A5%E7%9A%84%E5%9B%9B%E7%A7%8D%E6%96%B9%E5%BC%8F%201%20PTHREAD_MUTEX_NOMAL%3A%E6%A0%87%E5%87%86%E4%BA%92%E6%96%A5%E9%94%81%EF%BC%8C%E7%AC%AC%E4%B8%80%20...%202%20PTHREAD_MUTEX_RECURSIVE%3A%E9%80%92%E5%BD%92%E4%BA%92%E6%96%A5,...%203%20PTHREAD_MUTEX_ERRORCHECK%3A%E6%A3%80%E6%9F%A5%E4%BA%92%20...%204%20PTHREAD_MUTEX_DEFAULT%3A%E9%BB%98%E8%AE%A4%E4%BA%92%E6%96%A5%E9%94%81%EF%BC%8C%20">【Linux】多线程同步的四种方式</a></p>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>thread</category>
-      
-      <category>pthread</category>
-      
-      <category>sync</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>HTML</tag>
-      
-      <tag>Linux</tag>
-      
-      <tag>linux</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
     <link href="/cpp/thread/thread/hello_world/README/"/>
     <url>/cpp/thread/thread/hello_world/README/</url>
     
@@ -3239,9 +3239,9 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>C++</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3266,11 +3266,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3320,11 +3320,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3349,11 +3349,11 @@
     
     <tags>
       
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
+      
+      <tag>git</tag>
       
       <tag>linux</tag>
       
@@ -3380,9 +3380,9 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>git</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Vue</tag>
       
@@ -3409,11 +3409,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>git</tag>
       
       <tag>k8s</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3438,13 +3438,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3469,13 +3469,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Golang</tag>
       
@@ -3504,9 +3504,9 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>git</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3531,13 +3531,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Java</tag>
       
@@ -3651,13 +3651,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3682,13 +3682,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3713,11 +3713,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>C++</tag>
       
       <tag>git</tag>
       
-      <tag>C++</tag>
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3742,9 +3742,9 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>git</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3821,13 +3821,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3856,15 +3856,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
-      
-      <tag>Linux</tag>
       
       <tag>linux</tag>
       
       <tag>architect</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3893,9 +3893,9 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>git</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3933,41 +3933,6 @@
   
   
   <entry>
-    <title>rpm-ostree</title>
-    <link href="/linux/package/rpm-ostree/rpm-ostree/"/>
-    <url>/linux/package/rpm-ostree/rpm-ostree/</url>
-    
-    <content type="html"><![CDATA[<p># rpm-ostree</p><h2 id="官网">官网</h2><ul><li><p><a href="https://rpm-ostree.readthedocs.io/en/stable" class="uri">https://rpm-ostree.readthedocs.io/en/stable</a></p></li><li><p><a href="https://coreos.github.io/rpm-ostree/" class="uri">https://coreos.github.io/rpm-ostree/</a></p></li></ul><p>## 源码</p><ul><li><p><a href="https://github.com/coreos/rpm-ostree" class="uri">https://github.com/coreos/rpm-ostree</a></p></li><li><p><a href="https://lazka.github.io/pgi-docs/OSTree-1.0/mapping.html" class="uri">https://lazka.github.io/pgi-docs/OSTree-1.0/mapping.html</a></p></li><li><p><a href="https://lazka.github.io/pgi-docs/OSTree-1.0/index.html" class="uri">https://lazka.github.io/pgi-docs/OSTree-1.0/index.html</a></p></li><li><p><a href="https://ostreedev.github.io/ostree/reference/ostree-Root-partition-mount-point.html#ostree-sysroot-query-deployments-for" class="uri">https://ostreedev.github.io/ostree/reference/ostree-Root-partition-mount-point.html#ostree-sysroot-query-deployments-for</a></p></li><li><p><a href="https://ostreedev.github.io/ostree/reference/reference.html#api-index-full" class="uri">https://ostreedev.github.io/ostree/reference/reference.html#api-index-full</a></p></li><li><p><a href="https://support.huaweicloud.com/productdesc-cdn/cdn_01_0067.html">内容分发网络 CDN-文件下载加速</a></p></li><li><p><a href="https://blog.csdn.net/weixin_43902588/article/details/108998894">OpenShift 4 - Fedora CoreOS (6) - 用rpm-ostree安装软件、升级回滚CoreOS_多恩斯基的博客-CSDN博客</a>  </p></li><li><p><a href="https://zdyxry.github.io/2021/05/22/OSTree-%E8%83%8C%E6%99%AF%E4%BB%8B%E7%BB%8D/">OSTree 背景介绍 | Yiran's Blog (zdyxry.github.io)</a></p></li><li><p><a href="https://blog.csdn.net/halcyonbaby/article/details/43500231">os-level版本控制工具_追寻神迹-CSDN博客_ostree</a></p></li><li><p><a href="https://blog.csdn.net/cumo3681/article/details/107416567">atomic_在Atomic Host上运行容器的10个任务_cumo3681的博客-CSDN博客</a></p></li><li><p><a href="https://www.ywnz.com/linuxxw/5534.html">为你详细介绍Fedora Silverblue版本，包括常见问题解答</a></p></li><li><p><a href="https://www.mankier.com/1/rpm-ostree">rpm-ostree - Man Page</a></p></li><li><p><a href="https://blog.csdn.net/cumo3681/article/details/107416567">atomic_在Atomic Host上运行容器的10个任务_cumo3681的博客-CSDN博客</a></p></li><li><p><a href="https://docs.fedoraproject.org/zh_Hans/fedora-silverblue/technical-information/">Silverblue 文件系统组织结构</a>  </p></li><li><p><a href="https://blog.csdn.net/ZLK1214/article/details/113727039">【解决办法】升级Fedora33后，屏幕分辨率无法随着VMware窗口大小的改变而改变，设置里面也没有1920x1080分辨率的选项</a></p></li><li><p><a href="https://blog.csdn.net/lsg9012/article/details/106117895">关于编译安装提示No package ** found时可能需配置pkg-config</a></p></li><li><p><a href="https://www.jianshu.com/p/17e777868d6b">Automake的使用</a></p></li><li><p><a href="https://www.jianshu.com/p/3f69197f9055">解剖automake和autoconf(autoreconf)</a></p></li><li><p><a href="https://pkgs.org/download/pkgconfig(polkit-gobject-1)">Pkgconfig(polkit-gobject-1) Download (RPM) (pkgs.org)</a></p></li><li><p><a href="https://blog.csdn.net/kongshuai19900505/article/details/79104442">autotools自动编译系列之三---autogen.sh实例</a></p></li><li><p><a href="https://blog.csdn.net/asbhunan129/article/details/88109632">Linux工具之autogen.sh</a></p></li><li><p><a href="https://stepfunc.io/blog/bindings/" class="uri">https://stepfunc.io/blog/bindings/</a></p></li><li><p><a href="https://cxx.rs/" class="uri">https://cxx.rs/</a></p></li><li><p><a href="https://plantuml.com/zh/" class="uri">https://plantuml.com/zh/</a></p></li><li><p><a href="http://www.plantuml.com/plantuml/uml/SyfFKj2rKt3CoKnELR1Io4ZDoSa70000" class="uri">http://www.plantuml.com/plantuml/uml/SyfFKj2rKt3CoKnELR1Io4ZDoSa70000</a></p></li><li><p><a href="https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/27/" class="uri">https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/27/</a></p></li></ul><table><thead><tr class="header"><th style="text-align: left;"> </th><th style="text-align: left;"> </th><th style="text-align: left;">解决问题</th><th style="text-align: left;">存在问题</th></tr></thead><tbody><tr class="odd"><td style="text-align: left;">软件分发</td><td style="text-align: left;">包管理器(RPM)</td><td style="text-align: left;">指定软件分发标准 元数据存储包版本、大小、说明... 安装、卸载、升级、校验... 将源代码打包成二进制软件包 自动查找依赖</td><td style="text-align: left;">RPM 大部分只能更新，不能回滚 依赖关系管理，对系统的基础包依赖导致系统更新困难 不同的发行版之间切换几乎不可能 使用RPM部署复杂应用困难 RPM 编写规则不友好</td></tr><tr class="even"><td style="text-align: left;">应用解决方式</td><td style="text-align: left;">SCLs(Software Collections)</td><td style="text-align: left;">不需要修改 RPM 本身（修改 spec 文件） 不会覆盖修改系统文件，/opt/rh/root （不影响系统更新） 可以依赖其他 SCL 允许同时存在多个版本，可按需卸载</td><td style="text-align: left;">依赖发行版（RHEL，CentOS，Fedora...）不同的发行版之间切换几乎不可能 使用RPM部署复杂应用困难 RPM 编写规则不友好</td></tr><tr class="odd"><td style="text-align: left;"> </td><td style="text-align: left;">Container</td><td style="text-align: left;">不会覆盖修改系统文件，container image 不依赖特定发行版 允许同时存在多个版本 container image</td><td style="text-align: left;">container 生命周期管理， Kubernetes 安全问题，大部分 container image 都存在各种 CVE(漏洞)</td></tr><tr class="even"><td style="text-align: left;">操作系统解决方式</td><td style="text-align: left;">OS 安装方式</td><td style="text-align: left;">不同的 Linux 发行版有不同的安装器进行安装： Redhat - Anaconda Ubuntu - Preseed Photon - photon-os-installer</td><td style="text-align: left;">所有应用都运行在 Container 中，Host OS(宿主机)仍可能安装部分软件，比如 Debug、硬件驱动等。 存在问题： 更新依赖问题 回滚困难 随着软件包增多，测试成本增加</td></tr><tr class="odd"><td style="text-align: left;"> </td><td style="text-align: left;">Active-backup(主动备份)</td><td style="text-align: left;">原子更新 目标版本（状态）明确</td><td style="text-align: left;">分区固定，需要衡量根分区大小 需要多个 rootfs 对应分区，浪费空间 需要重启生效 每次下载完整的 rootfs ，升级动作耗时长</td></tr><tr class="even"><td style="text-align: left;"> </td><td style="text-align: left;">rpm-ostree(OSTree)</td><td style="text-align: left;">基于 OSTree "git for OS" 原子升级，支持回滚 允许在多个 rootfs 之间切换 不可变文件系统 使用 RPM 构建 rootfs Package Layer ： 支持通过 rpm-ostree install 安装 RPM 原子更新 单一 repo 存储多个 rootfs 增量更新</td><td style="text-align: left;">需要重启生效 文件系统只读(除 /var 和 /etc)</td></tr></tbody></table><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20230419214153.png" alt="" /><figcaption>rpm-ostree分支</figcaption></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">git checkout e6a65b80dfd380bd994cf7851c6ff28e992ab2f8<br><br>ostree cat REF info.json --repo repo<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>package</category>
-      
-      <category>rpm-ostree</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
-      <tag>Linux</tag>
-      
-      <tag>linux</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>rpm-ostree安装教程</title>
     <link href="/linux/package/rpm-ostree/rpm-ostree%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/"/>
     <url>/linux/package/rpm-ostree/rpm-ostree%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/</url>
@@ -3988,11 +3953,46 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>rpm-ostree</title>
+    <link href="/linux/package/rpm-ostree/rpm-ostree/"/>
+    <url>/linux/package/rpm-ostree/rpm-ostree/</url>
+    
+    <content type="html"><![CDATA[<p># rpm-ostree</p><h2 id="官网">官网</h2><ul><li><p><a href="https://rpm-ostree.readthedocs.io/en/stable" class="uri">https://rpm-ostree.readthedocs.io/en/stable</a></p></li><li><p><a href="https://coreos.github.io/rpm-ostree/" class="uri">https://coreos.github.io/rpm-ostree/</a></p></li></ul><p>## 源码</p><ul><li><p><a href="https://github.com/coreos/rpm-ostree" class="uri">https://github.com/coreos/rpm-ostree</a></p></li><li><p><a href="https://lazka.github.io/pgi-docs/OSTree-1.0/mapping.html" class="uri">https://lazka.github.io/pgi-docs/OSTree-1.0/mapping.html</a></p></li><li><p><a href="https://lazka.github.io/pgi-docs/OSTree-1.0/index.html" class="uri">https://lazka.github.io/pgi-docs/OSTree-1.0/index.html</a></p></li><li><p><a href="https://ostreedev.github.io/ostree/reference/ostree-Root-partition-mount-point.html#ostree-sysroot-query-deployments-for" class="uri">https://ostreedev.github.io/ostree/reference/ostree-Root-partition-mount-point.html#ostree-sysroot-query-deployments-for</a></p></li><li><p><a href="https://ostreedev.github.io/ostree/reference/reference.html#api-index-full" class="uri">https://ostreedev.github.io/ostree/reference/reference.html#api-index-full</a></p></li><li><p><a href="https://support.huaweicloud.com/productdesc-cdn/cdn_01_0067.html">内容分发网络 CDN-文件下载加速</a></p></li><li><p><a href="https://blog.csdn.net/weixin_43902588/article/details/108998894">OpenShift 4 - Fedora CoreOS (6) - 用rpm-ostree安装软件、升级回滚CoreOS_多恩斯基的博客-CSDN博客</a>  </p></li><li><p><a href="https://zdyxry.github.io/2021/05/22/OSTree-%E8%83%8C%E6%99%AF%E4%BB%8B%E7%BB%8D/">OSTree 背景介绍 | Yiran's Blog (zdyxry.github.io)</a></p></li><li><p><a href="https://blog.csdn.net/halcyonbaby/article/details/43500231">os-level版本控制工具_追寻神迹-CSDN博客_ostree</a></p></li><li><p><a href="https://blog.csdn.net/cumo3681/article/details/107416567">atomic_在Atomic Host上运行容器的10个任务_cumo3681的博客-CSDN博客</a></p></li><li><p><a href="https://www.ywnz.com/linuxxw/5534.html">为你详细介绍Fedora Silverblue版本，包括常见问题解答</a></p></li><li><p><a href="https://www.mankier.com/1/rpm-ostree">rpm-ostree - Man Page</a></p></li><li><p><a href="https://blog.csdn.net/cumo3681/article/details/107416567">atomic_在Atomic Host上运行容器的10个任务_cumo3681的博客-CSDN博客</a></p></li><li><p><a href="https://docs.fedoraproject.org/zh_Hans/fedora-silverblue/technical-information/">Silverblue 文件系统组织结构</a>  </p></li><li><p><a href="https://blog.csdn.net/ZLK1214/article/details/113727039">【解决办法】升级Fedora33后，屏幕分辨率无法随着VMware窗口大小的改变而改变，设置里面也没有1920x1080分辨率的选项</a></p></li><li><p><a href="https://blog.csdn.net/lsg9012/article/details/106117895">关于编译安装提示No package ** found时可能需配置pkg-config</a></p></li><li><p><a href="https://www.jianshu.com/p/17e777868d6b">Automake的使用</a></p></li><li><p><a href="https://www.jianshu.com/p/3f69197f9055">解剖automake和autoconf(autoreconf)</a></p></li><li><p><a href="https://pkgs.org/download/pkgconfig(polkit-gobject-1)">Pkgconfig(polkit-gobject-1) Download (RPM) (pkgs.org)</a></p></li><li><p><a href="https://blog.csdn.net/kongshuai19900505/article/details/79104442">autotools自动编译系列之三---autogen.sh实例</a></p></li><li><p><a href="https://blog.csdn.net/asbhunan129/article/details/88109632">Linux工具之autogen.sh</a></p></li><li><p><a href="https://stepfunc.io/blog/bindings/" class="uri">https://stepfunc.io/blog/bindings/</a></p></li><li><p><a href="https://cxx.rs/" class="uri">https://cxx.rs/</a></p></li><li><p><a href="https://plantuml.com/zh/" class="uri">https://plantuml.com/zh/</a></p></li><li><p><a href="http://www.plantuml.com/plantuml/uml/SyfFKj2rKt3CoKnELR1Io4ZDoSa70000" class="uri">http://www.plantuml.com/plantuml/uml/SyfFKj2rKt3CoKnELR1Io4ZDoSa70000</a></p></li><li><p><a href="https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/27/" class="uri">https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/27/</a></p></li></ul><table><thead><tr class="header"><th style="text-align: left;"> </th><th style="text-align: left;"> </th><th style="text-align: left;">解决问题</th><th style="text-align: left;">存在问题</th></tr></thead><tbody><tr class="odd"><td style="text-align: left;">软件分发</td><td style="text-align: left;">包管理器(RPM)</td><td style="text-align: left;">指定软件分发标准 元数据存储包版本、大小、说明... 安装、卸载、升级、校验... 将源代码打包成二进制软件包 自动查找依赖</td><td style="text-align: left;">RPM 大部分只能更新，不能回滚 依赖关系管理，对系统的基础包依赖导致系统更新困难 不同的发行版之间切换几乎不可能 使用RPM部署复杂应用困难 RPM 编写规则不友好</td></tr><tr class="even"><td style="text-align: left;">应用解决方式</td><td style="text-align: left;">SCLs(Software Collections)</td><td style="text-align: left;">不需要修改 RPM 本身（修改 spec 文件） 不会覆盖修改系统文件，/opt/rh/root （不影响系统更新） 可以依赖其他 SCL 允许同时存在多个版本，可按需卸载</td><td style="text-align: left;">依赖发行版（RHEL，CentOS，Fedora...）不同的发行版之间切换几乎不可能 使用RPM部署复杂应用困难 RPM 编写规则不友好</td></tr><tr class="odd"><td style="text-align: left;"> </td><td style="text-align: left;">Container</td><td style="text-align: left;">不会覆盖修改系统文件，container image 不依赖特定发行版 允许同时存在多个版本 container image</td><td style="text-align: left;">container 生命周期管理， Kubernetes 安全问题，大部分 container image 都存在各种 CVE(漏洞)</td></tr><tr class="even"><td style="text-align: left;">操作系统解决方式</td><td style="text-align: left;">OS 安装方式</td><td style="text-align: left;">不同的 Linux 发行版有不同的安装器进行安装： Redhat - Anaconda Ubuntu - Preseed Photon - photon-os-installer</td><td style="text-align: left;">所有应用都运行在 Container 中，Host OS(宿主机)仍可能安装部分软件，比如 Debug、硬件驱动等。 存在问题： 更新依赖问题 回滚困难 随着软件包增多，测试成本增加</td></tr><tr class="odd"><td style="text-align: left;"> </td><td style="text-align: left;">Active-backup(主动备份)</td><td style="text-align: left;">原子更新 目标版本（状态）明确</td><td style="text-align: left;">分区固定，需要衡量根分区大小 需要多个 rootfs 对应分区，浪费空间 需要重启生效 每次下载完整的 rootfs ，升级动作耗时长</td></tr><tr class="even"><td style="text-align: left;"> </td><td style="text-align: left;">rpm-ostree(OSTree)</td><td style="text-align: left;">基于 OSTree "git for OS" 原子升级，支持回滚 允许在多个 rootfs 之间切换 不可变文件系统 使用 RPM 构建 rootfs Package Layer ： 支持通过 rpm-ostree install 安装 RPM 原子更新 单一 repo 存储多个 rootfs 增量更新</td><td style="text-align: left;">需要重启生效 文件系统只读(除 /var 和 /etc)</td></tr></tbody></table><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20230419214153.png" alt="" /><figcaption>rpm-ostree分支</figcaption></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">git checkout e6a65b80dfd380bd994cf7851c6ff28e992ab2f8<br><br>ostree cat REF info.json --repo repo<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>package</category>
+      
+      <category>rpm-ostree</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -4021,15 +4021,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -4058,15 +4058,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -4093,13 +4093,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>initramfs</tag>
       
@@ -4128,13 +4128,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -4161,15 +4161,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>C++</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>Java</tag>
       
@@ -4200,11 +4200,11 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>bcc</tag>
       
@@ -4233,17 +4233,17 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
       <tag>C++</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -4270,13 +4270,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -4305,13 +4305,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -4338,17 +4338,17 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
       
       <tag>architect</tag>
+      
+      <tag>HTML</tag>
       
       <tag>initramfs</tag>
       
@@ -4441,11 +4441,11 @@
     
     <tags>
       
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
+      
+      <tag>git</tag>
       
       <tag>linux</tag>
       
@@ -4476,15 +4476,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -4513,15 +4513,15 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
+      <tag>git</tag>
+      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -4550,13 +4550,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>initramfs</tag>
       
@@ -4587,13 +4587,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>initramfs</tag>
       
@@ -4657,13 +4657,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -4725,11 +4725,11 @@
     
     <tags>
       
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
+      
+      <tag>git</tag>
       
       <tag>linux</tag>
       
@@ -4758,13 +4758,13 @@
     
     <tags>
       
-      <tag>HTML</tag>
+      <tag>Linux</tag>
       
       <tag>git</tag>
       
-      <tag>Linux</tag>
-      
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
       <tag>strings</tag>
       
@@ -4796,25 +4796,6 @@
   
   
   <entry>
-    <title>linglong</title>
-    <link href="/patent/linglong/"/>
-    <url>/patent/linglong/</url>
-    
-    <content type="html"><![CDATA[<h1 id="linglong">linglong</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs plantuml">@startuml<br>start<br>:ll-repo-cli查询包命令行;<br>if (解析命令？) then (yes)<br>    :输入用户名和密码\n并向ll-repo-server发起登录请求;<br>    if (ll-repo-server校验密码) then (yes)<br>        :ll-repo-server生成唯一token;<br>        :返回token;<br>        :ll-repo-cli\n发起业务请求，\ntoken附带在http请求header中;<br>        if (ll-repo-server校验token?) then (yes)<br>                if (ll-repo-server查询redis缓存中是否已有相关数据?) then (yes)<br>                else (no)<br>                    :从数据库中查找结果;<br>                    :更新redis缓存;<br>                endif<br>            :从redis中获取结果;<br>            :返回业务逻辑处理结果;<br>        else (no)<br>        endif<br>    else (no)<br>    endif<br>endif<br>:终端提示\nll-repo-cli\nll-builder\n命令行执行结果;<br>stop<br>@enduml<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>patent</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>flatpak</title>
     <link href="/patent/flatpak/"/>
     <url>/patent/flatpak/</url>
@@ -4831,13 +4812,32 @@
     
     <tags>
       
-      <tag>git</tag>
-      
       <tag>Linux</tag>
+      
+      <tag>git</tag>
       
       <tag>linux</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>linglong</title>
+    <link href="/patent/linglong/"/>
+    <url>/patent/linglong/</url>
+    
+    <content type="html"><![CDATA[<h1 id="linglong">linglong</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs plantuml">@startuml<br>start<br>:ll-repo-cli查询包命令行;<br>if (解析命令？) then (yes)<br>    :输入用户名和密码\n并向ll-repo-server发起登录请求;<br>    if (ll-repo-server校验密码) then (yes)<br>        :ll-repo-server生成唯一token;<br>        :返回token;<br>        :ll-repo-cli\n发起业务请求，\ntoken附带在http请求header中;<br>        if (ll-repo-server校验token?) then (yes)<br>                if (ll-repo-server查询redis缓存中是否已有相关数据?) then (yes)<br>                else (no)<br>                    :从数据库中查找结果;<br>                    :更新redis缓存;<br>                endif<br>            :从redis中获取结果;<br>            :返回业务逻辑处理结果;<br>        else (no)<br>        endif<br>    else (no)<br>    endif<br>endif<br>:终端提示\nll-repo-cli\nll-builder\n命令行执行结果;<br>stop<br>@enduml<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>patent</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -4873,13 +4873,13 @@
     
     <tags>
       
-      <tag>git</tag>
-      
       <tag>Linux</tag>
       
       <tag>qemu</tag>
       
       <tag>C++</tag>
+      
+      <tag>git</tag>
       
       <tag>bpf</tag>
       
