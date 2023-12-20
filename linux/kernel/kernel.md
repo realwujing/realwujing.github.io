@@ -10,6 +10,8 @@
 
 - [https://richardweiyang-2.gitbook.io/kernel-exploring/](https://richardweiyang-2.gitbook.io/kernel-exploring/)
 
+- [海康一面过！（纯Linux八股）](https://mp.weixin.qq.com/s/3P1fL5RbuLq_ARqp4ATIaw)
+
 ## The Linux Kernel documentation
 
 - [https://www.kernel.org/doc/html/](https://www.kernel.org/doc/html/)
