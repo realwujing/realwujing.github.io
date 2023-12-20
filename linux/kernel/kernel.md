@@ -1,6 +1,8 @@
 # kernel
 
-- [<font color=Red>Linux内核之旅</font>](http://kerneltravel.net/)
+- [<font color=Red>内核深度解读</font>](https://blog.csdn.net/u012489236?type=blog)
+- [<font color=Red>设备驱动</font>](https://blog.csdn.net/tiantianhaoxinqing__?type=blog)
+- [Linux内核之旅](http://kerneltravel.net/)
 - [30分钟读懂Linux五大模块内核源码，内核整体架构设计](https://mp.weixin.qq.com/s/Gg4QxwI51Q1TRVqYkfFIcg)
 - [Linux 内核概念和学习路线](https://mp.weixin.qq.com/s/RaNeUkveH_AdKnkzY70TEg)
 
