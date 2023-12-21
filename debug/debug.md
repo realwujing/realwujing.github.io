@@ -388,6 +388,7 @@
 
 ## dmesg
 
+- [Linux 命令： dmesg | uname](https://mp.weixin.qq.com/s/sQIoEE0iTxlVQDxhgBbY3A)
 - [Linux命令之dmesg命令](https://blog.csdn.net/carefree2005/article/details/120737841)
 - [Linux dmesg命令](https://mp.weixin.qq.com/s/6qpMiy6L5qIazmqNopCd0A)
 
