@@ -51,9 +51,23 @@
 
 ### grub
 
+### grub命令
+
+- [<font color=Red>GRUB 引导流程</font>](https://www.cnblogs.com/Link-Luck/p/9858869.html)
 - [<font color=Red>grub命令 – 交互式的管理GRUB引导程序</font>](https://www.linuxcool.com/grub)
 - [GRUB-一个多重操作系统启动管理器](https://www.baike.com/wikiid/7276828077877800951)
 - [<font color=Red>Linux系统启动管理</font>](http://c.biancheng.net/linux_tutorial/12/)
+- [如何手动安装(并配置)GRUB？](https://www.zhihu.com/question/610484788?utm_id=0)
+
+#### grub串口
+
+- [Linux串口调试配置_GRUB串口通信_串口登陆](https://blog.csdn.net/yandaqijian/article/details/41248919)
+
+#### grub源码
+
+- [修改GRUB2源码与编译安装流程](https://blog.csdn.net/qq_43280079/article/details/109221969)
+- [Grub调试总结](http://www.manongjc.com/article/119359.html)
+- [PXE Config & Grub2 debug](https://www.cnblogs.com/bigbigworf/p/16995320.html)
 
 #### BIOS, UEFI, MBR, GPT, GRUB
 
