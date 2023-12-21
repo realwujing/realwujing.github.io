@@ -1,5 +1,7 @@
 # systemd
 
+- [＜systemd问题定位手段＞](https://blog.csdn.net/wentian901218/article/details/117811137)
+
 ## 开机启动
 
 - [<font color=Red>如何弄清Linux系统运行何种系统管理程序</font>](https://www.toutiao.com/article/6623154113427276291/)
