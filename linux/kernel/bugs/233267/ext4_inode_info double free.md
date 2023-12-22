@@ -1,8 +1,10 @@
-# 233267天翼云内核卡死问题
+# ext4_inode_info double free
 
 <https://pms.uniontech.com/bug-view-233267.html>
 
 ## dmesg
+
+dmesg.202312111431
 
 ### warning
 
@@ -158,9 +160,7 @@ $1 = (struct memcg_cache_params *) 0xd0
 ## 源码
 
 ```bash
-git remote -v
-origin  ssh://ut004487@gerrit.uniontech.com:29418/kernel/arm-kernel (fetch)
-origin  ssh://ut004487@gerrit.uniontech.com:29418/kernel/arm-kernel (push)
+git clone "http://gerrit.uniontech.com/kernel/arm-kernel"
 ```
 
 ```bash
@@ -315,6 +315,18 @@ ext4_i_callback 于 fs/ext4/super.c:1114
 ```
 
 问题基本确定了，这是一个double free的问题。
+
+`ext4_i_callback` 函数是 inode_operations 结构中的一个回调函数，定义在 fs/ext4/inode.c 文件中。这个函数在 inode 被释放时被调用，用于执行一些清理和处理工作。
+
+如果多个线程同时尝试删除同一个文件，而删除文件的过程中会触发 ext4_i_callback，那么由于竞态条件，可能导致 double free 错误。
+
+这里给出bpftrace参考语句：
+
+```bash
+sudo bpftrace -e 'tracepoint:syscalls:sys_enter_unlink { printf("%s deleted by command '%s' with pid %d\n", str(args->pathname), comm, pid);} tracepoint:syscalls:sys_enter_unlinkat { printf("%s deleted by command '%s' with pid %d\n", str(args->pathname), comm, pid);}'
+```
+
+- [谁删了我的文件？Linux下用bpftrace轻松抓到元凶](https://zhuanlan.zhihu.com/p/191942583)
 
 ## crash
 
@@ -582,6 +594,10 @@ COMMITTED 大于 COMMIT LIMIT，这表明系统当前分配的虚拟内存和交
 用户的使用场景应该是在不断下载文件并删除文件，同时在使用firefox、deepin-voice-note等。
 
 slub内存回收过程是通过内核线程异步执行的，而不是在多线程的上下文中直接处理。
+
+某个第三方模块存在多个线程删除同一个文件时存在竞态。
+
+某个第三方模块存在打开多个文件未关闭，导致cache占用很多，导致cache内存无法回收。
 
 ### 资源耗尽导致slub回收崩溃
 
