@@ -23,8 +23,8 @@
 <meta property="og:site_name" content="WuJing&#39;s Blog">
 <meta property="og:description" content="ext4_inode_info double free https:&#x2F;&#x2F;pms.uniontech.com&#x2F;bug-view-233267.html dmesg dmesg.202312111431 warning 12345678910111213141516171819202122232425262728293031323334353637383940[201866.888630] WARNI">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2023-12-22T21:39:14.000Z">
-<meta property="article:modified_time" content="2023-12-22T21:39:14.000Z">
+<meta property="article:published_time" content="2023-12-22T23:16:45.000Z">
+<meta property="article:modified_time" content="2023-12-22T23:16:45.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="qemu">
@@ -267,7 +267,7 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2023-12-22 21:39" pubdate>
+        <time datetime="2023-12-22 23:16" pubdate>
           2023年12月22日 晚上
         </time>
       </span>
@@ -279,7 +279,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          24k 字
+          25k 字
         
       </span>
     
@@ -290,7 +290,7 @@
         
         
         
-          204 分钟
+          209 分钟
         
       </span>
     
@@ -367,6 +367,13 @@
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">108</span> <span class="hljs-meta"># <span class="hljs-keyword">define</span> pfn_to_page(pfn)   (vmem_map + (pfn))  <span class="hljs-comment">// vim include/asm/page.h +108</span></span><br></code></pre></td></tr></table></figure>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">226</span> <span class="hljs-type">static</span> <span class="hljs-keyword">inline</span> <span class="hljs-type">bool</span> <span class="hljs-title function_">slab_equal_or_root</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> kmem_cache *s, <span class="hljs-comment">// vim mm/slab.h +229</span></span><br><span class="hljs-params"><span class="hljs-number">227</span>                       <span class="hljs-keyword">struct</span> kmem_cache *p)</span><br>228 &#123;<br><span class="hljs-number">229</span>     <span class="hljs-keyword">return</span> p == s || p == s-&gt;memcg_params.root_cache;                                                                                                                 <br><span class="hljs-number">230</span> &#125;<br></code></pre></td></tr></table></figure>
 <p>问题基本确定了，这是一个double free的问题。</p>
+<p><code>ext4_i_callback</code> 函数是 inode_operations 结构中的一个回调函数，定义在 fs/ext4/inode.c 文件中。这个函数在 inode 被释放时被调用，用于执行一些清理和处理工作。</p>
+<p>如果多个线程同时尝试删除同一个文件，而删除文件的过程中会触发 ext4_i_callback，那么由于竞态条件，可能导致 double free 错误。</p>
+<p>这里给出bpftrace参考语句：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo bpftrace -e <span class="hljs-string">&#x27;tracepoint:syscalls:sys_enter_unlink &#123; printf(&quot;%s deleted by command &#x27;</span>%s<span class="hljs-string">&#x27; with pid %d\n&quot;, str(args-&gt;pathname), comm, pid);&#125; tracepoint:syscalls:sys_enter_unlinkat &#123; printf(&quot;%s deleted by command &#x27;</span>%s<span class="hljs-string">&#x27; with pid %d\n&quot;, str(args-&gt;pathname), comm, pid);&#125;&#x27;</span><br></code></pre></td></tr></table></figure>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/191942583">谁删了我的文件？Linux下用bpftrace轻松抓到元凶</a></li>
+</ul>
 <h2 id="crash">crash</h2>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash /lib/debug/vmlinux-4.19.0-arm64-desktop-tyy-5312 /home/uos/202312111431/dump.202312111431<br></code></pre></td></tr></table></figure>
 <h3 id="ps">ps</h3>
@@ -416,6 +423,8 @@
 <p>共计分析了4个kdump，<code>kmem -i</code>都存在内核耗尽，基本都只剩下100M了，每次oops的堆栈都跟回收slub缓存相关。</p>
 <p>用户的使用场景应该是在不断下载文件并删除文件，同时在使用firefox、deepin-voice-note等。</p>
 <p>slub内存回收过程是通过内核线程异步执行的，而不是在多线程的上下文中直接处理。</p>
+<p>某个第三方模块存在多个线程删除同一个文件时存在竞态。</p>
+<p>某个第三方模块存在打开多个文件未关闭，导致cache占用很多，导致cache内存无法回收。</p>
 <h3 id="资源耗尽导致slub回收崩溃">资源耗尽导致slub回收崩溃</h3>
 <p>SLUB回收过程需要分配和释放内存对象，以及对内存数据结构进行操作。如果系统内存已经耗尽，无法满足回收过程的内存需求，就会导致回收过程失败或异常。</p>
 <p>此外，SLUB回收可能还涉及到其他系统资源，例如锁、CPU时间等。如果这些资源也耗尽，可能会导致回收过程无法继续进行，从而引发崩溃。</p>
