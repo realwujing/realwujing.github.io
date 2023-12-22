@@ -165,7 +165,6 @@
 
 ### 日志级别
 
-- [linux常见的系统日志](https://blog.csdn.net/qq_36733838/article/details/129190496)
 - [ignore_loglevel](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=ignore_loglevel)
 
 #### dynamic debug

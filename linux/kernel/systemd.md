@@ -66,6 +66,12 @@
     systemd-analyze dot "lightdm.service" | dot -Tsvg > systemd.svg
     ```
 
+## 日志
+
+- [rsyslog服务及Linux系统日志简介](https://www.jianshu.com/p/3b11a2b7c746)
+- [Enable Rsyslog Logging on Debian 12](https://kifarunix.com/enable-rsyslog-logging-on-debian-12/)
+- [Linux系统中的日志管理——journal、rsyslog、timedatectl、时间同步](https://blog.csdn.net/qq_45225437/article/details/104294044)
+
 ## 其他
 
 - [XDG Autostart](https://wiki.archlinux.org/title/XDG_Autostart)

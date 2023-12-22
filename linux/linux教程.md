@@ -178,6 +178,9 @@
 
 ## 日志
 
+- [rsyslog服务及Linux系统日志简介](https://www.jianshu.com/p/3b11a2b7c746)
+- [Enable Rsyslog Logging on Debian 12](https://kifarunix.com/enable-rsyslog-logging-on-debian-12/)
+- [Linux系统中的日志管理——journal、rsyslog、timedatectl、时间同步](https://blog.csdn.net/qq_45225437/article/details/104294044)
 - [Linux 下使用 Logrotate 旋转和压缩日志文件](https://www.toutiao.com/article/7228735741931864631/)
 
 ## tail
