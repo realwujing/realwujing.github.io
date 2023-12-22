@@ -161,6 +161,12 @@
 
 ### sed
 
+- [<font color=Red>linux复制一行或几行数据到另一个文本</font>](https://blog.csdn.net/benben0503/article/details/91493515)
+
+```bash
+sed -n '1119,1224'p kern.log > pm.log
+```
+
 - [在Bash脚本中完成变量替换和指定文件内容替换的方法](https://blog.csdn.net/Howard_Liu/article/details/5891110)
 - [<font color=Red>sed 模式分隔符</font>](https://www.twle.cn/c/yufei/sed/sed-basic-strings-delimiter.html)
 - [sed 字符串替换 - Amei1314 - 博客园 (cnblogs.com)](https://www.cnblogs.com/linux-wangkun/p/5745584.html)
