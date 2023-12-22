@@ -5,6 +5,14 @@
 - [服务器虚拟化组件有哪些？](http://c.biancheng.net/view/3842.html)
 - [ubuntu18.04上搭建KVM虚拟机环境超完整过程](https://mp.weixin.qq.com/s/FVyzPVwwQ85AC4jlVZvF4g)
 - [<font color=Red>How to Install and Configure KVM on Debian 11 Bullseye Linux</font>](https://linux.how2shout.com/how-to-install-and-configure-kvm-on-debian-11-bullseye-linux/)
+
+  ```bash
+  sudo apt install virt-manager -y
+  sudo virsh net-list --all
+  sudo virsh net-start default
+  sudo virsh net-autostart default
+  ```
+
 - [如何从主机粘贴到KVM客户机？](https://stc214.github.io/posts/2021%E5%B9%B42%E6%9C%886%E6%97%A512/)
 - [Copy n Paste in (KVM) Kernel-based Virtual Machine](https://www.linuxsecrets.com/3883-copy-n-paste-in-kvm)
 - [解决kvm安装Ubuntu虚机远程桌面无法复制粘贴问题](https://blog.csdn.net/guoyinzhao/article/details/109642824)
