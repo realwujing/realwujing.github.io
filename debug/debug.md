@@ -6,6 +6,7 @@
 - [Linux内核调试方法](https://blog.csdn.net/u013253075/article/details/120569270)
 - [全面剖析Linux kernel的调试debug技术](https://zhuanlan.zhihu.com/p/543103513)
 - [内核earlyprintk选项](https://blog.csdn.net/sinat_20184565/article/details/111875638)
+- [系统稳定性](?action=getalbum&__biz=MzkwNTI0MzQ4Nw==&scene=1&album_id=2341520520153726976&count=3#wechat_redirect)
 
 ## fadd2line
 
@@ -410,7 +411,9 @@
 
 ## panic
 
+- [一起学习64位ARM平台稳定性分析：遇见内核 panic](https://mp.weixin.qq.com/s/d0vJgQYVDB3ZiQRMoDvvDw)
 - [Linux内核故障分类和排查](https://blog.csdn.net/rikeyone/article/details/105691909)
+- [<font color=Red>这是你了解的空指针吗？</font>](https://mp.weixin.qq.com/s/RPS_QernHHgBBKBlFJksHA)
 
 更改 sysctl 中的某些内核参数可能导致系统不稳定，甚至触发 panic。以下是一些可能会导致系统问题的内核参数，慎重修改：
 
@@ -602,6 +605,8 @@ sudo make install
 - [Linux crash 调试环境搭建](https://blog.csdn.net/qq_42931917/article/details/108236139)
 - [linux内核学习-Linux内核程序调试工具Crash的安装](https://www.cnblogs.com/ssyfj/p/16278883.html)
 - [dump分析工具_ubantu18.04内核奔溃调试工具Crash的搭建](https://blog.csdn.net/weixin_39545102/article/details/111215997)
+- [<font color=Red>用crash tool观察ARM64 Linux地址转换</font>](https://mp.weixin.qq.com/s/Hp-n9n3M9zy92Xm-dnRUZQ)
+- [CRASH安装和调试](https://www.toutiao.com/article/6903790073377063428/)
 
 ## sysrq-trigger
 
