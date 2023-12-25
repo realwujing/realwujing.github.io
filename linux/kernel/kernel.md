@@ -122,6 +122,7 @@
 - [修改GRUB2源码与编译安装流程](https://blog.csdn.net/qq_43280079/article/details/109221969)
 - [Grub调试总结](http://www.manongjc.com/article/119359.html)
 - [PXE Config & Grub2 debug](https://www.cnblogs.com/bigbigworf/p/16995320.html)
+- [Grub编译与调试](https://mp.weixin.qq.com/s/t6II_YQDunpPEhEMPVwVHQ)
 
 #### BIOS, UEFI, MBR, GPT, GRUB
 
