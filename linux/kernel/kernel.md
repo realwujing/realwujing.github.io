@@ -317,6 +317,7 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 
 - [linux内核中6个经典C语言函数代码赏析](https://www.toutiao.com/article/7222172647486964258)
 - [Linux内核中常用的C语言技巧](https://mp.weixin.qq.com/s/tim50z93e-E-Jbl08rDY2A)
+- [弱符号__attribute__((weak))](https://mp.weixin.qq.com/s/EyIx5BkOxPGAjWxDNMXVyg)
 
 ### likely和unlikely
 
