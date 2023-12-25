@@ -328,6 +328,10 @@ sudo bpftrace -e 'tracepoint:syscalls:sys_enter_unlink { printf("%s deleted by c
 
 - [谁删了我的文件？Linux下用bpftrace轻松抓到元凶](https://zhuanlan.zhihu.com/p/191942583)
 
+### 修复
+
+- [[RFC,V2] ext4: increase the protection of drop nlink and ext4 inode destroy](https://patchwork.ozlabs.org/project/linux-ext4/patch/1482994539-48559-1-git-send-email-yi.zhang@huawei.com/#1545987)
+
 ## crash
 
 ```bash
