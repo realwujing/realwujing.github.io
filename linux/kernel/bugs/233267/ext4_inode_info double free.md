@@ -328,9 +328,19 @@ sudo bpftrace -e 'tracepoint:syscalls:sys_enter_unlink { printf("%s deleted by c
 
 - [谁删了我的文件？Linux下用bpftrace轻松抓到元凶](https://zhuanlan.zhihu.com/p/191942583)
 
-### 修复
+### 尝试修复
 
 - [[RFC,V2] ext4: increase the protection of drop nlink and ext4 inode destroy](https://patchwork.ozlabs.org/project/linux-ext4/patch/1482994539-48559-1-git-send-email-yi.zhang@huawei.com/#1545987)
+
+### ext4日志
+
+- [Linux挂载ext4根文件系统为journal模式](https://blog.csdn.net/SweeNeil/article/details/88948646)
+
+    grub中增加参数：
+
+    ```bash
+    rootflags=data=journal
+    ```
 
 ## crash
 
@@ -585,24 +595,6 @@ COMMITTED 大于 COMMIT LIMIT，这表明系统当前分配的虚拟内存和交
 
 这种情况下，你可能需要进一步分析系统的进程、内存使用情况以及是否存在内存泄漏等问题，以找出为何 COMMITTED 超过了 COMMIT LIMIT 的原因。
 
-## 结论
-
-没有使用交换分区。
-
-内核发现内存不足时通过中断触发了内存回收，内存回收过程中发生了oops，vm.panic_on_oom=1，kernel.panic_on_oops=1导致kdump触发。
-
-原则上vm.panic_on_oom=1，kernel.panic_on_oops=1不开启，kdump应该不会被触发，内核只是假死。
-
-共计分析了4个kdump，`kmem -i`都存在内核耗尽，基本都只剩下100M了，每次oops的堆栈都跟回收slub缓存相关。
-
-用户的使用场景应该是在不断下载文件并删除文件，同时在使用firefox、deepin-voice-note等。
-
-slub内存回收过程是通过内核线程异步执行的，而不是在多线程的上下文中直接处理。
-
-某个第三方模块多个线程删除同一个文件时存在竞态。
-
-某个第三方模块打开多个文件未关闭，导致cache占用很多，导致cache内存无法回收。
-
 ### 资源耗尽导致slub回收崩溃
 
 SLUB回收过程需要分配和释放内存对象，以及对内存数据结构进行操作。如果系统内存已经耗尽，无法满足回收过程的内存需求，就会导致回收过程失败或异常。
@@ -621,9 +613,7 @@ SLUB回收过程需要分配和释放内存对象，以及对内存数据结构�
 
 - 合理设计测试用例：设计合理的测试用例，确保测试过程中的资源使用情况在可控范围内，并避免过度消耗系统资源的操作。
 
-## 内存回收
-
-### OOM调节器设置
+### overcommit_memory
 
 ```bash
 cat /proc/sys/vm/overcommit_memory
@@ -635,7 +625,7 @@ cat /proc/sys/vm/overcommit_memory
 - 1：表示系统启用了内存过量分配机制，即内存分配总是成功的，但可能在使用过程中触发OOM Killer。
 - 2：表示系统启用了严格的内存分配机制，即只有当系统确保将分配的内存全部使用时，才会允许内存分配。
 
-### 查看当前的OOM调节器水位线设置
+#### 查看当前的OOM调节器水位线设置
 
 overcommit_ratio、overcommit_kbytes在overcommit_memory=2时才有用。
 
@@ -647,7 +637,7 @@ cat /proc/sys/vm/overcommit_ratio
 
 注意：如果输出的值为0，则表示系统使用了默认的水位线设置。在这种情况下，可以查看 `/proc/sys/vm/overcommit_kbytes` 文件以查看内存回收的水位线值。
 
-### 查看内存回收的水位线值
+#### 查看内存回收的水位线值
 
 ```bash
 cat /proc/sys/vm/overcommit_kbytes
@@ -655,7 +645,7 @@ cat /proc/sys/vm/overcommit_kbytes
 
 输出的值表示以KB为单位的内存回收水位线。例如，如果值为 8192，则表示当系统剩余可用内存低于 8192KB 时，OOM Killer会被触发。
 
-### 当前机器overcommit_memory配置
+#### 当前机器overcommit_memory配置
 
 ```bash
 cat /proc/sys/vm/overcommit_memory
@@ -673,6 +663,24 @@ free memory + free swap + pagecache的大小 + SLAB
 Linux对大部分申请内存的请求都回复"yes"，以便能跑更多更大的程序。因为申请内存后，并不会马上使用内存。这种技术叫做Overcommit。当linux发现内存不足时，会发生OOM killer(OOM=out-of-memory)。它会选择杀死一些进程(用户态进程，不是内核线程)，以便释放内存。
 
 当oom-killer发生时，linux会选择杀死哪些进程？选择进程的函数是oom_badness函数(在mm/oom_kill.c中)，该函数会计算每个进程的点数(0~1000)。点数越高，这个进程越有可能被杀死。每个进程的点数跟oom_score_adj有关，而且oom_score_adj可以被设置(-1000最低，1000最高)。
+
+### 初步结论
+
+没有使用交换分区。
+
+内核发现内存不足时通过中断触发了内存回收，内存回收过程中发生了oops，vm.panic_on_oom=1，kernel.panic_on_oops=1导致kdump触发。
+
+原则上vm.panic_on_oom=1，kernel.panic_on_oops=1不开启，kdump应该不会被触发，内核只是假死。
+
+共计分析了4个kdump，`kmem -i`都存在内核耗尽，基本都只剩下100M了，每次oops的堆栈都跟回收slub缓存相关。
+
+用户的使用场景应该是在不断下载文件并删除文件，同时在使用firefox、deepin-voice-note等。
+
+slub内存回收过程是通过内核线程异步执行的，而不是在多线程的上下文中直接处理。
+
+某个第三方模块多个线程删除同一个文件时存在竞态。
+
+某个第三方模块打开多个文件未关闭，导致cache占用很多，导致cache内存无法回收。
 
 ## 优化方案
 
@@ -704,3 +712,29 @@ sudo sysctl -p
 - [Overcommitting Memory （过度使用内存）](https://blog.csdn.net/zyqash/article/details/122860393)
 - [内存不足：OOM](https://zhangzhuo.ltd/articles/2021/08/10/1628565705959.html)
 - [内存分配策略：overcommit_memory](https://blog.csdn.net/xsxb_yl/article/details/121412094)
+
+## 进一步排查
+
+在grub中调整crashkernel参数，看是否能获取完整的kdump：
+
+```bash
+crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M
+```
+
+使用hcache查看Buffer&Cache使用率高的进程：
+
+```bash
+hcache -top 50
+```
+
+grub中更改ext4根文件系统日志为journal模式：
+
+```bash
+rootflags=data=journal
+```
+
+bpftrace追踪ext4磁盘稳定性问题。
+
+合入patch:
+
+- [[RFC,V2] ext4: increase the protection of drop nlink and ext4 inode destroy](https://patchwork.ozlabs.org/project/linux-ext4/patch/1482994539-48559-1-git-send-email-yi.zhang@huawei.com/#1545987)
