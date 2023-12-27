@@ -560,8 +560,22 @@ sysctl -p
     ```
 
     ```bash
+    uname -a
+    Linux wujing-PC 5.15.77-amd64-desktop #2 SMP Thu Jun 15 16:06:18 CST 2023 x86_64 GNU/Linux
     cat /etc/default/grub.d/kdump-tools.cfg
     GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT crashkernel=384M-:128M"
+    ```
+
+    ```bash
+    uname -a
+    Linux wujing-PC 4.19.0-arm64-desktop-tyy-5312 #5312 SMP Tue Dec 12 10:52:22 CST 2023 aarch64 GNU/Linux
+    cat /etc/default/grub.d/kdump-tools.cfg
+    GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M"
+    ```
+
+    ```bash
+    echo 1 > /proc/sys/kernel/sysrq
+    echo c > /proc/sysrq-trigger
     ```
 
 - [详解Linux内核态调试工具kdump](https://blog.csdn.net/chenlycly/article/details/126074433)
@@ -574,11 +588,6 @@ sysctl -p
 - [<font color=Red>centos7 kdump、crash调试内核</font>](https://blog.csdn.net/weixin_45030965/article/details/124960224)
 - [Linux Kdump 机制详解](https://www.toutiao.com/article/7103352500777910821/)
 - [x86 and x86_64 - Some systems can take advantage of the nmi watchdog. Add nmi_watchdog=1 to the boot commandline to turn on the watchdog. The nmi interrupt will call panic if activated.](https://manpages.debian.org/testing/kdump-tools/kdump-tools.5.en.html)
-
-```bash
-echo 1 > /proc/sys/kernel/sysrq
-echo c > /proc/sysrq-trigger
-```
 
 ## carsh
 
