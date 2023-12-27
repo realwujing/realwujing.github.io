@@ -398,6 +398,10 @@
 - [【Linux内核调试-dump_stack】](https://blog.csdn.net/cddchina/article/details/125175118)
 - [dump_stack 实现分析](https://blog.csdn.net/sunshineywz/article/details/105763755)
 
+## sysctl
+
+- [内核参数说明](https://www.cnblogs.com/tolimit/p/5065761.html)
+
 ## oops
 
 - [<font color=Red>Linux 死机复位(oops、panic)问题定位指南</font>](https://blog.csdn.net/pwl999/article/details/106931608)
