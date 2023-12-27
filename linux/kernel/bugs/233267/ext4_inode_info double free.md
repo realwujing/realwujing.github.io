@@ -667,7 +667,17 @@ cat /proc/sys/vm/min_free_kbytes
 67584
 ```
 
-WMARK_MIN 的数值就是由这个内核参数 min_free_kbytes 控制，当可用物理内存低于 WMARK_MIN 会触发下方操作：
+通常情况下 WMARK_LOW 的值是 WMARK_MIN 的 1.25 倍，WMARK_HIGH 的值是 WMARK_LOW 的 1.5 倍。而 WMARK_MIN 的数值就是由这个内核参数 min_free_kbytes 来决定的。
+
+WMARK_MIN = 67584KB / 1024 = 66MB
+
+WMARK_LOW = 66MB * 1.25 = 82.5MB
+
+WMARK_HIGH = 82.5MB * 1.5 = 123.75MB
+
+当前free memory等于112.5MB，在 WMARK_LOW 与 WMARK_HIGH 之间，内存在正常范围内，内存回收kswpd、内存规整kcompactd被正常的周期性调度，故不会触发 OOM。
+
+当可用物理内存低于 WMARK_MIN 会触发下方操作：
 
 - 直接内存回收
 - 直接内存规整
@@ -678,8 +688,6 @@ WMARK_MIN 的数值就是由这个内核参数 min_free_kbytes 控制，当可�
 如果内核已经重试了 MAX_RECLAIM_RETRIES (16) 次仍然失败，则放弃重试执行后续 OOM。
 
 如果内核将所有可选内存区域中的所有可回收页面全部回收之后，仍然无法满足内存的分配，那么放弃重试执行后续 OOM。
-
-当前free memory等于112.5MB，在 WMARK_MIN 之上，故不会触发 OOM。
 
 ![__alloc_pages](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/__alloc_pages.png)
 
