@@ -25,7 +25,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://mmbiz.qpic.cn/mmbiz_png/sOIZXFW0vUbH2WXtgxfe0ibrL1FOuhZoBSxGnIdaFecgC8gXkVt9ooysBbWrb44fNr6jvyd3ibFCWNtCue5Yc2xg/640?wx_fmt=png&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1">
 <meta property="article:published_time" content="2023-12-22T23:16:45.000Z">
-<meta property="article:modified_time" content="2023-12-27T17:06:10.000Z">
+<meta property="article:modified_time" content="2023-12-27T21:05:27.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="qemu">
@@ -335,7 +335,7 @@
               <p class="note note-info">
                 
                   
-                    本文最后更新于：2023年12月27日 下午
+                    本文最后更新于：2023年12月27日 晚上
                   
                 
               </p>
@@ -452,18 +452,15 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_memory<br></code></pre></td></tr></table></figure>
 <p>输出的值有以下几种可能：</p>
 <ul>
-<li>0：表示系统使用经典的OOM Killer机制，即根据实际内存使用情况触发OOM Killer。</li>
-<li>1：表示系统启用了内存过量分配机制，即内存分配总是成功的，但可能在使用过程中触发OOM Killer。</li>
-<li>2：表示系统启用了严格的内存分配机制，即只有当系统确保将分配的内存全部使用时，才会允许内存分配。</li>
+<li>0 – Heuristic overcommit handling. 这是缺省值，它允许overcommit，但过于明目张胆的overcommit会被拒绝，比如malloc一次性申请的内存大小就超过了系统总内存。Heuristic的意思是“试 探式的”，内核利用某种算法猜测你的内存申请是否合理，它认为不合理就会拒绝overcommit。</li>
+<li>1 – Always overcommit. 允许overcommit，对内存申请来者不拒。内核执行无内存过量使用处理。使用这个设置会增大内存超载的可能性，但也可以增强大量使用内存任务的性能。</li>
+<li>2 – Don’t overcommit. 禁止overcommit。 内存拒绝等于或者大于总可用 swap 大小以及overcommit_ratio 指定的物理 RAM 比例的内存请求。如果希望减小内存过度使用的风险，这个设置就是最好的。</li>
 </ul>
 <h4 id="overcommit_ratio">overcommit_ratio</h4>
 <p>overcommit_ratio、overcommit_kbytes在overcommit_memory=2时才有用，overcommit_kbytes非0时，overcommit_ratio无效。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_ratio<br></code></pre></td></tr></table></figure>
-<p>输出的值表示OOM调节器的水位线百分比。例如，如果值为 50，则表示当系统内存使用达到物理内存的50%时，OOM Killer会被触发。</p>
-<p>注意：如果输出的值为0，则表示系统使用了默认的水位线设置。在这种情况下，可以查看 <code>/proc/sys/vm/overcommit_kbytes</code> 文件以查看内存回收的水位线值。</p>
 <h4 id="overcommit_kbytes">overcommit_kbytes</h4>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_kbytes<br></code></pre></td></tr></table></figure>
-<p>输出的值表示以KB为单位的内存回收水位线。例如，如果值为 8192，则表示当系统剩余可用内存低于 8192KB 时，OOM Killer会被触发。</p>
 <h4 id="当前机器overcommit_memory配置">当前机器overcommit_memory配置</h4>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_memory<br>0<br><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_ratio<br>50<br><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_kbytes<br>0<br></code></pre></td></tr></table></figure>
 <p>单次申请的内存大小不能超过以下值，否则本次申请就会失败。</p>
@@ -474,8 +471,8 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/vm/min_free_kbytes<br>67584<br></code></pre></td></tr></table></figure>
 <p>WMARK_MIN 的数值就是由这个内核参数 min_free_kbytes 控制，当可用物理内存低于 WMARK_MIN 会触发下方操作：</p>
 <ul>
-<li>内存回收</li>
-<li>内存规整</li>
+<li>直接内存回收</li>
+<li>直接内存规整</li>
 <li>产生 OOM</li>
 </ul>
 <p>内核也不会直接开始 OOM，而是进入到重试流程，在重试流程开始之前内核需要调用 should_reclaim_retry 判断是否应该进行重试，重试标准：</p>
@@ -487,11 +484,14 @@
 </figure>
 <ul>
 <li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/llZXDRG99NUXoMyIAf00ig">深入理解 Linux 物理内存分配全链路实现</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/zyqash/article/details/122860393">Overcommitting Memory （过度使用内存）</a></li>
+<li><a target="_blank" rel="noopener" href="https://zhangzhuo.ltd/articles/2021/08/10/1628565705959.html">内存不足：OOM</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/xsxb_yl/article/details/121412094">内存分配策略：overcommit_memory</a></li>
 </ul>
 <h2 id="初步结论">初步结论</h2>
 <p>没有使用交换分区。</p>
 <p>当前机器内核参数<code>kernel.panic = 0</code> <code>kernel.panic_on_oops = 1</code>。</p>
-<p>内核发现内存不足时可以通过软中断触发内存回收kswapd被调度，kswapd会调用shrink_slab进行slab回收。</p>
+<p>内核发现内存不足时可以通过软中断触发内存回收kswapd、内存规整kcompactd被调度，kswapd会调用shrink_slab进行slab回收。</p>
 <p>本次oops中是ext4_inode_info被删除了，也就是某个文件被删除了，导致ext4_i_callback回调函数被调用，ext4_i_callback会调用kmem_cache_free释放slab中的ext4_inode_info对象，发生了double free，导致了oops，进一步导致panic，应该是kernel.panic_on_oops=1导致kdump触发。</p>
 <p>共计分析了4个kdump，<code>kmem -i</code>都存在内核耗尽，基本都只剩下100M了，每次oops的堆栈都跟回收slub缓存相关。</p>
 <p>用户的使用场景应该是在不断下载文件并删除文件，同时在使用firefox、deepin-voice-note等。</p>
@@ -527,11 +527,6 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">dd</span> <span class="hljs-keyword">if</span>=/dev/zero of=/tmp/swap bs=1M count=32768<br>sudo <span class="hljs-built_in">chmod</span> 600 /tmp/swap<br>sudo mkswap /tmp/swap<br>sudo swapon /tmp/swap<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> &lt;&lt; <span class="hljs-string">EOF &gt;&gt; /etc/sysctl.conf</span><br><span class="hljs-string">vm.dirty_background_ratio=3 # 当脏页面占系统内存的3%时触发后台写回</span><br><span class="hljs-string">vm.dirty_ratio=80 # 当脏页面占系统内存的80%时停止用户进程，开始写回</span><br><span class="hljs-string">vm.dirty_writeback_centisecs=100 # 每100毫秒检查一次是否需要写回脏页面</span><br><span class="hljs-string">vm.nr_hugepages=128 # 系统中的大页面数量设置为128</span><br><span class="hljs-string">vm.overcommit_memory=2 # 启用严格的内存分配机制</span><br><span class="hljs-string">vm.overcommit_ratio=90 # 允许系统内存超过物理内存大小的80%</span><br><span class="hljs-string">net.ipv4.tcp_fastopen=3 # 启用 TCP Fast Open 并使用 Cookie 来防止连接污染攻击</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo sysctl -p<br></code></pre></td></tr></table></figure>
-<ul>
-<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/zyqash/article/details/122860393">Overcommitting Memory （过度使用内存）</a></li>
-<li><a target="_blank" rel="noopener" href="https://zhangzhuo.ltd/articles/2021/08/10/1628565705959.html">内存不足：OOM</a></li>
-<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/xsxb_yl/article/details/121412094">内存分配策略：overcommit_memory</a></li>
-</ul>
 
                 
               </div>
