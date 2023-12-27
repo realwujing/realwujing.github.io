@@ -623,9 +623,9 @@ cat /proc/sys/vm/overcommit_memory
 
 输出的值有以下几种可能：
 
-- 0：表示系统使用经典的OOM Killer机制，即根据实际内存使用情况触发OOM Killer。
-- 1：表示系统启用了内存过量分配机制，即内存分配总是成功的，但可能在使用过程中触发OOM Killer。
-- 2：表示系统启用了严格的内存分配机制，即只有当系统确保将分配的内存全部使用时，才会允许内存分配。
+- 0  – Heuristic overcommit handling. 这是缺省值，它允许overcommit，但过于明目张胆的overcommit会被拒绝，比如malloc一次性申请的内存大小就超过了系统总内存。Heuristic的意思是“试  探式的”，内核利用某种算法猜测你的内存申请是否合理，它认为不合理就会拒绝overcommit。
+- 1  – Always overcommit. 允许overcommit，对内存申请来者不拒。内核执行无内存过量使用处理。使用这个设置会增大内存超载的可能性，但也可以增强大量使用内存任务的性能。
+- 2  – Don’t overcommit. 禁止overcommit。 内存拒绝等于或者大于总可用 swap 大小以及overcommit_ratio 指定的物理 RAM 比例的内存请求。如果希望减小内存过度使用的风险，这个设置就是最好的。
 
 #### overcommit_ratio
 
@@ -635,17 +635,11 @@ overcommit_ratio、overcommit_kbytes在overcommit_memory=2时才有用，overcom
 cat /proc/sys/vm/overcommit_ratio
 ```
 
-输出的值表示OOM调节器的水位线百分比。例如，如果值为 50，则表示当系统内存使用达到物理内存的50%时，OOM Killer会被触发。
-
-注意：如果输出的值为0，则表示系统使用了默认的水位线设置。在这种情况下，可以查看 `/proc/sys/vm/overcommit_kbytes` 文件以查看内存回收的水位线值。
-
 #### overcommit_kbytes
 
 ```bash
 cat /proc/sys/vm/overcommit_kbytes
 ```
-
-输出的值表示以KB为单位的内存回收水位线。例如，如果值为 8192，则表示当系统剩余可用内存低于 8192KB 时，OOM Killer会被触发。
 
 #### 当前机器overcommit_memory配置
 
@@ -675,8 +669,8 @@ cat /proc/sys/vm/min_free_kbytes
 
 WMARK_MIN 的数值就是由这个内核参数 min_free_kbytes 控制，当可用物理内存低于 WMARK_MIN 会触发下方操作：
 
-- 内存回收
-- 内存规整
+- 直接内存回收
+- 直接内存规整
 - 产生 OOM
 
 内核也不会直接开始 OOM，而是进入到重试流程，在重试流程开始之前内核需要调用 should_reclaim_retry 判断是否应该进行重试，重试标准：
@@ -687,9 +681,12 @@ WMARK_MIN 的数值就是由这个内核参数 min_free_kbytes 控制，当可�
 
 当前free memory等于112.5MB，在 WMARK_MIN 之上，故不会触发 OOM。
 
-![__alloc_pages](https://mmbiz.qpic.cn/mmbiz_png/sOIZXFW0vUbH2WXtgxfe0ibrL1FOuhZoBSxGnIdaFecgC8gXkVt9ooysBbWrb44fNr6jvyd3ibFCWNtCue5Yc2xg/640?wx_fmt=png&wxfrom=5&wx_lazy=1&wx_co=1)
+![__alloc_pages](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/__alloc_pages.png)
 
 - [深入理解 Linux 物理内存分配全链路实现](https://mp.weixin.qq.com/s/llZXDRG99NUXoMyIAf00ig)
+- [Overcommitting Memory （过度使用内存）](https://blog.csdn.net/zyqash/article/details/122860393)
+- [内存不足：OOM](https://zhangzhuo.ltd/articles/2021/08/10/1628565705959.html)
+- [内存分配策略：overcommit_memory](https://blog.csdn.net/xsxb_yl/article/details/121412094)
 
 ## 初步结论
 
@@ -697,7 +694,7 @@ WMARK_MIN 的数值就是由这个内核参数 min_free_kbytes 控制，当可�
 
 当前机器内核参数`kernel.panic = 0` `kernel.panic_on_oops = 1`。
 
-内核发现内存不足时可以通过软中断触发内存回收kswapd被调度，kswapd会调用shrink_slab进行slab回收。
+内核发现内存不足时可以通过软中断触发内存回收kswapd、内存规整kcompactd被调度，kswapd会调用shrink_slab进行slab回收。
 
 本次oops中是ext4_inode_info被删除了，也就是某个文件被删除了，导致ext4_i_callback回调函数被调用，ext4_i_callback会调用kmem_cache_free释放slab中的ext4_inode_info对象，发生了double free，导致了oops，进一步导致panic，应该是kernel.panic_on_oops=1导致kdump触发。
 
@@ -795,7 +792,3 @@ EOF
 ```bash
 sudo sysctl -p
 ```
-
-- [Overcommitting Memory （过度使用内存）](https://blog.csdn.net/zyqash/article/details/122860393)
-- [内存不足：OOM](https://zhangzhuo.ltd/articles/2021/08/10/1628565705959.html)
-- [内存分配策略：overcommit_memory](https://blog.csdn.net/xsxb_yl/article/details/121412094)
