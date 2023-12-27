@@ -32,6 +32,10 @@ sudo apt install task-gnome-desktop
 
 - [https://wiki.debian.org/zh_CN/Gnome](https://wiki.debian.org/zh_CN/Gnome)
 
+### x11
+
+- [Xsession :warning:unable to write to /tmp; X session may exit with an error问题解决](https://blog.csdn.net/moyu123456789/article/details/90483108)
+
 ## 其他
 
 - [彻底理解显卡与显示器的关系](https://www.toutiao.com/article/7271816041196487229/)
