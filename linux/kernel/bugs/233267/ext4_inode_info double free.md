@@ -320,6 +320,8 @@ ext4_i_callback 于 fs/ext4/super.c:1114
 
 如果多个线程同时尝试删除同一个文件，而删除文件的过程中会触发 ext4_i_callback，那么由于竞态条件，可能导致 double free 错误。
 
+ext4_inode_info是ext4文件系统挂载的时候生成的，不掉盘的话ext4_inode_info对应的kmem_cache不可能指向null。
+
 这里给出bpftrace参考语句：
 
 ```bash
@@ -625,9 +627,9 @@ cat /proc/sys/vm/overcommit_memory
 - 1：表示系统启用了内存过量分配机制，即内存分配总是成功的，但可能在使用过程中触发OOM Killer。
 - 2：表示系统启用了严格的内存分配机制，即只有当系统确保将分配的内存全部使用时，才会允许内存分配。
 
-#### 查看当前的OOM调节器水位线设置
+#### overcommit_ratio
 
-overcommit_ratio、overcommit_kbytes在overcommit_memory=2时才有用。
+overcommit_ratio、overcommit_kbytes在overcommit_memory=2时才有用，overcommit_kbytes非0时，overcommit_ratio无效。
 
 ```bash
 cat /proc/sys/vm/overcommit_ratio
@@ -637,7 +639,7 @@ cat /proc/sys/vm/overcommit_ratio
 
 注意：如果输出的值为0，则表示系统使用了默认的水位线设置。在这种情况下，可以查看 `/proc/sys/vm/overcommit_kbytes` 文件以查看内存回收的水位线值。
 
-#### 查看内存回收的水位线值
+#### overcommit_kbytes
 
 ```bash
 cat /proc/sys/vm/overcommit_kbytes
@@ -664,25 +666,110 @@ Linux对大部分申请内存的请求都回复"yes"，以便能跑更多更大�
 
 当oom-killer发生时，linux会选择杀死哪些进程？选择进程的函数是oom_badness函数(在mm/oom_kill.c中)，该函数会计算每个进程的点数(0~1000)。点数越高，这个进程越有可能被杀死。每个进程的点数跟oom_score_adj有关，而且oom_score_adj可以被设置(-1000最低，1000最高)。
 
-### 初步结论
+### min_free_kbytes
+
+```bash
+cat /proc/sys/vm/min_free_kbytes
+67584
+```
+
+WMARK_MIN 的数值就是由这个内核参数 min_free_kbytes 控制，当可用物理内存低于 WMARK_MIN 会触发下方操作：
+
+- 内存回收
+- 内存规整
+- 产生 OOM
+
+内核也不会直接开始 OOM，而是进入到重试流程，在重试流程开始之前内核需要调用 should_reclaim_retry 判断是否应该进行重试，重试标准：
+
+如果内核已经重试了 MAX_RECLAIM_RETRIES (16) 次仍然失败，则放弃重试执行后续 OOM。
+
+如果内核将所有可选内存区域中的所有可回收页面全部回收之后，仍然无法满足内存的分配，那么放弃重试执行后续 OOM。
+
+当前free memory等于112.5MB，在 WMARK_MIN 之上，故不会触发 OOM。
+
+![__alloc_pages](https://mmbiz.qpic.cn/mmbiz_png/sOIZXFW0vUbH2WXtgxfe0ibrL1FOuhZoBSxGnIdaFecgC8gXkVt9ooysBbWrb44fNr6jvyd3ibFCWNtCue5Yc2xg/640?wx_fmt=png&wxfrom=5&wx_lazy=1&wx_co=1)
+
+- [深入理解 Linux 物理内存分配全链路实现](https://mp.weixin.qq.com/s/llZXDRG99NUXoMyIAf00ig)
+
+## 初步结论
 
 没有使用交换分区。
 
-内核发现内存不足时通过中断触发了内存回收，内存回收过程中发生了oops，vm.panic_on_oom=1，kernel.panic_on_oops=1导致kdump触发。
+当前机器内核参数`kernel.panic = 0` `kernel.panic_on_oops = 1`。
 
-原则上vm.panic_on_oom=1，kernel.panic_on_oops=1不开启，kdump应该不会被触发，内核只是假死。
+内核发现内存不足时可以通过软中断触发内存回收kswapd被调度，kswapd会调用shrink_slab进行slab回收。
+
+本次oops中是ext4_inode_info被删除了，也就是某个文件被删除了，导致ext4_i_callback回调函数被调用，ext4_i_callback会调用kmem_cache_free释放slab中的ext4_inode_info对象，发生了double free，导致了oops，进一步导致panic，应该是kernel.panic_on_oops=1导致kdump触发。
 
 共计分析了4个kdump，`kmem -i`都存在内核耗尽，基本都只剩下100M了，每次oops的堆栈都跟回收slub缓存相关。
 
 用户的使用场景应该是在不断下载文件并删除文件，同时在使用firefox、deepin-voice-note等。
 
-slub内存回收过程是通过内核线程异步执行的，而不是在多线程的上下文中直接处理。
+### 疑点
 
 某个第三方模块多个线程删除同一个文件时存在竞态。
 
 某个第三方模块打开多个文件未关闭，导致cache占用很多，导致cache内存无法回收。
 
-## 优化方案
+故接下来排查方向需要为啥为啥slub回收的时候double free。
+
+ext4文件系统稳定性问题？
+
+## 进一步排查
+
+### kdump
+
+在grub中调整crashkernel参数，看是否能获取完整的kdump：
+
+```bash
+crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M
+```
+
+### ext4 journal
+
+可以到天翼云系统底层的宿主机上执行一下ps aux | grep -i qemu，我想看看ext4文件系统对应的磁盘是通过virtio or vfio 挂载上去的？
+
+ext4_inode_info是ext4文件系统挂载的时候生成的，不掉盘的话ext4_inode_info对应的kmem_cache不可能指向null。
+
+grub中更改ext4根文件系统日志为journal模式：
+
+```bash
+rootflags=data=journal
+```
+
+### slub_debug
+
+打下slub_debug相关内核编译选项：
+
+```text
+CONFIG_SLUB=y
+
+CONFIG_SLUB_DEBUG=y
+
+CONFIG_SLUB_DEBUG_ON=y
+
+CONFIG_SLUB_STATS=y
+```
+
+grub中增加slub_debug=UFPZ参数。
+
+### hcache
+
+使用hcache查看Buffer&Cache使用率高的进程：
+
+```bash
+hcache -top 50
+```
+
+### bpftrace
+
+bpftrace追踪ext4磁盘稳定性问题。
+
+### 合入patch
+
+- [[RFC,V2] ext4: increase the protection of drop nlink and ext4 inode destroy](https://patchwork.ozlabs.org/project/linux-ext4/patch/1482994539-48559-1-git-send-email-yi.zhang@huawei.com/#1545987)
+
+## 临时优化方案
 
 启用swap分区：
 
@@ -712,29 +799,3 @@ sudo sysctl -p
 - [Overcommitting Memory （过度使用内存）](https://blog.csdn.net/zyqash/article/details/122860393)
 - [内存不足：OOM](https://zhangzhuo.ltd/articles/2021/08/10/1628565705959.html)
 - [内存分配策略：overcommit_memory](https://blog.csdn.net/xsxb_yl/article/details/121412094)
-
-## 进一步排查
-
-在grub中调整crashkernel参数，看是否能获取完整的kdump：
-
-```bash
-crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M
-```
-
-使用hcache查看Buffer&Cache使用率高的进程：
-
-```bash
-hcache -top 50
-```
-
-grub中更改ext4根文件系统日志为journal模式：
-
-```bash
-rootflags=data=journal
-```
-
-bpftrace追踪ext4磁盘稳定性问题。
-
-合入patch:
-
-- [[RFC,V2] ext4: increase the protection of drop nlink and ext4 inode destroy](https://patchwork.ozlabs.org/project/linux-ext4/patch/1482994539-48559-1-git-send-email-yi.zhang@huawei.com/#1545987)
