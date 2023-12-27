@@ -23,8 +23,9 @@
 <meta property="og:site_name" content="WuJing&#39;s Blog">
 <meta property="og:description" content="ext4_inode_info double free https:&#x2F;&#x2F;pms.uniontech.com&#x2F;bug-view-233267.html dmesg dmesg.202312111431 warning 12345678910111213141516171819202122232425262728293031323334353637383940[201866.888630] WARNI">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://mmbiz.qpic.cn/mmbiz_png/sOIZXFW0vUbH2WXtgxfe0ibrL1FOuhZoBSxGnIdaFecgC8gXkVt9ooysBbWrb44fNr6jvyd3ibFCWNtCue5Yc2xg/640?wx_fmt=png&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1">
 <meta property="article:published_time" content="2023-12-22T23:16:45.000Z">
-<meta property="article:modified_time" content="2023-12-26T17:46:28.000Z">
+<meta property="article:modified_time" content="2023-12-27T17:06:10.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="qemu">
@@ -33,6 +34,7 @@
 <meta property="article:tag" content="linux">
 <meta property="article:tag" content="HTML">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://mmbiz.qpic.cn/mmbiz_png/sOIZXFW0vUbH2WXtgxfe0ibrL1FOuhZoBSxGnIdaFecgC8gXkVt9ooysBbWrb44fNr6jvyd3ibFCWNtCue5Yc2xg/640?wx_fmt=png&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
@@ -279,7 +281,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          25k 字
+          26k 字
         
       </span>
     
@@ -290,7 +292,7 @@
         
         
         
-          212 分钟
+          221 分钟
         
       </span>
     
@@ -333,7 +335,7 @@
               <p class="note note-info">
                 
                   
-                    本文最后更新于：2023年12月26日 下午
+                    本文最后更新于：2023年12月27日 下午
                   
                 
               </p>
@@ -377,6 +379,7 @@
 <p>问题基本确定了，这是一个double free的问题。</p>
 <p><code>ext4_i_callback</code> 函数是 inode_operations 结构中的一个回调函数，定义在 fs/ext4/inode.c 文件中。这个函数在 inode 被释放时被调用，用于执行一些清理和处理工作。</p>
 <p>如果多个线程同时尝试删除同一个文件，而删除文件的过程中会触发 ext4_i_callback，那么由于竞态条件，可能导致 double free 错误。</p>
+<p>ext4_inode_info是ext4文件系统挂载的时候生成的，不掉盘的话ext4_inode_info对应的kmem_cache不可能指向null。</p>
 <p>这里给出bpftrace参考语句：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo bpftrace -e <span class="hljs-string">&#x27;tracepoint:syscalls:sys_enter_unlink &#123; printf(&quot;%s deleted by command &#x27;</span>%s<span class="hljs-string">&#x27; with pid %d\n&quot;, str(args-&gt;pathname), comm, pid);&#125; tracepoint:syscalls:sys_enter_unlinkat &#123; printf(&quot;%s deleted by command &#x27;</span>%s<span class="hljs-string">&#x27; with pid %d\n&quot;, str(args-&gt;pathname), comm, pid);&#125;&#x27;</span><br></code></pre></td></tr></table></figure>
 <ul>
@@ -453,12 +456,12 @@
 <li>1：表示系统启用了内存过量分配机制，即内存分配总是成功的，但可能在使用过程中触发OOM Killer。</li>
 <li>2：表示系统启用了严格的内存分配机制，即只有当系统确保将分配的内存全部使用时，才会允许内存分配。</li>
 </ul>
-<h4 id="查看当前的oom调节器水位线设置">查看当前的OOM调节器水位线设置</h4>
-<p>overcommit_ratio、overcommit_kbytes在overcommit_memory=2时才有用。</p>
+<h4 id="overcommit_ratio">overcommit_ratio</h4>
+<p>overcommit_ratio、overcommit_kbytes在overcommit_memory=2时才有用，overcommit_kbytes非0时，overcommit_ratio无效。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_ratio<br></code></pre></td></tr></table></figure>
 <p>输出的值表示OOM调节器的水位线百分比。例如，如果值为 50，则表示当系统内存使用达到物理内存的50%时，OOM Killer会被触发。</p>
 <p>注意：如果输出的值为0，则表示系统使用了默认的水位线设置。在这种情况下，可以查看 <code>/proc/sys/vm/overcommit_kbytes</code> 文件以查看内存回收的水位线值。</p>
-<h4 id="查看内存回收的水位线值">查看内存回收的水位线值</h4>
+<h4 id="overcommit_kbytes">overcommit_kbytes</h4>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/vm/overcommit_kbytes<br></code></pre></td></tr></table></figure>
 <p>输出的值表示以KB为单位的内存回收水位线。例如，如果值为 8192，则表示当系统剩余可用内存低于 8192KB 时，OOM Killer会被触发。</p>
 <h4 id="当前机器overcommit_memory配置">当前机器overcommit_memory配置</h4>
@@ -467,16 +470,59 @@
 <p>free memory + free swap + pagecache的大小 + SLAB</p>
 <p>Linux对大部分申请内存的请求都回复"yes"，以便能跑更多更大的程序。因为申请内存后，并不会马上使用内存。这种技术叫做Overcommit。当linux发现内存不足时，会发生OOM killer(OOM=out-of-memory)。它会选择杀死一些进程(用户态进程，不是内核线程)，以便释放内存。</p>
 <p>当oom-killer发生时，linux会选择杀死哪些进程？选择进程的函数是oom_badness函数(在mm/oom_kill.c中)，该函数会计算每个进程的点数(0~1000)。点数越高，这个进程越有可能被杀死。每个进程的点数跟oom_score_adj有关，而且oom_score_adj可以被设置(-1000最低，1000最高)。</p>
-<h3 id="初步结论">初步结论</h3>
+<h3 id="min_free_kbytes">min_free_kbytes</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/vm/min_free_kbytes<br>67584<br></code></pre></td></tr></table></figure>
+<p>WMARK_MIN 的数值就是由这个内核参数 min_free_kbytes 控制，当可用物理内存低于 WMARK_MIN 会触发下方操作：</p>
+<ul>
+<li>内存回收</li>
+<li>内存规整</li>
+<li>产生 OOM</li>
+</ul>
+<p>内核也不会直接开始 OOM，而是进入到重试流程，在重试流程开始之前内核需要调用 should_reclaim_retry 判断是否应该进行重试，重试标准：</p>
+<p>如果内核已经重试了 MAX_RECLAIM_RETRIES (16) 次仍然失败，则放弃重试执行后续 OOM。</p>
+<p>如果内核将所有可选内存区域中的所有可回收页面全部回收之后，仍然无法满足内存的分配，那么放弃重试执行后续 OOM。</p>
+<p>当前free memory等于112.5MB，在 WMARK_MIN 之上，故不会触发 OOM。</p>
+<figure>
+<img src="https://mmbiz.qpic.cn/mmbiz_png/sOIZXFW0vUbH2WXtgxfe0ibrL1FOuhZoBSxGnIdaFecgC8gXkVt9ooysBbWrb44fNr6jvyd3ibFCWNtCue5Yc2xg/640?wx_fmt=png&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1" srcset="/img/loading.gif" lazyload alt="" /><figcaption>__alloc_pages</figcaption>
+</figure>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/llZXDRG99NUXoMyIAf00ig">深入理解 Linux 物理内存分配全链路实现</a></li>
+</ul>
+<h2 id="初步结论">初步结论</h2>
 <p>没有使用交换分区。</p>
-<p>内核发现内存不足时通过中断触发了内存回收，内存回收过程中发生了oops，vm.panic_on_oom=1，kernel.panic_on_oops=1导致kdump触发。</p>
-<p>原则上vm.panic_on_oom=1，kernel.panic_on_oops=1不开启，kdump应该不会被触发，内核只是假死。</p>
+<p>当前机器内核参数<code>kernel.panic = 0</code> <code>kernel.panic_on_oops = 1</code>。</p>
+<p>内核发现内存不足时可以通过软中断触发内存回收kswapd被调度，kswapd会调用shrink_slab进行slab回收。</p>
+<p>本次oops中是ext4_inode_info被删除了，也就是某个文件被删除了，导致ext4_i_callback回调函数被调用，ext4_i_callback会调用kmem_cache_free释放slab中的ext4_inode_info对象，发生了double free，导致了oops，进一步导致panic，应该是kernel.panic_on_oops=1导致kdump触发。</p>
 <p>共计分析了4个kdump，<code>kmem -i</code>都存在内核耗尽，基本都只剩下100M了，每次oops的堆栈都跟回收slub缓存相关。</p>
 <p>用户的使用场景应该是在不断下载文件并删除文件，同时在使用firefox、deepin-voice-note等。</p>
-<p>slub内存回收过程是通过内核线程异步执行的，而不是在多线程的上下文中直接处理。</p>
+<h3 id="疑点">疑点</h3>
 <p>某个第三方模块多个线程删除同一个文件时存在竞态。</p>
 <p>某个第三方模块打开多个文件未关闭，导致cache占用很多，导致cache内存无法回收。</p>
-<h2 id="优化方案">优化方案</h2>
+<p>故接下来排查方向需要为啥为啥slub回收的时候double free。</p>
+<p>ext4文件系统稳定性问题？</p>
+<h2 id="进一步排查">进一步排查</h2>
+<h3 id="kdump">kdump</h3>
+<p>在grub中调整crashkernel参数，看是否能获取完整的kdump：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M<br></code></pre></td></tr></table></figure>
+<h3 id="ext4-journal">ext4 journal</h3>
+<p>可以到天翼云系统底层的宿主机上执行一下ps aux | grep -i qemu，我想看看ext4文件系统对应的磁盘是通过virtio or vfio 挂载上去的？</p>
+<p>ext4_inode_info是ext4文件系统挂载的时候生成的，不掉盘的话ext4_inode_info对应的kmem_cache不可能指向null。</p>
+<p>grub中更改ext4根文件系统日志为journal模式：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">rootflags=data=journal<br></code></pre></td></tr></table></figure>
+<h3 id="slub_debug">slub_debug</h3>
+<p>打下slub_debug相关内核编译选项：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">CONFIG_SLUB=y<br><br>CONFIG_SLUB_DEBUG=y<br><br>CONFIG_SLUB_DEBUG_ON=y<br><br>CONFIG_SLUB_STATS=y<br></code></pre></td></tr></table></figure>
+<p>grub中增加slub_debug=UFPZ参数。</p>
+<h3 id="hcache">hcache</h3>
+<p>使用hcache查看Buffer&amp;Cache使用率高的进程：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">hcache -top 50<br></code></pre></td></tr></table></figure>
+<h3 id="bpftrace">bpftrace</h3>
+<p>bpftrace追踪ext4磁盘稳定性问题。</p>
+<h3 id="合入patch">合入patch</h3>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://patchwork.ozlabs.org/project/linux-ext4/patch/1482994539-48559-1-git-send-email-yi.zhang@huawei.com/#1545987">[RFC,V2] ext4: increase the protection of drop nlink and ext4 inode destroy</a></li>
+</ul>
+<h2 id="临时优化方案">临时优化方案</h2>
 <p>启用swap分区：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">dd</span> <span class="hljs-keyword">if</span>=/dev/zero of=/tmp/swap bs=1M count=32768<br>sudo <span class="hljs-built_in">chmod</span> 600 /tmp/swap<br>sudo mkswap /tmp/swap<br>sudo swapon /tmp/swap<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> &lt;&lt; <span class="hljs-string">EOF &gt;&gt; /etc/sysctl.conf</span><br><span class="hljs-string">vm.dirty_background_ratio=3 # 当脏页面占系统内存的3%时触发后台写回</span><br><span class="hljs-string">vm.dirty_ratio=80 # 当脏页面占系统内存的80%时停止用户进程，开始写回</span><br><span class="hljs-string">vm.dirty_writeback_centisecs=100 # 每100毫秒检查一次是否需要写回脏页面</span><br><span class="hljs-string">vm.nr_hugepages=128 # 系统中的大页面数量设置为128</span><br><span class="hljs-string">vm.overcommit_memory=2 # 启用严格的内存分配机制</span><br><span class="hljs-string">vm.overcommit_ratio=90 # 允许系统内存超过物理内存大小的80%</span><br><span class="hljs-string">net.ipv4.tcp_fastopen=3 # 启用 TCP Fast Open 并使用 Cookie 来防止连接污染攻击</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure>
@@ -485,18 +531,6 @@
 <li><a target="_blank" rel="noopener" href="https://blog.csdn.net/zyqash/article/details/122860393">Overcommitting Memory （过度使用内存）</a></li>
 <li><a target="_blank" rel="noopener" href="https://zhangzhuo.ltd/articles/2021/08/10/1628565705959.html">内存不足：OOM</a></li>
 <li><a target="_blank" rel="noopener" href="https://blog.csdn.net/xsxb_yl/article/details/121412094">内存分配策略：overcommit_memory</a></li>
-</ul>
-<h2 id="进一步排查">进一步排查</h2>
-<p>在grub中调整crashkernel参数，看是否能获取完整的kdump：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M<br></code></pre></td></tr></table></figure>
-<p>使用hcache查看Buffer&amp;Cache使用率高的进程：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">hcache -top 50<br></code></pre></td></tr></table></figure>
-<p>grub中更改ext4根文件系统日志为journal模式：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">rootflags=data=journal<br></code></pre></td></tr></table></figure>
-<p>bpftrace追踪ext4磁盘稳定性问题。</p>
-<p>合入patch:</p>
-<ul>
-<li><a target="_blank" rel="noopener" href="https://patchwork.ozlabs.org/project/linux-ext4/patch/1482994539-48559-1-git-send-email-yi.zhang@huawei.com/#1545987">[RFC,V2] ext4: increase the protection of drop nlink and ext4 inode destroy</a></li>
 </ul>
 
                 
