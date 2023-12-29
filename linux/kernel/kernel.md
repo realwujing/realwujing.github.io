@@ -307,6 +307,8 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 ### dkms
 
 - [Linux 模块管理方法之 DKMS](https://zhuanlan.zhihu.com/p/353393598)
+- [linux dkms,DKMS简介](https://blog.csdn.net/weixin_42388631/article/details/117547371)
+- [Linux 模块管理方法之 DKMS](https://blog.csdn.net/Wang_anna/article/details/126955523)
 
 ## ASLR
 
@@ -398,6 +400,10 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
     ```text
     p ((struct task_struct*)(*(unsigned long*)((char*)__per_cpu_offset[0] + 0x15d00)))->comm
     ```
+
+## cpu调频
+
+- [Linux&Tina动态调压调频配置与实现](https://blog.csdn.net/tugouxp/article/details/120527174)
 
 ## 系统调用
 
