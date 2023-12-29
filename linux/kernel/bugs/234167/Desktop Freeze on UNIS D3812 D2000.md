@@ -1,4 +1,4 @@
-# Desktop Freeze Issue on UNIS D3812 D2000
+# Desktop Freeze on UNIS D3812 D2000
 
 <https://pms.uniontech.com/bug-view-234167.html>
 
@@ -343,6 +343,25 @@ vim timer.objdump +5179
 brk #0x800 触发了一个软中断，参数为 0x800。软中断通常被用于在程序中插入调试点，以便在这里停下程序的执行，以便进行调试。
 
 ```c
+144 /**
+145  * timer_pending - is a timer pending?
+146  * @timer: the timer in question
+147  *
+148  * timer_pending will tell whether a given timer is currently pending,
+149  * or not. Callers must ensure serialization wrt. other operations done
+150  * to this timer, eg. interrupt contexts, or other CPUs on SMP.
+151  *
+152  * return value: 1 if the timer is pending, 0 if not.
+153  */
+154 static inline int timer_pending(const struct timer_list * timer)
+155 {
+156     return timer->entry.pprev != NULL;
+157 }
+```
+
+timer_pending函数检查给定的定时器是否处于等待状态。当 timer->entry.pprev 不为 NULL 时，表示定时器当前处于等待状态，返回 1；否则，返回 0。
+
+```c
  11 struct timer_list { // vim include/linux/timer.h +11
  12     /*
  13      * All fields that change during normal runtime grouped to the
@@ -359,8 +378,18 @@ brk #0x800 触发了一个软中断，参数为 0x800。软中断通常被用于
  24 }; 
 ```
 
-在 Linux 内核中，定时器被挂起通常是因为相应的任务或工作正在执行。挂起定时器意味着它的执行被暂时延迟，直到挂起它的任务或工作完成。
+- [笔记之内核定时器（timer_list）](https://blog.csdn.net/hxhardway/article/details/79037332)
 
-一种常见的情况是，内核中的某个工作或任务占用了 CPU 资源，而此时有一个定时器到期需要执行。由于内核是单线程执行的，因此在当前任务或工作完成之前，其他任务或工作可能会等待执行。这可能导致定时器的回调函数被推迟执行，直到内核重新安排并调度相关的工作。
+在 GPU 调度器（gpu_sched）中，如果 timer_list 为空，通常表示当前没有定时器在等待执行。这可能是正常的状态，尤其是当没有 GPU 任务或者所有 GPU 任务都已经及时完成时。
 
-挂起定时器的原因可能有很多，具体取决于内核的设计和实际场景。通常，内核中的任务调度和执行是一个复杂的过程，各个子系统和组件之间可能会有不同的调度策略和优先级。
+具体来说，timer_list 一般用于跟踪 GPU 调度器中的计时器，这些计时器可能用于任务的超时、延迟或其他与时间相关的操作。当没有任务等待执行，或者已经按时完成，timer_list 可能为空。
+
+如果你观察到 timer_list 为空，但 GPU 任务并未按预期执行，可能需要进一步调查原因。可能的原因包括：
+
+任务完成： 当 GPU 任务按时完成时，相关的计时器可能会被取消，从而导致 timer_list 为空。
+
+任务延迟： 如果任务因某些原因而延迟执行，相关的计时器可能还在等待。在这种情况下，你可能需要检查任务执行的日志或其他调试信息，以找到延迟的原因。
+
+调度器问题： 如果 GPU 调度器本身存在问题，可能导致计时器未正确添加或处理。在这种情况下，你可能需要查看 GPU 调度器的源代码、文档或相关的日志信息。
+
+总的来说，timer_list 为空并不一定表示问题，这可能是 GPU 调度器正常运行的一部分。然而，如果你怀疑有问题，最好检查相关的调试信息以了解更多上下文。
