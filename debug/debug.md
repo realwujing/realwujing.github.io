@@ -418,6 +418,7 @@
 - [一起学习64位ARM平台稳定性分析：遇见内核 panic](https://mp.weixin.qq.com/s/d0vJgQYVDB3ZiQRMoDvvDw)
 - [Linux内核故障分类和排查](https://blog.csdn.net/rikeyone/article/details/105691909)
 - [<font color=Red>这是你了解的空指针吗？</font>](https://mp.weixin.qq.com/s/RPS_QernHHgBBKBlFJksHA)
+- [Linux内核panic核心执行逻辑](https://blog.csdn.net/tugouxp/article/details/128834562)
 
 更改 sysctl 中的某些内核参数可能导致系统不稳定，甚至触发 panic。以下是一些可能会导致系统问题的内核参数，慎重修改：
 
