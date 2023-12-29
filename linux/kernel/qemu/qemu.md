@@ -148,6 +148,10 @@
 
 - [龙芯虚拟化使用手册](https://blog.csdn.net/faxiang1230/article/details/120907896)
 
+## 显示虚拟化
+
+- [QEMU显示虚拟化的几种选项](https://blog.csdn.net/tugouxp/article/details/134487575)
+
 ## book
 
 - [QEMU KVM学习笔记](https://github.com/yifengyou/learn-kvm)
