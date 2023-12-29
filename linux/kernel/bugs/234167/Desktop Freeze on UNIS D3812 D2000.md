@@ -393,3 +393,43 @@ timer_pending函数检查给定的定时器是否处于等待状态。当 timer-
 调度器问题： 如果 GPU 调度器本身存在问题，可能导致计时器未正确添加或处理。在这种情况下，你可能需要查看 GPU 调度器的源代码、文档或相关的日志信息。
 
 总的来说，timer_list 为空并不一定表示问题，这可能是 GPU 调度器正常运行的一部分。然而，如果你怀疑有问题，最好检查相关的调试信息以了解更多上下文。
+
+```bash
+3817 2023-12-19 22:41:45 hbyc-PC kernel: [102639.646128] [drm:amdgpu_job_timedout [amdgpu]] *ERROR* ring gfx timeout, signaled seq=27126054, emitted seq=27126054
+```
+
+```c
+ 215 /**
+ 216  * DOC: lockup_timeout (int)
+ 217  * Set GPU scheduler timeout value in ms. Value 0 is invalidated, will be adjusted to 10000.
+ 218  * Negative values mean 'infinite timeout' (MAX_JIFFY_OFFSET). The default is 10000.
+ 219  */
+ 220 MODULE_PARM_DESC(lockup_timeout, "GPU lockup timeout in ms > 0 (default 10000)");
+ 221 module_param_named(lockup_timeout, amdgpu_lockup_timeout, int, 0444);
+```
+
+```bash
+cat /sys/module/amdgpu/parameters/lockup_timeout
+10000
+```
+
+amdgpu_job_timedout: 当调度器执行任务超时，调用的超时处理回调函数。
+
+## 继续排查
+
+将`lockup_timeout`参数调大:
+
+```bash
+echo 20000 > /sys/module/your_module/parameters/lockup_timeout
+```
+
+- [[SOLVED?] Frequent Freezes/Crashes with AMD 5700 XT](https://bbs.archlinux.org/viewtopic.php?id=253848)
+- [关于amdgpu驱动崩溃问题](https://bbs.loongarch.org/d/278-amdgpu/10)
+
+cpu动态调频开启没？
+
+gpu调频开启没？
+
+```bash
+trace-bpfcc -tUK amdgpu_set_dpm_forced_performance_level
+```
