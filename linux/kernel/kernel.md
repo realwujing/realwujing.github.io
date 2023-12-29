@@ -391,16 +391,6 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 - [initcall_debug来查看开机慢问题](https://blog.csdn.net/rikeyone/article/details/84258391)
 - [<font color=Red>Linux 各种 initcall 的调用原理</font>](https://blog.csdn.net/enlaihe/article/details/123904759)
 
-## percpu变量
-
-- [一张图看懂linux内核中percpu变量的实现 KING.YT](https://zhuanlan.zhihu.com/p/340985476)
-- [一张图看懂linux内核中percpu变量的实现](https://cloud.tencent.com/developer/article/1769514)
-- [<font color=Red>amd64下基于per_cpu变量current_task获取task_struct</font>](https://github.com/realwujing/realwujing.github.io/blob/main/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eper_cpu%E5%8F%98%E9%87%8Fcurrent_task%E8%8E%B7%E5%8F%96task_struct.md)
-
-    ```text
-    p ((struct task_struct*)(*(unsigned long*)((char*)__per_cpu_offset[0] + 0x15d00)))->comm
-    ```
-
 ## cpu调频
 
 - [Linux&Tina动态调压调频配置与实现](https://blog.csdn.net/tugouxp/article/details/120527174)

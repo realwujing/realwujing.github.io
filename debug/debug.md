@@ -551,6 +551,30 @@ sysctl -p
 
 总的来说，任务挂起通常是一种异常状态，可能导致系统不稳定，而睡眠是一种正常的、被控制的状态，允许任务在需要时主动放弃 CPU 并等待特定条件的发生。
 
+## watchdog
+
+- [禁用watchdog方法汇总](https://cloud.tencent.com/developer/article/1843976)
+- [Linux watchdog配置](https://blog.csdn.net/jiexijihe945/article/details/128021600)
+- [Linux禁用watchdog](https://blog.csdn.net/qq_28278079/article/details/104218588)
+
+  ```text
+  nmi_watchdog=   [KNL,BUGS=X86] Debugging features for SMP kernels
+                        Format: [panic,][nopanic,][num]
+                        Valid num: 0 or 1
+                        0 - turn hardlockup detector in nmi_watchdog off
+                        1 - turn hardlockup detector in nmi_watchdog on
+                        When panic is specified, panic when an NMI watchdog
+                        timeout occurs (or 'nopanic' to not panic on an NMI
+                        watchdog, if CONFIG_BOOTPARAM_HARDLOCKUP_PANIC is set)
+                        To disable both hard and soft lockup detectors,
+                        please see 'nowatchdog'.
+                        This is useful when you use a panic=... timeout and
+                        need the box quickly up again.
+
+                        These settings can be accessed at runtime via
+                        the nmi_watchdog and hardlockup_panic sysctls.
+  ```
+
 ## kdump
 
 - [<font color=Red>Documentation for Kdump - The kexec-based Crash Dumping Solution</font>](https://www.kernel.org/doc/html/latest/admin-guide/kdump/kdump.html)
