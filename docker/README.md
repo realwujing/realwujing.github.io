@@ -1,7 +1,9 @@
 # DockerProject
 
 以下教程基于Ubuntu 16.04 LTS.
+
 ## 安装docker
+
     # 推荐使用使用国内 daocloud 一键安装命令
     curl -sSL https://get.daocloud.io/docker | sh
 
@@ -16,6 +18,7 @@
     sudo systemctl restart docker
 
 ## DockerFile
+
     cd ubuntu
 
     ## 创建镜像
