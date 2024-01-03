@@ -7,6 +7,7 @@
 
 ## pthread
 
+- [为什么glibc 2.34删除libpthread](https://mp.weixin.qq.com/s/gfON0gD6gV3QdobC_uYckA)
 - [Linux 多线程全面解析](https://mp.weixin.qq.com/s/2eetiUAtedavND8c-sQM5w)
 - [<font color=Red>【Linux】多线程详解，一篇文章彻底搞懂多线程中各个难点！！！</font>](https://blog.csdn.net/w903414/article/details/110005612)
 
