@@ -8,6 +8,12 @@
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 ```
 
+刷新环境变量：
+
+```bash
+source ~/.bashrc
+```
+
 安装nodejs版本:
 
 ```bash
