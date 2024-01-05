@@ -39,8 +39,9 @@
     cd /usr/share/debootstrap/scripts/
     cp sid eagle
     ```
-    
+
     需要额外添加仓库源可以`login`后添加`apt`仓库源：
+
     ```bash
     sudo pbuilder login --basetgz /var/cache/pbuilder/base.tgz --save-after-login
     ```
