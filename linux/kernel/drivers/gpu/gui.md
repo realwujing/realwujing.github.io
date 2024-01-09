@@ -1,6 +1,7 @@
 
 # GUI
 
+- [深夜磨刀，Linux Graphics Stack 概述 | Linux 驱动](https://zhuanlan.zhihu.com/p/414403029)
 - [深度探索Linux操作系统 —— Linux图形原理探讨](https://blog.csdn.net/Liuqz2009/article/details/134988734)
 
 ## 桌面环境
@@ -84,7 +85,17 @@ uvd Ring Buffer（视频解码环形缓冲区）:
 
 - [<font color=Red>AMD GPU任务调度（1）—— 用户态分析</font>](https://blog.csdn.net/huang987246510/article/details/106658889)
 - [<font color=Red>AMD GPU任务调度（2）—— 内核态分析</font>](https://blog.csdn.net/huang987246510/article/details/106737570)
+- [AMD GPU任务调度（3） —— fence机制](https://blog.csdn.net/huang987246510/article/details/106865386)
 
 - [<font color=Red>AMD GPU 内核驱动分析(一)总览</font>](https://blog.csdn.net/tugouxp/article/details/132819114)
 - [AMD GPU 内核驱动分析(二)-video-ring的调度](https://blog.csdn.net/tugouxp/article/details/132953439)
 - [AMD GPU 内核驱动分析(三)-gpu scheduler ring fence同步工作模型](https://blog.csdn.net/tugouxp/article/details/133519133)
+
+#### virtio
+
+- [VFIO硬件依赖——IOMMU机制](https://blog.csdn.net/huang987246510/article/details/106179145)
+- [VirtIO-GPU —— 2D加速原理分析](https://blog.csdn.net/huang987246510/article/details/106254294)
+- [VirtIO-GPU环境搭建与应用](https://blog.csdn.net/huang987246510/article/details/106245900)
+- [Hello OpenGL](https://blog.csdn.net/huang987246510/article/details/106322012)
+- [VirtIO GPU基本原理](https://blog.csdn.net/huang987246510/article/details/107729881)
+- [DRAW_INDEX与图形流水线](https://blog.csdn.net/huang987246510/article/details/107283374)
