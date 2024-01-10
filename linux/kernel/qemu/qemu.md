@@ -1,5 +1,7 @@
 # qemu
 
+- [<font color=Red>Linux虚拟化</font>](https://www.cnblogs.com/LoyenWang/category/1828942.html)
+
 ## 虚拟机
 
 - [服务器虚拟化组件有哪些？](http://c.biancheng.net/view/3842.html)
