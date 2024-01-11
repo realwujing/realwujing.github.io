@@ -18,6 +18,14 @@
 - [<font color=Red>ALC885_1-1.pdf</font>](https://github.com/realwujing/realwujing.github.io/blob/main/linux/kernel/sound/ALC885_1-1.pdf)
 - [http://realtek.info/pdf/ALC885_1-1.pdf](http://realtek.info/pdf/ALC885_1-1.pdf)
 
+## vendor id
+
+查看 Linux 系统中声卡的 vendor ID：
+
+```bash
+cat /proc/asound/card*/codec#* | grep "Vendor Id" -B3
+```
+
 ### hda
 
 - [<font color=Red>Pin configuration guidelines for High Definition Audio devices</font>](https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn613979(v=vs.85)?redirectedfrom=MSDN)
