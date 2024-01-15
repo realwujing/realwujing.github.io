@@ -5,7 +5,7 @@
 
 ## 数据结构
 
-- [代码面试需要知道的8种数据结构(附面试题及答案链接)](https://www.cnblogs.com/fundebug/p/data_structures_in_js_for_interview.html)
+- [代码面试需要知道的8种数据结构(附面试题及答案链接)](https://blog.csdn.net/weixin_39943442/article/details/112662181)
 - [嵌入式软件常见的 8 种数据结构](https://mp.weixin.qq.com/s/ujXOtCA8og8Cyq59O_zuaw)
 - [数据结构-各种树的定义](https://blog.csdn.net/u014532217/article/details/79118023)
 - [二叉树、平衡二叉树、红黑树、B树、B+树与B*树 - 简书 (jianshu.com)](https://www.jianshu.com/p/b597aa97c9de)
@@ -14,6 +14,7 @@
 - [<font color=Red>LeetCode0：学习算法必备知识：时间复杂度与空间复杂度的计算</font>](https://cloud.tencent.com/developer/article/1769988)
 - [算法入门教程（多语言实现）](http://c.biancheng.net/algorithm/)
 - [双链表——双链表的定义及其基本操作（初始化、头插法尾插法建表、插入、查找、删除、判空等）](https://blog.csdn.net/weixin_44162361/article/details/115819742)
+- [前缀树算法模板秒杀 5 道算法题](https://mp.weixin.qq.com/s/hGrTUmM1zusPZZ0nA9aaNw)
 
 ## 堆栈
 
