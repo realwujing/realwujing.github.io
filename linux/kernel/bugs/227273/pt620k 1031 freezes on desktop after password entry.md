@@ -153,6 +153,8 @@ vermagic:       4.19.0-arm64-desktop-kdump-lockdep SMP mod_unload modversions aa
 parm:           disable_vblank_sync:Disable vblank sync, state change occurs when no 3D is running (int)
 ```
 
+景嘉微显卡驱动区存在死锁有问题。
+
 ```bash
 # 大坪监狱串口日志-20231228-4.log
 
@@ -165,9 +167,57 @@ parm:           disable_vblank_sync:Disable vblank sync, state change occurs whe
 
 usb端点04、81的iso缓存都被释放了，导致鼠标键盘无响应。
 
-## 结论
+```bash
+vim 20240104-2.log +3520
 
-景嘉微显卡驱动有问题，无法处理中断，进一步导致鼠标键盘无响应。
+3520 [  269.934461] CPU: 6 PID: 3940 Comm: lastore-smartmi Kdump: loaded Tainted: G    B   W         4.19.0-arm64-desktop-kdump-lockdep #3103
+3521 [  269.939758]  proc_evict_inode+0x20/0x58
+3522 [  269.939760]  evict+0xa0/0x170
+3523 [  269.943406] Hardware name: N/A N/A/Kunpeng Desktop Board D920S10, BIOS 2.0 01/08/2021
+3524 [  269.946706]  iput+0x1f0/0x2e0
+3525 [  269.946708]  dentry_unlink_inode+0xac/0xe0
+3526 [  269.952004] Call trace:
+3527 [  269.955391]  __dentry_kill+0xc0/0x1b0
+3528 [  269.955392]  dentry_kill+0x4c/0x1a0
+3529 [  269.958692]  dump_backtrace+0x0/0x190
+3530 [  269.958693]  show_stack+0x14/0x20
+3531 [  269.963989]  dput+0x2b4/0x2f8
+3532 [  269.963991]  path_put+0x18/0x30
+3533 [  269.967984]  dump_stack+0xc8/0x104
+3534 [  269.967985]  bad_page+0x104/0x130
+3535 [  269.972500]  vfs_statx+0xa0/0xd8
+3536 [  269.972502]  __se_sys_newfstatat+0x24/0x48
+3537 [  269.977797]  check_new_page_bad+0x6c/0x90
+3538 [  269.977799]  get_page_from_freelist+0x484/0xda8
+3539 [  269.982313]  __arm64_sys_newfstatat+0x18/0x20
+3540 [  269.982316]  el0_svc_common+0x9c/0x188
+3541 [  269.987090]  __alloc_pages_nodemask+0xf4/0x1010
+3542 [  269.987091]  do_huge_pmd_anonymous_page+0xf0/0x800
+3543 [  269.992387]  el0_svc_handler+0x9c/0xa8
+3544 [  269.992389]  el0_svc+0x8/0xc
+3545 [  269.996469]  __handle_mm_fault+0x738/0x8a0
+3546 [  269.996471]  handle_mm_fault+0x1c4/0x330
+3547 [  270.000379] Code: f9007260 a94153f3 a8c27bfd d65f03c0 (d4210000) 
+3548 [  270.009147]  do_page_fault+0x194/0x4a8
+3549 [  270.009148]  do_translation_fault+0x58/0x60
+3550 [  270.017918] SMP: stopping secondary CPUs
+3551 [  270.020695]  do_mem_abort+0x3c/0xd0
+3552 [  270.020696]  el0_da+0x20/0x24
+3553 [  270.497131] BUG: Bad page state in process lastore-smartmi  pfn:23be207
+3554 [  270.503731] page:ffff7e008ef881c0 count:0 mapcount:0 mapping:0000000000000010 index:0x0
+3555 [  270.511720] flags: 0x4000000000000000()
+3556 [  270.515543] raw: 4000000000000000 0000000000000000 ffff7e008ef881c8 0000000000000010
+3557 [  270.523272] raw: 0000000000000000 0000000000000000 00000000ffffffff 0000000000000000                                                                                            
+3558 [  270.530999] page dumped because: non-NULL mapping
+```
+
+可能存在物理内存硬件问题导致物理页面状态异常，进一步导致鼠标键盘无响应。
+
+## 修复方案
+
+更新景嘉微驱动，新版本驱动可能修复死锁问题。
+
+更换内存条。
 
 ## More
 
