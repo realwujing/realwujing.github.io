@@ -65,6 +65,8 @@ sudo apt install task-gnome-desktop
 - [drm gpu scheduler](https://blog.csdn.net/xuelin273/article/details/131297186)
 - [GPU 调度 - Linux 实现](https://mp.weixin.qq.com/s/_oe409y93Qm5l3j3o_-P8Q)
 
+- [【干货】一文看懂GPU流处理器](https://mp.weixin.qq.com/s/IHardB0dyky8fhgQkU55pw)
+
 ### admgpu
 
 在 AMD GPU 驱动中，gfx（Graphics Core Next） Ring Buffer 和 uvd（Unified Video Decoder） Ring Buffer 分别用于图形和视频解码任务，是 GPU 调度器中的两个不同的环形缓冲区。以下是它们之间的主要区别：

@@ -386,6 +386,7 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 
 ## do_initcalls
 
+- [<font color=Red>Linux 驱动开发 二：module_init机制</font>](https://blog.csdn.net/OnlyLove_/article/details/121641335)
 - [<font color=Red>initcall 机制</font>](https://www.bookstack.cn/read/linux-insides-zh/Concepts-linux-cpu-3.md)
 - [linux内核中do_initcalls函数的执行逻辑分析](https://m.elecfans.com/article/1980482.html)
 - [initcall_debug来查看开机慢问题](https://blog.csdn.net/rikeyone/article/details/84258391)
