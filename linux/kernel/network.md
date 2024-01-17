@@ -124,3 +124,14 @@
 ## 内网穿透
 
 - [内网穿透详解](https://www.toutiao.com/article/7317562665730097704/)
+
+## 抓包
+
+- [wireshark过滤http包](https://blog.csdn.net/github_40044758/article/details/111290919)
+- [<font color=Red>如何在 Linux 上使用 Wireshark 过滤器</font>](https://cn.linux-console.net/?p=8295)
+
+  ```bash
+  http.host=="www.baidu.com"
+  ```
+
+  ![http.host=="www.baidu.com"](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240117135816.png)
