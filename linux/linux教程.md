@@ -258,10 +258,48 @@ sed -n '1119,1224'p kern.log > pm.log
 
 - [Linux 中的 lshw 命令：获取硬件详细信息](https://www.toutiao.com/article/7257841565858103819/)
 
+  查看硬件信息的 class 分类:
+
+  ```bash
+  lshw -short
+  ```
+
+  查看特定类型的数据:
+
+  ```bash
+  lshw -c multimedia
+  ```
+
+  把硬件信息输出到 html:
+
+  ```bash
+  lshw -html > hw.hhtml
+  ```
+
 ### dmidecode
 
 - [dmidecode(8) - Linux man page](https://linux.die.net/man/8/dmidecode)
 - [Linux下dmi信息分析工具dmidecode原理](https://blog.csdn.net/tugouxp/article/details/128739019)
+
+### lstopo
+
+- [Linux 性能调优之硬件资源监控](https://mp.weixin.qq.com/s/kFcfXQgSemHfL5Uz1deoJg)
+
+  ```bash
+  sudo apt install hwloc
+  ```
+
+  图形化展示硬件拓扑结构:
+
+  ```bash
+  lstopo
+  ```
+
+  文字信息输出硬件拓扑结构:
+
+  ```bash
+  lstopo-no-graphics
+  ```
 
 ## top
 
