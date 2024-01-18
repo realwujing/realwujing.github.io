@@ -1,9 +1,20 @@
 # sound
 
 - [菜鸟也能懂的 - 音视频基础知识。](https://mp.weixin.qq.com/s/HzJyf9QLZYjRsacf_veK4g)
-- [耳机插头3.5 三段与四段 的区别](https://www.jianshu.com/p/9355acdfafb2)
+
 - [深度好文 | Android高性能音频解析](https://mp.weixin.qq.com/s/yQQ5q8vvi7ltVxVQrfcl0Q)
 - [<font color=Red>Linux内核音频驱动</font>](https://mp.weixin.qq.com/s/dF8m0jna-HE9LjCQ8d6H1g)
+
+## 耳机
+
+- [耳机插头3.5 三段与四段 的区别](https://www.jianshu.com/p/9355acdfafb2)
+- [<font color=Red>3.5mm 音频接口类型说明（3极和4极）耳机接口</font>](https://blog.csdn.net/chenhuanqiangnihao/article/details/129006293)
+- [三段，四段耳机与识别](https://blog.csdn.net/zz_nj/article/details/123095546)
+- [<font color=Red>音频 codec—— 耳机电路</font>](https://winddoing.github.io/post/86a98cff.html)
+
+### pop音
+
+- [关于手机常见音频POP音产生的原因以及解决思路(一)——耳机插入与拔出](https://blog.csdn.net/weixin_43772512/article/details/126790368)
 
 ## alsa
 
@@ -12,19 +23,6 @@
 - [Linux音频驱动-ALSA概述](https://blog.csdn.net/longwang155069/article/details/53260731)
 - [ALSA配置文件(alsa.conf, asoundrc, asound.conf)及其自动加载 And HDMI Adiuo](https://blog.csdn.net/lile777/article/details/62428473)
 - [kernel 4.19音频框架超详细分析(ALSA数据流程、控制流程、驱动层)](https://blog.csdn.net/l316194152/article/details/116854430)
-
-### realtek
-
-- [<font color=Red>ALC885_1-1.pdf</font>](https://github.com/realwujing/realwujing.github.io/blob/main/linux/kernel/sound/ALC885_1-1.pdf)
-- [http://realtek.info/pdf/ALC885_1-1.pdf](http://realtek.info/pdf/ALC885_1-1.pdf)
-
-## vendor id
-
-查看 Linux 系统中声卡的 vendor ID：
-
-```bash
-cat /proc/asound/card*/codec#* | grep "Vendor Id" -B3
-```
 
 ### hda
 
@@ -38,9 +36,52 @@ cat /proc/asound/card*/codec#* | grep "Vendor Id" -B3
 
 #### codec
 
+- [ALSA-hda开发笔记](https://blog.csdn.net/qq_38350702/article/details/111995259)
 - [<font color=Red>Linux音频问题——codec寄存器配置</font>](https://blog.csdn.net/tombaby_come/article/details/129521118)
 - [<font color=Red>HDA codec相关(2) - verbtable相关</font>](https://blog.csdn.net/qq_21186033/article/details/117667075)
-- [http://helllabs.org/codecgraph/](http://helllabs.org/codecgraph/)
+
+##### codecgraph
+
+- [https://github.com/cmatsuoka/codecgraph](https://github.com/cmatsuoka/codecgraph)
+- [https://manpages.debian.org/unstable/codecgraph/codecgraph.1.en.html](https://manpages.debian.org/unstable/codecgraph/codecgraph.1.en.html)
+
+    安装 codecgraph:
+
+    ```bash
+    sudo apt install codecgraph
+    ```
+
+    生成codec#0.svg:
+
+    ```bash
+    codecgraph
+    ```
+
+    codec#0.svg解读：
+
+    ```text
+    节点形状和颜色：
+
+    放大器：三角形
+    音频输入：红色椭圆形
+    音频输出：蓝色椭圆形
+    音频选择器：平行四边形
+    音频混合器：六边形
+    引脚复杂结构：矩形
+    ```
+
+## realtek
+
+- [<font color=Red>ALC885_1-1.pdf</font>](https://github.com/realwujing/realwujing.github.io/blob/main/linux/kernel/sound/ALC885_1-1.pdf)
+- [http://realtek.info/pdf/ALC885_1-1.pdf](http://realtek.info/pdf/ALC885_1-1.pdf)
+
+### 声卡 vendor id
+
+查看 Linux 系统中声卡的 vendor ID：
+
+```bash
+cat /proc/asound/card*/codec#* | grep "Vendor Id" -B3
+```
 
 ### gain、volume
 
