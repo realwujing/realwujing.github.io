@@ -493,6 +493,33 @@
   
   
   <entry>
+    <title>mapping_paths_probe</title>
+    <link href="/linux/kernel/drivers/sound/pulseaudio/mapping_paths_probe/"/>
+    <url>/linux/kernel/drivers/sound/pulseaudio/mapping_paths_probe/</url>
+    
+    <content type="html"><![CDATA[<h1 id="mapping_paths_probe">mapping_paths_probe</h1><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">mapping_paths_probe</span><span class="hljs-params">(pa_alsa_mapping *m, pa_alsa_profile *profile,</span><br><span class="hljs-params">                                <span class="hljs-type">pa_alsa_direction_t</span> direction, pa_hashmap *used_paths)</span> &#123;<br>    pa_alsa_path *p;<br>    <span class="hljs-type">void</span> *state;<br>    <span class="hljs-type">snd_pcm_t</span> *pcm_handle;<br>    pa_alsa_path_set *ps;<br>    <span class="hljs-type">snd_mixer_t</span> *mixer_handle;<br><br>    <span class="hljs-comment">// 根据方向和映射创建相应的路径集合</span><br>    <span class="hljs-keyword">if</span> (direction == PA_ALSA_DIRECTION_OUTPUT) &#123;<br>        <span class="hljs-keyword">if</span> (m-&gt;output_path_set)<br>            <span class="hljs-keyword">return</span>; <span class="hljs-comment">// 如果路径集合已经存在，则直接返回，避免重复探测</span><br>        m-&gt;output_path_set = ps = pa_alsa_path_set_new(m, direction, <span class="hljs-literal">NULL</span>); <span class="hljs-comment">// 创建新的输出路径集合</span><br>        pcm_handle = m-&gt;output_pcm; <span class="hljs-comment">// 获取输出 PCM 句柄</span><br>    &#125; <span class="hljs-keyword">else</span> &#123;<br>        <span class="hljs-keyword">if</span> (m-&gt;input_path_set)<br>            <span class="hljs-keyword">return</span>; <span class="hljs-comment">// 如果路径集合已经存在，则直接返回，避免重复探测</span><br>        m-&gt;input_path_set = ps = pa_alsa_path_set_new(m, direction, <span class="hljs-literal">NULL</span>); <span class="hljs-comment">// 创建新的输入路径集合</span><br>        pcm_handle = m-&gt;input_pcm; <span class="hljs-comment">// 获取输入 PCM 句柄</span><br>    &#125;<br><br>    <span class="hljs-comment">// 如果路径集合为空，则直接返回</span><br>    <span class="hljs-keyword">if</span> (!ps)<br>        <span class="hljs-keyword">return</span>;<br><br>    pa_assert(pcm_handle);<br><br>    <span class="hljs-comment">// 打开 PCM 句柄关联的混音器</span><br>    mixer_handle = pa_alsa_open_mixer_for_pcm(pcm_handle, <span class="hljs-literal">NULL</span>);<br>    <span class="hljs-keyword">if</span> (!mixer_handle) &#123;<br>        <span class="hljs-comment">// 无法打开混音器，移除路径集合中的所有路径</span><br>        pa_hashmap_remove_all(ps-&gt;paths);<br>        <span class="hljs-keyword">return</span>;<br>    &#125;<br><br>    <span class="hljs-comment">// 遍历路径集合中的每个路径，进行路径属性的探测和设置</span><br>    PA_HASHMAP_FOREACH(p, ps-&gt;paths, state) &#123;<br>        <span class="hljs-keyword">if</span> (p-&gt;autodetect_eld_device)<br>            p-&gt;eld_device = m-&gt;hw_device_index;<br><br>        <span class="hljs-comment">// 探测和设置路径属性，如果失败，则从路径集合中移除路径</span><br>        <span class="hljs-keyword">if</span> (pa_alsa_path_probe(p, m, mixer_handle, m-&gt;profile_set-&gt;ignore_dB) &lt; <span class="hljs-number">0</span>)<br>            pa_hashmap_remove(ps-&gt;paths, p);<br>    &#125;<br><br>    <span class="hljs-comment">// 对路径集合进行整理和优化</span><br>    path_set_condense(ps, mixer_handle);<br>    path_set_make_path_descriptions_unique(ps);<br><br>    <span class="hljs-comment">// 如果混音器句柄存在，则关闭混音器</span><br>    <span class="hljs-keyword">if</span> (mixer_handle)<br>        snd_mixer_close(mixer_handle);<br><br>    <span class="hljs-comment">// 将经过探测和设置属性的路径放入用于后续使用的哈希映射中</span><br>    PA_HASHMAP_FOREACH(p, ps-&gt;paths, state)<br>        pa_hashmap_put(used_paths, p, p);<br><br>    <span class="hljs-comment">// 输出调试信息，显示整理后的可用混音路径</span><br>    pa_log_debug(<span class="hljs-string">&quot;Available mixer paths (after tidying):&quot;</span>);<br>    pa_alsa_path_set_dump(ps);<br>&#125;<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>drivers</category>
+      
+      <category>sound</category>
+      
+      <category>pulseaudio</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>pmdk_dp</title>
     <link href="/linux/kernel/drivers/sound/phytium/pmdk_dp/"/>
     <url>/linux/kernel/drivers/sound/phytium/pmdk_dp/</url>
@@ -531,33 +558,6 @@
     <url>/linux/kernel/drivers/sound/pulseaudio/pa_alsa_path_probe/</url>
     
     <content type="html"><![CDATA[<h1 id="pa_alsa_path_probe">pa_alsa_path_probe</h1><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">pa_alsa_path_probe</span><span class="hljs-params">(pa_alsa_path *p, pa_alsa_mapping *mapping, <span class="hljs-type">snd_mixer_t</span> *m, <span class="hljs-type">bool</span> ignore_dB)</span> &#123;<br>    pa_alsa_element *e;<br>    pa_alsa_jack *j;<br>    <span class="hljs-type">double</span> min_dB[PA_CHANNEL_POSITION_MAX], max_dB[PA_CHANNEL_POSITION_MAX];<br>    <span class="hljs-type">pa_channel_position_t</span> t;<br>    <span class="hljs-type">pa_channel_position_mask_t</span> path_volume_channels = <span class="hljs-number">0</span>;<br><br>    pa_assert(p);<br>    pa_assert(m);<br><br>    <span class="hljs-comment">// 如果路径已经被探测过，返回其是否受支持的状态</span><br>    <span class="hljs-keyword">if</span> (p-&gt;probed)<br>        <span class="hljs-keyword">return</span> p-&gt;supported ? <span class="hljs-number">0</span> : <span class="hljs-number">-1</span>;<br>    p-&gt;probed = <span class="hljs-literal">true</span>;<br><br>    <span class="hljs-comment">// 初始化 min_dB 和 max_dB 数组</span><br>    pa_zero(min_dB);<br>    pa_zero(max_dB);<br><br>    <span class="hljs-comment">// 输出调试信息，表示正在探测此路径</span><br>    pa_log_debug(<span class="hljs-string">&quot;Probing path &#x27;%s&#x27;&quot;</span>, p-&gt;name);<br><br>    <span class="hljs-comment">// 遍历路径中的所有插孔，进行探测</span><br>    PA_LLIST_FOREACH(j, p-&gt;jacks) &#123;<br>        <span class="hljs-comment">// 调用 jack_probe 函数对插孔进行探测</span><br>        <span class="hljs-keyword">if</span> (jack_probe(j, mapping, m) &lt; <span class="hljs-number">0</span>) &#123;<br>            <span class="hljs-comment">// 插孔探测失败，标记路径不受支持，并返回错误</span><br>            p-&gt;supported = <span class="hljs-literal">false</span>;<br>            pa_log_debug(<span class="hljs-string">&quot;Probe of jack &#x27;%s&#x27; failed.&quot;</span>, j-&gt;alsa_name);<br>            <span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>        &#125;<br>        <span class="hljs-comment">// 输出调试信息，表示插孔探测成功</span><br>        pa_log_debug(<span class="hljs-string">&quot;Probe of jack &#x27;%s&#x27; succeeded (%s)&quot;</span>, j-&gt;alsa_name, j-&gt;has_control ? <span class="hljs-string">&quot;found!&quot;</span> : <span class="hljs-string">&quot;not found&quot;</span>);<br>    &#125;<br><br>    <span class="hljs-comment">// 遍历路径中的所有元素，进行探测</span><br>    PA_LLIST_FOREACH(e, p-&gt;elements) &#123;<br>        <span class="hljs-comment">// 调用 element_probe 函数对元素进行探测</span><br>        <span class="hljs-keyword">if</span> (element_probe(e, m) &lt; <span class="hljs-number">0</span>) &#123;<br>            <span class="hljs-comment">// 元素探测失败，标记路径不受支持，并返回错误</span><br>            p-&gt;supported = <span class="hljs-literal">false</span>;<br>            pa_log_debug(<span class="hljs-string">&quot;Probe of element &#x27;%s&#x27; failed.&quot;</span>, e-&gt;alsa_name);<br>            <span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>        &#125;<br>        <span class="hljs-comment">// 输出调试信息，表示元素探测成功，并显示其音量、开关和枚举使用情况</span><br>        pa_log_debug(<span class="hljs-string">&quot;Probe of element &#x27;%s&#x27; succeeded (volume=%d, switch=%d, enumeration=%d).&quot;</span>, e-&gt;alsa_name, e-&gt;volume_use, e-&gt;switch_use, e-&gt;enumeration_use);<br><br>        <span class="hljs-comment">// 如果忽略 dB 信息，将 has_dB 设置为 false</span><br>        <span class="hljs-keyword">if</span> (ignore_dB)<br>            e-&gt;has_dB = <span class="hljs-literal">false</span>;<br><br>        <span class="hljs-keyword">if</span> (e-&gt;volume_use == PA_ALSA_VOLUME_MERGE) &#123;<br>            <span class="hljs-comment">// 处理合并音量的情况</span><br><br>            <span class="hljs-comment">// 如果路径中尚无音量信息，初始化 min_volume 和 max_volume</span><br>            <span class="hljs-keyword">if</span> (!p-&gt;has_volume) &#123;<br>                p-&gt;min_volume = e-&gt;min_volume;<br>                p-&gt;max_volume = e-&gt;max_volume;<br>            &#125;<br><br>            <span class="hljs-keyword">if</span> (e-&gt;has_dB) &#123;<br>                <span class="hljs-comment">// 如果元素有 dB 信息，处理 dB 音量</span><br><br>                <span class="hljs-comment">// 如果路径中尚无音量信息，初始化 min_dB 和 max_dB，并记录音量通道位置</span><br>                <span class="hljs-keyword">if</span> (!p-&gt;has_volume) &#123;<br>                    <span class="hljs-keyword">for</span> (t = <span class="hljs-number">0</span>; t &lt; PA_CHANNEL_POSITION_MAX; t++)<br>                        <span class="hljs-keyword">if</span> (PA_CHANNEL_POSITION_MASK(t) &amp; e-&gt;merged_mask) &#123;<br>                            min_dB[t] = e-&gt;min_dB;<br>                            max_dB[t] = e-&gt;max_dB;<br>                            path_volume_channels |= PA_CHANNEL_POSITION_MASK(t);<br>                        &#125;<br><br>                    p-&gt;has_dB = <span class="hljs-literal">true</span>;<br>                &#125; <span class="hljs-keyword">else</span> &#123;<br>                    <span class="hljs-comment">// 如果路径中已经存在音量信息，更新 min_dB 和 max_dB，以及音量通道位置</span><br>                    <span class="hljs-keyword">if</span> (p-&gt;has_dB) &#123;<br>                        <span class="hljs-keyword">for</span> (t = <span class="hljs-number">0</span>; t &lt; PA_CHANNEL_POSITION_MAX; t++)<br>                            <span class="hljs-keyword">if</span> (PA_CHANNEL_POSITION_MASK(t) &amp; e-&gt;merged_mask) &#123;<br>                                min_dB[t] += e-&gt;min_dB;<br>                                max_dB[t] += e-&gt;max_dB;<br>                                path_volume_channels |= PA_CHANNEL_POSITION_MASK(t);<br>                            &#125;<br>                    &#125; <span class="hljs-keyword">else</span> &#123;<br>                        <span class="hljs-comment">/* 哎呀，我们前面有另一个元素无法使用 dB 音量，所以我们需要 &quot;中和&quot; 这个滑块 */</span><br>                        e-&gt;volume_use = PA_ALSA_VOLUME_ZERO;<br>                        pa_log_info(<span class="hljs-string">&quot;Zeroing volume of &#x27;%s&#x27; on path &#x27;%s&#x27;&quot;</span>, e-&gt;alsa_name, p-&gt;name);<br>                    &#125;<br>                &#125;<br>            &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (p-&gt;has_volume) &#123;<br>                <span class="hljs-comment">/* 我们无法使用这个音量，所以我们将其忽略 */</span><br>                e-&gt;volume_use = PA_ALSA_VOLUME_IGNORE;<br>                pa_log_info(<span class="hljs-string">&quot;Ignoring volume of &#x27;%s&#x27; on path &#x27;%s&#x27; (missing dB info)&quot;</span>, e-&gt;alsa_name, p-&gt;name);<br>            &#125;<br>            p-&gt;has_volume = <span class="hljs-literal">true</span>;<br>        &#125;<br><br>        <span class="hljs-keyword">if</span> (e-&gt;switch_use == PA_ALSA_SWITCH_MUTE)<br>            p-&gt;has_mute = <span class="hljs-literal">true</span>;<br>    &#125;<br><br>    <span class="hljs-comment">// 如果路径需要任何元素，但没有预置的元素，则标记路径不受支持</span><br>    <span class="hljs-keyword">if</span> (p-&gt;has_req_any &amp;&amp; !p-&gt;req_any_present) &#123;<br>        p-&gt;supported = <span class="hljs-literal">false</span>;<br>        pa_log_debug(<span class="hljs-string">&quot;Skipping path &#x27;%s&#x27;, none of required-any elements preset.&quot;</span>, p-&gt;name);<br>        <span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>    &#125;<br><br>    <span class="hljs-comment">// 丢弃不受支持的元素</span><br>    path_drop_unsupported(p);<br>    <span class="hljs-comment">// 确保路径选项唯一</span><br>    path_make_options_unique(p);<br>    <span class="hljs-comment">// 为路径创建设置项</span><br><br>    <span class="hljs-comment">// 标记路径受支持</span><br>    p-&gt;supported = <span class="hljs-literal">true</span>;<br><br>    <span class="hljs-comment">// 初始化路径的最小和最大 dB 值</span><br>    p-&gt;min_dB = INFINITY;<br>    p-&gt;max_dB = -INFINITY;<br><br>    <span class="hljs-comment">// 计算路径的最小和最大 dB 值</span><br>    <span class="hljs-keyword">for</span> (t = <span class="hljs-number">0</span>; t &lt; PA_CHANNEL_POSITION_MAX; t++) &#123;<br>        <span class="hljs-keyword">if</span> (path_volume_channels &amp; PA_CHANNEL_POSITION_MASK(t)) &#123;<br>            <span class="hljs-keyword">if</span> (p-&gt;min_dB &gt; min_dB[t])<br>                p-&gt;min_dB = min_dB[t];<br><br>            <span class="hljs-keyword">if</span> (p-&gt;max_dB &lt; max_dB[t])<br>                p-&gt;max_dB = max_dB[t];<br>        &#125;<br>    &#125;<br><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>drivers</category>
-      
-      <category>sound</category>
-      
-      <category>pulseaudio</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>mapping_paths_probe</title>
-    <link href="/linux/kernel/drivers/sound/pulseaudio/mapping_paths_probe/"/>
-    <url>/linux/kernel/drivers/sound/pulseaudio/mapping_paths_probe/</url>
-    
-    <content type="html"><![CDATA[<h1 id="mapping_paths_probe">mapping_paths_probe</h1><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">mapping_paths_probe</span><span class="hljs-params">(pa_alsa_mapping *m, pa_alsa_profile *profile,</span><br><span class="hljs-params">                                <span class="hljs-type">pa_alsa_direction_t</span> direction, pa_hashmap *used_paths)</span> &#123;<br>    pa_alsa_path *p;<br>    <span class="hljs-type">void</span> *state;<br>    <span class="hljs-type">snd_pcm_t</span> *pcm_handle;<br>    pa_alsa_path_set *ps;<br>    <span class="hljs-type">snd_mixer_t</span> *mixer_handle;<br><br>    <span class="hljs-comment">// 根据方向和映射创建相应的路径集合</span><br>    <span class="hljs-keyword">if</span> (direction == PA_ALSA_DIRECTION_OUTPUT) &#123;<br>        <span class="hljs-keyword">if</span> (m-&gt;output_path_set)<br>            <span class="hljs-keyword">return</span>; <span class="hljs-comment">// 如果路径集合已经存在，则直接返回，避免重复探测</span><br>        m-&gt;output_path_set = ps = pa_alsa_path_set_new(m, direction, <span class="hljs-literal">NULL</span>); <span class="hljs-comment">// 创建新的输出路径集合</span><br>        pcm_handle = m-&gt;output_pcm; <span class="hljs-comment">// 获取输出 PCM 句柄</span><br>    &#125; <span class="hljs-keyword">else</span> &#123;<br>        <span class="hljs-keyword">if</span> (m-&gt;input_path_set)<br>            <span class="hljs-keyword">return</span>; <span class="hljs-comment">// 如果路径集合已经存在，则直接返回，避免重复探测</span><br>        m-&gt;input_path_set = ps = pa_alsa_path_set_new(m, direction, <span class="hljs-literal">NULL</span>); <span class="hljs-comment">// 创建新的输入路径集合</span><br>        pcm_handle = m-&gt;input_pcm; <span class="hljs-comment">// 获取输入 PCM 句柄</span><br>    &#125;<br><br>    <span class="hljs-comment">// 如果路径集合为空，则直接返回</span><br>    <span class="hljs-keyword">if</span> (!ps)<br>        <span class="hljs-keyword">return</span>;<br><br>    pa_assert(pcm_handle);<br><br>    <span class="hljs-comment">// 打开 PCM 句柄关联的混音器</span><br>    mixer_handle = pa_alsa_open_mixer_for_pcm(pcm_handle, <span class="hljs-literal">NULL</span>);<br>    <span class="hljs-keyword">if</span> (!mixer_handle) &#123;<br>        <span class="hljs-comment">// 无法打开混音器，移除路径集合中的所有路径</span><br>        pa_hashmap_remove_all(ps-&gt;paths);<br>        <span class="hljs-keyword">return</span>;<br>    &#125;<br><br>    <span class="hljs-comment">// 遍历路径集合中的每个路径，进行路径属性的探测和设置</span><br>    PA_HASHMAP_FOREACH(p, ps-&gt;paths, state) &#123;<br>        <span class="hljs-keyword">if</span> (p-&gt;autodetect_eld_device)<br>            p-&gt;eld_device = m-&gt;hw_device_index;<br><br>        <span class="hljs-comment">// 探测和设置路径属性，如果失败，则从路径集合中移除路径</span><br>        <span class="hljs-keyword">if</span> (pa_alsa_path_probe(p, m, mixer_handle, m-&gt;profile_set-&gt;ignore_dB) &lt; <span class="hljs-number">0</span>)<br>            pa_hashmap_remove(ps-&gt;paths, p);<br>    &#125;<br><br>    <span class="hljs-comment">// 对路径集合进行整理和优化</span><br>    path_set_condense(ps, mixer_handle);<br>    path_set_make_path_descriptions_unique(ps);<br><br>    <span class="hljs-comment">// 如果混音器句柄存在，则关闭混音器</span><br>    <span class="hljs-keyword">if</span> (mixer_handle)<br>        snd_mixer_close(mixer_handle);<br><br>    <span class="hljs-comment">// 将经过探测和设置属性的路径放入用于后续使用的哈希映射中</span><br>    PA_HASHMAP_FOREACH(p, ps-&gt;paths, state)<br>        pa_hashmap_put(used_paths, p, p);<br><br>    <span class="hljs-comment">// 输出调试信息，显示整理后的可用混音路径</span><br>    pa_log_debug(<span class="hljs-string">&quot;Available mixer paths (after tidying):&quot;</span>);<br>    pa_alsa_path_set_dump(ps);<br>&#125;<br></code></pre></td></tr></table></figure>]]></content>
     
     
     <categories>
@@ -854,7 +854,7 @@
     <link href="/linux/kernel/drivers/gpu/gui/"/>
     <url>/linux/kernel/drivers/gpu/gui/</url>
     
-    <content type="html"><![CDATA[<h1 id="gui">GUI</h1><ul><li><a href="https://zhuanlan.zhihu.com/p/414403029">深夜磨刀，Linux Graphics Stack 概述 | Linux 驱动</a></li><li><a href="https://blog.csdn.net/Liuqz2009/article/details/134988734">深度探索Linux操作系统 —— Linux图形原理探讨</a></li></ul><h2 id="桌面环境">桌面环境</h2><ul><li><a href="https://wiki.archlinux.org/title/Desktop_environment_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)"><font color=Red>Desktop environment (简体中文)</font></a></li><li><a href="https://blog.csdn.net/chantal20080409/article/details/82986283">【转】四大Linux图形界面赏析：KDE、Gnome、Xfce、LXDE</a></li><li><a href="https://blog.csdn.net/iteye_4195/article/details/82522264"><font color=Red>GTK、KDE、Gnome、XWindows图形界面</font></a></li><li><a href="http://c.biancheng.net/view/2912.html">Linux桌面环境（桌面系统）大比拼[附带优缺点]</a></li></ul><h3 id="gnome-桌面">GNOME 桌面</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install task-gnome-desktop<br></code></pre></td></tr></table></figure><ul><li><a href="https://wiki.debian.org/zh_CN/Gnome">https://wiki.debian.org/zh_CN/Gnome</a></li></ul><h3 id="显示管理器">显示管理器</h3><ul><li><p><a href="http://www.javashuo.com/article/p-yftqzthz-cp.html"><font color=Red>Linux图形界面：X,X11,XFREE,WM,KDE,GNOME的关系</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/272740410"><font color=Red>Linux 知识分享：显示管理器和桌面环境容易混淆？分分钟带你脱离认识误区</font></a></p></li><li><p><a href="https://www.toutiao.com/article/7174576146997625352"><font color=Red>「小白课程」openKylin登录&amp;锁屏简要介绍</font></a></p></li></ul><h3 id="显示服务器">显示服务器</h3><ul><li><a href="https://www.toutiao.com/article/6869367787744133636/">Linux黑话解释：什么是显示服务器，用来做什么？</a></li><li><a href="https://blog.csdn.net/sunxiaopengsun/article/details/119895985">X11和Wayland的区别，一点感悟</a></li></ul><h4 id="x11">x11</h4><ul><li><a href="https://blog.csdn.net/u014305876/article/details/89475789"><font color=Red>linux图形窗口这家子(xwindows x11 xserver xclient窗口管理器 xdm xwm kde QT GTK+)</font></a></li><li><a href="https://www.cnblogs.com/newjiang/p/8414625.html">Linux图像系统框架-理解X11与Qt的层次结构</a></li><li><a href="https://www.cnblogs.com/yongpenghan/p/4555634.html">[GUI] QT事件与X11的关系</a></li><li><a href="https://www.cnblogs.com/winafa/p/14206600.html">Qt主线程卡死，竟然与X11的_XReply()有关</a></li><li><a href="https://blog.csdn.net/moyu123456789/article/details/90483108">Xsession :warning:unable to write to /tmp; X session may exit with an error问题解决</a></li><li><a href="https://www.cnblogs.com/yutian-blogs/p/13549657.html">Ubuntu系统开机后类似死机（鼠标键盘失效 但系统时间仍在正常更新）解决办法</a></li></ul><h5 id="窗口管理器">窗口管理器</h5><ul><li><a href="https://wiki.archlinux.org/title/Window_manager_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)"><font color=Red>Window manager (简体中文)</font></a></li><li><a href="https://my.oschina.net/aspirs/blog/607710">linux（ubuntu）系统什么叫：桌面管理器，窗口管理器？</a></li><li><a href="https://geek-docs.com/linux/linux-ask-answer/difference-between-desktop-environment-vs-window-manager-in-linux.html">Linux中桌面环境和窗口管理器的区别</a></li></ul><h4 id="wayland">wayland</h4><ul><li><a href="https://blog.csdn.net/weixin_36156325/article/details/116895549">linux wayland qt,详解Qt Lighthouse和Wayland</a></li><li><a href="https://blog.csdn.net/yogoloth/article/details/105683815">通过docker使用wayland和x11的gui程序</a></li><li><a href="https://blog.csdn.net/qq_26056015/article/details/122406051">Wayland开发入门系列4：xserver</a></li><li><a href="https://blog.csdn.net/qq_26056015/category_11559440.html"><font color=Red>Wayland开发入门</font></a></li><li><a href="https://www.baike.com/wikiid/3479851875664899506">Wayland是一个简单的“显示服务器”（Display Server）</a></li><li><a href="https://blog.csdn.net/M120674/article/details/123534336">Linux图形栈一览：基于DRM和Wayland</a></li></ul><h2 id="gpu">gpu</h2><ul><li><p><a href="https://blog.csdn.net/tugouxp/article/details/126594480">GPGPU&amp;&amp;渲染GPU的工作原理和认知总结</a></p></li><li><p><a href="https://www.toutiao.com/article/6973922609868063264">Linux显卡驱动，DRM显示框架简单介绍</a></p></li><li><p><a href="https://www.toutiao.com/article/6982072379140784670">Linux显卡驱动，DRM Atomic接口简说</a></p></li><li><p><a href="https://www.toutiao.com/article/6989969291902763558">Linux显卡驱动，TTM内存管理介绍</a></p></li><li><p><a href="https://blog.csdn.net/xuelin273/article/details/131297186">drm gpu scheduler</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/_oe409y93Qm5l3j3o_-P8Q">GPU 调度 - Linux 实现</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/IHardB0dyky8fhgQkU55pw">【干货】一文看懂GPU流处理器</a></p></li></ul><h3 id="admgpu">admgpu</h3><p>在 AMD GPU 驱动中，gfx（Graphics Core Next） Ring Buffer 和 uvd（Unified Video Decoder） Ring Buffer 分别用于图形和视频解码任务，是 GPU 调度器中的两个不同的环形缓冲区。以下是它们之间的主要区别：</p><p>gfx Ring Buffer（图形环形缓冲区）:</p><ul><li>用途： 用于处理图形渲染和计算任务。</li><li>任务类型： 包括图形渲染管道中的图形指令和通用计算任务。</li><li>关联的任务： 与图形 API（如 OpenGL、Vulkan）相关联，用于执行图形任务。</li></ul><p>uvd Ring Buffer（视频解码环形缓冲区）:</p><ul><li>用途： 用于处理硬件视频解码任务。</li><li>任务类型： 专注于解码视频流，支持 Unified Video Decoder（UVD）功能。</li><li>关联的任务： 与视频解码 API 相关，例如在视频播放中执行解码任务。</li></ul><p>总的来说，这两个环形缓冲区服务于不同类型的 GPU 任务。gfx Ring Buffer 处理与图形渲染和通用计算相关的任务，而 uvd Ring Buffer 专门处理硬件视频解码任务。它们在 GPU 调度器中的调度和执行上有所区别，以满足图形和视频处理的不同需求。</p><ul><li><p><a href="https://blog.csdn.net/huang987246510/article/details/106658889"><font color=Red>AMD GPU任务调度（1）—— 用户态分析</font></a></p></li><li><p><a href="https://blog.csdn.net/huang987246510/article/details/106737570"><font color=Red>AMD GPU任务调度（2）—— 内核态分析</font></a></p></li><li><p><a href="https://blog.csdn.net/huang987246510/article/details/106865386">AMD GPU任务调度（3） —— fence机制</a></p></li><li><p><a href="https://blog.csdn.net/tugouxp/article/details/132819114"><font color=Red>AMD GPU 内核驱动分析(一)总览</font></a></p></li><li><p><a href="https://blog.csdn.net/tugouxp/article/details/132953439">AMD GPU 内核驱动分析(二)-video-ring的调度</a></p></li><li><p><a href="https://blog.csdn.net/tugouxp/article/details/133519133">AMD GPU 内核驱动分析(三)-gpu scheduler ring fence同步工作模型</a></p></li></ul><h4 id="virtio">virtio</h4><ul><li><a href="https://blog.csdn.net/huang987246510/article/details/106179145">VFIO硬件依赖——IOMMU机制</a></li><li><a href="https://blog.csdn.net/huang987246510/article/details/106254294">VirtIO-GPU —— 2D加速原理分析</a></li><li><a href="https://blog.csdn.net/huang987246510/article/details/106245900">VirtIO-GPU环境搭建与应用</a></li><li><a href="https://blog.csdn.net/huang987246510/article/details/106322012">Hello OpenGL</a></li><li><a href="https://blog.csdn.net/huang987246510/article/details/107729881">VirtIO GPU基本原理</a></li><li><a href="https://blog.csdn.net/huang987246510/article/details/107283374">DRAW_INDEX与图形流水线</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="gui">GUI</h1><ul><li><a href="https://zhuanlan.zhihu.com/p/414403029">深夜磨刀，Linux Graphics Stack 概述 | Linux 驱动</a></li><li><a href="https://blog.csdn.net/Liuqz2009/article/details/134988734">深度探索Linux操作系统 —— Linux图形原理探讨</a></li></ul><h2 id="桌面环境">桌面环境</h2><ul><li><a href="https://wiki.archlinux.org/title/Desktop_environment_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)"><font color=Red>Desktop environment (简体中文)</font></a></li><li><a href="https://blog.csdn.net/chantal20080409/article/details/82986283">【转】四大Linux图形界面赏析：KDE、Gnome、Xfce、LXDE</a></li><li><a href="https://blog.csdn.net/iteye_4195/article/details/82522264"><font color=Red>GTK、KDE、Gnome、XWindows图形界面</font></a></li><li><a href="http://c.biancheng.net/view/2912.html">Linux桌面环境（桌面系统）大比拼[附带优缺点]</a></li></ul><h3 id="gnome-桌面">GNOME 桌面</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install task-gnome-desktop<br></code></pre></td></tr></table></figure><ul><li><a href="https://wiki.debian.org/zh_CN/Gnome">https://wiki.debian.org/zh_CN/Gnome</a></li></ul><h3 id="显示管理器">显示管理器</h3><ul><li><p><a href="http://www.javashuo.com/article/p-yftqzthz-cp.html"><font color=Red>Linux图形界面：X,X11,XFREE,WM,KDE,GNOME的关系</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/272740410"><font color=Red>Linux 知识分享：显示管理器和桌面环境容易混淆？分分钟带你脱离认识误区</font></a></p></li><li><p><a href="https://www.toutiao.com/article/7174576146997625352"><font color=Red>「小白课程」openKylin登录&amp;锁屏简要介绍</font></a></p></li></ul><h3 id="显示服务器">显示服务器</h3><ul><li><a href="https://www.toutiao.com/article/6869367787744133636/">Linux黑话解释：什么是显示服务器，用来做什么？</a></li><li><a href="https://blog.csdn.net/sunxiaopengsun/article/details/119895985">X11和Wayland的区别，一点感悟</a></li></ul><h4 id="x11">x11</h4><ul><li><a href="https://blog.csdn.net/u014305876/article/details/89475789"><font color=Red>linux图形窗口这家子(xwindows x11 xserver xclient窗口管理器 xdm xwm kde QT GTK+)</font></a></li><li><a href="https://www.cnblogs.com/newjiang/p/8414625.html">Linux图像系统框架-理解X11与Qt的层次结构</a></li><li><a href="https://www.cnblogs.com/yongpenghan/p/4555634.html">[GUI] QT事件与X11的关系</a></li><li><a href="https://www.cnblogs.com/winafa/p/14206600.html">Qt主线程卡死，竟然与X11的_XReply()有关</a></li><li><a href="https://blog.csdn.net/moyu123456789/article/details/90483108">Xsession :warning:unable to write to /tmp; X session may exit with an error问题解决</a></li><li><a href="https://www.cnblogs.com/yutian-blogs/p/13549657.html">Ubuntu系统开机后类似死机（鼠标键盘失效 但系统时间仍在正常更新）解决办法</a></li></ul><h5 id="窗口管理器">窗口管理器</h5><ul><li><a href="https://wiki.archlinux.org/title/Window_manager_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)"><font color=Red>Window manager (简体中文)</font></a></li><li><a href="https://my.oschina.net/aspirs/blog/607710">linux（ubuntu）系统什么叫：桌面管理器，窗口管理器？</a></li><li><a href="https://geek-docs.com/linux/linux-ask-answer/difference-between-desktop-environment-vs-window-manager-in-linux.html">Linux中桌面环境和窗口管理器的区别</a></li></ul><h4 id="wayland">wayland</h4><ul><li><a href="https://blog.csdn.net/weixin_36156325/article/details/116895549">linux wayland qt,详解Qt Lighthouse和Wayland</a></li><li><a href="https://blog.csdn.net/yogoloth/article/details/105683815">通过docker使用wayland和x11的gui程序</a></li><li><a href="https://blog.csdn.net/qq_26056015/article/details/122406051">Wayland开发入门系列4：xserver</a></li><li><a href="https://blog.csdn.net/qq_26056015/category_11559440.html"><font color=Red>Wayland开发入门</font></a></li><li><a href="https://www.baike.com/wikiid/3479851875664899506">Wayland是一个简单的“显示服务器”（Display Server）</a></li><li><a href="https://blog.csdn.net/M120674/article/details/123534336">Linux图形栈一览：基于DRM和Wayland</a></li></ul><h2 id="gpu">gpu</h2><ul><li><p><a href="https://blog.csdn.net/tugouxp/article/details/126594480">GPGPU&amp;&amp;渲染GPU的工作原理和认知总结</a></p></li><li><p><a href="https://www.toutiao.com/article/6973922609868063264">Linux显卡驱动，DRM显示框架简单介绍</a></p></li><li><p><a href="https://www.toutiao.com/article/6982072379140784670">Linux显卡驱动，DRM Atomic接口简说</a></p></li><li><p><a href="https://www.toutiao.com/article/6989969291902763558">Linux显卡驱动，TTM内存管理介绍</a></p></li><li><p><a href="https://blog.csdn.net/xuelin273/article/details/131297186">drm gpu scheduler</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/_oe409y93Qm5l3j3o_-P8Q">GPU 调度 - Linux 实现</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/IHardB0dyky8fhgQkU55pw">【干货】一文看懂GPU流处理器</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/bNGBoeKnvcEB7prpDeAXeQ">【干货】三张图看懂主流GPU性能</a></p></li></ul><h3 id="admgpu">admgpu</h3><p>在 AMD GPU 驱动中，gfx（Graphics Core Next） Ring Buffer 和 uvd（Unified Video Decoder） Ring Buffer 分别用于图形和视频解码任务，是 GPU 调度器中的两个不同的环形缓冲区。以下是它们之间的主要区别：</p><p>gfx Ring Buffer（图形环形缓冲区）:</p><ul><li>用途： 用于处理图形渲染和计算任务。</li><li>任务类型： 包括图形渲染管道中的图形指令和通用计算任务。</li><li>关联的任务： 与图形 API（如 OpenGL、Vulkan）相关联，用于执行图形任务。</li></ul><p>uvd Ring Buffer（视频解码环形缓冲区）:</p><ul><li>用途： 用于处理硬件视频解码任务。</li><li>任务类型： 专注于解码视频流，支持 Unified Video Decoder（UVD）功能。</li><li>关联的任务： 与视频解码 API 相关，例如在视频播放中执行解码任务。</li></ul><p>总的来说，这两个环形缓冲区服务于不同类型的 GPU 任务。gfx Ring Buffer 处理与图形渲染和通用计算相关的任务，而 uvd Ring Buffer 专门处理硬件视频解码任务。它们在 GPU 调度器中的调度和执行上有所区别，以满足图形和视频处理的不同需求。</p><ul><li><p><a href="https://blog.csdn.net/huang987246510/article/details/106658889"><font color=Red>AMD GPU任务调度（1）—— 用户态分析</font></a></p></li><li><p><a href="https://blog.csdn.net/huang987246510/article/details/106737570"><font color=Red>AMD GPU任务调度（2）—— 内核态分析</font></a></p></li><li><p><a href="https://blog.csdn.net/huang987246510/article/details/106865386">AMD GPU任务调度（3） —— fence机制</a></p></li><li><p><a href="https://blog.csdn.net/tugouxp/article/details/132819114"><font color=Red>AMD GPU 内核驱动分析(一)总览</font></a></p></li><li><p><a href="https://blog.csdn.net/tugouxp/article/details/132953439">AMD GPU 内核驱动分析(二)-video-ring的调度</a></p></li><li><p><a href="https://blog.csdn.net/tugouxp/article/details/133519133">AMD GPU 内核驱动分析(三)-gpu scheduler ring fence同步工作模型</a></p></li></ul><h4 id="virtio">virtio</h4><ul><li><a href="https://blog.csdn.net/huang987246510/article/details/106179145">VFIO硬件依赖——IOMMU机制</a></li><li><a href="https://blog.csdn.net/huang987246510/article/details/106254294">VirtIO-GPU —— 2D加速原理分析</a></li><li><a href="https://blog.csdn.net/huang987246510/article/details/106245900">VirtIO-GPU环境搭建与应用</a></li><li><a href="https://blog.csdn.net/huang987246510/article/details/106322012">Hello OpenGL</a></li><li><a href="https://blog.csdn.net/huang987246510/article/details/107729881">VirtIO GPU基本原理</a></li><li><a href="https://blog.csdn.net/huang987246510/article/details/107283374">DRAW_INDEX与图形流水线</a></li></ul>]]></content>
     
     
     <categories>
@@ -1033,6 +1033,45 @@
   
   
   <entry>
+    <title>amd64下基于qemu用户网络、debootstrap调试amd64内核、根文件系统</title>
+    <link href="/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E7%94%A8%E6%88%B7%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/"/>
+    <url>/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E7%94%A8%E6%88%B7%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/</url>
+    
+    <content type="html"><![CDATA[<h1 id="amd64下基于qemu用户网络debootstrap调试amd64内核根文件系统">amd64下基于qemu用户网络、debootstrap调试amd64内核、根文件系统</h1><h2 id="编译调试版linux内核">1. 编译调试版linux内核</h2><h3 id="下载源码">下载源码</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/torvalds/linux.git<br></code></pre></td></tr></table></figure><h3 id="安装编译依赖">安装编译依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install build-essential libncurses-dev bison flex libssl-dev libelf-dev<br></code></pre></td></tr></table></figure><h3 id="内核编译选项配置">内核编译选项配置</h3><p>进入源码目录，配置编译选项：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br>git checkout -b v5.10-rc7 v5.10-rc7<br>make menuconfig<br></code></pre></td></tr></table></figure><p>比较重要的配置项有：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Kernel hacking  ---&gt;<br>    [*] Kernel debugging<br>    Compile-time checks and compiler options  ---&gt;<br>        [*] Compile the kernel with debug info<br>        [*]   Provide GDB scripts for kernel debugging<br></code></pre></td></tr></table></figure><p>一定要打开。 还有下面的选项会导致打断点失败，一定要关闭：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">Processor type and features ----&gt;<br>    [] Randomize the address of the kernel image (KASLR)<br></code></pre></td></tr></table></figure><p>保存并退出 menuconfig，开始编译之旅：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make -j`<span class="hljs-built_in">expr</span> $(<span class="hljs-built_in">nproc</span>) / 2`<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/eydwyz/article/details/114019532">使用 VSCode + qemu 搭建 Linux 内核调试环境</a></li></ul><h2 id="debootstrap制作根文件系统">2. debootstrap制作根文件系统</h2><h3 id="安装依赖">安装依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install qemu qemu-user-static binfmt-support debootstrap debian-archive-keyring<br></code></pre></td></tr></table></figure><h3 id="制作文件系统">制作文件系统</h3><p>使用也十分简单，命令格式为：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --<span class="hljs-built_in">arch</span> [平台] [发行版本代号] [构建目录] [镜像地址]<br></code></pre></td></tr></table></figure><p>以在Deepin 20.7 amd64上构建ubuntu18(bionic) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --<span class="hljs-built_in">arch</span>=amd64 --include=ifupdown bionic linux-rootfs http://mirrors.aliyun.com/ubuntu/<br></code></pre></td></tr></table></figure><p>arm64下交叉编译构建amd64需要执行下方命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> -a /usr/bin/qemu-x86_64-static linux-rootfs/usr/bin/qemu-x86_64-static<br></code></pre></td></tr></table></figure><h3 id="进入文件系统">进入文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://raw.githubusercontent.com/ywhs/linux-software/master/ch-mount.sh<br><span class="hljs-built_in">chmod</span> 777 ch-mount.sh<br><span class="hljs-comment"># 执行脚本后，没有报错会进入文件系统，交叉编译时显示 I have no name ，这是因为还没有初始化。</span><br>./ch-mount.sh -m linux-rootfs/<br><br>debootstrap/debootstrap --second-stage <span class="hljs-comment"># 交叉编译时执行，初始化文件系统，会把一个系统的基础包初始化</span><br><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs/<br>./ch-mount.sh -m linux-rootfs/<br><span class="hljs-comment"># 再次进入时，执行如下命令即可</span><br><span class="hljs-comment"># sudo chroot linux-rootfs</span><br></code></pre></td></tr></table></figure><h3 id="定制文件系统">定制文件系统</h3><h4 id="配置网络">配置网络</h4><p>要确保进入文件系统后有网络，可以将 /etc/resolv.conf 文件拷贝到 linux-rootfs/etc/resolv.conf。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> /etc/resolv.conf linux-rootfs/etc/resolv.conf<br></code></pre></td></tr></table></figure><h4 id="更换国内镜像源">更换国内镜像源</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 若是遇到没法拉取 https 源的状况，请先使用 http 源并安装</span><br>apt install apt-transport-https<br><span class="hljs-built_in">cp</span> /etc/apt/sources.list /etc/apt/sources.list.bak<br><span class="hljs-comment"># 把文件内容所有替换为对应阿里源，参见：https://developer.aliyun.com/mirror/?spm=a2c6h.12873639.J_5404914170.29.2feb6235F6x30d</span><br>vim /etc/apt/source.list<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ bionic main restricted universe multiverse&quot;</span> &gt;&gt; /etc/apt/sources.list<br></code></pre></td></tr></table></figure><h4 id="配置-root-用户密码">配置 root 用户密码</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">passwd<br></code></pre></td></tr></table></figure><h4 id="建立一个普通用户">建立一个普通用户</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 这两个环境变量能够自行修改</span><br>USER=wujing<br>HOST=wujing<br>useradd -G sudo -m -s /bin/bash <span class="hljs-variable">$USER</span><br>passwd <span class="hljs-variable">$USER</span><br></code></pre></td></tr></table></figure><h4 id="设置主机名和以太网">设置主机名和以太网</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-variable">$HOST</span> &gt; /etc/hostname<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;127.0.0.1 localhost.localdomain localhost&quot;</span> &gt; /etc/hosts<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;127.0.0.1 <span class="hljs-variable">$HOST</span>&quot;</span> &gt;&gt; /etc/hosts<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;auto enp0s3&quot;</span> &gt;&gt; /etc/network/interfaces<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;iface enp0s3 inet dhcp&quot;</span> &gt;&gt; /etc/network/interfaces<br></code></pre></td></tr></table></figure><h3 id="退出文件系统">退出文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs<br></code></pre></td></tr></table></figure><h3 id="制作文件系统镜像initrd">制作文件系统镜像(initrd)</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">dd</span> <span class="hljs-keyword">if</span>=/dev/zero of=bionic.img bs=1M seek=2047 count=1<br>sudo mkfs.ext4 -F bionic.img<br>sudo <span class="hljs-built_in">mkdir</span> -p /mnt/bionic<br>sudo mount -o loop bionic.img /mnt/bionic<br>sudo <span class="hljs-built_in">cp</span> -a linux-rootfs/. /mnt/bionic/.<br>sudo umount /mnt/bionic<br>sudo <span class="hljs-built_in">chmod</span> 666 bionic.img<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/weixin_49393427/article/details/126435589">内核调试环境：buildroot/debootstrap制作文件系统、编译内核、QEMU模拟</a></li><li><a href="https://www.cnblogs.com/huaibovip/p/debootstrap-fs.html">debootstrap 制作根文件系统</a></li><li><a href="https://blog.51cto.com/u_13731941/5399257">使用 debootstrap 制作 ARM64 rootfs.cpio</a></li></ul><h2 id="启动内核并调试">3. 启动内核并调试</h2><h3 id="依赖安装">依赖安装</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install qemu qemu-system qemu-kvm<br></code></pre></td></tr></table></figure><h3 id="qemu启动内核并挂载文件系统调试">qemu启动内核并挂载文件系统调试</h3><p>下方两个命令都行，第一个报warning，第二个file=后面要使用绝对路径。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -hda ~/code/tmp/bionic.img -append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> -nographic<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -drive format=raw,file=/home/wujing/code/tmp/bionic.img -append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> -nographic<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609">Linux aarch64 编译 &amp; qemu 搭建实验平台 initrd initramfs</a></li></ul><h3 id="加载内核调试工具">加载内核调试工具</h3><p>然后切换到内核源码目录，启动 gdb，不过在启动之前，请向 ~/code/linux/.gdbinit 添加如下内容：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;add-auto-load-safe-path ./scripts/gdb/vmlinux-gdb.py&quot;</span> &gt;&gt; .gdbinit<br></code></pre></td></tr></table></figure><p>加载内核调试工具，然后执行：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">gdb vmlinux<br>target remote :1234<br>c<br></code></pre></td></tr></table></figure><p>来连接到虚拟机上的 gdb 服务。</p><p>到这里，你就可以像调试普通程序一样调试 Linux 内核了。Linux 的内核入口函数是位于 init/main.c 中的 start_kernel ，在这里完成各种内核数据结构的初始化。</p><h2 id="网络修复">4. 网络修复</h2><p>输入root密码登录后，查看IP地址：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ip addr<br></code></pre></td></tr></table></figure><p>假设网卡名为enp0s3。</p><p>假设上方设置主机名和以太网中网卡名为eth0。</p><p>执行如下命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sed -i <span class="hljs-string">&quot;s/eth0/enp0s3/g&quot;</span> /etc/network/interfaces<br>ifup enp0s3<br></code></pre></td></tr></table></figure><p>现在可以使用apt安装依赖：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt update<br></code></pre></td></tr></table></figure><p>qemu默认使用的用户模式网络非常适合允许访问网络资源，包括 Internet。 特别是，它允许从guest到主机的 ssh流量。 但是，默认情况下，它充当防火墙，不允许任何传入流量。 它也不支持 TCP 和 UDP 以外的协议 - 例如，ping 和其他 ICMP 程序将不起作用。</p><ul><li><a href="https://blog.csdn.net/m0_43406494/article/details/124827927">QEMU--用户模式网络</a></li><li><a href="https://tomwei7.com/2021/10/09/qemu-network-config/">QEMU 网络配置</a></li><li><a href="https://blog.csdn.net/OnlyLove_/article/details/124536607">Linux 内核调试 七：qemu网络配置</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>qemu</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>qemu</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+      <tag>initramfs</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>amd64下基于qemu tap(NAT网络)、debootstrap调试amd64内核、根文件系统</title>
     <link href="/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%20tap(NAT%E7%BD%91%E7%BB%9C)%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/"/>
     <url>/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%20tap(NAT%E7%BD%91%E7%BB%9C)%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/</url>
@@ -1058,45 +1097,6 @@
       <tag>qemu</tag>
       
       <tag>C++</tag>
-      
-      <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-      <tag>initramfs</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>amd64下基于qemu用户网络、debootstrap调试amd64内核、根文件系统</title>
-    <link href="/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E7%94%A8%E6%88%B7%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/"/>
-    <url>/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E7%94%A8%E6%88%B7%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/</url>
-    
-    <content type="html"><![CDATA[<h1 id="amd64下基于qemu用户网络debootstrap调试amd64内核根文件系统">amd64下基于qemu用户网络、debootstrap调试amd64内核、根文件系统</h1><h2 id="编译调试版linux内核">1. 编译调试版linux内核</h2><h3 id="下载源码">下载源码</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/torvalds/linux.git<br></code></pre></td></tr></table></figure><h3 id="安装编译依赖">安装编译依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install build-essential libncurses-dev bison flex libssl-dev libelf-dev<br></code></pre></td></tr></table></figure><h3 id="内核编译选项配置">内核编译选项配置</h3><p>进入源码目录，配置编译选项：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br>git checkout -b v5.10-rc7 v5.10-rc7<br>make menuconfig<br></code></pre></td></tr></table></figure><p>比较重要的配置项有：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Kernel hacking  ---&gt;<br>    [*] Kernel debugging<br>    Compile-time checks and compiler options  ---&gt;<br>        [*] Compile the kernel with debug info<br>        [*]   Provide GDB scripts for kernel debugging<br></code></pre></td></tr></table></figure><p>一定要打开。 还有下面的选项会导致打断点失败，一定要关闭：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">Processor type and features ----&gt;<br>    [] Randomize the address of the kernel image (KASLR)<br></code></pre></td></tr></table></figure><p>保存并退出 menuconfig，开始编译之旅：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make -j`<span class="hljs-built_in">expr</span> $(<span class="hljs-built_in">nproc</span>) / 2`<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/eydwyz/article/details/114019532">使用 VSCode + qemu 搭建 Linux 内核调试环境</a></li></ul><h2 id="debootstrap制作根文件系统">2. debootstrap制作根文件系统</h2><h3 id="安装依赖">安装依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install qemu qemu-user-static binfmt-support debootstrap debian-archive-keyring<br></code></pre></td></tr></table></figure><h3 id="制作文件系统">制作文件系统</h3><p>使用也十分简单，命令格式为：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --<span class="hljs-built_in">arch</span> [平台] [发行版本代号] [构建目录] [镜像地址]<br></code></pre></td></tr></table></figure><p>以在Deepin 20.7 amd64上构建ubuntu18(bionic) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --<span class="hljs-built_in">arch</span>=amd64 --include=ifupdown bionic linux-rootfs http://mirrors.aliyun.com/ubuntu/<br></code></pre></td></tr></table></figure><p>arm64下交叉编译构建amd64需要执行下方命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> -a /usr/bin/qemu-x86_64-static linux-rootfs/usr/bin/qemu-x86_64-static<br></code></pre></td></tr></table></figure><h3 id="进入文件系统">进入文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://raw.githubusercontent.com/ywhs/linux-software/master/ch-mount.sh<br><span class="hljs-built_in">chmod</span> 777 ch-mount.sh<br><span class="hljs-comment"># 执行脚本后，没有报错会进入文件系统，交叉编译时显示 I have no name ，这是因为还没有初始化。</span><br>./ch-mount.sh -m linux-rootfs/<br><br>debootstrap/debootstrap --second-stage <span class="hljs-comment"># 交叉编译时执行，初始化文件系统，会把一个系统的基础包初始化</span><br><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs/<br>./ch-mount.sh -m linux-rootfs/<br><span class="hljs-comment"># 再次进入时，执行如下命令即可</span><br><span class="hljs-comment"># sudo chroot linux-rootfs</span><br></code></pre></td></tr></table></figure><h3 id="定制文件系统">定制文件系统</h3><h4 id="配置网络">配置网络</h4><p>要确保进入文件系统后有网络，可以将 /etc/resolv.conf 文件拷贝到 linux-rootfs/etc/resolv.conf。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> /etc/resolv.conf linux-rootfs/etc/resolv.conf<br></code></pre></td></tr></table></figure><h4 id="更换国内镜像源">更换国内镜像源</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 若是遇到没法拉取 https 源的状况，请先使用 http 源并安装</span><br>apt install apt-transport-https<br><span class="hljs-built_in">cp</span> /etc/apt/sources.list /etc/apt/sources.list.bak<br><span class="hljs-comment"># 把文件内容所有替换为对应阿里源，参见：https://developer.aliyun.com/mirror/?spm=a2c6h.12873639.J_5404914170.29.2feb6235F6x30d</span><br>vim /etc/apt/source.list<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ bionic main restricted universe multiverse&quot;</span> &gt;&gt; /etc/apt/sources.list<br></code></pre></td></tr></table></figure><h4 id="配置-root-用户密码">配置 root 用户密码</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">passwd<br></code></pre></td></tr></table></figure><h4 id="建立一个普通用户">建立一个普通用户</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 这两个环境变量能够自行修改</span><br>USER=wujing<br>HOST=wujing<br>useradd -G sudo -m -s /bin/bash <span class="hljs-variable">$USER</span><br>passwd <span class="hljs-variable">$USER</span><br></code></pre></td></tr></table></figure><h4 id="设置主机名和以太网">设置主机名和以太网</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-variable">$HOST</span> &gt; /etc/hostname<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;127.0.0.1 localhost.localdomain localhost&quot;</span> &gt; /etc/hosts<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;127.0.0.1 <span class="hljs-variable">$HOST</span>&quot;</span> &gt;&gt; /etc/hosts<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;auto enp0s3&quot;</span> &gt;&gt; /etc/network/interfaces<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;iface enp0s3 inet dhcp&quot;</span> &gt;&gt; /etc/network/interfaces<br></code></pre></td></tr></table></figure><h3 id="退出文件系统">退出文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs<br></code></pre></td></tr></table></figure><h3 id="制作文件系统镜像initrd">制作文件系统镜像(initrd)</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">dd</span> <span class="hljs-keyword">if</span>=/dev/zero of=bionic.img bs=1M seek=2047 count=1<br>sudo mkfs.ext4 -F bionic.img<br>sudo <span class="hljs-built_in">mkdir</span> -p /mnt/bionic<br>sudo mount -o loop bionic.img /mnt/bionic<br>sudo <span class="hljs-built_in">cp</span> -a linux-rootfs/. /mnt/bionic/.<br>sudo umount /mnt/bionic<br>sudo <span class="hljs-built_in">chmod</span> 666 bionic.img<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/weixin_49393427/article/details/126435589">内核调试环境：buildroot/debootstrap制作文件系统、编译内核、QEMU模拟</a></li><li><a href="https://www.cnblogs.com/huaibovip/p/debootstrap-fs.html">debootstrap 制作根文件系统</a></li><li><a href="https://blog.51cto.com/u_13731941/5399257">使用 debootstrap 制作 ARM64 rootfs.cpio</a></li></ul><h2 id="启动内核并调试">3. 启动内核并调试</h2><h3 id="依赖安装">依赖安装</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install qemu qemu-system qemu-kvm<br></code></pre></td></tr></table></figure><h3 id="qemu启动内核并挂载文件系统调试">qemu启动内核并挂载文件系统调试</h3><p>下方两个命令都行，第一个报warning，第二个file=后面要使用绝对路径。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -hda ~/code/tmp/bionic.img -append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> -nographic<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -drive format=raw,file=/home/wujing/code/tmp/bionic.img -append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> -nographic<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609">Linux aarch64 编译 &amp; qemu 搭建实验平台 initrd initramfs</a></li></ul><h3 id="加载内核调试工具">加载内核调试工具</h3><p>然后切换到内核源码目录，启动 gdb，不过在启动之前，请向 ~/code/linux/.gdbinit 添加如下内容：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;add-auto-load-safe-path ./scripts/gdb/vmlinux-gdb.py&quot;</span> &gt;&gt; .gdbinit<br></code></pre></td></tr></table></figure><p>加载内核调试工具，然后执行：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">gdb vmlinux<br>target remote :1234<br>c<br></code></pre></td></tr></table></figure><p>来连接到虚拟机上的 gdb 服务。</p><p>到这里，你就可以像调试普通程序一样调试 Linux 内核了。Linux 的内核入口函数是位于 init/main.c 中的 start_kernel ，在这里完成各种内核数据结构的初始化。</p><h2 id="网络修复">4. 网络修复</h2><p>输入root密码登录后，查看IP地址：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ip addr<br></code></pre></td></tr></table></figure><p>假设网卡名为enp0s3。</p><p>假设上方设置主机名和以太网中网卡名为eth0。</p><p>执行如下命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sed -i <span class="hljs-string">&quot;s/eth0/enp0s3/g&quot;</span> /etc/network/interfaces<br>ifup enp0s3<br></code></pre></td></tr></table></figure><p>现在可以使用apt安装依赖：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt update<br></code></pre></td></tr></table></figure><p>qemu默认使用的用户模式网络非常适合允许访问网络资源，包括 Internet。 特别是，它允许从guest到主机的 ssh流量。 但是，默认情况下，它充当防火墙，不允许任何传入流量。 它也不支持 TCP 和 UDP 以外的协议 - 例如，ping 和其他 ICMP 程序将不起作用。</p><ul><li><a href="https://blog.csdn.net/m0_43406494/article/details/124827927">QEMU--用户模式网络</a></li><li><a href="https://tomwei7.com/2021/10/09/qemu-network-config/">QEMU 网络配置</a></li><li><a href="https://blog.csdn.net/OnlyLove_/article/details/124536607">Linux 内核调试 七：qemu网络配置</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>qemu</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>qemu</tag>
       
       <tag>git</tag>
       
@@ -1293,6 +1293,39 @@
   
   
   <entry>
+    <title>bpftrace</title>
+    <link href="/debug/bpf/bpftrace/"/>
+    <url>/debug/bpf/bpftrace/</url>
+    
+    <content type="html"><![CDATA[<h1 id="bpftrace">bpftrace</h1><h2 id="source-install">source install</h2><p>git clone bpftrace:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/iovisor/bpftrace.git<br>git checkout -b v0.16.0<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure><h2 id="depends">depends</h2><p>查看宿主机已安装llvm版本：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg -l | grep libllvm<br></code></pre></td></tr></table></figure><p>结果输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">ii  libllvm11:amd64                               1:11.0.1-2                                 amd64        Modular compiler and toolchain technologies, runtime library<br></code></pre></td></tr></table></figure><p>下方安装llvm、clang时版本需要选定为11。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install -y \<br>bison \<br>cmake \<br>flex \<br>g++ \<br>git \<br>libelf-dev \<br>zlib1g-dev \<br>libfl-dev \<br>systemtap-sdt-dev \<br>binutils-dev \<br>libcereal-dev \<br>llvm-11-dev \<br>llvm-11-runtime \<br>libclang-11-dev \<br>clang-11 \<br>libpcap-dev \<br>libgtest-dev \<br>libgmock-dev \<br>asciidoctor<br></code></pre></td></tr></table></figure><h2 id="cmake-build-and-install">cmake build and install</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> bpftrace<br><span class="hljs-built_in">mkdir</span> build<br><span class="hljs-built_in">cd</span> build<br>../build-libs.sh<br>cmake -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release .. <span class="hljs-comment"># 此处关闭单元测试，是因为单元测试跑不过</span><br>make -j8<br>sudo make install<br></code></pre></td></tr></table></figure><h2 id="environment-variable-configuration">Environment variable configuration</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;export PATH=<span class="hljs-variable">$PATH</span>:/usr/local/share/bpftrace/tools&quot;</span> &gt;&gt; /etc/profile<br></code></pre></td></tr></table></figure><p>add /usr/local/share/bpftrace/tools to /etc/sudoers:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo visudo<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Defaults        secure_path=&quot;/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/bpftrace/tools&quot;<br></code></pre></td></tr></table></figure><h2 id="get-started">Get started</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo bpftrace -l<br>sudo execsnoop.bt<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://github.com/iovisor/bpftrace.git">https://github.com/iovisor/bpftrace.git</a></li><li><a href="https://github.com/iovisor/bpftrace/blob/master/INSTALL.md">bpftrace Install</a></li><li><a href="http://1.117.71.82/os/bpf%E4%B9%8B%E5%B7%85-%E6%B4%9E%E6%82%89linux%E7%B3%BB%E7%BB%9F%E5%92%8C%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD/">BPF之巅--洞悉Linux系统和应用性能</a></li><li><a href="https://blog.csdn.net/qq_31220203/article/details/118686482">BPF之巅--洞悉Linux系统和应用性能 Brendan Gregg</a></li><li><a href="https://pan.baidu.com/disk/pdfview?path=%2F%E6%88%91%E7%9A%84%E8%B5%84%E6%BA%90%2FBPF.Performance.Tools.2019.12.pdf&amp;fsid=947754417850329&amp;size=8414043">BPF.Performance.Tools.2019.12.pdf</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>debug</category>
+      
+      <category>bpf</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>git</tag>
+      
+      <tag>bpf</tag>
+      
+      <tag>linux</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>bcc</title>
     <link href="/debug/bpf/bcc/"/>
     <url>/debug/bpf/bcc/</url>
@@ -1322,39 +1355,6 @@
       <tag>HTML</tag>
       
       <tag>bcc</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>bpftrace</title>
-    <link href="/debug/bpf/bpftrace/"/>
-    <url>/debug/bpf/bpftrace/</url>
-    
-    <content type="html"><![CDATA[<h1 id="bpftrace">bpftrace</h1><h2 id="source-install">source install</h2><p>git clone bpftrace:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/iovisor/bpftrace.git<br>git checkout -b v0.16.0<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure><h2 id="depends">depends</h2><p>查看宿主机已安装llvm版本：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg -l | grep libllvm<br></code></pre></td></tr></table></figure><p>结果输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">ii  libllvm11:amd64                               1:11.0.1-2                                 amd64        Modular compiler and toolchain technologies, runtime library<br></code></pre></td></tr></table></figure><p>下方安装llvm、clang时版本需要选定为11。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install -y \<br>bison \<br>cmake \<br>flex \<br>g++ \<br>git \<br>libelf-dev \<br>zlib1g-dev \<br>libfl-dev \<br>systemtap-sdt-dev \<br>binutils-dev \<br>libcereal-dev \<br>llvm-11-dev \<br>llvm-11-runtime \<br>libclang-11-dev \<br>clang-11 \<br>libpcap-dev \<br>libgtest-dev \<br>libgmock-dev \<br>asciidoctor<br></code></pre></td></tr></table></figure><h2 id="cmake-build-and-install">cmake build and install</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> bpftrace<br><span class="hljs-built_in">mkdir</span> build<br><span class="hljs-built_in">cd</span> build<br>../build-libs.sh<br>cmake -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release .. <span class="hljs-comment"># 此处关闭单元测试，是因为单元测试跑不过</span><br>make -j8<br>sudo make install<br></code></pre></td></tr></table></figure><h2 id="environment-variable-configuration">Environment variable configuration</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;export PATH=<span class="hljs-variable">$PATH</span>:/usr/local/share/bpftrace/tools&quot;</span> &gt;&gt; /etc/profile<br></code></pre></td></tr></table></figure><p>add /usr/local/share/bpftrace/tools to /etc/sudoers:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo visudo<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Defaults        secure_path=&quot;/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/bpftrace/tools&quot;<br></code></pre></td></tr></table></figure><h2 id="get-started">Get started</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo bpftrace -l<br>sudo execsnoop.bt<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://github.com/iovisor/bpftrace.git">https://github.com/iovisor/bpftrace.git</a></li><li><a href="https://github.com/iovisor/bpftrace/blob/master/INSTALL.md">bpftrace Install</a></li><li><a href="http://1.117.71.82/os/bpf%E4%B9%8B%E5%B7%85-%E6%B4%9E%E6%82%89linux%E7%B3%BB%E7%BB%9F%E5%92%8C%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD/">BPF之巅--洞悉Linux系统和应用性能</a></li><li><a href="https://blog.csdn.net/qq_31220203/article/details/118686482">BPF之巅--洞悉Linux系统和应用性能 Brendan Gregg</a></li><li><a href="https://pan.baidu.com/disk/pdfview?path=%2F%E6%88%91%E7%9A%84%E8%B5%84%E6%BA%90%2FBPF.Performance.Tools.2019.12.pdf&amp;fsid=947754417850329&amp;size=8414043">BPF.Performance.Tools.2019.12.pdf</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>debug</category>
-      
-      <category>bpf</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>git</tag>
-      
-      <tag>bpf</tag>
-      
-      <tag>linux</tag>
       
     </tags>
     
@@ -2269,6 +2269,39 @@
   
   
   <entry>
+    <title>C++多线程</title>
+    <link href="/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/"/>
+    <url>/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/</url>
+    
+    <content type="html"><![CDATA[<h1 id="c多线程">C++多线程</h1><ul><li><p><a href="https://mp.weixin.qq.com/s/Z07Hc9SRfGz6n8XhFHGVyA">高并发高性能服务器是如何实现的</a></p></li><li><p><a href="https://blog.csdn.net/github_37382319/article/details/108478589">看完这篇还不懂高并发中的线程与线程池你来打我(内含20张图)</a></p></li><li><p><a href="https://blog.csdn.net/valada/article/details/104707137">写给大忙人看的进程和线程（内附思维导图）</a></p></li></ul><h2 id="pthread">pthread</h2><ul><li><p><a href="https://mp.weixin.qq.com/s/gfON0gD6gV3QdobC_uYckA">为什么glibc 2.34删除libpthread</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/2eetiUAtedavND8c-sQM5w">Linux 多线程全面解析</a></p></li><li><p><a href="https://blog.csdn.net/w903414/article/details/110005612"><font color=Red>【Linux】多线程详解，一篇文章彻底搞懂多线程中各个难点！！！</font></a></p></li><li><p><a href="https://www.cnblogs.com/yinbiao/p/11190336.html"><font color=Red>【Linux】多线程同步的四种方式 - Y先森0.0 - 博客园 (cnblogs.com)</font></a></p></li><li><p><a href="https://www.toutiao.com/article/7106767459059089923"><font color=Red>linux c/c++开发：多线程并发锁：互斥锁、自旋锁、原子操作、CAS</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/QITWTjR1T9eVBwPJ6sGZBA">详解Linux多线程中互斥锁、读写锁、自旋锁、条件变量、信号量</a></p></li><li><p><a href="https://blog.csdn.net/hairetz/article/details/4535920"><font color=Red>pthread_cond_wait()用法分析</font></a></p></li><li><p><a href="https://blog.csdn.net/wteruiycbqqvwt/article/details/99707580"><font color=Red>linux对线程等待和唤醒操作（pthread_cond_timedwait 详解）</font></a></p></li></ul><h2 id="c11多线程">C++11多线程</h2><ul><li><p><a href="https://www.cnblogs.com/HeyLUMouMou/p/17481385.html">从C++mutex到futex</a></p></li><li><p><a href="https://www.toutiao.com/article/7153230059011686948/">从无栈协程到 C++异步框架</a></p></li><li><p><a href="https://blog.csdn.net/fanyun_01/article/details/100178104">c++11中关于std::thread的join函数详解_fanyun的博客-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3284540.html">C++11 并发指南系列 - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3252041.html">C++11 并发指南五(std::condition_variable 详解) - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/feikudai8460/article/details/109604690">C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客_c++ notify_one</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/WsYEvRays-l58KAOwwzP-w">C++11是如何封装Thread库的？</a></p></li></ul><h3 id="join">join</h3><ul><li><a href="https://www.cnblogs.com/chen-cs/p/13055211.html">【C++多线程】join()及注意 - Chen沉尘 - 博客园 (cnblogs.com)</a></li></ul><h4 id="文件锁">文件锁</h4><ul><li><a href="https://zhuanlan.zhihu.com/p/25134841">被遗忘的桃源——flock 文件锁 - 知乎 (zhihu.com)</a></li><li><a href="https://blog.csdn.net/Cassiel_Paris/article/details/79776712">linux 文件记录锁</a></li><li><a href="https://blog.csdn.net/weixin_35983774/article/details/126050686">Linux Programming 学习笔记 ：File Locking</a></li><li><a href="https://blog.csdn.net/ls2018536/article/details/121856510">linux文件锁</a></li><li><a href="https://www.cnblogs.com/wanpengcoder/p/5305749.html">Linux-进程间通信（六）: 记录锁</a></li><li><a href="https://blog.csdn.net/ciguaxi2841/article/details/100778292">Linux文件锁实现之flock(2)与fcntl(2)</a></li></ul><h2 id="死锁">死锁</h2><ul><li><p><a href="https://www.toutiao.com/article/7131231200097862158">手把手带你实现一个死锁检测组件</a></p></li><li><p><a href="https://blog.csdn.net/qq_26553393/article/details/122281044">2.4.2 死锁的处理策略-预防死锁（破坏互斥条件、破坏不可剥夺条件、破坏请求和保持条件、破坏循环等待条件）</a></p></li><li><p><a href="https://blog.csdn.net/zsiming/article/details/126695393"><font color=Red>Linux下排除死锁详细教程（基于C++11、GDB）</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Jjio-cNapfUMBqEOefi1og">手画图解 | 关于死锁，面试的一切都在这里了</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/446932523"><font color=Red>多线程检测工具ThreadSanitizer 与 Helgrind 的使用</font></a></p></li></ul><h2 id="线程池">线程池</h2><ul><li><a href="https://blog.csdn.net/MOU_IT/article/details/88712090">C++实现线程池_蓬莱道人的博客-CSDN博客_c++实现线程池</a></li><li><a href="https://www.cnblogs.com/oloroso/p/5881863.html">C++11的简单线程池代码阅读-乌合之众-博客园(cnblogs.com)</a></li><li><a href="https://wangpengcheng.github.io/2019/05/17/cplusplus_theadpool/"><font color=Red>C++ 线程池</font></a></li><li><a href="https://blog.csdn.net/zzhongcy/article/details/89453370">c++11：线程池，boost threadpool、thread_group example_zzhongcy的专栏-CSDN博客_boost 线程池</a></li><li><a href="https://www.cnblogs.com/lidabo/p/3328402.html">线程池原理及创建（C++实现）- DoubleLi -博客园(cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/cpper-kaixuan/articles/3640485.html">C++线程池原理及创建（转）- cpper-kaixuan -博客园(cnblogs.com)</a></li><li><a href="https://www.jb51.net/article/75295.htm">深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/qq_36359022/article/details/78796784">线程池原理及C语言实现线程池</a></li><li><a href="https://blog.csdn.net/robothj/article/details/80172287">c++/c实现线程池</a></li><li><a href="https://github.com/lzpong/threadpool/blob/master/Main.cpp">threadpool/Main.cpp at master · lzpong/threadpool (github.com)</a></li><li><a href="https://www.cnblogs.com/lzpong/p/6397997.html">基于C++11的线程池(threadpool),简洁且可以带任意多的参数 - _Ong - 博客园 (cnblogs.com)</a></li></ul><h3 id="数据库连接池">数据库连接池</h3><ul><li><a href="https://blog.csdn.net/weixin_43825537/article/details/104516274">C++数据库连接池的设计与实现_暮明已逝的博客-CSDN博客_c++数据库连接池</a></li><li><a href="https://www.toutiao.com/i7004734534830801420/">基于c++的数据库连接池的实现与理解(toutiao.com)</a></li></ul><h2 id="其他">其他</h2><ul><li><p><a href="https://www.coder.work/article/1954428">c++ - 执行并行任务而无需等待C++中的结果</a></p></li><li><p><a href="https://github.com/seanmiddleditch/jobxx" class="uri">https://github.com/seanmiddleditch/jobxx</a></p></li><li><p><a href="https://github.com/cdwfs/cds_job" class="uri">https://github.com/cdwfs/cds_job</a></p></li><li><p><a href="https://github.com/delscorcho/basic-job-system" class="uri">https://github.com/delscorcho/basic-job-system</a></p></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>C++基础</title>
     <link href="/cpp/C++%E5%9F%BA%E7%A1%80/"/>
     <url>/cpp/C++%E5%9F%BA%E7%A1%80/</url>
@@ -2296,39 +2329,6 @@
       <tag>HTML</tag>
       
       <tag>Java</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>C++多线程</title>
-    <link href="/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/"/>
-    <url>/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/</url>
-    
-    <content type="html"><![CDATA[<h1 id="c多线程">C++多线程</h1><ul><li><p><a href="https://mp.weixin.qq.com/s/Z07Hc9SRfGz6n8XhFHGVyA">高并发高性能服务器是如何实现的</a></p></li><li><p><a href="https://blog.csdn.net/github_37382319/article/details/108478589">看完这篇还不懂高并发中的线程与线程池你来打我(内含20张图)</a></p></li><li><p><a href="https://blog.csdn.net/valada/article/details/104707137">写给大忙人看的进程和线程（内附思维导图）</a></p></li></ul><h2 id="pthread">pthread</h2><ul><li><p><a href="https://mp.weixin.qq.com/s/gfON0gD6gV3QdobC_uYckA">为什么glibc 2.34删除libpthread</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/2eetiUAtedavND8c-sQM5w">Linux 多线程全面解析</a></p></li><li><p><a href="https://blog.csdn.net/w903414/article/details/110005612"><font color=Red>【Linux】多线程详解，一篇文章彻底搞懂多线程中各个难点！！！</font></a></p></li><li><p><a href="https://www.cnblogs.com/yinbiao/p/11190336.html"><font color=Red>【Linux】多线程同步的四种方式 - Y先森0.0 - 博客园 (cnblogs.com)</font></a></p></li><li><p><a href="https://www.toutiao.com/article/7106767459059089923"><font color=Red>linux c/c++开发：多线程并发锁：互斥锁、自旋锁、原子操作、CAS</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/QITWTjR1T9eVBwPJ6sGZBA">详解Linux多线程中互斥锁、读写锁、自旋锁、条件变量、信号量</a></p></li><li><p><a href="https://blog.csdn.net/hairetz/article/details/4535920"><font color=Red>pthread_cond_wait()用法分析</font></a></p></li><li><p><a href="https://blog.csdn.net/wteruiycbqqvwt/article/details/99707580"><font color=Red>linux对线程等待和唤醒操作（pthread_cond_timedwait 详解）</font></a></p></li></ul><h2 id="c11多线程">C++11多线程</h2><ul><li><p><a href="https://www.cnblogs.com/HeyLUMouMou/p/17481385.html">从C++mutex到futex</a></p></li><li><p><a href="https://www.toutiao.com/article/7153230059011686948/">从无栈协程到 C++异步框架</a></p></li><li><p><a href="https://blog.csdn.net/fanyun_01/article/details/100178104">c++11中关于std::thread的join函数详解_fanyun的博客-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3284540.html">C++11 并发指南系列 - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3252041.html">C++11 并发指南五(std::condition_variable 详解) - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/feikudai8460/article/details/109604690">C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客_c++ notify_one</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/WsYEvRays-l58KAOwwzP-w">C++11是如何封装Thread库的？</a></p></li></ul><h3 id="join">join</h3><ul><li><a href="https://www.cnblogs.com/chen-cs/p/13055211.html">【C++多线程】join()及注意 - Chen沉尘 - 博客园 (cnblogs.com)</a></li></ul><h4 id="文件锁">文件锁</h4><ul><li><a href="https://zhuanlan.zhihu.com/p/25134841">被遗忘的桃源——flock 文件锁 - 知乎 (zhihu.com)</a></li><li><a href="https://blog.csdn.net/Cassiel_Paris/article/details/79776712">linux 文件记录锁</a></li><li><a href="https://blog.csdn.net/weixin_35983774/article/details/126050686">Linux Programming 学习笔记 ：File Locking</a></li><li><a href="https://blog.csdn.net/ls2018536/article/details/121856510">linux文件锁</a></li><li><a href="https://www.cnblogs.com/wanpengcoder/p/5305749.html">Linux-进程间通信（六）: 记录锁</a></li><li><a href="https://blog.csdn.net/ciguaxi2841/article/details/100778292">Linux文件锁实现之flock(2)与fcntl(2)</a></li></ul><h2 id="死锁">死锁</h2><ul><li><p><a href="https://www.toutiao.com/article/7131231200097862158">手把手带你实现一个死锁检测组件</a></p></li><li><p><a href="https://blog.csdn.net/qq_26553393/article/details/122281044">2.4.2 死锁的处理策略-预防死锁（破坏互斥条件、破坏不可剥夺条件、破坏请求和保持条件、破坏循环等待条件）</a></p></li><li><p><a href="https://blog.csdn.net/zsiming/article/details/126695393"><font color=Red>Linux下排除死锁详细教程（基于C++11、GDB）</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Jjio-cNapfUMBqEOefi1og">手画图解 | 关于死锁，面试的一切都在这里了</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/446932523"><font color=Red>多线程检测工具ThreadSanitizer 与 Helgrind 的使用</font></a></p></li></ul><h2 id="线程池">线程池</h2><ul><li><a href="https://blog.csdn.net/MOU_IT/article/details/88712090">C++实现线程池_蓬莱道人的博客-CSDN博客_c++实现线程池</a></li><li><a href="https://www.cnblogs.com/oloroso/p/5881863.html">C++11的简单线程池代码阅读-乌合之众-博客园(cnblogs.com)</a></li><li><a href="https://wangpengcheng.github.io/2019/05/17/cplusplus_theadpool/"><font color=Red>C++ 线程池</font></a></li><li><a href="https://blog.csdn.net/zzhongcy/article/details/89453370">c++11：线程池，boost threadpool、thread_group example_zzhongcy的专栏-CSDN博客_boost 线程池</a></li><li><a href="https://www.cnblogs.com/lidabo/p/3328402.html">线程池原理及创建（C++实现）- DoubleLi -博客园(cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/cpper-kaixuan/articles/3640485.html">C++线程池原理及创建（转）- cpper-kaixuan -博客园(cnblogs.com)</a></li><li><a href="https://www.jb51.net/article/75295.htm">深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/qq_36359022/article/details/78796784">线程池原理及C语言实现线程池</a></li><li><a href="https://blog.csdn.net/robothj/article/details/80172287">c++/c实现线程池</a></li><li><a href="https://github.com/lzpong/threadpool/blob/master/Main.cpp">threadpool/Main.cpp at master · lzpong/threadpool (github.com)</a></li><li><a href="https://www.cnblogs.com/lzpong/p/6397997.html">基于C++11的线程池(threadpool),简洁且可以带任意多的参数 - _Ong - 博客园 (cnblogs.com)</a></li></ul><h3 id="数据库连接池">数据库连接池</h3><ul><li><a href="https://blog.csdn.net/weixin_43825537/article/details/104516274">C++数据库连接池的设计与实现_暮明已逝的博客-CSDN博客_c++数据库连接池</a></li><li><a href="https://www.toutiao.com/i7004734534830801420/">基于c++的数据库连接池的实现与理解(toutiao.com)</a></li></ul><h2 id="其他">其他</h2><ul><li><p><a href="https://www.coder.work/article/1954428">c++ - 执行并行任务而无需等待C++中的结果</a></p></li><li><p><a href="https://github.com/seanmiddleditch/jobxx" class="uri">https://github.com/seanmiddleditch/jobxx</a></p></li><li><p><a href="https://github.com/cdwfs/cds_job" class="uri">https://github.com/cdwfs/cds_job</a></p></li><li><p><a href="https://github.com/delscorcho/basic-job-system" class="uri">https://github.com/delscorcho/basic-job-system</a></p></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
       
     </tags>
     
@@ -2370,6 +2370,33 @@
   
   
   <entry>
+    <title>README</title>
+    <link href="/cpp/README/"/>
+    <url>/cpp/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="cpp-learning">cpp-learning</h1><ul><li><a href="https://mp.weixin.qq.com/s/PTglU70SGKrDsyE4QiKoAA">几张图片，告诉你 C++ 要学什么</a></li><li><a href="https://github.com/GrindGold/CppGuide">C/C++学习+面试指南</a></li><li><a href="https://github.com/huihut/interview">C/C++ 技术面试基础知识总结</a></li><li><a href="https://github.com/balloonwj/CppGuide">高性能服务器开发</a></li><li><a href="thread/README.md">C++11 thread 教程</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>Qt教程</title>
     <link href="/cpp/Qt%E6%95%99%E7%A8%8B/"/>
     <url>/cpp/Qt%E6%95%99%E7%A8%8B/</url>
@@ -2399,33 +2426,6 @@
       <tag>Java</tag>
       
       <tag>namespace</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/README/"/>
-    <url>/cpp/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="cpp-learning">cpp-learning</h1><ul><li><a href="https://mp.weixin.qq.com/s/PTglU70SGKrDsyE4QiKoAA">几张图片，告诉你 C++ 要学什么</a></li><li><a href="https://github.com/GrindGold/CppGuide">C/C++学习+面试指南</a></li><li><a href="https://github.com/huihut/interview">C/C++ 技术面试基础知识总结</a></li><li><a href="https://github.com/balloonwj/CppGuide">高性能服务器开发</a></li><li><a href="thread/README.md">C++11 thread 教程</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
       
     </tags>
     
@@ -2720,6 +2720,31 @@
   
   
   <entry>
+    <title>gerrit</title>
+    <link href="/git/gerrit/"/>
+    <url>/git/gerrit/</url>
+    
+    <content type="html"><![CDATA[<h1 id="gerrit">gerrit</h1><h2 id="提交模板">提交模板</h2><p>在 ~/ 目录下新建文件，并命名为.gitcommit_template 将以下内容写入文件当中：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs text">#commit type :fix（问题修复）、feat（功能开发）、style(风格修改)、refactor(重构)、docs（文档）、 chore（其他)、test(测试) + 简单描述. 默认fix,根据情况修改<br>fix: <br><br>#Describe you bug/feature,or other things<br>Description: <br><br># <br>Log: <br><br>#关联pms上的bug号，提交后，则会自动在pms对应bug信息页面添加备注，关联本次提交。若本次提交为修复bug相关，则请 取消注释<br>#Bug: <br><br>#尚不清楚干啥的 <br>#Issue: <br><br>#关联pms上的任务号，提交后，则会自动在pms对应任务信息页面添加备注，关联本次提交。若本次提交为任务相关，则请取消注释<br>#Task: <br></code></pre></td></tr></table></figure><p>在命令行执行:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global commit.template ~/.gitcommit_template<br></code></pre></td></tr></table></figure><h2 id="安装">安装</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install git-review<br></code></pre></td></tr></table></figure><h2 id="推送">推送</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review branch(当前分支) -r origin<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://wikidev.uniontech.com/Gerrit_%E6%8F%90%E4%BA%A4%E6%A8%A1%E6%9D%BF">Gerrit 提交模板</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>git</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>git</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>github-pages</title>
     <link href="/git/github-pages/"/>
     <url>/git/github-pages/</url>
@@ -2739,31 +2764,6 @@
       <tag>git</tag>
       
       <tag>Hexo</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>gerrit</title>
-    <link href="/git/gerrit/"/>
-    <url>/git/gerrit/</url>
-    
-    <content type="html"><![CDATA[<h1 id="gerrit">gerrit</h1><h2 id="提交模板">提交模板</h2><p>在 ~/ 目录下新建文件，并命名为.gitcommit_template 将以下内容写入文件当中：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs text">#commit type :fix（问题修复）、feat（功能开发）、style(风格修改)、refactor(重构)、docs（文档）、 chore（其他)、test(测试) + 简单描述. 默认fix,根据情况修改<br>fix: <br><br>#Describe you bug/feature,or other things<br>Description: <br><br># <br>Log: <br><br>#关联pms上的bug号，提交后，则会自动在pms对应bug信息页面添加备注，关联本次提交。若本次提交为修复bug相关，则请 取消注释<br>#Bug: <br><br>#尚不清楚干啥的 <br>#Issue: <br><br>#关联pms上的任务号，提交后，则会自动在pms对应任务信息页面添加备注，关联本次提交。若本次提交为任务相关，则请取消注释<br>#Task: <br></code></pre></td></tr></table></figure><p>在命令行执行:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global commit.template ~/.gitcommit_template<br></code></pre></td></tr></table></figure><h2 id="安装">安装</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install git-review<br></code></pre></td></tr></table></figure><h2 id="推送">推送</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review branch(当前分支) -r origin<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://wikidev.uniontech.com/Gerrit_%E6%8F%90%E4%BA%A4%E6%A8%A1%E6%9D%BF">Gerrit 提交模板</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>git</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>git</tag>
       
     </tags>
     
@@ -3029,27 +3029,6 @@
   
   <entry>
     <title>README</title>
-    <link href="/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/"/>
-    <url>/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/</url>
-    
-    <content type="html"><![CDATA[<p><a href="https://blog.csdn.net/onlyshi/article/details/81672279">C 语言实现面向对象编程_onlyshi的专栏-CSDN博客_c 面向对象</a></p>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>C 实现 C++ 类</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
     <link href="/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/"/>
     <url>/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/</url>
     
@@ -3070,6 +3049,27 @@
       <tag>C++</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/"/>
+    <url>/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/</url>
+    
+    <content type="html"><![CDATA[<p><a href="https://blog.csdn.net/onlyshi/article/details/81672279">C 语言实现面向对象编程_onlyshi的专栏-CSDN博客_c 面向对象</a></p>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>C 实现 C++ 类</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -3181,6 +3181,29 @@
   
   <entry>
     <title>README</title>
+    <link href="/cpp/qt-learning/dbus/README/"/>
+    <url>/cpp/qt-learning/dbus/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="service实现">service实现</h1><h2 id="方式一创建服务并注册对象建立到session-bus的连接">方式一、创建服务并注册对象，建立到session bus的连接</h2><p>启动程序后，在命令行打开qdbusviewer，查看session bus。 双击Method方法会调用该方法。</p><p>代码位于目录service下。</p><h2 id="方式二使用adapter注册object推荐方式">方式二、使用Adapter注册Object（推荐方式）</h2><p>可以直接把test类注册为消息总线上的一个Object，但QT4不推荐。QT4推荐使用Adapter来注册Object。 大多数情况下，可能只需要把自定义的类里的方法有选择的发布到消息总线上，使用Adapter可以很方便的实现选择性发布。 生成Adapter类的流程如下： 使用工具 qdbuscpp2xml从test.h生成XML文件</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbuscpp2xml -M test<span class="hljs-selector-class">.h</span> -o com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span>.xml<br></code></pre></td></tr></table></figure><p>编辑com.scorpio.test.xml，选择需要发布的method，不需要发布的删除。 使用工具qdbusxml2cpp从XML文件生成继承自QDBusInterface的类</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbusxml2cpp com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span><span class="hljs-selector-class">.xml</span> -<span class="hljs-selector-tag">i</span> test<span class="hljs-selector-class">.h</span> -<span class="hljs-selector-tag">a</span> valueAdaptor<br></code></pre></td></tr></table></figure><p>生成两个文件：valueAdaptor.cpp和valueAdaptor.h</p><p>代码位于目录adaptor下，建议先阅读该目录下的README.md。</p><h1 id="控制台访问service实现">控制台访问service实现</h1><h2 id="方式一通过qdbusmessage访问service">方式一、通过QDBusMessage访问Service</h2><h2 id="方式二通过qdbusinterface-访问service">方式二、通过QDBusInterface 访问Service</h2><h2 id="方式三从d-bus-xml自动生成proxy类调用proxy类访问service">方式三、从D-Bus XML自动生成Proxy类，调用Proxy类访问Service</h2><p>代码位于目录proxy下，建议先阅读该目录下的README.md。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">/data/opt/Qt5.6.3/5.6.3/gcc_64/lib/cmake/Qt5DBus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/src/dbus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/tests/auto/cmake/test_dbus_module/CMakeLists.txt:22:qt5_generate_dbus_interface(<br>    <br>/data/opt/Qt5.6.3/5.6.3/Src/qtdoc/doc/src/development/cmake-manual.qdoc:249:    row li qt5_generate_dbus_interface( header [interfacename] OPTIONS ...)<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>qt-learning</category>
+      
+      <category>dbus</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/cpp/protobuf/protobuf_example/README/"/>
     <url>/cpp/protobuf/protobuf_example/README/</url>
     
@@ -3210,19 +3233,17 @@
   
   <entry>
     <title>README</title>
-    <link href="/cpp/qt-learning/dbus/README/"/>
-    <url>/cpp/qt-learning/dbus/README/</url>
+    <link href="/cpp/thread/thread/README/"/>
+    <url>/cpp/thread/thread/README/</url>
     
-    <content type="html"><![CDATA[<h1 id="service实现">service实现</h1><h2 id="方式一创建服务并注册对象建立到session-bus的连接">方式一、创建服务并注册对象，建立到session bus的连接</h2><p>启动程序后，在命令行打开qdbusviewer，查看session bus。 双击Method方法会调用该方法。</p><p>代码位于目录service下。</p><h2 id="方式二使用adapter注册object推荐方式">方式二、使用Adapter注册Object（推荐方式）</h2><p>可以直接把test类注册为消息总线上的一个Object，但QT4不推荐。QT4推荐使用Adapter来注册Object。 大多数情况下，可能只需要把自定义的类里的方法有选择的发布到消息总线上，使用Adapter可以很方便的实现选择性发布。 生成Adapter类的流程如下： 使用工具 qdbuscpp2xml从test.h生成XML文件</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbuscpp2xml -M test<span class="hljs-selector-class">.h</span> -o com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span>.xml<br></code></pre></td></tr></table></figure><p>编辑com.scorpio.test.xml，选择需要发布的method，不需要发布的删除。 使用工具qdbusxml2cpp从XML文件生成继承自QDBusInterface的类</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbusxml2cpp com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span><span class="hljs-selector-class">.xml</span> -<span class="hljs-selector-tag">i</span> test<span class="hljs-selector-class">.h</span> -<span class="hljs-selector-tag">a</span> valueAdaptor<br></code></pre></td></tr></table></figure><p>生成两个文件：valueAdaptor.cpp和valueAdaptor.h</p><p>代码位于目录adaptor下，建议先阅读该目录下的README.md。</p><h1 id="控制台访问service实现">控制台访问service实现</h1><h2 id="方式一通过qdbusmessage访问service">方式一、通过QDBusMessage访问Service</h2><h2 id="方式二通过qdbusinterface-访问service">方式二、通过QDBusInterface 访问Service</h2><h2 id="方式三从d-bus-xml自动生成proxy类调用proxy类访问service">方式三、从D-Bus XML自动生成Proxy类，调用Proxy类访问Service</h2><p>代码位于目录proxy下，建议先阅读该目录下的README.md。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">/data/opt/Qt5.6.3/5.6.3/gcc_64/lib/cmake/Qt5DBus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/src/dbus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/tests/auto/cmake/test_dbus_module/CMakeLists.txt:22:qt5_generate_dbus_interface(<br>    <br>/data/opt/Qt5.6.3/5.6.3/Src/qtdoc/doc/src/development/cmake-manual.qdoc:249:    row li qt5_generate_dbus_interface( header [interfacename] OPTIONS ...)<br></code></pre></td></tr></table></figure>]]></content>
+    <content type="html"><![CDATA[<h1 id="stdthread">std::thread</h1><h2 id="stdthread-hello_world"><a href="hello_world">std::thread hello_world</a></h2>]]></content>
     
     
     <categories>
       
       <category>cpp</category>
       
-      <category>qt-learning</category>
-      
-      <category>dbus</category>
+      <category>thread</category>
       
     </categories>
     
@@ -3246,27 +3267,6 @@
       <category>qt-learning</category>
       
       <category>qprocess_wget</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/thread/thread/README/"/>
-    <url>/cpp/thread/thread/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="stdthread">std::thread</h1><h2 id="stdthread-hello_world"><a href="hello_world">std::thread hello_world</a></h2>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>thread</category>
       
     </categories>
     
@@ -3949,6 +3949,33 @@
   
   
   <entry>
+    <title>flatpak</title>
+    <link href="/linux/package/flatpak/"/>
+    <url>/linux/package/flatpak/</url>
+    
+    <content type="html"><![CDATA[<h1 id="flatpak">flatpak</h1><h2 id="demo1">demo1</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs bash">flatpak install com.belmoussaoui.Decoder <br><br><span class="hljs-comment">#  默认过滤规则进入沙箱</span><br>flatpak run --devel  --<span class="hljs-built_in">command</span>=bash com.belmoussaoui.Decoder <br><br><span class="hljs-comment"># 发送测试命令 需要换成自己的demo服务，然后启动服务，预期结果dbus调用被拦截</span><br>dbus-send --session --<span class="hljs-built_in">type</span>=method_call --print-reply --dest=com.deepin.linglong.AppManager /com/deepin/linglong/PackageManager com.deepin.linglong.PackageManager.<span class="hljs-built_in">test</span> string:<span class="hljs-string">&quot;org.deepin.demo&quot;</span> <br><br><span class="hljs-comment"># 退出沙箱</span><br><span class="hljs-built_in">exit</span>  <br><br><span class="hljs-comment"># 设置过滤规则允许调用test，进入沙箱</span><br>flatpak run  --devel --<span class="hljs-built_in">command</span>=bash --talk-name=com.deepin.linglong.AppManager com.belmoussaoui.Decoder  <br><br><span class="hljs-comment"># 预期结果dbus调用成功</span><br>dbus-send --session --<span class="hljs-built_in">type</span>=method_call --print-reply --dest=com.deepin.linglong.AppManager /com/deepin/linglong/PackageManager com.deepin.linglong.PackageManager.<span class="hljs-built_in">test</span> string:<span class="hljs-string">&quot;org.deepin.demo&quot;</span> <br></code></pre></td></tr></table></figure><h2 id="demo2">demo2</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs bash">flatpak install com.belmoussaoui.Decoder  <br><br><span class="hljs-comment"># 默认过滤规则进入沙箱  </span><br>flatpak run --devel  --<span class="hljs-built_in">command</span>=bash com.belmoussaoui.Decoder  <br><br><span class="hljs-comment"># 发送测试命令 需要换成自己的demo服务，然后启动服务，预期结果dbus调用被拦截  </span><br>dbus-send --session --<span class="hljs-built_in">type</span>=method_call --print-reply --dest=com.scorpio.test /test/objects com.scorpio.test.value.book <br><br><span class="hljs-comment"># 退出沙箱</span><br><br><span class="hljs-built_in">exit</span><br><br><span class="hljs-comment"># 设置过滤规则允许调用test，进入沙箱</span><br>flatpak run  --devel --<span class="hljs-built_in">command</span>=bash --talk-name=com.scorpio.test com.belmoussaoui.Decoder <br><br><span class="hljs-comment"># 预期结果dbus调用成功  </span><br><br>dbus-send --session --<span class="hljs-built_in">type</span>=method_call --print-reply --dest=com.scorpio.test /test/objects com.scorpio.test.value.book <br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs text">Flatpak原理-ostree <br><br>xdg-dbus-proxy - D-Bus proxy <br><br>Figure 7. Example of successful EXTERNAL authentication with successful negotiation of Unix FD passing <br><br>           C: AUTH EXTERNAL 31303030 <br><br>S: OK 1234deadbeef<br>             <br><br>C: NEGOTIATE_UNIX_FD<br>             <br><br>S: AGREE_UNIX_FD<br>             <br><br>C: BEGIN<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://stackoverflow.com/questions/35813093/creating-a-local-socket-in-a-custom-location-with-qt">https://stackoverflow.com/questions/35813093/creating-a-local-socket-in-a-custom-location-with-qt</a></li><li><a href="https://stackoverflow.com/questions/7753713/c-qt-write-to-unix-socket?rq=1">https://stackoverflow.com/questions/7753713/c-qt-write-to-unix-socket?rq=1</a></li><li><a href="https://stackoverflow.com/questions/52400159/reading-from-a-unix-domain-socket-qlocalsocket-on-qt">https://stackoverflow.com/questions/52400159/reading-from-a-unix-domain-socket-qlocalsocket-on-qt</a></li><li><a href="https://stackoverflow.com/questions/42085259/qt5-is-there-a-way-to-make-qlocalserver-listen-to-abstract-unix-socket">https://stackoverflow.com/questions/42085259/qt5-is-there-a-way-to-make-qlocalserver-listen-to-abstract-unix-socket</a></li><li><a href="https://codereview.qt-project.org/c/qt/qtbase/+/330032">https://codereview.qt-project.org/c/qt/qtbase/+/330032</a></li><li><a href="https://www.cnblogs.com/xiangtingshen/p/11063583.html">https://www.cnblogs.com/xiangtingshen/p/11063583.html</a></li><li><a href="https://dbus.freedesktop.org/doc/dbus-specification.html">https://dbus.freedesktop.org/doc/dbus-specification.html</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>package</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>包管理</title>
     <link href="/linux/package/%E5%8C%85%E7%AE%A1%E7%90%86/"/>
     <url>/linux/package/%E5%8C%85%E7%AE%A1%E7%90%86/</url>
@@ -3982,11 +4009,11 @@
   
   
   <entry>
-    <title>flatpak</title>
-    <link href="/linux/package/flatpak/"/>
-    <url>/linux/package/flatpak/</url>
+    <title>pbuilder教程</title>
+    <link href="/linux/package/deb/pbuilder%E6%95%99%E7%A8%8B/"/>
+    <url>/linux/package/deb/pbuilder%E6%95%99%E7%A8%8B/</url>
     
-    <content type="html"><![CDATA[<h1 id="flatpak">flatpak</h1><h2 id="demo1">demo1</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs bash">flatpak install com.belmoussaoui.Decoder <br><br><span class="hljs-comment">#  默认过滤规则进入沙箱</span><br>flatpak run --devel  --<span class="hljs-built_in">command</span>=bash com.belmoussaoui.Decoder <br><br><span class="hljs-comment"># 发送测试命令 需要换成自己的demo服务，然后启动服务，预期结果dbus调用被拦截</span><br>dbus-send --session --<span class="hljs-built_in">type</span>=method_call --print-reply --dest=com.deepin.linglong.AppManager /com/deepin/linglong/PackageManager com.deepin.linglong.PackageManager.<span class="hljs-built_in">test</span> string:<span class="hljs-string">&quot;org.deepin.demo&quot;</span> <br><br><span class="hljs-comment"># 退出沙箱</span><br><span class="hljs-built_in">exit</span>  <br><br><span class="hljs-comment"># 设置过滤规则允许调用test，进入沙箱</span><br>flatpak run  --devel --<span class="hljs-built_in">command</span>=bash --talk-name=com.deepin.linglong.AppManager com.belmoussaoui.Decoder  <br><br><span class="hljs-comment"># 预期结果dbus调用成功</span><br>dbus-send --session --<span class="hljs-built_in">type</span>=method_call --print-reply --dest=com.deepin.linglong.AppManager /com/deepin/linglong/PackageManager com.deepin.linglong.PackageManager.<span class="hljs-built_in">test</span> string:<span class="hljs-string">&quot;org.deepin.demo&quot;</span> <br></code></pre></td></tr></table></figure><h2 id="demo2">demo2</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs bash">flatpak install com.belmoussaoui.Decoder  <br><br><span class="hljs-comment"># 默认过滤规则进入沙箱  </span><br>flatpak run --devel  --<span class="hljs-built_in">command</span>=bash com.belmoussaoui.Decoder  <br><br><span class="hljs-comment"># 发送测试命令 需要换成自己的demo服务，然后启动服务，预期结果dbus调用被拦截  </span><br>dbus-send --session --<span class="hljs-built_in">type</span>=method_call --print-reply --dest=com.scorpio.test /test/objects com.scorpio.test.value.book <br><br><span class="hljs-comment"># 退出沙箱</span><br><br><span class="hljs-built_in">exit</span><br><br><span class="hljs-comment"># 设置过滤规则允许调用test，进入沙箱</span><br>flatpak run  --devel --<span class="hljs-built_in">command</span>=bash --talk-name=com.scorpio.test com.belmoussaoui.Decoder <br><br><span class="hljs-comment"># 预期结果dbus调用成功  </span><br><br>dbus-send --session --<span class="hljs-built_in">type</span>=method_call --print-reply --dest=com.scorpio.test /test/objects com.scorpio.test.value.book <br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs text">Flatpak原理-ostree <br><br>xdg-dbus-proxy - D-Bus proxy <br><br>Figure 7. Example of successful EXTERNAL authentication with successful negotiation of Unix FD passing <br><br>           C: AUTH EXTERNAL 31303030 <br><br>S: OK 1234deadbeef<br>             <br><br>C: NEGOTIATE_UNIX_FD<br>             <br><br>S: AGREE_UNIX_FD<br>             <br><br>C: BEGIN<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://stackoverflow.com/questions/35813093/creating-a-local-socket-in-a-custom-location-with-qt">https://stackoverflow.com/questions/35813093/creating-a-local-socket-in-a-custom-location-with-qt</a></li><li><a href="https://stackoverflow.com/questions/7753713/c-qt-write-to-unix-socket?rq=1">https://stackoverflow.com/questions/7753713/c-qt-write-to-unix-socket?rq=1</a></li><li><a href="https://stackoverflow.com/questions/52400159/reading-from-a-unix-domain-socket-qlocalsocket-on-qt">https://stackoverflow.com/questions/52400159/reading-from-a-unix-domain-socket-qlocalsocket-on-qt</a></li><li><a href="https://stackoverflow.com/questions/42085259/qt5-is-there-a-way-to-make-qlocalserver-listen-to-abstract-unix-socket">https://stackoverflow.com/questions/42085259/qt5-is-there-a-way-to-make-qlocalserver-listen-to-abstract-unix-socket</a></li><li><a href="https://codereview.qt-project.org/c/qt/qtbase/+/330032">https://codereview.qt-project.org/c/qt/qtbase/+/330032</a></li><li><a href="https://www.cnblogs.com/xiangtingshen/p/11063583.html">https://www.cnblogs.com/xiangtingshen/p/11063583.html</a></li><li><a href="https://dbus.freedesktop.org/doc/dbus-specification.html">https://dbus.freedesktop.org/doc/dbus-specification.html</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="pbuilder教程">pbuilder教程</h1><ol type="1"><li><p>安装环境</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install pbuilder debootstrap devscripts dh-make<br></code></pre></td></tr></table></figure></p></li><li><p>pbuilder配置 以下路径任选其一</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs plain">/etc/pbuilderrc<br>/root/.pbuilderrc<br></code></pre></td></tr></table></figure></p><p>将以下内容写入上述配置文件，上述路径任选其一即可，以uos v20 专业版为例：</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs plain">MIRRORSITE=http://pools.uniontech.com/desktop-professional<br>DEBOOTSTRAPOPTS=(<br>    &#x27;--variant=buildd&#x27;<br>)<br></code></pre></td></tr></table></figure></p></li><li><p>创建pbuilder基础环境</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo pbuilder create --distribution eagle --debootstrapopts --no-check-gpg<br></code></pre></td></tr></table></figure></p><p>如果报错如下： E: No such script: /usr/share/debootstrap/scripts/eagle E: debootstrap failed E: debootstrap.log not present W: Aborting with an error</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> /usr/share/debootstrap/scripts/<br><span class="hljs-built_in">cp</span> sid eagle<br></code></pre></td></tr></table></figure></p><p>需要额外添加仓库源可以<code>login</code>后添加<code>apt</code>仓库源：</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo pbuilder login --basetgz /var/cache/pbuilder/base.tgz --save-after-login<br></code></pre></td></tr></table></figure></p></li><li><p>下载源码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> <span class="hljs-string">&quot;http://ut004487@gerrit.uniontech.com/a/linglong&quot;</span><br><span class="hljs-built_in">cd</span> linglong<br>git checkout develop/snipe<br></code></pre></td></tr></table></figure></p><p>查看changelog版本号</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">head</span> debian/changelog<br></code></pre></td></tr></table></figure></p><p>版本号信息如下:</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs plain">linglong (1.3.1-1) unstable; urgency=medium<br><br>    * fixed some bug.<br><br>    -- liujianqiang &lt;liujianqiang@uniontech.com&gt;  Wed, 27 Apr 2022 15:12:16 +0800<br><br>    linglong (1.3.0-1) unstable; urgency=medium<br><br>    * 1. fix link library failed when using cmake.<br>    * 2. fix adjust dependency checkout directory.<br></code></pre></td></tr></table></figure></p><p>根据版本号创建符合dh_make规范的<code>&lt;package&gt;-&lt;version&gt;</code>格式</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> ..<br><span class="hljs-built_in">cp</span> -r linglong linglong-1.3.1<br></code></pre></td></tr></table></figure></p></li><li><p>dh_make生成debian模板文件</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linglong-1.3.1<br>dh_make --createorig -sy<br></code></pre></td></tr></table></figure></p></li><li><p>dkpg-source生成构建源代码包</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg-source -b .<br></code></pre></td></tr></table></figure></p></li><li><p>使用pbuilder构建deb包</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> ..<br>sudo pbuilder --build  --logfile log.txt --basetgz /var/cache/pbuilder/base.tgz --allow-untrusted --hookdir /var/cache/pbuilder/hooks --use-network <span class="hljs-built_in">yes</span> --aptcache <span class="hljs-string">&quot;&quot;</span> --buildresult . --debbuildopts -sa *.dsc<br></code></pre></td></tr></table></figure></p></li></ol><h2 id="more">More</h2><p><a href="https://www.debian.org/doc/manuals/maint-guide/index.zh-cn.html">Debian 软件包制作流程</a> <a href="https://www.cnblogs.com/zszmhd/p/3628446.html">pbuilder编译构建工具分析</a> <a href="https://www.aftermath.cn//2022/03/06/debian-pbuilder/">debian pbuilder使用</a></p>]]></content>
     
     
     <categories>
@@ -3995,10 +4022,14 @@
       
       <category>package</category>
       
+      <category>deb</category>
+      
     </categories>
     
     
     <tags>
+      
+      <tag>git</tag>
       
       <tag>HTML</tag>
       
@@ -4046,37 +4077,6 @@
   
   
   <entry>
-    <title>pbuilder教程</title>
-    <link href="/linux/package/deb/pbuilder%E6%95%99%E7%A8%8B/"/>
-    <url>/linux/package/deb/pbuilder%E6%95%99%E7%A8%8B/</url>
-    
-    <content type="html"><![CDATA[<h1 id="pbuilder教程">pbuilder教程</h1><ol type="1"><li><p>安装环境</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install pbuilder debootstrap devscripts dh-make<br></code></pre></td></tr></table></figure></p></li><li><p>pbuilder配置 以下路径任选其一</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs plain">/etc/pbuilderrc<br>/root/.pbuilderrc<br></code></pre></td></tr></table></figure></p><p>将以下内容写入上述配置文件，上述路径任选其一即可，以uos v20 专业版为例：</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs plain">MIRRORSITE=http://pools.uniontech.com/desktop-professional<br>DEBOOTSTRAPOPTS=(<br>    &#x27;--variant=buildd&#x27;<br>)<br></code></pre></td></tr></table></figure></p></li><li><p>创建pbuilder基础环境</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo pbuilder create --distribution eagle --debootstrapopts --no-check-gpg<br></code></pre></td></tr></table></figure></p><p>如果报错如下： E: No such script: /usr/share/debootstrap/scripts/eagle E: debootstrap failed E: debootstrap.log not present W: Aborting with an error</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> /usr/share/debootstrap/scripts/<br><span class="hljs-built_in">cp</span> sid eagle<br></code></pre></td></tr></table></figure></p><p>需要额外添加仓库源可以<code>login</code>后添加<code>apt</code>仓库源：</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo pbuilder login --basetgz /var/cache/pbuilder/base.tgz --save-after-login<br></code></pre></td></tr></table></figure></p></li><li><p>下载源码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> <span class="hljs-string">&quot;http://ut004487@gerrit.uniontech.com/a/linglong&quot;</span><br><span class="hljs-built_in">cd</span> linglong<br>git checkout develop/snipe<br></code></pre></td></tr></table></figure></p><p>查看changelog版本号</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">head</span> debian/changelog<br></code></pre></td></tr></table></figure></p><p>版本号信息如下:</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs plain">linglong (1.3.1-1) unstable; urgency=medium<br><br>    * fixed some bug.<br><br>    -- liujianqiang &lt;liujianqiang@uniontech.com&gt;  Wed, 27 Apr 2022 15:12:16 +0800<br><br>    linglong (1.3.0-1) unstable; urgency=medium<br><br>    * 1. fix link library failed when using cmake.<br>    * 2. fix adjust dependency checkout directory.<br></code></pre></td></tr></table></figure></p><p>根据版本号创建符合dh_make规范的<code>&lt;package&gt;-&lt;version&gt;</code>格式</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> ..<br><span class="hljs-built_in">cp</span> -r linglong linglong-1.3.1<br></code></pre></td></tr></table></figure></p></li><li><p>dh_make生成debian模板文件</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linglong-1.3.1<br>dh_make --createorig -sy<br></code></pre></td></tr></table></figure></p></li><li><p>dkpg-source生成构建源代码包</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg-source -b .<br></code></pre></td></tr></table></figure></p></li><li><p>使用pbuilder构建deb包</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> ..<br>sudo pbuilder --build  --logfile log.txt --basetgz /var/cache/pbuilder/base.tgz --allow-untrusted --hookdir /var/cache/pbuilder/hooks --use-network <span class="hljs-built_in">yes</span> --aptcache <span class="hljs-string">&quot;&quot;</span> --buildresult . --debbuildopts -sa *.dsc<br></code></pre></td></tr></table></figure></p></li></ol><h2 id="more">More</h2><p><a href="https://www.debian.org/doc/manuals/maint-guide/index.zh-cn.html">Debian 软件包制作流程</a> <a href="https://www.cnblogs.com/zszmhd/p/3628446.html">pbuilder编译构建工具分析</a> <a href="https://www.aftermath.cn//2022/03/06/debian-pbuilder/">debian pbuilder使用</a></p>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>package</category>
-      
-      <category>deb</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>git</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>rpm-ostree compose tree</title>
     <link href="/linux/package/rpm-ostree/rpm-ostree%20compose%20tree/"/>
     <url>/linux/package/rpm-ostree/rpm-ostree%20compose%20tree/</url>
@@ -4096,6 +4096,39 @@
     
     
     <tags>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>rpm-ostree安装教程</title>
+    <link href="/linux/package/rpm-ostree/rpm-ostree%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/"/>
+    <url>/linux/package/rpm-ostree/rpm-ostree%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/</url>
+    
+    <content type="html"><![CDATA[<h1 id="rpm-ostree安装教程">rpm-ostree安装教程</h1><p>Rpm-ostree通过autogen.sh自动生成makefile文件，点击下方链接了解autogen.sh。</p><p>Linux工具之autogen.sh</p><p>autotools自动编译系列之三---autogen.sh实例</p><h2 id="进入rpm-ostree代码目录下">1. 进入rpm-ostree代码目录下</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> rpm-ostree<br></code></pre></td></tr></table></figure><h2 id="执行脚本autogen.sh">2. 执行脚本autogen.sh</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install autoconf libtool automake<br>./autogen.sh<br></code></pre></td></tr></table></figure><h2 id="configure-error-package-requirements-gio-unix-2.0-were-not-met">3、configure: error: Package requirements (gio-unix-2.0) were not met:</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Package &#x27;gio-unix-2.0&#x27;, required by &#x27;virtual:world&#x27;, not found<br></code></pre></td></tr></table></figure><p>https://centos.pkgs.org/8/centos-baseos-x86_64/glib2-devel-2.56.4-10.el8_4.1.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install glib2-devel<br></code></pre></td></tr></table></figure><h2 id="package-json-glib-1.0-required-by-virtualworld-not-found">4. Package 'json-glib-1.0', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-appstream-x86_64/json-glib-devel-1.4.4-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install json-glib-devel<br></code></pre></td></tr></table></figure><h2 id="package-ostree-1-required-by-virtualworld-not-found">5. Package 'ostree-1', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/raven-extras-x86_64/ostree-libs-2021.2-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://pkgs.dyn.su/el8/extras/x86_64/ostree-libs-2021.2-1.el8.x86_64.rpm<br>dnf install ostree-libs-2021.2-1.el8.x86_64.rpm<br></code></pre></td></tr></table></figure><p>https://centos.pkgs.org/8/raven-extras-x86_64/ostree-devel-2021.2-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://pkgs.dyn.su/el8/extras/x86_64/ostree-devel-2021.2-1.el8.x86_64.rpm<br>dnf install ostree-devel-2021.2-1.el8.x86_64.rpm<br></code></pre></td></tr></table></figure><h2 id="package-rpm-required-by-virtualworld-not-found">6. Package 'rpm', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-baseos-x86_64/rpm-devel-4.14.3-14.el8_4.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install rpm-devel<br></code></pre></td></tr></table></figure><h2 id="package-polkit-gobject-1-required-by-virtualworld-not-found">7. Package 'polkit-gobject-1', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-baseos-x86_64/polkit-devel-0.115-11.el8_4.1.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install polkit-devel<br></code></pre></td></tr></table></figure><h2 id="package-libarchive-required-by-virtualworld-not-found">8. Package 'libarchive', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-powertools-x86_64/libarchive-devel-3.3.3-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf --enablerepo=powertools install libarchive-devel<br></code></pre></td></tr></table></figure><h2 id="configure-error-cargo-is-required-for---enable-rust">9. configure: error: cargo is required for --enable-rust</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install rust cargo<br></code></pre></td></tr></table></figure><h2 id="config.status-error-in-rootcoderpm-ostree">10. config.status: error: in `/root/code/rpm-ostree':</h2><p>config.status: error: Something went wrong bootstrapping makefile fragments for automatic dependency tracking. Try re-running configure with the '--disable-dependency-tracking' option to at least be able to build the package (albeit without support for automatic dependency tracking).</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">./autogen.sh --disable-dependency-tracking<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>package</category>
+      
+      <category>rpm-ostree</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>linux</tag>
       
       <tag>HTML</tag>
       
@@ -4129,39 +4162,6 @@
       <tag>Linux</tag>
       
       <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>rpm-ostree安装教程</title>
-    <link href="/linux/package/rpm-ostree/rpm-ostree%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/"/>
-    <url>/linux/package/rpm-ostree/rpm-ostree%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/</url>
-    
-    <content type="html"><![CDATA[<h1 id="rpm-ostree安装教程">rpm-ostree安装教程</h1><p>Rpm-ostree通过autogen.sh自动生成makefile文件，点击下方链接了解autogen.sh。</p><p>Linux工具之autogen.sh</p><p>autotools自动编译系列之三---autogen.sh实例</p><h2 id="进入rpm-ostree代码目录下">1. 进入rpm-ostree代码目录下</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> rpm-ostree<br></code></pre></td></tr></table></figure><h2 id="执行脚本autogen.sh">2. 执行脚本autogen.sh</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install autoconf libtool automake<br>./autogen.sh<br></code></pre></td></tr></table></figure><h2 id="configure-error-package-requirements-gio-unix-2.0-were-not-met">3、configure: error: Package requirements (gio-unix-2.0) were not met:</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Package &#x27;gio-unix-2.0&#x27;, required by &#x27;virtual:world&#x27;, not found<br></code></pre></td></tr></table></figure><p>https://centos.pkgs.org/8/centos-baseos-x86_64/glib2-devel-2.56.4-10.el8_4.1.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install glib2-devel<br></code></pre></td></tr></table></figure><h2 id="package-json-glib-1.0-required-by-virtualworld-not-found">4. Package 'json-glib-1.0', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-appstream-x86_64/json-glib-devel-1.4.4-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install json-glib-devel<br></code></pre></td></tr></table></figure><h2 id="package-ostree-1-required-by-virtualworld-not-found">5. Package 'ostree-1', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/raven-extras-x86_64/ostree-libs-2021.2-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://pkgs.dyn.su/el8/extras/x86_64/ostree-libs-2021.2-1.el8.x86_64.rpm<br>dnf install ostree-libs-2021.2-1.el8.x86_64.rpm<br></code></pre></td></tr></table></figure><p>https://centos.pkgs.org/8/raven-extras-x86_64/ostree-devel-2021.2-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://pkgs.dyn.su/el8/extras/x86_64/ostree-devel-2021.2-1.el8.x86_64.rpm<br>dnf install ostree-devel-2021.2-1.el8.x86_64.rpm<br></code></pre></td></tr></table></figure><h2 id="package-rpm-required-by-virtualworld-not-found">6. Package 'rpm', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-baseos-x86_64/rpm-devel-4.14.3-14.el8_4.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install rpm-devel<br></code></pre></td></tr></table></figure><h2 id="package-polkit-gobject-1-required-by-virtualworld-not-found">7. Package 'polkit-gobject-1', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-baseos-x86_64/polkit-devel-0.115-11.el8_4.1.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install polkit-devel<br></code></pre></td></tr></table></figure><h2 id="package-libarchive-required-by-virtualworld-not-found">8. Package 'libarchive', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-powertools-x86_64/libarchive-devel-3.3.3-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf --enablerepo=powertools install libarchive-devel<br></code></pre></td></tr></table></figure><h2 id="configure-error-cargo-is-required-for---enable-rust">9. configure: error: cargo is required for --enable-rust</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install rust cargo<br></code></pre></td></tr></table></figure><h2 id="config.status-error-in-rootcoderpm-ostree">10. config.status: error: in `/root/code/rpm-ostree':</h2><p>config.status: error: Something went wrong bootstrapping makefile fragments for automatic dependency tracking. Try re-running configure with the '--disable-dependency-tracking' option to at least be able to build the package (albeit without support for automatic dependency tracking).</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">./autogen.sh --disable-dependency-tracking<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>package</category>
-      
-      <category>rpm-ostree</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
       
       <tag>linux</tag>
       
@@ -4952,25 +4952,6 @@
   
   
   <entry>
-    <title>README</title>
-    <link href="/patent/README/"/>
-    <url>/patent/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="patent">patent</h1><p>已撰写专利：</p><ul><li>增量更新、回退中一种基于缓存的高效查找机制</li></ul><p>待撰写专利：</p><ul><li>玲珑仓库基于rbac角色权限控制较flatpak仓库优势</li><li>玲珑仓库支持一键部署弹性伸缩较flatpak仓库优势</li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>patent</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>flatpak</title>
     <link href="/patent/flatpak/"/>
     <url>/patent/flatpak/</url>
@@ -4994,6 +4975,25 @@
       <tag>linux</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/patent/README/"/>
+    <url>/patent/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="patent">patent</h1><p>已撰写专利：</p><ul><li>增量更新、回退中一种基于缓存的高效查找机制</li></ul><p>待撰写专利：</p><ul><li>玲珑仓库基于rbac角色权限控制较flatpak仓库优势</li><li>玲珑仓库支持一键部署弹性伸缩较flatpak仓库优势</li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>patent</category>
+      
+    </categories>
+    
     
   </entry>
   
