@@ -57,3 +57,8 @@ PCI配置寄存器如下图所示。
 - Vendor ID: 标识硬件厂商，需要向特定组织进行注册。
 - Device ID: 由硬件厂商来分配的设备ID，无需对ID进行注册。
 - Subsystem ID、Subsystem Vendor ID: 用来进一步标识设备。
+
+## 参考patch
+
+- [ALSA: hda/realtek: Add quirk for another Asus K42JZ model](https://patchwork.kernel.org/project/alsa-devel/patch/20220805070331.13743-1-tangmeng@uniontech.com/)
+- [ALSA: hda/realtek: Fix headset mic for Acer SF313-51](https://patchwork.kernel.org/project/alsa-devel/patch/20220711081527.6254-1-tangmeng@uniontech.com/)
