@@ -66,6 +66,7 @@ sudo apt install task-gnome-desktop
 - [GPU 调度 - Linux 实现](https://mp.weixin.qq.com/s/_oe409y93Qm5l3j3o_-P8Q)
 
 - [【干货】一文看懂GPU流处理器](https://mp.weixin.qq.com/s/IHardB0dyky8fhgQkU55pw)
+- [【干货】三张图看懂主流GPU性能](https://mp.weixin.qq.com/s/bNGBoeKnvcEB7prpDeAXeQ)
 
 ### admgpu
 
