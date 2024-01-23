@@ -159,3 +159,7 @@
 - [QEMU KVM学习笔记](https://github.com/yifengyou/learn-kvm)
 - [kvm虚拟化技术：实战与原理解析.pdf](http://www.downcc.com/soft/317578.html)
 - [QEMU/KVM源码解析与应用-李强编著-微信读书](https://weread.qq.com/web/bookDetail/ec132be07263ffc1ec1dc10)
+
+## More
+
+- [Wine 开发者指导/架构概览](https://blog.csdn.net/Flora_xuan1993/article/details/89205922)
