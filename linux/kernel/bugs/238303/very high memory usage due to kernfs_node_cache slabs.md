@@ -34,7 +34,7 @@ SUnreclaim:       738384 kB
 #### slabtop
 
 ```bash
- slabtop -s c -o | head -n20
+slabtop -s c -o | head -n20
  Active / Total Objects (% used)    : 924058 / 1039323 (88.9%)
  Active / Total Slabs (% used)      : 43496 / 43496 (100.0%)
  Active / Total Caches (% used)     : 121 / 187 (64.7%)
