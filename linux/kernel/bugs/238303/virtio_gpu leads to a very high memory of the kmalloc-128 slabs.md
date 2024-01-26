@@ -286,6 +286,8 @@ echo 1 > /sys/kernel/slab/kmalloc-128/trace  && sleep 30 && echo 0 > /sys/kernel
 2024-01-26 15:04:11 uos-PC kernel: [  634.494384]  ret_from_fork+0x10/0x18
 ```
 
+### 编译Xorg deb调试包
+
 slub_debug中`kmalloc-128 alloc`、`kmalloc-128 free`的栈回溯中出现了有关virtio_gpu的调用，基本上确认virtio_gpu存在内存泄露。
 
 查看`kmalloc-128 alloc`中提到的`Comm: Xorg`所属deb包，进一步安装对应调试包：
@@ -356,5 +358,110 @@ dpkg-source: info: unpacking xorg-server_1.20.4.97-1+dde.debian.tar.xz
 ```
 
 `xorg-server-1.20.4.97`跟`xserver-xorg-core 2:1.20.4.65-1+dde`对不上，说明仓库中xorg-server源码与xserver-xorg-core源码不一致。
+
+联系窗管研发，得到对应源码并编译出deb包（包含deb调试包）：
+
+<https://gerrit.uniontech.com/c/base/xorg-server/+/202758>
+
+```bash
+mkdir xorg-server-1.20.4.65
+cd xorg-server-1.20.4.65
+git clone "http://gerrit.uniontech.com/base/xorg-server"
+git checkout -b uos20-1060 43b8a07
+mv xorg-server xorg-server-1.20.4.65
+dh_make --createorig -sy    # 生成debian目录
+dpkg-source -b .    # 生成构建源代码包
+dpkg-buildpackage -uc -us -j4   # 编译制作deb包
+cd ..
+sudo apt install ./*.deb   # 安装deb包，包含deb调试包
+```
+
+### trace-bpfcc
+
+```bash
+sudo apt install bpftrace bpfcc-tools
+```
+
+```bash
+trace-bpfcc -tKU virtio_gpu_fence_alloc | tee virtio_gpu_fence_alloc.log
+```
+
+输出如下：
+
+```bash
+TIME     PID     TID     COMM            FUNC             
+2.639655 723     723     Xorg            virtio_gpu_fence_alloc 
+        virtio_gpu_fence_alloc+0x0 [kernel]
+        drm_ioctl_kernel+0x90 [kernel]
+        drm_ioctl+0x1c0 [kernel]
+        do_vfs_ioctl+0xa4 [kernel]
+        ksys_ioctl+0x78 [kernel]
+        __arm64_sys_ioctl+0x1c [kernel]
+        el0_svc_common+0x90 [kernel]
+        el0_svc_handler+0x9c [kernel]
+        el0_svc+0x8 [kernel]
+        ioctl+0xc [libc-2.28.so]
+        [unknown] [virtio_gpu_dri.so]
+        [unknown] [virtio_gpu_dri.so]
+        [unknown] [virtio_gpu_dri.so]
+        [unknown] [virtio_gpu_dri.so]
+        [unknown] [virtio_gpu_dri.so]
+        [unknown] [virtio_gpu_dri.so]
+        [unknown] [libglamoregl.so]
+        [unknown] [modesetting_drv.so]
+        BlockHandler+0xf0 [Xorg]
+        WaitForSomething+0xe8 [Xorg]
+        [unknown] [Xorg]
+        [unknown] [Xorg]
+        __libc_start_main+0xe4 [libc-2.28.so]
+        [unknown] [Xorg]
+```
+
+```bash
+// cd xorg-server-1.20.4.65/xorg-server-1.20.4.65
+// vim os/WaitFor.c +201
+165 Bool
+166 WaitForSomething(Bool are_ready)
+167 {
+168     int i;
+169     int timeout;
+170     int pollerr;
+171     static Bool were_ready;
+172     Bool timer_is_running;
+173 
+174     timer_is_running = were_ready;
+175 
+176     if (were_ready && !are_ready) {
+177         timer_is_running = FALSE;
+178         SmartScheduleStopTimer();
+179     }
+180 
+181     were_ready = FALSE;
+182 
+183 #ifdef BUSFAULT
+184     busfault_check();
+185 #endif
+186 
+187     /* We need a while loop here to handle
+188        crashed connections and the screen saver timeout */
+189     while (1) {
+190         /* deal with any blocked jobs */
+191         if (workQueue) {
+192             ProcessWorkQueue();
+193         }
+194 
+195         timeout = check_timers();
+196         are_ready = clients_are_ready();
+197 
+198         if (are_ready)
+199             timeout = 0;
+200 
+201         BlockHandler(&timeout); // 这里进一步往下调用，最终调用内核代码virtio_gpu_fence_alloc
+202         if (NewOutputPending)
+203             FlushAllOutput();
+204         /* keep this check close to select() call to minimize race */
+205         if (dispatchException)
+206             i = -1;
+```
 
 ## 修复方案
