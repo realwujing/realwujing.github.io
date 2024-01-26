@@ -542,6 +542,51 @@ UUID=cc5da720-dbfb-4bc2-8f35-f566d1603508       /media/wujing/data      ext4    
 - [vscode SSH 保存密码自动登录服务器](https://www.jianshu.com/p/cc1f599c8841)
 
 - [VSCode Remote ssh跳板机配置(linux环境)](https://blog.csdn.net/qq_21407811/article/details/110938940)
+
+  现有三台机器A、B、C,期望从机器A上通过跳板机B免密远程登录机器C。
+
+  在机器A上执行如下命令:
+  
+  ```bash
+  ssh-keygen
+  ssh-copy-id uos@10.20.53.160
+  # 将机器A的公钥复制到机器B
+  rsync -avzP id_rsa.pub uos@10.20.53.160:~
+  ```
+
+  在机器B上执行如下命令:
+  
+  ```bash
+  ssh-keygen
+  ssh-copy-id uos@192.168.122.76
+  # 将机器A的公钥复制到机器C
+  rsync -avzP ~/id_rsa.pub uos@192.168.122.76:~
+  cat 
+  ```
+
+  在机器C上执行如下命令:
+  
+  ```bash
+  cat id_rsa.pub >> ~/.ssh/authorized_keys
+  ```
+
+  在机器A上的`~/.ssh/config`添加机器A、B、C配置(机器A是本机，可以忽略):
+
+  ```bash
+  Host 192.168.122.76-uos20-1060-arm #机器C
+    HostName 192.168.122.76
+    User uos
+    ProxyJump 10.20.53.160-uos20-1060-arm
+
+  Host 10.20.53.160-uos20-1060-arm # 机器B
+    HostName 10.20.53.160
+    User uos
+
+  Host 10.20.53.48-deepin20.9-amd # 机器A
+    HostName 10.20.53.48
+    User uos
+  ```
+
 - [deepin安装ssh服务并设置开机自启动](https://www.cnblogs.com/Thenext/p/15437824.html)
 - [ssh登录后,ulimit的值无法修改的问题](http://i01.org/show.php?id=390)
 - [什么是堡垒机？为什么需要堡垒机？](https://mp.weixin.qq.com/s/qW7zQfevhRIPb1PXLRXmAA)
