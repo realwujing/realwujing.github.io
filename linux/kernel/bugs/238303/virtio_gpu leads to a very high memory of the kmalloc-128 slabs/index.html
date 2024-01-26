@@ -1,0 +1,848 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="virtio_gpu leads to a very high memory of the kmalloc-128 slabs 环境 宿主机  cpu: 飞腾D2000 os: uos20-1060-arm64 virt-manager: 1:2.0.0.6-1+eagle 123456789apt policy virt-managervirt-manager:  已安装：1:2.0.0.6-1">
+<meta property="og:type" content="article">
+<meta property="og:title" content="virtio_gpu leads to a very high memory of the kmalloc-128 slabs">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/bugs/238303/virtio_gpu%20leads%20to%20a%20very%20high%20memory%20of%20the%20kmalloc-128%20slabs/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="virtio_gpu leads to a very high memory of the kmalloc-128 slabs 环境 宿主机  cpu: 飞腾D2000 os: uos20-1060-arm64 virt-manager: 1:2.0.0.6-1+eagle 123456789apt policy virt-managervirt-manager:  已安装：1:2.0.0.6-1">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/%E6%88%AA%E5%9B%BE_%E9%80%89%E6%8B%A9%E5%8C%BA%E5%9F%9F_20240126141611.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/%E6%88%AA%E5%9B%BE_%E9%80%89%E6%8B%A9%E5%8C%BA%E5%9F%9F_20240126141808.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/%E6%88%AA%E5%9B%BE_%E9%80%89%E6%8B%A9%E5%8C%BA%E5%9F%9F_20240126141820.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/%E6%88%AA%E5%9B%BE_%E9%80%89%E6%8B%A9%E5%8C%BA%E5%9F%9F_20240126115617.png">
+<meta property="article:published_time" content="2024-01-26T15:16:35.000Z">
+<meta property="article:modified_time" content="2024-01-26T15:16:35.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="qemu">
+<meta property="article:tag" content="linux">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/%E6%88%AA%E5%9B%BE_%E9%80%89%E6%8B%A9%E5%8C%BA%E5%9F%9F_20240126141611.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>virtio_gpu leads to a very high memory of the kmalloc-128 slabs - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="virtio_gpu leads to a very high memory of the kmalloc-128 slabs"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-01-26 15:16" pubdate>
+          2024年1月26日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          9.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          78 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">virtio_gpu leads to a very high memory of the kmalloc-128 slabs</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="virtio_gpu-leads-to-a-very-high-memory-of-the-kmalloc-128-slabs">virtio_gpu leads to a very high memory of the kmalloc-128 slabs</h1>
+<h2 id="环境">环境</h2>
+<h3 id="宿主机">宿主机</h3>
+<ul>
+<li><p>cpu: 飞腾D2000</p></li>
+<li><p>os: <a target="_blank" rel="noopener" href="https://cdimage.uniontech.com/iso-v20/desktop-professional/1060/uos-desktop-20-professional-1060-arm64.iso">uos20-1060-arm64</a></p></li>
+<li><p>virt-manager: 1:2.0.0.6-1+eagle</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt policy virt-manager<br>virt-manager:<br>  已安装：1:2.0.0.6-1+eagle<br>  候选： 1:2.0.0.6-1+eagle<br>  版本列表：<br>*** 1:2.0.0.6-1+eagle 500<br>        500 https://professional-packages.chinauos.com/desktop-professional eagle/main arm64 Packages<br>        500 https://professional-security.chinauos.com eagle/1060/main arm64 Packages<br>        100 /usr/lib/dpkg-db/status<br></code></pre></td></tr></table></figure></li>
+</ul>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126141611.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>host</figcaption>
+</figure>
+<h3 id="虚拟机">虚拟机</h3>
+<ul>
+<li>cpu: kvm</li>
+<li>os: <a target="_blank" rel="noopener" href="https://cdimage.uniontech.com/iso-v20/desktop-professional/1060/uos-desktop-20-professional-1060-arm64.iso">uos20-1060-arm64</a></li>
+</ul>
+<p><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126141808.png" srcset="/img/loading.gif" lazyload alt="guest-spice" /> <img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126141820.png" srcset="/img/loading.gif" lazyload alt="guest-virtio" /></p>
+<h4 id="虚拟机初始化报错">虚拟机初始化报错</h4>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126115617.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)</figcaption>
+</figure>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs text">无法完成安装：&#x27;internal error: process exited while connecting to monitor: Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)---disabling.&#x27;<br><br>Traceback (most recent call last):<br><br>  File &quot;/usr/share/virt-manager/virtManager/asyncjob.py&quot;, line 75, in cb_wrapper<br><br>    callback(asyncjob, *args, **kwargs)<br><br>  File &quot;/usr/share/virt-manager/virtManager/create.py&quot;, line 2121, in _do_async_install<br><br>    guest.installer_instance.start_install(guest, meter=meter)<br><br>  File &quot;/usr/share/virt-manager/virtinst/installer.py&quot;, line 419, in start_install<br><br>    doboot, transient)<br><br>  File &quot;/usr/share/virt-manager/virtinst/installer.py&quot;, line 362, in _create_guest<br><br>    domain = self.conn.createXML(install_xml or final_xml, 0)<br><br>  File &quot;/usr/lib/python3/dist-packages/libvirt.py&quot;, line 3732, in createXML<br><br>    if ret is None:raise libvirtError(&#x27;virDomainCreateXML() failed&#x27;, conn=self)<br><br>libvirt.libvirtError: internal error: process exited while connecting to monitor: Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)---disabling.<br><br></code></pre></td></tr></table></figure>
+<h4 id="修复方案">修复方案</h4>
+<p>在宿主机上执行:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo -s<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;seccomp_sandbox = 0&quot;</span>  &gt;&gt; /etc/libvirt/qemu.conf<br>sudo systemctl daemon-reload<br>sudo systemctl restart libvirtd<br></code></pre></td></tr></table></figure>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://bugzilla.redhat.com/show_bug.cgi?id=1659484#c9">Bug 1659484 - Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)</a></li>
+<li><a target="_blank" rel="noopener" href="https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=916441">Debian Bug report logs - #916441 Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)</a></li>
+</ul>
+<h2 id="virtio_gpu-virgl">virtio_gpu virgl</h2>
+<p>虚拟机上安装：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install mesa-utils<br></code></pre></td></tr></table></figure>
+<p>虚拟机上执行测试命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">vblank_mode=0 glxgears<br></code></pre></td></tr></table></figure>
+<p>vblank_mode=0 告诉图形卡忽略显示器的刷新率，仅尝试达到其关闭功能的maximux fps。</p>
+<p>查看虚拟机系统的 OpenGL 配置和性能：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">glxinfo -B | <span class="hljs-built_in">head</span> -n20<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">name of display: :0<br>display: :0  screen: 0<br>direct rendering: Yes<br>Extended renderer info (GLX_MESA_query_renderer):<br>    Vendor: Red Hat (0x1af4)<br>    Device: virgl (0x1010)<br>    Version: 19.2.6<br>    Accelerated: <span class="hljs-built_in">yes</span><br>    Video memory: 0MB<br>    Unified memory: no<br>    Preferred profile: core (0x1)<br>    Max core profile version: 4.3<br>    Max compat profile version: 3.1<br>    Max GLES1 profile version: 1.1<br>    Max GLES[23] profile version: 3.1<br>OpenGL vendor string: Red Hat<br>OpenGL renderer string: virgl<br>OpenGL core profile version string: 4.3 (Core Profile) Mesa 19.2.6<br>OpenGL core profile shading language version string: 4.30<br>OpenGL core profile context flags: (none)<br></code></pre></td></tr></table></figure>
+<p>可以看到虚拟机中已经启用了virtio 3D加速。</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/tongxin1101124/article/details/123235465">Linux下2D、3D的测试软件glxgears</a></li>
+</ul>
+<h2 id="初步分析">初步分析</h2>
+<h3 id="slab">Slab</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/meminfo | grep Slab: -A2<br>Slab:             434440 kB<br>SReclaimable:     197732 kB<br>SUnreclaim:       236708 kB<br></code></pre></td></tr></table></figure>
+<h3 id="slabtop">slabtop</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/slabinfo<br><span class="hljs-built_in">cat</span>: /proc/slabinfo: 没有那个文件或目录<br></code></pre></td></tr></table></figure>
+<p>故需要替换虚拟机内核为打开slub_debug、kmemleak的版本：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install ./linux-image-4.19.0-arm64-desktop-tyy-5819-ext4-slub-debug-kmemleak_4.19.90-5819_arm64.deb<br></code></pre></td></tr></table></figure>
+<p>安装包含slabtop的工具：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install procps<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs bash">slabtop -s c -o | <span class="hljs-built_in">head</span> -n20<br>请输入密码:<br> Active / Total Objects (% used)    : 729456 / 769288 (94.8%)<br> Active / Total Slabs (% used)      : 34804 / 34804 (100.0%)<br> Active / Total Caches (% used)     : 125 / 192 (65.1%)<br> Active / Total Size (% used)       : 443220.71K / 474643.98K (93.4%)<br> Minimum / Average / Maximum Object : 0.34K / 0.62K / 12.00K<br><br>  OBJS ACTIVE  USE OBJ SIZE  SLABS OBJ/SLAB CACHE SIZE NAME                   <br>381050 375070  98%    0.62K  15242       25    243872K kmemleak_object        <br>150484 150259  99%    0.45K   8852       17     70816K kernfs_node_cache      <br> 51350  50337  98%    0.62K   2054       25     32864K kmalloc-128            <br> 40455  37247  92%    0.52K   1305       31     20880K dentry                 <br> 14145  13303  94%    1.38K    615       23     19680K ext4_inode_cache       <br> 13855  13235  95%    0.91K    815       17     13040K inode_cache            <br> 17732  14700  82%    0.52K    572       31      9152K vm_area_struct         <br>  7701   7099  92%    0.89K    453       17      7248K radix_tree_node        <br>  5728   5054  88%    0.98K    358       16      5728K proc_inode_cache       <br>  1085    731  67%    4.50K    155        7      4960K kmalloc-4096           <br>  6877   3917  56%    0.69K    299       23      4784K filp                   <br>  9180   8695  94%    0.47K    540       17      4320K buffer_head            <br> 10540   8478  80%    0.39K    527       20      4216K anon_vma_chain<br></code></pre></td></tr></table></figure>
+<h3 id="kmemleak">kmemleak</h3>
+<p>打开kmemlean扫描功能：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> scan &gt; /sys/kernel/debug/kmemleak<br></code></pre></td></tr></table></figure>
+<p>查看kmemleak结果：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /sys/kernel/debug/kmemleak<br></code></pre></td></tr></table></figure>
+<p>virtio_gpu 存在内存泄露：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs bash">unreferenced object 0xffff8000b0d4c800 (size 128):<br>  <span class="hljs-built_in">comm</span> <span class="hljs-string">&quot;Xorg&quot;</span>, pid 723, jiffies 4294896491 (age 361.400s)<br>  hex dump (first 32 bytes):<br>    01 00 00 00 00 00 00 00 a8 c0 ec 08 00 00 ff ff  ................<br>    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................<br>  backtrace:<br>    [&lt;00000000dce2d1d0&gt;] kmem_cache_alloc_trace+0x140/0x270<br>    [&lt;000000009a6c7a12&gt;] virtio_gpu_fence_alloc+0x28/0x68<br>    [&lt;00000000fa64f478&gt;] virtio_gpu_execbuffer_ioctl+0x2a0/0x400<br>    [&lt;0000000093a38e00&gt;] drm_ioctl_kernel+0x90/0xe8<br>    [&lt;00000000653c7660&gt;] drm_ioctl+0x1c0/0x398<br>    [&lt;00000000cc088f2c&gt;] do_vfs_ioctl+0xa4/0x858<br>    [&lt;00000000baad8f0f&gt;] ksys_ioctl+0x78/0xa8<br>    [&lt;0000000075e1d8b3&gt;] __arm64_sys_ioctl+0x1c/0x28<br>    [&lt;000000006fee0928&gt;] el0_svc_common+0x90/0x178<br>    [&lt;0000000049219d6c&gt;] el0_svc_handler+0x9c/0xa8<br>    [&lt;0000000056df9638&gt;] el0_svc+0x8/0xc<br>    [&lt;00000000a96bfbe3&gt;] 0xffffffffffffffff<br></code></pre></td></tr></table></figure>
+<h3 id="slub_debug">slub_debug</h3>
+<p>多台机器反馈kmalloc-128 slab对象占用内存最多，slub_debug可以打开来查看：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 1 &gt; /sys/kernel/slab/kmalloc-128/trace  &amp;&amp; <span class="hljs-built_in">sleep</span> 30 &amp;&amp; <span class="hljs-built_in">echo</span> 0 &gt; /sys/kernel/slab/kmalloc-128/trace<br></code></pre></td></tr></table></figure>
+<h4 id="kmalloc-128-alloc">kmalloc-128 alloc</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs bash">2024-01-26 15:04:11 uos-PC kernel: [  634.493181] TRACE kmalloc-128 alloc 0x000000006069c5b0 inuse=25 fp=0x          (null)<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493185] CPU: 3 PID: 723 Comm: Xorg Tainted: G           O      4.19.0-arm64-desktop-tyy-5819-ext4-slub-debug-kmemleak <span class="hljs-comment">#5819</span><br>2024-01-26 15:04:11 uos-PC kernel: [  634.493187] Hardware name: QEMU KVM Virtual Machine, BIOS 0.0.0 02/06/2015<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493189] Call trace:<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493192]  dump_backtrace+0x0/0x190<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493194]  show_stack+0x14/0x20<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493197]  dump_stack+0xa8/0xcc<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493200]  alloc_debug_processing+0x58/0x188<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493203]  ___slab_alloc.constprop.34+0x31c/0x388<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493206]  __kmalloc+0x284/0x2e0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493209]  alloc_indirect.isra.2+0x1c/0x50<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493212]  virtqueue_add_sgs+0xa4/0x488<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493217]  virtio_gpu_queue_ctrl_buffer_locked+0xc8/0x1f0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493221]  virtio_gpu_queue_fenced_ctrl_buffer+0xec/0x120<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493225]  virtio_gpu_cmd_submit+0x98/0xb0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493228]  virtio_gpu_execbuffer_ioctl+0x2e4/0x400<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493232]  drm_ioctl_kernel+0x90/0xe8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493236]  drm_ioctl+0x1c0/0x398<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493240]  do_vfs_ioctl+0xa4/0x858<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493243]  ksys_ioctl+0x78/0xa8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493247] TRACE kmalloc-128 alloc 0x00000000c1c7d55e inuse=25 fp=0x          (null)<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493251]  __arm64_sys_ioctl+0x1c/0x28<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493256]  el0_svc_common+0x90/0x178<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493259]  el0_svc_handler+0x9c/0xa8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493262]  el0_svc+0x8/0xc<br></code></pre></td></tr></table></figure>
+<h4 id="kmalloc-128-free">kmalloc-128 free</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs bash">2024-01-26 15:04:11 uos-PC kernel: [  634.494274] TRACE kmalloc-128(522:accounts-daemon.service) free 0x0000000085d7b43a inuse=20 fp=0x0000000024f7d5b5<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494279] Object 0000000085d7b43a: 80 80 2c d4 00 80 ff ff 80 80 2c d4 00 80 ff ff  ..,.......,.....<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494284] Workqueue: events virtio_gpu_dequeue_ctrl_func<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494290] Object 000000004798057d: 70 91 3d f0 00 80 ff ff 02 00 00 08 6b 6b 6b 6b  p.=.........kkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494293] Call trace:<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494296] Object 00000000dcf382e6: 02 00 00 00 00 00 00 00 06 00 00 00 73 79 73 6c  ............sysl<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494300]  dump_backtrace+0x0/0x190<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494303] Object 00000000edcab07b: 6f 67 00 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  og.kkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494308]  show_stack+0x14/0x20<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494310] Object 0000000053f635bd: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494312] Object 000000000e1b3528: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494317]  dump_stack+0xa8/0xcc<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494319] Object 0000000052bf950e: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494324]  free_debug_processing+0x19c/0x3a0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494326] Object 00000000b74c6682: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b a5  kkkkkkkkkkkkkkk.<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494331]  __slab_free+0x230/0x3f8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494335]  kfree+0x1d8/0x200<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494340]  detach_buf+0x100/0x140<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494345]  virtqueue_get_buf_ctx+0x80/0x170<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494352]  virtqueue_get_buf+0x10/0x18<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494358]  reclaim_vbufs+0x40/0x80<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494364]  virtio_gpu_dequeue_ctrl_func+0x6c/0x248<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494370]  process_one_work+0x1e8/0x438<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494375]  worker_thread+0x48/0x4c8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494379]  kthread+0x128/0x130<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494384]  ret_from_fork+0x10/0x18<br></code></pre></td></tr></table></figure>
+<p>slub_debug中<code>kmalloc-128 alloc</code>、<code>kmalloc-128 free</code>的栈回溯中出现了有关virtio_gpu的调用，基本上确认virtio_gpu存在内存泄露。</p>
+<h2 id="修复方案-1">修复方案</h2>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/bugs/" class="category-chain-item">bugs</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/bugs/238303/" class="category-chain-item">238303</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/qemu/">#qemu</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>virtio_gpu leads to a very high memory of the kmalloc-128 slabs</div>
+      <div>https://realwujing.github.io/linux/kernel/bugs/238303/virtio_gpu leads to a very high memory of the kmalloc-128 slabs/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2024年1月26日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/bugs/238303/very%20high%20memory%20usage%20due%20to%20kernfs_node_cache%20slabs/" title="very high memory usage due to kernfs_node_cache slabs">
+                        <span class="hidden-mobile">very high memory usage due to kernfs_node_cache slabs</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: 'f4aa232c4b2cb8be01214d6ece16a5f5'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
