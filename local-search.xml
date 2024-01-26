@@ -8,7 +8,7 @@
     <link href="/linux/kernel/bugs/238303/virtio_gpu%20leads%20to%20a%20very%20high%20memory%20of%20the%20kmalloc-128%20slabs/"/>
     <url>/linux/kernel/bugs/238303/virtio_gpu%20leads%20to%20a%20very%20high%20memory%20of%20the%20kmalloc-128%20slabs/</url>
     
-    <content type="html"><![CDATA[<h1 id="virtio_gpu-leads-to-a-very-high-memory-of-the-kmalloc-128-slabs">virtio_gpu leads to a very high memory of the kmalloc-128 slabs</h1><h2 id="环境">环境</h2><h3 id="宿主机">宿主机</h3><ul><li><p>cpu: 飞腾D2000</p></li><li><p>os: <a href="https://cdimage.uniontech.com/iso-v20/desktop-professional/1060/uos-desktop-20-professional-1060-arm64.iso">uos20-1060-arm64</a></p></li><li><p>virt-manager: 1:2.0.0.6-1+eagle</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt policy virt-manager<br>virt-manager:<br>  已安装：1:2.0.0.6-1+eagle<br>  候选： 1:2.0.0.6-1+eagle<br>  版本列表：<br>*** 1:2.0.0.6-1+eagle 500<br>        500 https://professional-packages.chinauos.com/desktop-professional eagle/main arm64 Packages<br>        500 https://professional-security.chinauos.com eagle/1060/main arm64 Packages<br>        100 /usr/lib/dpkg-db/status<br></code></pre></td></tr></table></figure></li></ul><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126141611.png" alt="" /><figcaption>host</figcaption></figure><h3 id="虚拟机">虚拟机</h3><ul><li>cpu: kvm</li><li>os: <a href="https://cdimage.uniontech.com/iso-v20/desktop-professional/1060/uos-desktop-20-professional-1060-arm64.iso">uos20-1060-arm64</a></li></ul><p><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126141808.png" alt="guest-spice" /> <img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126141820.png" alt="guest-virtio" /></p><h4 id="虚拟机初始化报错">虚拟机初始化报错</h4><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126115617.png" alt="" /><figcaption>Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)</figcaption></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs text">无法完成安装：&#x27;internal error: process exited while connecting to monitor: Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)---disabling.&#x27;<br><br>Traceback (most recent call last):<br><br>  File &quot;/usr/share/virt-manager/virtManager/asyncjob.py&quot;, line 75, in cb_wrapper<br><br>    callback(asyncjob, *args, **kwargs)<br><br>  File &quot;/usr/share/virt-manager/virtManager/create.py&quot;, line 2121, in _do_async_install<br><br>    guest.installer_instance.start_install(guest, meter=meter)<br><br>  File &quot;/usr/share/virt-manager/virtinst/installer.py&quot;, line 419, in start_install<br><br>    doboot, transient)<br><br>  File &quot;/usr/share/virt-manager/virtinst/installer.py&quot;, line 362, in _create_guest<br><br>    domain = self.conn.createXML(install_xml or final_xml, 0)<br><br>  File &quot;/usr/lib/python3/dist-packages/libvirt.py&quot;, line 3732, in createXML<br><br>    if ret is None:raise libvirtError(&#x27;virDomainCreateXML() failed&#x27;, conn=self)<br><br>libvirt.libvirtError: internal error: process exited while connecting to monitor: Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)---disabling.<br><br></code></pre></td></tr></table></figure><h4 id="修复方案">修复方案</h4><p>在宿主机上执行:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo -s<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;seccomp_sandbox = 0&quot;</span>  &gt;&gt; /etc/libvirt/qemu.conf<br>sudo systemctl daemon-reload<br>sudo systemctl restart libvirtd<br></code></pre></td></tr></table></figure><ul><li><a href="https://bugzilla.redhat.com/show_bug.cgi?id=1659484#c9">Bug 1659484 - Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)</a></li><li><a href="https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=916441">Debian Bug report logs - #916441 Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)</a></li></ul><h2 id="virtio_gpu-virgl">virtio_gpu virgl</h2><p>虚拟机上安装：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install mesa-utils<br></code></pre></td></tr></table></figure><p>虚拟机上执行测试命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">vblank_mode=0 glxgears<br></code></pre></td></tr></table></figure><p>vblank_mode=0 告诉图形卡忽略显示器的刷新率，仅尝试达到其关闭功能的maximux fps。</p><p>查看虚拟机系统的 OpenGL 配置和性能：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">glxinfo -B | <span class="hljs-built_in">head</span> -n20<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">name of display: :0<br>display: :0  screen: 0<br>direct rendering: Yes<br>Extended renderer info (GLX_MESA_query_renderer):<br>    Vendor: Red Hat (0x1af4)<br>    Device: virgl (0x1010)<br>    Version: 19.2.6<br>    Accelerated: <span class="hljs-built_in">yes</span><br>    Video memory: 0MB<br>    Unified memory: no<br>    Preferred profile: core (0x1)<br>    Max core profile version: 4.3<br>    Max compat profile version: 3.1<br>    Max GLES1 profile version: 1.1<br>    Max GLES[23] profile version: 3.1<br>OpenGL vendor string: Red Hat<br>OpenGL renderer string: virgl<br>OpenGL core profile version string: 4.3 (Core Profile) Mesa 19.2.6<br>OpenGL core profile shading language version string: 4.30<br>OpenGL core profile context flags: (none)<br></code></pre></td></tr></table></figure><p>可以看到虚拟机中已经启用了virtio 3D加速。</p><ul><li><a href="https://blog.csdn.net/tongxin1101124/article/details/123235465">Linux下2D、3D的测试软件glxgears</a></li></ul><h2 id="初步分析">初步分析</h2><h3 id="slab">Slab</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/meminfo | grep Slab: -A2<br>Slab:             434440 kB<br>SReclaimable:     197732 kB<br>SUnreclaim:       236708 kB<br></code></pre></td></tr></table></figure><h3 id="slabtop">slabtop</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/slabinfo<br><span class="hljs-built_in">cat</span>: /proc/slabinfo: 没有那个文件或目录<br></code></pre></td></tr></table></figure><p>故需要替换虚拟机内核为打开slub_debug、kmemleak的版本：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install ./linux-image-4.19.0-arm64-desktop-tyy-5819-ext4-slub-debug-kmemleak_4.19.90-5819_arm64.deb<br></code></pre></td></tr></table></figure><p>安装包含slabtop的工具：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install procps<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs bash">slabtop -s c -o | <span class="hljs-built_in">head</span> -n20<br>请输入密码:<br> Active / Total Objects (% used)    : 729456 / 769288 (94.8%)<br> Active / Total Slabs (% used)      : 34804 / 34804 (100.0%)<br> Active / Total Caches (% used)     : 125 / 192 (65.1%)<br> Active / Total Size (% used)       : 443220.71K / 474643.98K (93.4%)<br> Minimum / Average / Maximum Object : 0.34K / 0.62K / 12.00K<br><br>  OBJS ACTIVE  USE OBJ SIZE  SLABS OBJ/SLAB CACHE SIZE NAME                   <br>381050 375070  98%    0.62K  15242       25    243872K kmemleak_object        <br>150484 150259  99%    0.45K   8852       17     70816K kernfs_node_cache      <br> 51350  50337  98%    0.62K   2054       25     32864K kmalloc-128            <br> 40455  37247  92%    0.52K   1305       31     20880K dentry                 <br> 14145  13303  94%    1.38K    615       23     19680K ext4_inode_cache       <br> 13855  13235  95%    0.91K    815       17     13040K inode_cache            <br> 17732  14700  82%    0.52K    572       31      9152K vm_area_struct         <br>  7701   7099  92%    0.89K    453       17      7248K radix_tree_node        <br>  5728   5054  88%    0.98K    358       16      5728K proc_inode_cache       <br>  1085    731  67%    4.50K    155        7      4960K kmalloc-4096           <br>  6877   3917  56%    0.69K    299       23      4784K filp                   <br>  9180   8695  94%    0.47K    540       17      4320K buffer_head            <br> 10540   8478  80%    0.39K    527       20      4216K anon_vma_chain<br></code></pre></td></tr></table></figure><h3 id="kmemleak">kmemleak</h3><p>打开kmemlean扫描功能：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> scan &gt; /sys/kernel/debug/kmemleak<br></code></pre></td></tr></table></figure><p>查看kmemleak结果：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /sys/kernel/debug/kmemleak<br></code></pre></td></tr></table></figure><p>virtio_gpu 存在内存泄露：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs bash">unreferenced object 0xffff8000b0d4c800 (size 128):<br>  <span class="hljs-built_in">comm</span> <span class="hljs-string">&quot;Xorg&quot;</span>, pid 723, jiffies 4294896491 (age 361.400s)<br>  hex dump (first 32 bytes):<br>    01 00 00 00 00 00 00 00 a8 c0 ec 08 00 00 ff ff  ................<br>    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................<br>  backtrace:<br>    [&lt;00000000dce2d1d0&gt;] kmem_cache_alloc_trace+0x140/0x270<br>    [&lt;000000009a6c7a12&gt;] virtio_gpu_fence_alloc+0x28/0x68<br>    [&lt;00000000fa64f478&gt;] virtio_gpu_execbuffer_ioctl+0x2a0/0x400<br>    [&lt;0000000093a38e00&gt;] drm_ioctl_kernel+0x90/0xe8<br>    [&lt;00000000653c7660&gt;] drm_ioctl+0x1c0/0x398<br>    [&lt;00000000cc088f2c&gt;] do_vfs_ioctl+0xa4/0x858<br>    [&lt;00000000baad8f0f&gt;] ksys_ioctl+0x78/0xa8<br>    [&lt;0000000075e1d8b3&gt;] __arm64_sys_ioctl+0x1c/0x28<br>    [&lt;000000006fee0928&gt;] el0_svc_common+0x90/0x178<br>    [&lt;0000000049219d6c&gt;] el0_svc_handler+0x9c/0xa8<br>    [&lt;0000000056df9638&gt;] el0_svc+0x8/0xc<br>    [&lt;00000000a96bfbe3&gt;] 0xffffffffffffffff<br></code></pre></td></tr></table></figure><h3 id="slub_debug">slub_debug</h3><p>多台机器反馈kmalloc-128 slab对象占用内存最多，slub_debug可以打开来查看：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 1 &gt; /sys/kernel/slab/kmalloc-128/trace  &amp;&amp; <span class="hljs-built_in">sleep</span> 30 &amp;&amp; <span class="hljs-built_in">echo</span> 0 &gt; /sys/kernel/slab/kmalloc-128/trace<br></code></pre></td></tr></table></figure><h4 id="kmalloc-128-alloc">kmalloc-128 alloc</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs bash">2024-01-26 15:04:11 uos-PC kernel: [  634.493181] TRACE kmalloc-128 alloc 0x000000006069c5b0 inuse=25 fp=0x          (null)<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493185] CPU: 3 PID: 723 Comm: Xorg Tainted: G           O      4.19.0-arm64-desktop-tyy-5819-ext4-slub-debug-kmemleak <span class="hljs-comment">#5819</span><br>2024-01-26 15:04:11 uos-PC kernel: [  634.493187] Hardware name: QEMU KVM Virtual Machine, BIOS 0.0.0 02/06/2015<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493189] Call trace:<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493192]  dump_backtrace+0x0/0x190<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493194]  show_stack+0x14/0x20<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493197]  dump_stack+0xa8/0xcc<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493200]  alloc_debug_processing+0x58/0x188<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493203]  ___slab_alloc.constprop.34+0x31c/0x388<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493206]  __kmalloc+0x284/0x2e0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493209]  alloc_indirect.isra.2+0x1c/0x50<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493212]  virtqueue_add_sgs+0xa4/0x488<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493217]  virtio_gpu_queue_ctrl_buffer_locked+0xc8/0x1f0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493221]  virtio_gpu_queue_fenced_ctrl_buffer+0xec/0x120<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493225]  virtio_gpu_cmd_submit+0x98/0xb0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493228]  virtio_gpu_execbuffer_ioctl+0x2e4/0x400<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493232]  drm_ioctl_kernel+0x90/0xe8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493236]  drm_ioctl+0x1c0/0x398<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493240]  do_vfs_ioctl+0xa4/0x858<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493243]  ksys_ioctl+0x78/0xa8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493247] TRACE kmalloc-128 alloc 0x00000000c1c7d55e inuse=25 fp=0x          (null)<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493251]  __arm64_sys_ioctl+0x1c/0x28<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493256]  el0_svc_common+0x90/0x178<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493259]  el0_svc_handler+0x9c/0xa8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493262]  el0_svc+0x8/0xc<br></code></pre></td></tr></table></figure><h4 id="kmalloc-128-free">kmalloc-128 free</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs bash">2024-01-26 15:04:11 uos-PC kernel: [  634.494274] TRACE kmalloc-128(522:accounts-daemon.service) free 0x0000000085d7b43a inuse=20 fp=0x0000000024f7d5b5<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494279] Object 0000000085d7b43a: 80 80 2c d4 00 80 ff ff 80 80 2c d4 00 80 ff ff  ..,.......,.....<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494284] Workqueue: events virtio_gpu_dequeue_ctrl_func<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494290] Object 000000004798057d: 70 91 3d f0 00 80 ff ff 02 00 00 08 6b 6b 6b 6b  p.=.........kkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494293] Call trace:<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494296] Object 00000000dcf382e6: 02 00 00 00 00 00 00 00 06 00 00 00 73 79 73 6c  ............sysl<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494300]  dump_backtrace+0x0/0x190<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494303] Object 00000000edcab07b: 6f 67 00 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  og.kkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494308]  show_stack+0x14/0x20<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494310] Object 0000000053f635bd: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494312] Object 000000000e1b3528: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494317]  dump_stack+0xa8/0xcc<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494319] Object 0000000052bf950e: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494324]  free_debug_processing+0x19c/0x3a0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494326] Object 00000000b74c6682: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b a5  kkkkkkkkkkkkkkk.<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494331]  __slab_free+0x230/0x3f8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494335]  kfree+0x1d8/0x200<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494340]  detach_buf+0x100/0x140<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494345]  virtqueue_get_buf_ctx+0x80/0x170<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494352]  virtqueue_get_buf+0x10/0x18<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494358]  reclaim_vbufs+0x40/0x80<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494364]  virtio_gpu_dequeue_ctrl_func+0x6c/0x248<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494370]  process_one_work+0x1e8/0x438<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494375]  worker_thread+0x48/0x4c8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494379]  kthread+0x128/0x130<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494384]  ret_from_fork+0x10/0x18<br></code></pre></td></tr></table></figure><p>slub_debug中<code>kmalloc-128 alloc</code>、<code>kmalloc-128 free</code>的栈回溯中出现了有关virtio_gpu的调用，基本上确认virtio_gpu存在内存泄露。</p><p>查看<code>kmalloc-128 alloc</code>中提到的<code>Comm: Xorg</code>所属deb包，进一步安装对应调试包：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg -S Xorg<br>xserver-xorg-core: /usr/bin/Xorg<br>xserver-xorg-core: /usr/lib/xorg/Xorg<br>xserver-xorg-core: /usr/share/man/man1/Xorg.1.gz<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt policy xserver-xorg-core<br>xserver-xorg-core:<br>  已安装：2:1.20.4.65-1+dde<br>  候选： 2:1.20.4.65-1+dde<br>  版本列表：<br> *** 2:1.20.4.65-1+dde 100<br>        100 /usr/lib/dpkg-db/status<br></code></pre></td></tr></table></figure><p>当前仓库中没有包含<code>xserver-xorg-core</code>的调试包：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt policy xserver-xorg-core <br>Display all 1824 possibilities? (y or n)<br></code></pre></td></tr></table></figure><h2 id="修复方案-1">修复方案</h2>]]></content>
+    <content type="html"><![CDATA[<h1 id="virtio_gpu-leads-to-a-very-high-memory-of-the-kmalloc-128-slabs">virtio_gpu leads to a very high memory of the kmalloc-128 slabs</h1><h2 id="环境">环境</h2><h3 id="宿主机">宿主机</h3><ul><li><p>cpu: 飞腾D2000</p></li><li><p>os: <a href="https://cdimage.uniontech.com/iso-v20/desktop-professional/1060/uos-desktop-20-professional-1060-arm64.iso">uos20-1060-arm64</a></p></li><li><p>virt-manager: 1:2.0.0.6-1+eagle</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt policy virt-manager<br>virt-manager:<br>  已安装：1:2.0.0.6-1+eagle<br>  候选： 1:2.0.0.6-1+eagle<br>  版本列表：<br>*** 1:2.0.0.6-1+eagle 500<br>        500 https://professional-packages.chinauos.com/desktop-professional eagle/main arm64 Packages<br>        500 https://professional-security.chinauos.com eagle/1060/main arm64 Packages<br>        100 /usr/lib/dpkg-db/status<br></code></pre></td></tr></table></figure></li></ul><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126141611.png" alt="" /><figcaption>host</figcaption></figure><h3 id="虚拟机">虚拟机</h3><ul><li>cpu: kvm</li><li>os: <a href="https://cdimage.uniontech.com/iso-v20/desktop-professional/1060/uos-desktop-20-professional-1060-arm64.iso">uos20-1060-arm64</a></li></ul><p><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126141808.png" alt="guest-spice" /> <img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126141820.png" alt="guest-virtio" /></p><h4 id="虚拟机初始化报错">虚拟机初始化报错</h4><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/截图_选择区域_20240126115617.png" alt="" /><figcaption>Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)</figcaption></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs text">无法完成安装：&#x27;internal error: process exited while connecting to monitor: Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)---disabling.&#x27;<br><br>Traceback (most recent call last):<br><br>  File &quot;/usr/share/virt-manager/virtManager/asyncjob.py&quot;, line 75, in cb_wrapper<br><br>    callback(asyncjob, *args, **kwargs)<br><br>  File &quot;/usr/share/virt-manager/virtManager/create.py&quot;, line 2121, in _do_async_install<br><br>    guest.installer_instance.start_install(guest, meter=meter)<br><br>  File &quot;/usr/share/virt-manager/virtinst/installer.py&quot;, line 419, in start_install<br><br>    doboot, transient)<br><br>  File &quot;/usr/share/virt-manager/virtinst/installer.py&quot;, line 362, in _create_guest<br><br>    domain = self.conn.createXML(install_xml or final_xml, 0)<br><br>  File &quot;/usr/lib/python3/dist-packages/libvirt.py&quot;, line 3732, in createXML<br><br>    if ret is None:raise libvirtError(&#x27;virDomainCreateXML() failed&#x27;, conn=self)<br><br>libvirt.libvirtError: internal error: process exited while connecting to monitor: Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)---disabling.<br><br></code></pre></td></tr></table></figure><h4 id="修复方案">修复方案</h4><p>在宿主机上执行:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo -s<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;seccomp_sandbox = 0&quot;</span>  &gt;&gt; /etc/libvirt/qemu.conf<br>sudo systemctl daemon-reload<br>sudo systemctl restart libvirtd<br></code></pre></td></tr></table></figure><ul><li><a href="https://bugzilla.redhat.com/show_bug.cgi?id=1659484#c9">Bug 1659484 - Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)</a></li><li><a href="https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=916441">Debian Bug report logs - #916441 Failed to create /var/lib/libvirt/.cache for shader cache (Permission denied)</a></li></ul><h2 id="virtio_gpu-virgl">virtio_gpu virgl</h2><p>虚拟机上安装：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install mesa-utils<br></code></pre></td></tr></table></figure><p>虚拟机上执行测试命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">vblank_mode=0 glxgears<br></code></pre></td></tr></table></figure><p>vblank_mode=0 告诉图形卡忽略显示器的刷新率，仅尝试达到其关闭功能的maximux fps。</p><p>查看虚拟机系统的 OpenGL 配置和性能：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">glxinfo -B | <span class="hljs-built_in">head</span> -n20<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">name of display: :0<br>display: :0  screen: 0<br>direct rendering: Yes<br>Extended renderer info (GLX_MESA_query_renderer):<br>    Vendor: Red Hat (0x1af4)<br>    Device: virgl (0x1010)<br>    Version: 19.2.6<br>    Accelerated: <span class="hljs-built_in">yes</span><br>    Video memory: 0MB<br>    Unified memory: no<br>    Preferred profile: core (0x1)<br>    Max core profile version: 4.3<br>    Max compat profile version: 3.1<br>    Max GLES1 profile version: 1.1<br>    Max GLES[23] profile version: 3.1<br>OpenGL vendor string: Red Hat<br>OpenGL renderer string: virgl<br>OpenGL core profile version string: 4.3 (Core Profile) Mesa 19.2.6<br>OpenGL core profile shading language version string: 4.30<br>OpenGL core profile context flags: (none)<br></code></pre></td></tr></table></figure><p>可以看到虚拟机中已经启用了virtio 3D加速。</p><ul><li><a href="https://blog.csdn.net/tongxin1101124/article/details/123235465">Linux下2D、3D的测试软件glxgears</a></li></ul><h2 id="初步分析">初步分析</h2><h3 id="slab">Slab</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/meminfo | grep Slab: -A2<br>Slab:             434440 kB<br>SReclaimable:     197732 kB<br>SUnreclaim:       236708 kB<br></code></pre></td></tr></table></figure><h3 id="slabtop">slabtop</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/slabinfo<br><span class="hljs-built_in">cat</span>: /proc/slabinfo: 没有那个文件或目录<br></code></pre></td></tr></table></figure><p>故需要替换虚拟机内核为打开slub_debug、kmemleak的版本：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install ./linux-image-4.19.0-arm64-desktop-tyy-5819-ext4-slub-debug-kmemleak_4.19.90-5819_arm64.deb<br></code></pre></td></tr></table></figure><p>安装包含slabtop的工具：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install procps<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs bash">slabtop -s c -o | <span class="hljs-built_in">head</span> -n20<br> Active / Total Objects (% used)    : 729456 / 769288 (94.8%)<br> Active / Total Slabs (% used)      : 34804 / 34804 (100.0%)<br> Active / Total Caches (% used)     : 125 / 192 (65.1%)<br> Active / Total Size (% used)       : 443220.71K / 474643.98K (93.4%)<br> Minimum / Average / Maximum Object : 0.34K / 0.62K / 12.00K<br><br>  OBJS ACTIVE  USE OBJ SIZE  SLABS OBJ/SLAB CACHE SIZE NAME                   <br>381050 375070  98%    0.62K  15242       25    243872K kmemleak_object        <br>150484 150259  99%    0.45K   8852       17     70816K kernfs_node_cache      <br> 51350  50337  98%    0.62K   2054       25     32864K kmalloc-128            <br> 40455  37247  92%    0.52K   1305       31     20880K dentry                 <br> 14145  13303  94%    1.38K    615       23     19680K ext4_inode_cache       <br> 13855  13235  95%    0.91K    815       17     13040K inode_cache            <br> 17732  14700  82%    0.52K    572       31      9152K vm_area_struct         <br>  7701   7099  92%    0.89K    453       17      7248K radix_tree_node        <br>  5728   5054  88%    0.98K    358       16      5728K proc_inode_cache       <br>  1085    731  67%    4.50K    155        7      4960K kmalloc-4096           <br>  6877   3917  56%    0.69K    299       23      4784K filp                   <br>  9180   8695  94%    0.47K    540       17      4320K buffer_head            <br> 10540   8478  80%    0.39K    527       20      4216K anon_vma_chain<br></code></pre></td></tr></table></figure><h3 id="kmemleak">kmemleak</h3><p>打开kmemlean扫描功能：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> scan &gt; /sys/kernel/debug/kmemleak<br></code></pre></td></tr></table></figure><p>查看kmemleak结果：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /sys/kernel/debug/kmemleak<br></code></pre></td></tr></table></figure><p>virtio_gpu 存在内存泄露：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs bash">unreferenced object 0xffff8000b0d4c800 (size 128):<br>  <span class="hljs-built_in">comm</span> <span class="hljs-string">&quot;Xorg&quot;</span>, pid 723, jiffies 4294896491 (age 361.400s)<br>  hex dump (first 32 bytes):<br>    01 00 00 00 00 00 00 00 a8 c0 ec 08 00 00 ff ff  ................<br>    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................<br>  backtrace:<br>    [&lt;00000000dce2d1d0&gt;] kmem_cache_alloc_trace+0x140/0x270<br>    [&lt;000000009a6c7a12&gt;] virtio_gpu_fence_alloc+0x28/0x68<br>    [&lt;00000000fa64f478&gt;] virtio_gpu_execbuffer_ioctl+0x2a0/0x400<br>    [&lt;0000000093a38e00&gt;] drm_ioctl_kernel+0x90/0xe8<br>    [&lt;00000000653c7660&gt;] drm_ioctl+0x1c0/0x398<br>    [&lt;00000000cc088f2c&gt;] do_vfs_ioctl+0xa4/0x858<br>    [&lt;00000000baad8f0f&gt;] ksys_ioctl+0x78/0xa8<br>    [&lt;0000000075e1d8b3&gt;] __arm64_sys_ioctl+0x1c/0x28<br>    [&lt;000000006fee0928&gt;] el0_svc_common+0x90/0x178<br>    [&lt;0000000049219d6c&gt;] el0_svc_handler+0x9c/0xa8<br>    [&lt;0000000056df9638&gt;] el0_svc+0x8/0xc<br>    [&lt;00000000a96bfbe3&gt;] 0xffffffffffffffff<br></code></pre></td></tr></table></figure><h3 id="slub_debug">slub_debug</h3><p>多台机器反馈kmalloc-128 slab对象占用内存最多，slub_debug可以打开来查看：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 1 &gt; /sys/kernel/slab/kmalloc-128/trace  &amp;&amp; <span class="hljs-built_in">sleep</span> 30 &amp;&amp; <span class="hljs-built_in">echo</span> 0 &gt; /sys/kernel/slab/kmalloc-128/trace<br></code></pre></td></tr></table></figure><h4 id="kmalloc-128-alloc">kmalloc-128 alloc</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs bash">2024-01-26 15:04:11 uos-PC kernel: [  634.493181] TRACE kmalloc-128 alloc 0x000000006069c5b0 inuse=25 fp=0x          (null)<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493185] CPU: 3 PID: 723 Comm: Xorg Tainted: G           O      4.19.0-arm64-desktop-tyy-5819-ext4-slub-debug-kmemleak <span class="hljs-comment">#5819</span><br>2024-01-26 15:04:11 uos-PC kernel: [  634.493187] Hardware name: QEMU KVM Virtual Machine, BIOS 0.0.0 02/06/2015<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493189] Call trace:<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493192]  dump_backtrace+0x0/0x190<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493194]  show_stack+0x14/0x20<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493197]  dump_stack+0xa8/0xcc<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493200]  alloc_debug_processing+0x58/0x188<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493203]  ___slab_alloc.constprop.34+0x31c/0x388<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493206]  __kmalloc+0x284/0x2e0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493209]  alloc_indirect.isra.2+0x1c/0x50<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493212]  virtqueue_add_sgs+0xa4/0x488<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493217]  virtio_gpu_queue_ctrl_buffer_locked+0xc8/0x1f0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493221]  virtio_gpu_queue_fenced_ctrl_buffer+0xec/0x120<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493225]  virtio_gpu_cmd_submit+0x98/0xb0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493228]  virtio_gpu_execbuffer_ioctl+0x2e4/0x400<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493232]  drm_ioctl_kernel+0x90/0xe8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493236]  drm_ioctl+0x1c0/0x398<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493240]  do_vfs_ioctl+0xa4/0x858<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493243]  ksys_ioctl+0x78/0xa8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493247] TRACE kmalloc-128 alloc 0x00000000c1c7d55e inuse=25 fp=0x          (null)<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493251]  __arm64_sys_ioctl+0x1c/0x28<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493256]  el0_svc_common+0x90/0x178<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493259]  el0_svc_handler+0x9c/0xa8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.493262]  el0_svc+0x8/0xc<br></code></pre></td></tr></table></figure><h4 id="kmalloc-128-free">kmalloc-128 free</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs bash">2024-01-26 15:04:11 uos-PC kernel: [  634.494274] TRACE kmalloc-128(522:accounts-daemon.service) free 0x0000000085d7b43a inuse=20 fp=0x0000000024f7d5b5<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494279] Object 0000000085d7b43a: 80 80 2c d4 00 80 ff ff 80 80 2c d4 00 80 ff ff  ..,.......,.....<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494284] Workqueue: events virtio_gpu_dequeue_ctrl_func<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494290] Object 000000004798057d: 70 91 3d f0 00 80 ff ff 02 00 00 08 6b 6b 6b 6b  p.=.........kkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494293] Call trace:<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494296] Object 00000000dcf382e6: 02 00 00 00 00 00 00 00 06 00 00 00 73 79 73 6c  ............sysl<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494300]  dump_backtrace+0x0/0x190<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494303] Object 00000000edcab07b: 6f 67 00 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  og.kkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494308]  show_stack+0x14/0x20<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494310] Object 0000000053f635bd: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494312] Object 000000000e1b3528: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494317]  dump_stack+0xa8/0xcc<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494319] Object 0000000052bf950e: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494324]  free_debug_processing+0x19c/0x3a0<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494326] Object 00000000b74c6682: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b a5  kkkkkkkkkkkkkkk.<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494331]  __slab_free+0x230/0x3f8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494335]  kfree+0x1d8/0x200<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494340]  detach_buf+0x100/0x140<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494345]  virtqueue_get_buf_ctx+0x80/0x170<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494352]  virtqueue_get_buf+0x10/0x18<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494358]  reclaim_vbufs+0x40/0x80<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494364]  virtio_gpu_dequeue_ctrl_func+0x6c/0x248<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494370]  process_one_work+0x1e8/0x438<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494375]  worker_thread+0x48/0x4c8<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494379]  kthread+0x128/0x130<br>2024-01-26 15:04:11 uos-PC kernel: [  634.494384]  ret_from_fork+0x10/0x18<br></code></pre></td></tr></table></figure><p>slub_debug中<code>kmalloc-128 alloc</code>、<code>kmalloc-128 free</code>的栈回溯中出现了有关virtio_gpu的调用，基本上确认virtio_gpu存在内存泄露。</p><p>查看<code>kmalloc-128 alloc</code>中提到的<code>Comm: Xorg</code>所属deb包，进一步安装对应调试包：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg -S Xorg<br>xserver-xorg-core: /usr/bin/Xorg<br>xserver-xorg-core: /usr/lib/xorg/Xorg<br>xserver-xorg-core: /usr/share/man/man1/Xorg.1.gz<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt policy xserver-xorg-core<br>xserver-xorg-core:<br>  已安装：2:1.20.4.65-1+dde<br>  候选： 2:1.20.4.65-1+dde<br>  版本列表：<br> *** 2:1.20.4.65-1+dde 100<br>        100 /usr/lib/dpkg-db/status<br></code></pre></td></tr></table></figure><p>当前仓库中没有包含<code>xserver-xorg-core</code>的调试包：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt policy xserver-xorg-core <br>Display all 1824 possibilities? (y or n)<br></code></pre></td></tr></table></figure><p>查看/etc/apt/sources.list：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /etc/apt/sources.list<br><span class="hljs-comment">## Generated by deepin-installer</span><br>deb https://professional-packages.chinauos.com/desktop-professional eagle main contrib non-free<br><span class="hljs-comment">#deb-src https://professional-packages.chinauos.com/desktop-professional eagle main contrib non-free</span><br></code></pre></td></tr></table></figure><p>查看/etc/product-info：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /etc/product-info <br>SystemName=UOS Desktop<br>EditionName=Professional<br>MajorVersion=20<br>MinorVersion=1060<br>ProductName=professional<br>BuildTime=20230706115222<br>Arch=aarch64<br>OEM=<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt <span class="hljs-built_in">source</span> xorg-server<br>正在读取软件包列表... 完成<br>提示：xorg-server 的打包工作被维护于以下位置的 Git 版本控制系统中：<br>https://salsa.debian.org/xorg-team/xserver/xorg-server.git<br>请使用：<br>git <span class="hljs-built_in">clone</span> https://salsa.debian.org/xorg-team/xserver/xorg-server.git<br>获得该软件包的最近更新(可能尚未正式发布)。<br>需要下载 5,247 kB 的源代码包。<br>获取:1 https://professional-packages.chinauos.com/desktop-professional eagle/main xorg-server 2:1.20.4.97-1+dde (diff) [129 kB]<br>获取:2 https://professional-packages.chinauos.com/desktop-professional eagle/main xorg-server 2:1.20.4.97-1+dde (dsc) [3,439 B]<br>获取:3 https://professional-packages.chinauos.com/desktop-professional eagle/main xorg-server 2:1.20.4.97-1+dde (tar) [5,114 kB]<br>已下载 5,247 kB，耗时 1秒 (7,585 kB/s) <br>dpkg-source: info: extracting xorg-server <span class="hljs-keyword">in</span> xorg-server-1.20.4.97<br>dpkg-source: info: unpacking xorg-server_1.20.4.97.orig.tar.xz<br>dpkg-source: info: unpacking xorg-server_1.20.4.97-1+dde.debian.tar.xz<br></code></pre></td></tr></table></figure><p><code>xorg-server-1.20.4.97</code>跟<code>xserver-xorg-core 2:1.20.4.65-1+dde</code>对不上，说明仓库中xorg-server源码与xserver-xorg-core源码不一致。</p><h2 id="修复方案-1">修复方案</h2>]]></content>
     
     
     <categories>
@@ -29,6 +29,8 @@
       <tag>Linux</tag>
       
       <tag>qemu</tag>
+      
+      <tag>git</tag>
       
       <tag>linux</tag>
       
@@ -410,31 +412,6 @@
   
   
   <entry>
-    <title>hda_codec</title>
-    <link href="/linux/kernel/drivers/sound/hda_codec/"/>
-    <url>/linux/kernel/drivers/sound/hda_codec/</url>
-    
-    <content type="html"><![CDATA[<p>mv /usr/bin/pulseaudio /usr/bin/pulseaudio_bak mv /sbin/alsactl /sbin/alsactl_bak</p><p>ps aux | grep -i alsactl ps aux | grep -i pulseaudio</p><p>killall alsactl pulseaudio</p><p>cd /sys/class/sound/hwC0D0</p><p>echo 1 &gt; reconfig</p><p>snd_hda_gen_parse_auto_config+0x1 [kernel] snd_hda_parse_generic_codec+0xa3 [kernel] hda_codec_driver_probe+0x74 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>snd_pcm_new+0x1 [kernel] snd_hda_attach_pcm_stream+0x8e [kernel] snd_hda_codec_build_pcms+0x102 [kernel] hda_codec_driver_probe+0x82 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>./sound/pci/hda/hda_sysfs.c:436:int snd_hda_get_bool_hint(struct hda_codec <em>codec, const char </em>key) ./sound/pci/hda/hda_sysfs.c:420:const char <em>snd_hda_get_hint(struct hda_codec </em>codec, const char <em>key) ./sound/pci/hda/hda_sysfs.c:281:static struct hda_hint </em>get_hint(struct hda_codec <em>codec, const char </em>key)</p><p>./sound/pci/hda/hda_auto_parser.c:176:int snd_hda_parse_pin_defcfg(struct hda_codec <em>codec, struct auto_pin_cfg </em>cfg, const hda_nid_t <em>ignore_nids, unsigned int cond_flags) ./sound/pci/hda/hda_codec.c:unsigned int snd_hda_codec_get_pincfg(struct hda_codec </em>codec, hda_nid_t nid)</p><p>sound/pci/hda/hda_codec.c:560:init_pins</p><p>./sound/pci/hda/hda_codec.c:445:static int read_pin_defaults(struct hda_codec *codec)</p><p>混音器 pcm 转换器 codec 端 card</p>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>drivers</category>
-      
-      <category>sound</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>ALC885_1-1</title>
     <link href="/linux/kernel/drivers/sound/ALC885_1-1/"/>
     <url>/linux/kernel/drivers/sound/ALC885_1-1/</url>
@@ -460,6 +437,31 @@
       <tag>git</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>hda_codec</title>
+    <link href="/linux/kernel/drivers/sound/hda_codec/"/>
+    <url>/linux/kernel/drivers/sound/hda_codec/</url>
+    
+    <content type="html"><![CDATA[<p>mv /usr/bin/pulseaudio /usr/bin/pulseaudio_bak mv /sbin/alsactl /sbin/alsactl_bak</p><p>ps aux | grep -i alsactl ps aux | grep -i pulseaudio</p><p>killall alsactl pulseaudio</p><p>cd /sys/class/sound/hwC0D0</p><p>echo 1 &gt; reconfig</p><p>snd_hda_gen_parse_auto_config+0x1 [kernel] snd_hda_parse_generic_codec+0xa3 [kernel] hda_codec_driver_probe+0x74 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>snd_pcm_new+0x1 [kernel] snd_hda_attach_pcm_stream+0x8e [kernel] snd_hda_codec_build_pcms+0x102 [kernel] hda_codec_driver_probe+0x82 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>./sound/pci/hda/hda_sysfs.c:436:int snd_hda_get_bool_hint(struct hda_codec <em>codec, const char </em>key) ./sound/pci/hda/hda_sysfs.c:420:const char <em>snd_hda_get_hint(struct hda_codec </em>codec, const char <em>key) ./sound/pci/hda/hda_sysfs.c:281:static struct hda_hint </em>get_hint(struct hda_codec <em>codec, const char </em>key)</p><p>./sound/pci/hda/hda_auto_parser.c:176:int snd_hda_parse_pin_defcfg(struct hda_codec <em>codec, struct auto_pin_cfg </em>cfg, const hda_nid_t <em>ignore_nids, unsigned int cond_flags) ./sound/pci/hda/hda_codec.c:unsigned int snd_hda_codec_get_pincfg(struct hda_codec </em>codec, hda_nid_t nid)</p><p>sound/pci/hda/hda_codec.c:560:init_pins</p><p>./sound/pci/hda/hda_codec.c:445:static int read_pin_defaults(struct hda_codec *codec)</p><p>混音器 pcm 转换器 codec 端 card</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>drivers</category>
+      
+      <category>sound</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -2064,11 +2066,11 @@
   
   
   <entry>
-    <title>README</title>
-    <link href="/docker/README/"/>
-    <url>/docker/README/</url>
+    <title>iptables</title>
+    <link href="/docker/iptables/"/>
+    <url>/docker/iptables/</url>
     
-    <content type="html"><![CDATA[<h1 id="dockerproject">DockerProject</h1><p>以下教程基于Ubuntu 16.04 LTS.</p><h2 id="安装docker">安装docker</h2><pre><code class="hljs"># 推荐使用使用国内 daocloud 一键安装命令curl -sSL https://get.daocloud.io/docker | sh# 使用 Docker 作为非 root 用户，则应考虑使用类似以下方式将用户添加到 docker 组sudo usermod -aG docker your-user# Docker 镜像加速sudo cat daemon.json &gt; /etc/docker/daemon.json# 重新启动服务sudo systemctl daemon-reloadsudo systemctl restart docker</code></pre><h2 id="dockerfile">DockerFile</h2><pre><code class="hljs">cd ubuntu## 创建镜像docker build -t ubuntu:ai2 .## 启动镜像docker run -p 22223:22 -p 33307:3306 -dit --name ubuntu-ai2 ubuntu:ai2</code></pre>]]></content>
+    <content type="html"><![CDATA[<h1 id="iptables">iptables</h1><ul><li><a href="https://blog.csdn.net/qq_30013585/article/details/116191215">docker容器启动后添加端口映射_realwujing的博客-CSDN博客</a></li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo iptables -t nat -A  DOCKER -p tcp --dport 8081 -j DNAT --to-destination 172.17.0.2:8080<br><br>sudo iptables -t nat -A  DOCKER -p tcp --dport 8081 -j DNAT --to-destination 172.17.0.2:8080<br></code></pre></td></tr></table></figure><h2 id="prerouting链">1、PREROUTING链</h2><h3 id="查看nat表中的prerouting链">1.1 查看NAT表中的PREROUTING链</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo iptables -t nat --list-rules PREROUTING<br></code></pre></td></tr></table></figure><h3 id="结果">结果</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs bash">-P PREROUTING ACCEPT<br>-A PREROUTING -p tcp -m addrtype --dst-type LOCAL -j DOCKER<br><br>sudo iptables -t nat -A PREROUTING -p tcp -m addrtype --dst-type LOCAL -j DOCKER<br>sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 8081 -j DNAT --to-destination 192.168.9.151:8080<br>sudo iptables -t nat --list-rules DOCKER<br>sudo iptables -t nat -D DOCKER ! -i docker0 -p tcp -m tcp --dport 8081 -j DNAT --to-destination 172.17.0.2:8080<br><br>sudo iptables -t nat --list-rules POSTROUTING<br>sudo iptables -t nat -D POSTROUTING -s 172.17.0.2/32 -d 172.17.0.2/32 -p tcp -m tcp --dport 8080 -j MASQUERADE<br><br>sudo iptables --list-rules DOCKER<br>sudo iptables -t filter -D DOCKER -d 172.17.0.2/32 ! -i docker0 -o docker0 -p tcp -m tcp --dport 8080 -j ACCEPT<br><br>curl 172.17.0.2:8080/test/hello<br><br>sudo iptables -t nat -vnL DOCKER --line-number<br><br>sudo iptables -t nat -D DOCKER 4<br><br>sudo iptables -t nat --list-rules PREROUTING<br>sudo iptables -t nat -D PREROUTING -p tcp -m tcp --dport 8081 -j DNAT --to-destination 192.168.9.151:8080<br></code></pre></td></tr></table></figure>]]></content>
     
     
     <categories>
@@ -2083,11 +2085,11 @@
   
   
   <entry>
-    <title>iptables</title>
-    <link href="/docker/iptables/"/>
-    <url>/docker/iptables/</url>
+    <title>README</title>
+    <link href="/docker/README/"/>
+    <url>/docker/README/</url>
     
-    <content type="html"><![CDATA[<h1 id="iptables">iptables</h1><ul><li><a href="https://blog.csdn.net/qq_30013585/article/details/116191215">docker容器启动后添加端口映射_realwujing的博客-CSDN博客</a></li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo iptables -t nat -A  DOCKER -p tcp --dport 8081 -j DNAT --to-destination 172.17.0.2:8080<br><br>sudo iptables -t nat -A  DOCKER -p tcp --dport 8081 -j DNAT --to-destination 172.17.0.2:8080<br></code></pre></td></tr></table></figure><h2 id="prerouting链">1、PREROUTING链</h2><h3 id="查看nat表中的prerouting链">1.1 查看NAT表中的PREROUTING链</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo iptables -t nat --list-rules PREROUTING<br></code></pre></td></tr></table></figure><h3 id="结果">结果</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs bash">-P PREROUTING ACCEPT<br>-A PREROUTING -p tcp -m addrtype --dst-type LOCAL -j DOCKER<br><br>sudo iptables -t nat -A PREROUTING -p tcp -m addrtype --dst-type LOCAL -j DOCKER<br>sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 8081 -j DNAT --to-destination 192.168.9.151:8080<br>sudo iptables -t nat --list-rules DOCKER<br>sudo iptables -t nat -D DOCKER ! -i docker0 -p tcp -m tcp --dport 8081 -j DNAT --to-destination 172.17.0.2:8080<br><br>sudo iptables -t nat --list-rules POSTROUTING<br>sudo iptables -t nat -D POSTROUTING -s 172.17.0.2/32 -d 172.17.0.2/32 -p tcp -m tcp --dport 8080 -j MASQUERADE<br><br>sudo iptables --list-rules DOCKER<br>sudo iptables -t filter -D DOCKER -d 172.17.0.2/32 ! -i docker0 -o docker0 -p tcp -m tcp --dport 8080 -j ACCEPT<br><br>curl 172.17.0.2:8080/test/hello<br><br>sudo iptables -t nat -vnL DOCKER --line-number<br><br>sudo iptables -t nat -D DOCKER 4<br><br>sudo iptables -t nat --list-rules PREROUTING<br>sudo iptables -t nat -D PREROUTING -p tcp -m tcp --dport 8081 -j DNAT --to-destination 192.168.9.151:8080<br></code></pre></td></tr></table></figure>]]></content>
+    <content type="html"><![CDATA[<h1 id="dockerproject">DockerProject</h1><p>以下教程基于Ubuntu 16.04 LTS.</p><h2 id="安装docker">安装docker</h2><pre><code class="hljs"># 推荐使用使用国内 daocloud 一键安装命令curl -sSL https://get.daocloud.io/docker | sh# 使用 Docker 作为非 root 用户，则应考虑使用类似以下方式将用户添加到 docker 组sudo usermod -aG docker your-user# Docker 镜像加速sudo cat daemon.json &gt; /etc/docker/daemon.json# 重新启动服务sudo systemctl daemon-reloadsudo systemctl restart docker</code></pre><h2 id="dockerfile">DockerFile</h2><pre><code class="hljs">cd ubuntu## 创建镜像docker build -t ubuntu:ai2 .## 启动镜像docker run -p 22223:22 -p 33307:3306 -dit --name ubuntu-ai2 ubuntu:ai2</code></pre>]]></content>
     
     
     <categories>
@@ -2444,6 +2446,33 @@
   
   
   <entry>
+    <title>README</title>
+    <link href="/cpp/README/"/>
+    <url>/cpp/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="cpp-learning">cpp-learning</h1><ul><li><a href="https://mp.weixin.qq.com/s/PTglU70SGKrDsyE4QiKoAA">几张图片，告诉你 C++ 要学什么</a></li><li><a href="https://github.com/GrindGold/CppGuide">C/C++学习+面试指南</a></li><li><a href="https://github.com/huihut/interview">C/C++ 技术面试基础知识总结</a></li><li><a href="https://github.com/balloonwj/CppGuide">高性能服务器开发</a></li><li><a href="thread/README.md">C++11 thread 教程</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>Qt教程</title>
     <link href="/cpp/Qt%E6%95%99%E7%A8%8B/"/>
     <url>/cpp/Qt%E6%95%99%E7%A8%8B/</url>
@@ -2506,33 +2535,6 @@
   
   
   <entry>
-    <title>README</title>
-    <link href="/cpp/README/"/>
-    <url>/cpp/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="cpp-learning">cpp-learning</h1><ul><li><a href="https://mp.weixin.qq.com/s/PTglU70SGKrDsyE4QiKoAA">几张图片，告诉你 C++ 要学什么</a></li><li><a href="https://github.com/GrindGold/CppGuide">C/C++学习+面试指南</a></li><li><a href="https://github.com/huihut/interview">C/C++ 技术面试基础知识总结</a></li><li><a href="https://github.com/balloonwj/CppGuide">高性能服务器开发</a></li><li><a href="thread/README.md">C++11 thread 教程</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>cmake</title>
     <link href="/cpp/cmake/"/>
     <url>/cpp/cmake/</url>
@@ -2556,35 +2558,6 @@
       <tag>git</tag>
       
       <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>cmake编译链接参数</title>
-    <link href="/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/"/>
-    <url>/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/</url>
-    
-    <content type="html"><![CDATA[<h1 id="cmake编译链接参数">cmake编译链接参数</h1><h2 id="cmake编译链接参数-1">cmake编译链接参数</h2><ul><li><p><a href="https://blog.51cto.com/u_15064646/3462077">cmake编译选项</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/513148985">GCC编译选项参数</a></p></li><li><p><a href="https://blog.51cto.com/u_15064646/3462077">添加-O0 -g，生成gdb的调试信息和不进行代码优化</a></p></li><li><p><a href="https://elloop.github.io/tools/2016-04-10/learning-cmake-2-commands">【使用CMake组织C++工程】2：调试包不优化</a></p></li><li><p><a href="https://blog.csdn.net/sandalphon4869/article/details/102503224">CMake解决c++11的phread库问题：undefined reference to `pthread_create’</a></p></li><li><p><a href="https://www.jianshu.com/p/10bf5d27dcfc">cmake编译缺失pthread_create等thread库解决方案</a></p></li><li><p><a href="http://blog.chinaunix.net/uid-69906223-id-5817313.html">gcc -lpthread和gcc -pthread的区别</a></p></li><li><p><a href="https://www.5axxw.com/questions/content/ratnvg">CMake: link options</a></p></li><li><p><a href="https://www.dovov.com/cmakecmakelists-txtldflags.html">CMake：如何在CMakeLists.txt中设置LDFLAGS？</a></p></li><li><p><a href="https://blog.csdn.net/dongjideyu/article/details/79267683">CMAKE 中　add_definitions的用法．</a></p></li><li><p><a href="https://blog.csdn.net/10km/article/details/51731959">cmake:设置编译选项的讲究(add_compile_options和CMAKE_CXX_FLAGS的区别)</a></p></li><li><p><a href="https://blog.csdn.net/fb_941219/article/details/88638503">ubuntu16.04cmake、gcc/g++版本更换</a></p></li></ul><h2 id="dynamic-code-analysis">Dynamic code analysis</h2><ul><li><a href="https://www.cnblogs.com/gladiatorplus/p/14437059.html">cmake 内存泄露检查asan</a></li><li><a href="https://www.jetbrains.com/help/clion/profiling-tools.html">动态代码分析 Clion</a></li><li><a href="https://blog.csdn.net/register_k/article/details/120319834">libasan使用和遇到的问题</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
       
       <tag>HTML</tag>
       
@@ -2647,6 +2620,35 @@
       <tag>git</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>cmake编译链接参数</title>
+    <link href="/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/"/>
+    <url>/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/</url>
+    
+    <content type="html"><![CDATA[<h1 id="cmake编译链接参数">cmake编译链接参数</h1><h2 id="cmake编译链接参数-1">cmake编译链接参数</h2><ul><li><p><a href="https://blog.51cto.com/u_15064646/3462077">cmake编译选项</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/513148985">GCC编译选项参数</a></p></li><li><p><a href="https://blog.51cto.com/u_15064646/3462077">添加-O0 -g，生成gdb的调试信息和不进行代码优化</a></p></li><li><p><a href="https://elloop.github.io/tools/2016-04-10/learning-cmake-2-commands">【使用CMake组织C++工程】2：调试包不优化</a></p></li><li><p><a href="https://blog.csdn.net/sandalphon4869/article/details/102503224">CMake解决c++11的phread库问题：undefined reference to `pthread_create’</a></p></li><li><p><a href="https://www.jianshu.com/p/10bf5d27dcfc">cmake编译缺失pthread_create等thread库解决方案</a></p></li><li><p><a href="http://blog.chinaunix.net/uid-69906223-id-5817313.html">gcc -lpthread和gcc -pthread的区别</a></p></li><li><p><a href="https://www.5axxw.com/questions/content/ratnvg">CMake: link options</a></p></li><li><p><a href="https://www.dovov.com/cmakecmakelists-txtldflags.html">CMake：如何在CMakeLists.txt中设置LDFLAGS？</a></p></li><li><p><a href="https://blog.csdn.net/dongjideyu/article/details/79267683">CMAKE 中　add_definitions的用法．</a></p></li><li><p><a href="https://blog.csdn.net/10km/article/details/51731959">cmake:设置编译选项的讲究(add_compile_options和CMAKE_CXX_FLAGS的区别)</a></p></li><li><p><a href="https://blog.csdn.net/fb_941219/article/details/88638503">ubuntu16.04cmake、gcc/g++版本更换</a></p></li></ul><h2 id="dynamic-code-analysis">Dynamic code analysis</h2><ul><li><a href="https://www.cnblogs.com/gladiatorplus/p/14437059.html">cmake 内存泄露检查asan</a></li><li><a href="https://www.jetbrains.com/help/clion/profiling-tools.html">动态代码分析 Clion</a></li><li><a href="https://blog.csdn.net/register_k/article/details/120319834">libasan使用和遇到的问题</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
       
       <tag>HTML</tag>
       
@@ -3124,6 +3126,27 @@
   
   <entry>
     <title>README</title>
+    <link href="/cpp/thread/README/"/>
+    <url>/cpp/thread/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="pthread与stdthread">pthread与std::thread</h1><h2 id="pthread"><a href="pthread">pthread</a></h2><h2 id="stdthread"><a href="thread">std::thread</a></h2>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>thread</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/"/>
     <url>/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/</url>
     
@@ -3144,27 +3167,6 @@
       <tag>C++</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/thread/README/"/>
-    <url>/cpp/thread/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="pthread与stdthread">pthread与std::thread</h1><h2 id="pthread"><a href="pthread">pthread</a></h2><h2 id="stdthread"><a href="thread">std::thread</a></h2>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>thread</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -3255,6 +3257,29 @@
   
   <entry>
     <title>README</title>
+    <link href="/cpp/qt-learning/dbus/README/"/>
+    <url>/cpp/qt-learning/dbus/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="service实现">service实现</h1><h2 id="方式一创建服务并注册对象建立到session-bus的连接">方式一、创建服务并注册对象，建立到session bus的连接</h2><p>启动程序后，在命令行打开qdbusviewer，查看session bus。 双击Method方法会调用该方法。</p><p>代码位于目录service下。</p><h2 id="方式二使用adapter注册object推荐方式">方式二、使用Adapter注册Object（推荐方式）</h2><p>可以直接把test类注册为消息总线上的一个Object，但QT4不推荐。QT4推荐使用Adapter来注册Object。 大多数情况下，可能只需要把自定义的类里的方法有选择的发布到消息总线上，使用Adapter可以很方便的实现选择性发布。 生成Adapter类的流程如下： 使用工具 qdbuscpp2xml从test.h生成XML文件</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbuscpp2xml -M test<span class="hljs-selector-class">.h</span> -o com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span>.xml<br></code></pre></td></tr></table></figure><p>编辑com.scorpio.test.xml，选择需要发布的method，不需要发布的删除。 使用工具qdbusxml2cpp从XML文件生成继承自QDBusInterface的类</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbusxml2cpp com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span><span class="hljs-selector-class">.xml</span> -<span class="hljs-selector-tag">i</span> test<span class="hljs-selector-class">.h</span> -<span class="hljs-selector-tag">a</span> valueAdaptor<br></code></pre></td></tr></table></figure><p>生成两个文件：valueAdaptor.cpp和valueAdaptor.h</p><p>代码位于目录adaptor下，建议先阅读该目录下的README.md。</p><h1 id="控制台访问service实现">控制台访问service实现</h1><h2 id="方式一通过qdbusmessage访问service">方式一、通过QDBusMessage访问Service</h2><h2 id="方式二通过qdbusinterface-访问service">方式二、通过QDBusInterface 访问Service</h2><h2 id="方式三从d-bus-xml自动生成proxy类调用proxy类访问service">方式三、从D-Bus XML自动生成Proxy类，调用Proxy类访问Service</h2><p>代码位于目录proxy下，建议先阅读该目录下的README.md。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">/data/opt/Qt5.6.3/5.6.3/gcc_64/lib/cmake/Qt5DBus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/src/dbus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/tests/auto/cmake/test_dbus_module/CMakeLists.txt:22:qt5_generate_dbus_interface(<br>    <br>/data/opt/Qt5.6.3/5.6.3/Src/qtdoc/doc/src/development/cmake-manual.qdoc:249:    row li qt5_generate_dbus_interface( header [interfacename] OPTIONS ...)<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>qt-learning</category>
+      
+      <category>dbus</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/cpp/protobuf/protobuf_example/README/"/>
     <url>/cpp/protobuf/protobuf_example/README/</url>
     
@@ -3277,29 +3302,6 @@
       <tag>HTML</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/qt-learning/dbus/README/"/>
-    <url>/cpp/qt-learning/dbus/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="service实现">service实现</h1><h2 id="方式一创建服务并注册对象建立到session-bus的连接">方式一、创建服务并注册对象，建立到session bus的连接</h2><p>启动程序后，在命令行打开qdbusviewer，查看session bus。 双击Method方法会调用该方法。</p><p>代码位于目录service下。</p><h2 id="方式二使用adapter注册object推荐方式">方式二、使用Adapter注册Object（推荐方式）</h2><p>可以直接把test类注册为消息总线上的一个Object，但QT4不推荐。QT4推荐使用Adapter来注册Object。 大多数情况下，可能只需要把自定义的类里的方法有选择的发布到消息总线上，使用Adapter可以很方便的实现选择性发布。 生成Adapter类的流程如下： 使用工具 qdbuscpp2xml从test.h生成XML文件</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbuscpp2xml -M test<span class="hljs-selector-class">.h</span> -o com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span>.xml<br></code></pre></td></tr></table></figure><p>编辑com.scorpio.test.xml，选择需要发布的method，不需要发布的删除。 使用工具qdbusxml2cpp从XML文件生成继承自QDBusInterface的类</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbusxml2cpp com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span><span class="hljs-selector-class">.xml</span> -<span class="hljs-selector-tag">i</span> test<span class="hljs-selector-class">.h</span> -<span class="hljs-selector-tag">a</span> valueAdaptor<br></code></pre></td></tr></table></figure><p>生成两个文件：valueAdaptor.cpp和valueAdaptor.h</p><p>代码位于目录adaptor下，建议先阅读该目录下的README.md。</p><h1 id="控制台访问service实现">控制台访问service实现</h1><h2 id="方式一通过qdbusmessage访问service">方式一、通过QDBusMessage访问Service</h2><h2 id="方式二通过qdbusinterface-访问service">方式二、通过QDBusInterface 访问Service</h2><h2 id="方式三从d-bus-xml自动生成proxy类调用proxy类访问service">方式三、从D-Bus XML自动生成Proxy类，调用Proxy类访问Service</h2><p>代码位于目录proxy下，建议先阅读该目录下的README.md。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">/data/opt/Qt5.6.3/5.6.3/gcc_64/lib/cmake/Qt5DBus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/src/dbus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/tests/auto/cmake/test_dbus_module/CMakeLists.txt:22:qt5_generate_dbus_interface(<br>    <br>/data/opt/Qt5.6.3/5.6.3/Src/qtdoc/doc/src/development/cmake-manual.qdoc:249:    row li qt5_generate_dbus_interface( header [interfacename] OPTIONS ...)<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>qt-learning</category>
-      
-      <category>dbus</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -4083,6 +4085,37 @@
   
   
   <entry>
+    <title>pbuilder教程</title>
+    <link href="/linux/package/deb/pbuilder%E6%95%99%E7%A8%8B/"/>
+    <url>/linux/package/deb/pbuilder%E6%95%99%E7%A8%8B/</url>
+    
+    <content type="html"><![CDATA[<h1 id="pbuilder教程">pbuilder教程</h1><ol type="1"><li><p>安装环境</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install pbuilder debootstrap devscripts dh-make<br></code></pre></td></tr></table></figure></p></li><li><p>pbuilder配置 以下路径任选其一</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs plain">/etc/pbuilderrc<br>/root/.pbuilderrc<br></code></pre></td></tr></table></figure></p><p>将以下内容写入上述配置文件，上述路径任选其一即可，以uos v20 专业版为例：</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs plain">MIRRORSITE=http://pools.uniontech.com/desktop-professional<br>DEBOOTSTRAPOPTS=(<br>    &#x27;--variant=buildd&#x27;<br>)<br></code></pre></td></tr></table></figure></p></li><li><p>创建pbuilder基础环境</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo pbuilder create --distribution eagle --debootstrapopts --no-check-gpg<br></code></pre></td></tr></table></figure></p><p>如果报错如下： E: No such script: /usr/share/debootstrap/scripts/eagle E: debootstrap failed E: debootstrap.log not present W: Aborting with an error</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> /usr/share/debootstrap/scripts/<br><span class="hljs-built_in">cp</span> sid eagle<br></code></pre></td></tr></table></figure></p><p>需要额外添加仓库源可以<code>login</code>后添加<code>apt</code>仓库源：</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo pbuilder login --basetgz /var/cache/pbuilder/base.tgz --save-after-login<br></code></pre></td></tr></table></figure></p></li><li><p>下载源码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> <span class="hljs-string">&quot;http://ut004487@gerrit.uniontech.com/a/linglong&quot;</span><br><span class="hljs-built_in">cd</span> linglong<br>git checkout develop/snipe<br></code></pre></td></tr></table></figure></p><p>查看changelog版本号</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">head</span> debian/changelog<br></code></pre></td></tr></table></figure></p><p>版本号信息如下:</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs plain">linglong (1.3.1-1) unstable; urgency=medium<br><br>    * fixed some bug.<br><br>    -- liujianqiang &lt;liujianqiang@uniontech.com&gt;  Wed, 27 Apr 2022 15:12:16 +0800<br><br>    linglong (1.3.0-1) unstable; urgency=medium<br><br>    * 1. fix link library failed when using cmake.<br>    * 2. fix adjust dependency checkout directory.<br></code></pre></td></tr></table></figure></p><p>根据版本号创建符合dh_make规范的<code>&lt;package&gt;-&lt;version&gt;</code>格式</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> ..<br><span class="hljs-built_in">cp</span> -r linglong linglong-1.3.1<br></code></pre></td></tr></table></figure></p></li><li><p>dh_make生成debian模板文件</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linglong-1.3.1<br>dh_make --createorig -sy<br></code></pre></td></tr></table></figure></p></li><li><p>dkpg-source生成构建源代码包</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg-source -b .<br></code></pre></td></tr></table></figure></p></li><li><p>使用pbuilder构建deb包</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> ..<br>sudo pbuilder --build  --logfile log.txt --basetgz /var/cache/pbuilder/base.tgz --allow-untrusted --hookdir /var/cache/pbuilder/hooks --use-network <span class="hljs-built_in">yes</span> --aptcache <span class="hljs-string">&quot;&quot;</span> --buildresult . --debbuildopts -sa *.dsc<br></code></pre></td></tr></table></figure></p></li></ol><h2 id="more">More</h2><p><a href="https://www.debian.org/doc/manuals/maint-guide/index.zh-cn.html">Debian 软件包制作流程</a> <a href="https://www.cnblogs.com/zszmhd/p/3628446.html">pbuilder编译构建工具分析</a> <a href="https://www.aftermath.cn//2022/03/06/debian-pbuilder/">debian pbuilder使用</a></p>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>package</category>
+      
+      <category>deb</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>git</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>debmake</title>
     <link href="/linux/package/deb/debmake/"/>
     <url>/linux/package/deb/debmake/</url>
@@ -4110,37 +4143,6 @@
       <tag>linux</tag>
       
       <tag>architect</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>pbuilder教程</title>
-    <link href="/linux/package/deb/pbuilder%E6%95%99%E7%A8%8B/"/>
-    <url>/linux/package/deb/pbuilder%E6%95%99%E7%A8%8B/</url>
-    
-    <content type="html"><![CDATA[<h1 id="pbuilder教程">pbuilder教程</h1><ol type="1"><li><p>安装环境</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install pbuilder debootstrap devscripts dh-make<br></code></pre></td></tr></table></figure></p></li><li><p>pbuilder配置 以下路径任选其一</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs plain">/etc/pbuilderrc<br>/root/.pbuilderrc<br></code></pre></td></tr></table></figure></p><p>将以下内容写入上述配置文件，上述路径任选其一即可，以uos v20 专业版为例：</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs plain">MIRRORSITE=http://pools.uniontech.com/desktop-professional<br>DEBOOTSTRAPOPTS=(<br>    &#x27;--variant=buildd&#x27;<br>)<br></code></pre></td></tr></table></figure></p></li><li><p>创建pbuilder基础环境</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo pbuilder create --distribution eagle --debootstrapopts --no-check-gpg<br></code></pre></td></tr></table></figure></p><p>如果报错如下： E: No such script: /usr/share/debootstrap/scripts/eagle E: debootstrap failed E: debootstrap.log not present W: Aborting with an error</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> /usr/share/debootstrap/scripts/<br><span class="hljs-built_in">cp</span> sid eagle<br></code></pre></td></tr></table></figure></p><p>需要额外添加仓库源可以<code>login</code>后添加<code>apt</code>仓库源：</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo pbuilder login --basetgz /var/cache/pbuilder/base.tgz --save-after-login<br></code></pre></td></tr></table></figure></p></li><li><p>下载源码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> <span class="hljs-string">&quot;http://ut004487@gerrit.uniontech.com/a/linglong&quot;</span><br><span class="hljs-built_in">cd</span> linglong<br>git checkout develop/snipe<br></code></pre></td></tr></table></figure></p><p>查看changelog版本号</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">head</span> debian/changelog<br></code></pre></td></tr></table></figure></p><p>版本号信息如下:</p><p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs plain">linglong (1.3.1-1) unstable; urgency=medium<br><br>    * fixed some bug.<br><br>    -- liujianqiang &lt;liujianqiang@uniontech.com&gt;  Wed, 27 Apr 2022 15:12:16 +0800<br><br>    linglong (1.3.0-1) unstable; urgency=medium<br><br>    * 1. fix link library failed when using cmake.<br>    * 2. fix adjust dependency checkout directory.<br></code></pre></td></tr></table></figure></p><p>根据版本号创建符合dh_make规范的<code>&lt;package&gt;-&lt;version&gt;</code>格式</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> ..<br><span class="hljs-built_in">cp</span> -r linglong linglong-1.3.1<br></code></pre></td></tr></table></figure></p></li><li><p>dh_make生成debian模板文件</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linglong-1.3.1<br>dh_make --createorig -sy<br></code></pre></td></tr></table></figure></p></li><li><p>dkpg-source生成构建源代码包</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg-source -b .<br></code></pre></td></tr></table></figure></p></li><li><p>使用pbuilder构建deb包</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> ..<br>sudo pbuilder --build  --logfile log.txt --basetgz /var/cache/pbuilder/base.tgz --allow-untrusted --hookdir /var/cache/pbuilder/hooks --use-network <span class="hljs-built_in">yes</span> --aptcache <span class="hljs-string">&quot;&quot;</span> --buildresult . --debbuildopts -sa *.dsc<br></code></pre></td></tr></table></figure></p></li></ol><h2 id="more">More</h2><p><a href="https://www.debian.org/doc/manuals/maint-guide/index.zh-cn.html">Debian 软件包制作流程</a> <a href="https://www.cnblogs.com/zszmhd/p/3628446.html">pbuilder编译构建工具分析</a> <a href="https://www.aftermath.cn//2022/03/06/debian-pbuilder/">debian pbuilder使用</a></p>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>package</category>
-      
-      <category>deb</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>git</tag>
       
       <tag>HTML</tag>
       
@@ -5045,25 +5047,6 @@
   
   
   <entry>
-    <title>linglong</title>
-    <link href="/patent/linglong/"/>
-    <url>/patent/linglong/</url>
-    
-    <content type="html"><![CDATA[<h1 id="linglong">linglong</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs plantuml">@startuml<br>start<br>:ll-repo-cli查询包命令行;<br>if (解析命令？) then (yes)<br>    :输入用户名和密码\n并向ll-repo-server发起登录请求;<br>    if (ll-repo-server校验密码) then (yes)<br>        :ll-repo-server生成唯一token;<br>        :返回token;<br>        :ll-repo-cli\n发起业务请求，\ntoken附带在http请求header中;<br>        if (ll-repo-server校验token?) then (yes)<br>                if (ll-repo-server查询redis缓存中是否已有相关数据?) then (yes)<br>                else (no)<br>                    :从数据库中查找结果;<br>                    :更新redis缓存;<br>                endif<br>            :从redis中获取结果;<br>            :返回业务逻辑处理结果;<br>        else (no)<br>        endif<br>    else (no)<br>    endif<br>endif<br>:终端提示\nll-repo-cli\nll-builder\n命令行执行结果;<br>stop<br>@enduml<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>patent</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>flatpak</title>
     <link href="/patent/flatpak/"/>
     <url>/patent/flatpak/</url>
@@ -5087,6 +5070,25 @@
       <tag>linux</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>linglong</title>
+    <link href="/patent/linglong/"/>
+    <url>/patent/linglong/</url>
+    
+    <content type="html"><![CDATA[<h1 id="linglong">linglong</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs plantuml">@startuml<br>start<br>:ll-repo-cli查询包命令行;<br>if (解析命令？) then (yes)<br>    :输入用户名和密码\n并向ll-repo-server发起登录请求;<br>    if (ll-repo-server校验密码) then (yes)<br>        :ll-repo-server生成唯一token;<br>        :返回token;<br>        :ll-repo-cli\n发起业务请求，\ntoken附带在http请求header中;<br>        if (ll-repo-server校验token?) then (yes)<br>                if (ll-repo-server查询redis缓存中是否已有相关数据?) then (yes)<br>                else (no)<br>                    :从数据库中查找结果;<br>                    :更新redis缓存;<br>                endif<br>            :从redis中获取结果;<br>            :返回业务逻辑处理结果;<br>        else (no)<br>        endif<br>    else (no)<br>    endif<br>endif<br>:终端提示\nll-repo-cli\nll-builder\n命令行执行结果;<br>stop<br>@enduml<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>patent</category>
+      
+    </categories>
+    
     
   </entry>
   
