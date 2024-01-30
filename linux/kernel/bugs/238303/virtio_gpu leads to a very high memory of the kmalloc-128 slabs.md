@@ -379,7 +379,7 @@ sudo apt install ./*.deb   # 安装deb包，包含deb调试包
 ### trace-bpfcc
 
 ```bash
-sudo apt install bpftrace bpfcc-tools
+sudo apt install bpftrace bpfcc-tools libgl1-mesa-dri-dbgsym
 ```
 
 ```bash
@@ -387,6 +387,29 @@ trace-bpfcc -tKU virtio_gpu_fence_alloc | tee virtio_gpu_fence_alloc.log
 ```
 
 输出如下：
+
+```bash
+TIME     PID     TID     COMM            FUNC             
+3.265260 5874    5874    glxgears        virtio_gpu_fence_alloc 
+        virtio_gpu_fence_alloc+0x0 [kernel]
+        drm_ioctl_kernel+0x90 [kernel]
+        drm_ioctl+0x1c0 [kernel]
+        do_vfs_ioctl+0xa4 [kernel]
+        ksys_ioctl+0x78 [kernel]
+        __arm64_sys_ioctl+0x1c [kernel]
+        el0_svc_common+0x90 [kernel]
+        el0_svc_handler+0x9c [kernel]
+        el0_svc+0x8 [kernel]
+        __GI___ioctl+0xc [libc-2.28.so]
+        virgl_drm_winsys_submit_cmd+0xd4 [virtio_gpu_dri.so]
+        virgl_flush_eq.isra.4+0x8c [virtio_gpu_dri.so]
+        st_context_flush+0x54 [virtio_gpu_dri.so]
+        dri_flush+0x154 [virtio_gpu_dri.so]
+        [unknown] [libGLX_mesa.so.0.0.0]
+        [unknown] [glxgears]
+        __libc_start_main+0xe4 [libc-2.28.so]
+        [unknown] [glxgears]
+```
 
 ```bash
 TIME     PID     TID     COMM            FUNC             
@@ -464,4 +487,34 @@ TIME     PID     TID     COMM            FUNC
 206             i = -1;
 ```
 
+## virtio_gpu_fence_alloc源码溯源
+
+```bash
+git show 00f20720be71
+commit 00f20720be7137c1355f0cd1372779be34043ce5
+Author: Robert Foss <robert.foss@collabora.com>
+Date:   Mon Nov 12 17:51:54 2018 +0100
+
+    drm/virtio: add virtio_gpu_alloc_fence()
+    
+    Refactor fence creation, add fences to relevant GPU
+    operations and add cursor helper functions.
+    
+    This removes the potential for allocation failures from the
+    cmd_submit and atomic_commit paths.
+    Now a fence will be allocated first and only after that
+    will we proceed with the rest of the execution.
+    
+    Signed-off-by: Gustavo Padovan <gustavo.padovan@collabora.com>
+    Signed-off-by: Robert Foss <robert.foss@collabora.com>
+    Link: http://patchwork.freedesktop.org/patch/msgid/20181112165157.32765-2-robert.foss@collabora.com
+    Suggested-by: Rob Herring <robh@kernel.org>
+    Signed-off-by: Gerd Hoffmann <kraxel@redhat.com>
+```
+
+`virtio_gpu_fence_alloc`首次出现在内核5.0版本中，应该是往下迁移的。
+
 ## 修复方案
+
+- [[PATCH AUTOSEL 5.7 05/54] drm/virtio: fix memory leak in virtio_gpu_cleanup_object()](https://lkml.org/lkml/2020/8/24/1461)
+- [[v3] drm/virtio: fix missing dma_fence_put() in virtio_gpu_execbuffer_ioctl()](https://patchwork.freedesktop.org/patch/378278/)
