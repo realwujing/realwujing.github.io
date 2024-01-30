@@ -103,3 +103,4 @@ uvd Ring Buffer（视频解码环形缓冲区）:
 - [Hello OpenGL](https://blog.csdn.net/huang987246510/article/details/106322012)
 - [VirtIO GPU基本原理](https://blog.csdn.net/huang987246510/article/details/107729881)
 - [DRAW_INDEX与图形流水线](https://blog.csdn.net/huang987246510/article/details/107283374)
+- [Android graphical stack and qemu virtualization](https://eshard.com/posts/Android-graphical-stack-virtualization)
