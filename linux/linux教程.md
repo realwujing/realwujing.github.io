@@ -551,7 +551,7 @@ UUID=cc5da720-dbfb-4bc2-8f35-f566d1603508       /media/wujing/data      ext4    
   ssh-keygen
   ssh-copy-id uos@10.20.53.160
   # 将机器A的公钥复制到机器B
-  rsync -avzP id_rsa.pub uos@10.20.53.160:~
+  rsync -avzP ~/.ssh/id_rsa.pub uos@10.20.53.160:~
   ```
 
   在机器B上执行如下命令:
@@ -561,7 +561,6 @@ UUID=cc5da720-dbfb-4bc2-8f35-f566d1603508       /media/wujing/data      ext4    
   ssh-copy-id uos@192.168.122.76
   # 将机器A的公钥复制到机器C
   rsync -avzP ~/id_rsa.pub uos@192.168.122.76:~
-  cat 
   ```
 
   在机器C上执行如下命令:
