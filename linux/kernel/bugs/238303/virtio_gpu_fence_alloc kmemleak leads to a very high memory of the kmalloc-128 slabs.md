@@ -389,8 +389,7 @@ trace-bpfcc -tKU virtio_gpu_fence_alloc | tee virtio_gpu_fence_alloc.log
 输出如下：
 
 ```bash
-TIME     PID     TID     COMM            FUNC             
-3.265260 5874    5874    glxgears        virtio_gpu_fence_alloc 
+37.52421 10061   10061   Xorg            virtio_gpu_fence_alloc 
         virtio_gpu_fence_alloc+0x0 [kernel]
         drm_ioctl_kernel+0x90 [kernel]
         drm_ioctl+0x1c0 [kernel]
@@ -401,43 +400,80 @@ TIME     PID     TID     COMM            FUNC
         el0_svc_handler+0x9c [kernel]
         el0_svc+0x8 [kernel]
         __GI___ioctl+0xc [libc-2.28.so]
-        virgl_drm_winsys_submit_cmd+0xd4 [virtio_gpu_dri.so]
-        virgl_flush_eq.isra.4+0x8c [virtio_gpu_dri.so]
-        st_context_flush+0x54 [virtio_gpu_dri.so]
-        dri_flush+0x154 [virtio_gpu_dri.so]
-        [unknown] [libGLX_mesa.so.0.0.0]
-        [unknown] [glxgears]
+        virgl_bo_transfer_put+0x78 [virtio_gpu_dri.so]
+        transfer_put+0x3c [virtio_gpu_dri.so]
+        perform_action.isra.3+0x6c [virtio_gpu_dri.so]
+        virgl_transfer_queue_clear+0xa8 [virtio_gpu_dri.so]
+        virgl_flush_eq.isra.4+0x64 [virtio_gpu_dri.so]
+        st_glFlush+0x24 [virtio_gpu_dri.so]
+        present_execute_copy+0x8c [Xorg]
+        present_execute+0x130 [Xorg]
+        present_scmd_pixmap+0x300 [Xorg]
+        proc_present_pixmap+0x1a4 [Xorg]
+        Dispatch+0x340 [Xorg]
+        dix_main+0x388 [Xorg]
         __libc_start_main+0xe4 [libc-2.28.so]
-        [unknown] [glxgears]
+        [unknown] [Xorg]
 ```
 
 ```bash
-TIME     PID     TID     COMM            FUNC             
-2.639655 723     723     Xorg            virtio_gpu_fence_alloc 
-        virtio_gpu_fence_alloc+0x0 [kernel]
-        drm_ioctl_kernel+0x90 [kernel]
-        drm_ioctl+0x1c0 [kernel]
-        do_vfs_ioctl+0xa4 [kernel]
-        ksys_ioctl+0x78 [kernel]
-        __arm64_sys_ioctl+0x1c [kernel]
-        el0_svc_common+0x90 [kernel]
-        el0_svc_handler+0x9c [kernel]
-        el0_svc+0x8 [kernel]
-        ioctl+0xc [libc-2.28.so]
-        [unknown] [virtio_gpu_dri.so]
-        [unknown] [virtio_gpu_dri.so]
-        [unknown] [virtio_gpu_dri.so]
-        [unknown] [virtio_gpu_dri.so]
-        [unknown] [virtio_gpu_dri.so]
-        [unknown] [virtio_gpu_dri.so]
-        [unknown] [libglamoregl.so]
-        [unknown] [modesetting_drv.so]
-        BlockHandler+0xf0 [Xorg]
-        WaitForSomething+0xe8 [Xorg]
-        [unknown] [Xorg]
-        [unknown] [Xorg]
-        __libc_start_main+0xe4 [libc-2.28.so]
-        [unknown] [Xorg]
+ps aux | grep -i xorg
+root     10061  1.0  1.4 201428 58952 tty1     Ssl+ 16:56   0:03 /usr/lib/xorg/Xorg -background none :0 -seat seat0 -auth /var/run/lightdm/root/:0 -nolisten tcp vt1 -novtswitch
+uos      12130  0.0  0.0  13724   648 pts/6    S+   17:02   0:00 grep -i xorg
+```
+
+```bash
+cd xorg-server-1.20.4.65/xorg-server-1.20.4.65
+sudo gdb -p 10061
+GNU gdb (Uos 8.2.1.1-1+security) 8.2.1
+Copyright (C) 2018 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "aarch64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word".
+Attaching to process 10061
+[New LWP 10091]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/aarch64-linux-gnu/libthread_db.so.1".
+0x0000ffff92739d70 in __GI_epoll_pwait (epfd=<optimized out>, events=events@entry=0xfffff150d758, maxevents=maxevents@entry=256, timeout=<optimized out>, set=set@entry=0x0)
+    at ../sysdeps/unix/sysv/linux/epoll_pwait.c:42
+42      ../sysdeps/unix/sysv/linux/epoll_pwait.c: 没有那个文件或目录.
+(gdb) b WaitForSomething
+Breakpoint 1 at 0x592ff0: file ../../../../os/WaitFor.c, line 167.
+(gdb) c
+Continuing.
+
+Thread 1 "Xorg" hit Breakpoint 1, WaitForSomething (are_ready=0) at ../../../../os/WaitFor.c:167
+warning: Source file is more recent than executable.
+167     {
+(gdb) bt
+#0  WaitForSomething (are_ready=0) at ../../../../os/WaitFor.c:167
+#1  0x00000000004453bc in Dispatch () at ../../../../include/list.h:220
+#2  0x0000000000449700 in dix_main (argc=12, argv=0xfffff150ea48, envp=0xfffff150eab0) at ../../../../dix/main.c:276
+#3  0x0000ffff9268ada4 in __libc_start_main (main=0x432748 <main>, argc=12, argv=0xfffff150ea48, init=<optimized out>, fini=<optimized out>, rtld_fini=<optimized out>, stack_end=<optimized out>)
+    at ../csu/libc-start.c:308
+#4  0x0000000000432798 in _start ()
+Backtrace stopped: previous frame identical to this frame (corrupt stack?)
+(gdb) l
+162      *     pClientsReady is an array to store ready client->index values into.
+163      *****************/
+164
+165     Bool
+166     WaitForSomething(Bool are_ready)
+167     {
+168         int i;
+169         int timeout;
+170         int pollerr;
+171         static Bool were_ready;
 ```
 
 ```bash
@@ -512,7 +548,7 @@ Date:   Mon Nov 12 17:51:54 2018 +0100
     Signed-off-by: Gerd Hoffmann <kraxel@redhat.com>
 ```
 
-`virtio_gpu_fence_alloc`首次出现在内核5.0版本中，应该是往下迁移的。
+`virtio_gpu_fence_alloc`首次出现在内核4.20版本中，应该是往下迁移的。
 
 ## 修复方案
 
