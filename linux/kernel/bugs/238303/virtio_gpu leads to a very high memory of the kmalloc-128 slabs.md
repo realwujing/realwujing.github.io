@@ -516,5 +516,6 @@ Date:   Mon Nov 12 17:51:54 2018 +0100
 
 ## 修复方案
 
-- [[PATCH AUTOSEL 5.7 05/54] drm/virtio: fix memory leak in virtio_gpu_cleanup_object()](https://lkml.org/lkml/2020/8/24/1461)
-- [[v3] drm/virtio: fix missing dma_fence_put() in virtio_gpu_execbuffer_ioctl()](https://patchwork.freedesktop.org/patch/378278/)
+![dma_fence_put](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/dma_fence_put.png)
+
+- [[v4] dma-buf: Rename struct fence to dma_fence](https://patchwork.freedesktop.org/patch/118020/)
