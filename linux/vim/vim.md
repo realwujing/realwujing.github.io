@@ -55,6 +55,9 @@
 ## 插件
 
 - [<font color=Red>vim配置</font>](https://blog.csdn.net/tiantianhaoxinqing__/article/details/123593749)
+    ```bash
+    cscope -Rbq
+    ```
 - [<font color=Red>https://vimawesome.com/</font>](https://vimawesome.com/)
 - [（转）Vim十大必备插件](https://blog.51cto.com/u_15905375/5919878)
 - [Ubuntu 下 vim+Ctags+Taglist+WinManager工具的安装](https://blog.csdn.net/eric_sunah/article/details/51028874)
