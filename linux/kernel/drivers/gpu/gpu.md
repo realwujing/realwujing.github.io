@@ -3,7 +3,6 @@
 
 - [深夜磨刀，Linux Graphics Stack 概述 | Linux 驱动](https://zhuanlan.zhihu.com/p/414403029)
 - [深度探索Linux操作系统 —— Linux图形原理探讨](https://blog.csdn.net/Liuqz2009/article/details/134988734)
-- [Linux图形显示系统之DRM](https://blog.csdn.net/yangguoyu8023/article/details/129241987)
 
 ## 桌面环境
 
@@ -58,6 +57,7 @@ sudo apt install task-gnome-desktop
 
 ## gpu
 
+- [Linux图形显示系统之DRM](https://blog.csdn.net/yangguoyu8023/article/details/129241987)
 - [GPGPU&&渲染GPU的工作原理和认知总结](https://blog.csdn.net/tugouxp/article/details/126594480)
 - [Linux显卡驱动，DRM显示框架简单介绍](https://www.toutiao.com/article/6973922609868063264)
 - [Linux显卡驱动，DRM Atomic接口简说](https://www.toutiao.com/article/6982072379140784670)
