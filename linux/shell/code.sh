@@ -43,9 +43,25 @@ if [ ! -d code/realwujing.github.io ]; then
     git clone https://github.com/realwujing/realwujing.github.io.git
 fi
 
+# gdb
 if [ ! -d code/gef ]; then
     git clone https://github.com/hugsy/gef
 fi
+
+cd
+
+if [ ! -d .gdb ]; then
+    mkdir -p .gdb
+fi
+
+cd .gdb
+
+if [ ! -d .gdb/qt5printers ]; then
+    git clone https://github.com/Lekensteyn/qt5printers.git
+fi
+
+ln -s /home/wujing/code/gef/gef.py .gdbinit-gef.py
+ln -s /home/wujing/code/realwujing.github.io/debug/gdb/.gdbinit .gdbinit
 
 # ssh
 ssh-keygen
@@ -54,10 +70,6 @@ ln -s /home/wujing/code/realwujing.github.io/linux/ssh/config .ssh/config
 # git
 ln -s /home/wujing/code/realwujing.github.io/git/.gitcommit_template .gitcommit_template
 ln -s /home/wujing/code/realwujing.github.io/git/.gitconfig .gitconfig
-
-# gdb
-ln -s /home/wujing/code/gef/gef.py .gdbinit-gef.py
-ln -s /home/wujing/code/realwujing.github.io/debug/gdb/.gdbinit .gdbinit
 
 # vim
 git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
