@@ -24,9 +24,15 @@
   sudo virsh net-autostart default
   ```
 
-- [如何从主机粘贴到KVM客户机？](https://stc214.github.io/posts/2021%E5%B9%B42%E6%9C%886%E6%97%A512/)
-- [Copy n Paste in (KVM) Kernel-based Virtual Machine](https://www.linuxsecrets.com/3883-copy-n-paste-in-kvm)
-- [解决kvm安装Ubuntu虚机远程桌面无法复制粘贴问题](https://blog.csdn.net/guoyinzhao/article/details/109642824)
+- [qemu/kvm linux 虚拟机配置（共享剪切版，文件拖拽进虚拟机）](https://blog.csdn.net/qq_33831360/article/details/123700719)
+- [How can I copy&paste from the host to a KVM guest?](https://askubuntu.com/questions/858649/how-can-i-copypaste-from-the-host-to-a-kvm-guest)
+
+  在虚拟机上安装spice-vdagent即可：
+
+  ```bash
+  sudo apt install spice-vdagent
+  ```
+
 - [解决deepin虚拟机系统时间不正确的问题](https://blog.csdn.net/fcdm_/article/details/122150246)
 
     ```bash
