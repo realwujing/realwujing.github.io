@@ -432,7 +432,10 @@
     sysctl -w kernel.panic=10
     ```
 
+    内核编译选项：CONFIG_PANIC_TIMEOUT=0
+
   - [<font color=Red>Linux kernel Panic后自动重启机器的设置</font>](https://blog.csdn.net/yihui8/article/details/46480627)
+  - [解读内核 sysctl 配置中 panic、oops 相关项目](https://blog.csdn.net/Longyu_wlz/article/details/126565853)
 
 - kernel.panic_on_oops
 
@@ -444,6 +447,8 @@
     sysctl -w kernel.panic_on_oops=1
     ```
 
+    内核编译选项：CONFIG_MAGIC_SYSRQ=y
+
 - kernel.hung_task_panic
 
     作用： 控制在系统检测到“挂起”任务（可能是由于死锁）时是否触发 panic。
@@ -453,6 +458,8 @@
     ```bash
     sysctl -w kernel.hung_task_panic=1
     ```
+
+    内核编译选项：CONFIG_DETECT_HUNG_TASK=y CONFIG_BOOTPARAM_HUNG_TASK_PANIC=y
 
 - kernel.hung_task_timeout_secs：
 
@@ -465,6 +472,8 @@
     ```bash
     sysctl -w kernel.hung_task_timeout_secs=60
     ```
+
+    内核编译选项：CONFIG_DEFAULT_HUNG_TASK_TIMEOUT=120
 
 - vm.panic_on_oom
 
@@ -485,6 +494,8 @@
     ```bash
     sysctl -w kernel.softlockup_panic=1
     ```
+
+    内核编译选项：CONFIG_SOFTLOCKUP_DETECTOR=y BOOTPARAM_SOFTLOCKUP_PANIC=y
 
 - kernel.panic_on_warn
 
@@ -508,15 +519,29 @@
 sudo cat << EOF >> /etc/sysctl.conf
 
 # sysrq
+
+# CONFIG_MAGIC_SYSRQ=y
 kernel.sysrq=1
 
 # panic
+
+# CONFIG_PANIC_TIMEOUT=0
 kernel.panic=10
+
+# CONFIG_PANIC_ON_OOPS=y
 kernel.panic_on_oops=1
+
+# CONFIG_DETECT_HUNG_TASK=y CONFIG_BOOTPARAM_HUNG_TASK_PANIC=y
 kernel.hung_task_panic=1
+
+# CONFIG_DEFAULT_HUNG_TASK_TIMEOUT=120
 kernel.hung_task_timeout_secs=60
+
 vm.panic_on_oom=1
+
+# CONFIG_SOFTLOCKUP_DETECTOR=y BOOTPARAM_SOFTLOCKUP_PANIC=y
 kernel.softlockup_panic=1
+
 kernel.panic_on_warn=1
 EOF
 ```
