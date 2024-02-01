@@ -3,6 +3,7 @@
 
 - [深夜磨刀，Linux Graphics Stack 概述 | Linux 驱动](https://zhuanlan.zhihu.com/p/414403029)
 - [深度探索Linux操作系统 —— Linux图形原理探讨](https://blog.csdn.net/Liuqz2009/article/details/134988734)
+- [Linux图形显示系统之DRM](https://blog.csdn.net/yangguoyu8023/article/details/129241987)
 
 ## 桌面环境
 
@@ -68,6 +69,7 @@ sudo apt install task-gnome-desktop
 - [【干货】一文看懂GPU流处理器](https://mp.weixin.qq.com/s/IHardB0dyky8fhgQkU55pw)
 - [【干货】三张图看懂主流GPU性能](https://mp.weixin.qq.com/s/bNGBoeKnvcEB7prpDeAXeQ)
 - [【干货】一文看懂CPU与GPU异构计算](https://mp.weixin.qq.com/s/xGwaaaaMED23dNbO9wNICg)
+- [Linux 显示子系统之 Framebuffer 与 DRM](https://mp.weixin.qq.com/s/apXuHnOTpKq0Za8VsFhM0A)
 
 ### admgpu
 
