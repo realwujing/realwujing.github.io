@@ -210,3 +210,5 @@ sudo mount -a
 - [macOS | nvram boot-args的作用及设置方式](https://blog.csdn.net/MissMango0820/article/details/127398047)
 - [GitHub - kholia/OSX-KVM: Run macOS on QEMU/KVM. With OpenCore + Big Sur + Monterey + Ventura support now! Only commercial (paid) support is available now to avoid spammy issues. No Mac system is required.](https://github.com/kholia/OSX-KVM)
 - [Linux kernel debug on macOS 搭建可视化内核debug环境](https://zhuanlan.zhihu.com/p/399857241)
+- [UTM - Virtual machines for iOS and macOS](https://github.com/utmapp/UTM)
+- [Parallels Desktop 19.2.1 54832 破解教程（pd19永久授权）](https://www.luoxx.top/archives/pd-18-active?cid=162)
