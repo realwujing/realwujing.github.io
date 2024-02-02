@@ -27,6 +27,11 @@
 - [Linux kernel stable tree mirror](https://github.com/gregkh/linux)
 - [OpenCloudOS kernel](https://gitee.com/OpenCloudOS/OpenCloudOS-Kernel/tree/master)
 
+### DebianKernel
+
+- <https://wiki.debian.org/DebianKernel>
+- <https://salsa.debian.org/kernel-team/linux>
+
 ### 内核源码结构
 
 - [Linux内核  内核源码结构](https://www.cnblogs.com/y4247464/p/12333955.html)
@@ -248,7 +253,7 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
     make distclean  # mrproper删除的文件， 加上编辑备份文件和一些补丁文件
     ```
 
-### 以deb包方式编译内核
+### 编译内核deb包
 
 在 Linux 内核构建过程中，make deb-pkg 和 make bindeb-pkg 是用于生成 Debian 包的两个目标。这两个目标的主要区别在于生成的 Debian 包的内容和形式：
 
@@ -268,6 +273,11 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 - [以deb包方式编译内核](https://blog.csdn.net/weixin_40182062/article/details/108230678)
 - [第 10 章 Debian 和内核](https://www.debian.org/doc/manuals/debian-faq/kernel.zh-cn.html)
 - [“make deb-pkg” broken](https://davejingtian.org/2018/03/15/make-deb-pkg-broken/)
+
+#### linux-perf deb
+
+- [make deb-pkg linux-kernel源码支持构建perf工具](https://blog.csdn.net/qq_24423085/article/details/132696041)
+- [Building .deb package for Linux perf?](https://unix.stackexchange.com/questions/362758/building-deb-package-for-linux-perf)
 
 ## 内核模块
 
