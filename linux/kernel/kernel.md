@@ -256,6 +256,7 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 
 - 这个目标生成的是一个包含完整内核源代码、配置文件和构建所需的所有内容的 Debian 源码包（source package）。
 - Debian 源码包一般包括 `linux-<version>.tar.xz` 源码压缩包、debian/ 目录中的维护文件以及其他构建所需的文件。这个包允许其他人在其系统上重新构建内核。
+- 也包含`make bindeb-pkg`产物。
 
 `make bindeb-pkg`：
 
