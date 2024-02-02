@@ -2,10 +2,34 @@
 
 - [<font color=Red>Linux虚拟化</font>](https://www.cnblogs.com/LoyenWang/category/1828942.html)
 
-## 虚拟机
-
 - [服务器虚拟化组件有哪些？](http://c.biancheng.net/view/3842.html)
 - [ubuntu18.04上搭建KVM虚拟机环境超完整过程](https://mp.weixin.qq.com/s/FVyzPVwwQ85AC4jlVZvF4g)
+
+- <https://www.qemu.org/docs/master/system/invocation.html>
+- [QEMU (简体中文)](https://wiki.archlinuxcn.org/wiki/QEMU)
+- [QEMU-KVM基本原理](https://www.toutiao.com/article/7194721406406787623)
+- [<font color=Red>Qemu&KVM 第一篇（2） qemu kvm 相关知识</font>](https://blog.csdn.net/weixin_34253539/article/details/93084893)
+- [<font color=Red>虚拟化技术 — 硬件辅助的虚拟化技术</font>](https://mp.weixin.qq.com/s/NsdNFhoP0QwjfhsQIeRWeQ)
+- [<font color=Red>虚拟化技术 — QEMU-KVM 基于内核的虚拟机</font>](https://mp.weixin.qq.com/s/sn-TTwldA81uFuVn5NBMhg)
+
+- [<font color=Red>https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu</font>](https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu)
+- [<font color=Red>Linux内核调试</font>](https://blog.csdn.net/onlylove_/category_11607029.html)
+
+## libvirt
+
+- [KVM虚拟化解决方案系列之KVM管理工具-libvirt介绍篇](https://blog.csdn.net/jianghu0755/article/details/129776841)
+- [CentOS创建KVM虚拟机-在Edit→Preferences里面开启XML文件编辑功能](https://tinychen.com/20200405-centos-create-kvm-vm/)
+- [<font color=Red>libvirt的virsh命令和qemu参数转换</font>](https://blog.csdn.net/YuZhiHui_No1/article/details/53909925)
+- [libvirt and QEMU 基础篇](https://blog.csdn.net/lingshengxiyou/article/details/128665491)
+
+### qemu monitor
+
+- [QEMU Monitor](https://www.qemu.org/docs/master/system/monitor.html)
+- [QEMU monitor控制台使用详解](https://blog.csdn.net/qq_43523618/article/details/106278245)
+- [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
+
+## virt-manager
+
 - [<font color=Red>How to Install and Configure KVM on Debian 11 Bullseye Linux</font>](https://linux.how2shout.com/how-to-install-and-configure-kvm-on-debian-11-bullseye-linux/)
 
   ```bash
@@ -24,6 +48,8 @@
   sudo virsh net-autostart default
   ```
 
+### 共享剪切板
+
 - [qemu/kvm linux 虚拟机配置（共享剪切版，文件拖拽进虚拟机）](https://blog.csdn.net/qq_33831360/article/details/123700719)
 - [How can I copy&paste from the host to a KVM guest?](https://askubuntu.com/questions/858649/how-can-i-copypaste-from-the-host-to-a-kvm-guest)
 
@@ -33,53 +59,42 @@
   sudo apt install spice-vdagent
   ```
 
+### 共享目录
+
+在宿主机查看虚拟机共享目录配置:
+
+![共享目录](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240202130011.png)
+
+在虚拟机上执行下方命令：
+
+```bash
+sudo mount -t 9p -o trans=virtio /media/wujing/data /media/wujing/data
+```
+
+如果在虚拟机上想启动就默认挂载，可以写入 /etc/fstab：
+
+```bash
+sudo cat << EOF >> /etc/fstab
+/media/wujing/data /media/wujing/data 9p trans=virtio 0 0
+EOF
+```
+
+在虚拟机上重新挂载/etc/fstab：
+
+```bash
+sudo systemctl daemon-reload
+sudo mount -a
+```
+
+- [virt-manager设置主机和虚拟机之间文件共享](https://blog.csdn.net/sinat_38816924/article/details/120284285)
+
+### 时间
+
 - [解决deepin虚拟机系统时间不正确的问题](https://blog.csdn.net/fcdm_/article/details/122150246)
 
     ```bash
     sudo apt install systemd-timesyncd
     ```
-
-- [如何用命令行模式启动VMWare虚拟机](https://blog.csdn.net/u014389734/article/details/107481852)
-- [在 Linux 主机上安装 Workstation Pro](https://docs.vmware.com/cn/VMware-Workstation-Pro/17/com.vmware.ws.using.doc/GUID-1F5B1F14-A586-4A56-83FA-2E7D8333D5CA.html)
-- [在Ubuntu 20.04上安装VMWare Workstation](https://waydo.xyz/soft/linux/ubuntu-vmware-workstation/)
-- [用 archinstall 自动化脚本安装 Arch Linux](https://linux.cn/article-14444-1.html)
-- [Arch Linux图文安装教程（2022.08.01）](https://blog.csdn.net/love906897406/article/details/126109464)
-
-- [KVM虚拟化解决方案系列之KVM管理工具-libvirt介绍篇](https://blog.csdn.net/jianghu0755/article/details/129776841)
-
-### Mac OSX
-
-- [<font color=Red>使用Qemu在Mac上安装虚拟机</font>](https://blog.csdn.net/weixin_39759247/article/details/126569448)
-- [使用QEMU在macOS上创建Ubuntu 20.04桌面虚拟机](https://www.arthurkoziel.com/qemu-ubuntu-20-04/)
-- [Running virt-manager and libvirt on macOS](https://www.arthurkoziel.com/running-virt-manager-and-libvirt-on-macos/)
-- [Mac安装Linux的KVM管理工具virt-manager](https://blog.csdn.net/weixin_30883777/article/details/95729678)
-- [homebrew-virt-manager](https://github.com/jeffreywildman/homebrew-virt-manager)
-- [macOS系统和mac装Windows系统开启虚拟化](https://blog.csdn.net/nbin_newby/article/details/120307866)
-- [macOS | nvram boot-args的作用及设置方式](https://blog.csdn.net/MissMango0820/article/details/127398047)
-- [GitHub - kholia/OSX-KVM: Run macOS on QEMU/KVM. With OpenCore + Big Sur + Monterey + Ventura support now! Only commercial (paid) support is available now to avoid spammy issues. No Mac system is required.](https://github.com/kholia/OSX-KVM)
-- [Linux kernel debug on macOS 搭建可视化内核debug环境](https://zhuanlan.zhihu.com/p/399857241)
-
-## qemu
-
-- [CentOS创建KVM虚拟机-在Edit→Preferences里面开启XML文件编辑功能](https://tinychen.com/20200405-centos-create-kvm-vm/)
-- [<font color=Red>libvirt的virsh命令和qemu参数转换</font>](https://blog.csdn.net/YuZhiHui_No1/article/details/53909925)
-- <https://www.qemu.org/docs/master/system/invocation.html>
-- [QEMU (简体中文)](https://wiki.archlinuxcn.org/wiki/QEMU)
-- [QEMU-KVM基本原理](https://www.toutiao.com/article/7194721406406787623)
-- [<font color=Red>Qemu&KVM 第一篇（2） qemu kvm 相关知识</font>](https://blog.csdn.net/weixin_34253539/article/details/93084893)
-- [<font color=Red>虚拟化技术 — 硬件辅助的虚拟化技术</font>](https://mp.weixin.qq.com/s/NsdNFhoP0QwjfhsQIeRWeQ)
-- [<font color=Red>虚拟化技术 — QEMU-KVM 基于内核的虚拟机</font>](https://mp.weixin.qq.com/s/sn-TTwldA81uFuVn5NBMhg)
-- [libvirt and QEMU 基础篇](https://blog.csdn.net/lingshengxiyou/article/details/128665491)
-
-- [<font color=Red>https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu</font>](https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu)
-- [<font color=Red>Linux内核调试</font>](https://blog.csdn.net/onlylove_/category_11607029.html)
-
-- [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
-
-### qemu monitor
-
-- [QEMU Monitor](https://www.qemu.org/docs/master/system/monitor.html)
-- [QEMU monitor控制台使用详解](https://blog.csdn.net/qq_43523618/article/details/106278245)
 
 ### 网络
 
@@ -178,3 +193,20 @@
 ## More
 
 - [Wine 开发者指导/架构概览](https://blog.csdn.net/Flora_xuan1993/article/details/89205922)
+- [如何用命令行模式启动VMWare虚拟机](https://blog.csdn.net/u014389734/article/details/107481852)
+- [在 Linux 主机上安装 Workstation Pro](https://docs.vmware.com/cn/VMware-Workstation-Pro/17/com.vmware.ws.using.doc/GUID-1F5B1F14-A586-4A56-83FA-2E7D8333D5CA.html)
+- [在Ubuntu 20.04上安装VMWare Workstation](https://waydo.xyz/soft/linux/ubuntu-vmware-workstation/)
+- [用 archinstall 自动化脚本安装 Arch Linux](https://linux.cn/article-14444-1.html)
+- [Arch Linux图文安装教程（2022.08.01）](https://blog.csdn.net/love906897406/article/details/126109464)
+
+### Mac OSX
+
+- [<font color=Red>使用Qemu在Mac上安装虚拟机</font>](https://blog.csdn.net/weixin_39759247/article/details/126569448)
+- [使用QEMU在macOS上创建Ubuntu 20.04桌面虚拟机](https://www.arthurkoziel.com/qemu-ubuntu-20-04/)
+- [Running virt-manager and libvirt on macOS](https://www.arthurkoziel.com/running-virt-manager-and-libvirt-on-macos/)
+- [Mac安装Linux的KVM管理工具virt-manager](https://blog.csdn.net/weixin_30883777/article/details/95729678)
+- [homebrew-virt-manager](https://github.com/jeffreywildman/homebrew-virt-manager)
+- [macOS系统和mac装Windows系统开启虚拟化](https://blog.csdn.net/nbin_newby/article/details/120307866)
+- [macOS | nvram boot-args的作用及设置方式](https://blog.csdn.net/MissMango0820/article/details/127398047)
+- [GitHub - kholia/OSX-KVM: Run macOS on QEMU/KVM. With OpenCore + Big Sur + Monterey + Ventura support now! Only commercial (paid) support is available now to avoid spammy issues. No Mac system is required.](https://github.com/kholia/OSX-KVM)
+- [Linux kernel debug on macOS 搭建可视化内核debug环境](https://zhuanlan.zhihu.com/p/399857241)
