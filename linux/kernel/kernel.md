@@ -279,6 +279,30 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 - [make deb-pkg linux-kernel源码支持构建perf工具](https://blog.csdn.net/qq_24423085/article/details/132696041)
 - [Building .deb package for Linux perf?](https://unix.stackexchange.com/questions/362758/building-deb-package-for-linux-perf)
 
+#### 在deepin 23上构建 linux-perf deb包
+
+在debian12中下载内核源码：
+
+```bash
+apt source linux=6.1.55-1
+```
+
+将内核原源码拷贝到deepin 23上：
+
+```bash
+rsync -avzP linux-6.1.55 wujing@10.20.53.48:~/code/linux-6.1.55-1
+```
+
+在deepin 23 上构建deb包(包含 linux-perf)：
+
+```bash
+cd code/linux-6.1.55-1/linux-6.1.55
+```
+
+```bash
+dpkg-buildpackage -b -nc -uc -us -j16
+```
+
 ## 内核模块
 
 - [Linux内核模块HelloWorld](https://blog.csdn.net/u012184539/article/details/120326741)
