@@ -2,6 +2,13 @@
 
 - [<font color=Red>https://github.com/krahets/hello-algo</font>](https://github.com/krahets/hello-algo)
 - [<font color=Red>《 Hello 算法 》</font>](https://www.hello-algo.com/)
+- [🔥LeetCode solutions in any programming language | 多种编程语言实现 LeetCode、《剑指 Offer（第 2 版）》、《程序员面试金典（第 6 版）》题解](https://github.com/doocs/leetcode)
+
+
+- [<font color=Red>labuladong的算法小抄 :: labuladong的算法小抄 (gitee.io)</font>](https://labuladong.gitee.io/algo/)
+    - [labuladong 公众号文章目录](https://mp.weixin.qq.com/s/sT6_sHuptgwg9A4KxQfGSg)
+
+- [soulmachine/leetcode: LeetCode题解，151道题完整版 (github.com)](https://github.com/soulmachine/leetcode)
 
 ## 数据结构
 
@@ -28,22 +35,19 @@
 - [<font color=Red>二叉树遍历（前序、中序、后序、层次遍历、深度优先、广度优先）</font>](https://blog.csdn.net/My_Jobs/article/details/43451187)
 - [DFS（深度优先搜索）和BFS(广度优先搜索)](https://www.jianshu.com/p/b086986969e6)
 
-## 刷题
+## 刷题技巧
 
-- [算法入门教程（多语言实现）](http://c.biancheng.net/algorithm/what-is-algorithm.html)
-- [<font color=Red>labuladong的算法小抄 :: labuladong的算法小抄 (gitee.io)</font>](https://labuladong.gitee.io/algo/)
-- [labuladong 公众号文章目录](https://mp.weixin.qq.com/s/sT6_sHuptgwg9A4KxQfGSg)
 - [<font color=Red>我们千万不要跳进递归的细节里，你的脑袋才能压几个栈呀。</font>](https://labuladong.gitee.io/algo/2/19/22/)
 - [<font color=Red>以树的视角看动归/回溯/DFS算法的区别和联系</font>](https://labuladong.gitee.io/algo/di-ling-zh-bfe1b/dong-ge-da-334dd/#%E4%BB%A5%E6%A0%91%E7%9A%84%E8%A7%86%E8%A7%92%E7%9C%8B%E5%8A%A8%E5%BD%92-%E5%9B%9E%E6%BA%AF-dfs%E7%AE%97%E6%B3%95%E7%9A%84%E5%8C%BA%E5%88%AB%E5%92%8C%E8%81%94%E7%B3%BB)
-- [开篇词 - labuladong 的算法小抄 (gitbook.io)](https://labuladong.gitbook.io/algo/)
-- [labuladong的算法小抄：列表形式目录(qq.com)](https://mp.weixin.qq.com/s/AWsL7G89RtaHyHjRPNJENA)
-- [soulmachine/leetcode: LeetCode题解，151道题完整版 (github.com)](https://github.com/soulmachine/leetcode)
-- [doocs/leetcode:😏LeetCode solutions in any programming language | 多种编程语言实现 LeetCode、《剑指 Offer（第 2 版）》、《程序员面试金典（第 6 版）》题解 (github.com)](https://github.com/doocs/leetcode)
-- [<font color=Red>「刷题外挂 V2.4」稳定版使用手册</font>](https://mp.weixin.qq.com/s/uOubir_nLzQtp_fWHL73JA)
+
+## 哈希算法
 
 - [图解一致性哈希算法，看这一篇就够了](https://www.toutiao.com/article/7167302615553065511/)
 - [一致性哈希算法设计题，栽了](https://mp.weixin.qq.com/s/zL-n7zq0Zyhf-l_GQil2dg)
 
 - [布隆过滤器(Bloom Filter)的设计和实现](https://www.toutiao.com/article/7209275067782464040)
+
+
+## 其它
 
 - [必知必会位运算技巧手册](https://mp.weixin.qq.com/s/4vHfaNnn1OpWQJcsssWWdQ)
