@@ -671,6 +671,37 @@ sudo make install
 - [<font color=Red>用crash tool观察ARM64 Linux地址转换</font>](https://mp.weixin.qq.com/s/Hp-n9n3M9zy92Xm-dnRUZQ)
 - [CRASH安装和调试](https://www.toutiao.com/article/6903790073377063428/)
 
+### kmem
+
+查看内存的使用统计信息:
+
+```bash
+kmem -i
+```
+
+查看slab的信息:
+
+```bash
+kmem -s > kmem_s.log
+```
+
+按slabs降序：
+
+```bash
+cat kmem_s.log | sort -k5,5nr | head -n10
+CACHE             OBJSIZE  ALLOCATED     TOTAL  SLABS  SSIZE  NAME
+ffff8003ff689900      304    3563564   7039393  282756    16k  kmemleak_object
+ffff8003ad115800      192    1597195   1601956  51676    16k  dentry(664:aTrustDaemon.service)
+ffff80037d372700     1072     409123    409620  17826    32k  ext4_inode_cache(904:session-1.scope)
+ffff80037d375800      192     307034    310121  10007    16k  dentry(904:session-1.scope)
+ffff8003e87c8b00      128     332086    332185   9491    16k  kernfs_node_cache
+ffff80037d375480      144     147286    172328   5213    16k  buffer_head(904:session-1.scope)
+ffff8003ff688400      128      86102     86450   3458    16k  kmalloc-128
+ffff80037d375b80      192      63328     63365   2051    16k  vm_area_struct(904:session-1.scope)
+ffff80037d374680       64      37358     37400   1873     8k  anon_vma_chain(904:session-1.scope)
+ffff8003954a1580       40      34932     34944   1664     8k  ext4_extent_status
+```
+
 ## sysrq-trigger
 
 - [<font color=Red>Linux Magic System Request Key Hacks</font>](https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/sysrq.html)
