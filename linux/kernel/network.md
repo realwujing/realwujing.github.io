@@ -135,3 +135,7 @@
   ```
 
   ![http.host=="www.baidu.com"](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240117135816.png)
+
+## dns
+
+- [Github Pages 绑定域名遇到的坑](https://blog.csdn.net/i_do_not_know_you/article/details/105594269)
