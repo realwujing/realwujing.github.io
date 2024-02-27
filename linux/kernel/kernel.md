@@ -93,7 +93,7 @@
     8 GRUB_GFXMODE=
     9 DEEPIN_GFXMODE_DETECT=1
     10 GRUB_TERMINAL="console serial"
-    11 GRUB_SERIAL_COMMAND="serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1"
+    11 GRUB_SERIAL_COMMAND="serial --speed=115200 efi0 --word=8 --parity=no --stop=1"
     ```
 
     在这个 GRUB 配置中，你配置了同时启用图形终端和串行终端，并设置了串行终端的参数。具体解释如下：
@@ -103,7 +103,7 @@
     第 11 行 (GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1")： 这一行配置了串行终端的参数。具体的参数设置如下：
 
     - --speed=115200：串行通信的波特率设置为 115200 比特每秒。
-    - --unit=0：串行端口的编号或单元号设置为 0，通常对应于 /dev/ttyS0 或 /dev/ttyAMA0，这是第一个串口。`--unit=0`也可以用`--port=MMIO,0x28001000`代替。
+    - --unit=0：串行端口的编号或单元号设置为 0，通常对应于 /dev/ttyS0 或 /dev/ttyAMA0，这是第一个串口。但比如loongarch、ft2000机器, 串口可能注册为了别的名字, 比如efi0。
     - --word=8：数据位设置为 8 位。
     - --parity=no：不使用奇偶校验。
     - --stop=1：停止位设置为 1 位。
@@ -127,7 +127,7 @@
 - [修改GRUB2源码与编译安装流程](https://blog.csdn.net/qq_43280079/article/details/109221969)
 - [Grub调试总结](http://www.manongjc.com/article/119359.html)
 - [PXE Config & Grub2 debug](https://www.cnblogs.com/bigbigworf/p/16995320.html)
-- [Grub编译与调试](https://mp.weixin.qq.com/s/t6II_YQDunpPEhEMPVwVHQ)
+- [<font color=Red>Grub编译与调试</font>](https://mp.weixin.qq.com/s/t6II_YQDunpPEhEMPVwVHQ)
 
 #### BIOS, UEFI, MBR, GPT, GRUB
 
