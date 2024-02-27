@@ -24,9 +24,10 @@ nvm install v18.18.2
 - [如何在Debian 10 Linux上安装Node.js和npm](https://www.myfreax.com/how-to-install-node-js-on-debian-10/)
 - [使用 nvm 管理不同版本的 node 与 npm](https://www.runoob.com/w3cnote/nvm-manager-node-versions.html)
 
-## Import export
+## import export
 
 - [认识Vue 的 export、export default、import](https://blog.csdn.net/harry5508/article/details/84025146)
+- [Vue的导入（import）和导出（export、export default）](https://blog.csdn.net/yiminghd2861/article/details/118856597)
 
 ## Vue
 
@@ -63,6 +64,7 @@ nvm install v18.18.2
 - [Vue3中setup语法糖学习](https://www.cnblogs.com/-pdd/p/16003658.html)
 - [Vue3.2 setup语法糖总结](https://segmentfault.com/a/1190000041849882)
 - [Vue3拒绝写return，用setup语法糖,让写Vue3更畅快](https://juejin.cn/post/7078865301856583717)
+- [<font color=Red>一文看懂vue3中setup()和 ＜script setup＞＜script＞的区别</font>](https://blog.csdn.net/u013505589/article/details/122718376)
 
 ## 环境变量
 
