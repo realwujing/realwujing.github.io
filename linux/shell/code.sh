@@ -27,7 +27,7 @@ source ~/.bashrc
 nvm install v18.18.2
 
 # install debs
-sudo apt install git subversion openjdk11-jdk virt-manager vim vim-gtk ctags cscope tmux -y
+sudo apt install git subversion openjdk-11-jdk virt-manager vim vim-gtk ctags cscope tmux -y
 
 # virt-manager net
 sudo virsh net-list --all
