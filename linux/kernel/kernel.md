@@ -1,5 +1,12 @@
 # kernel
 
+- [<font color=Red>6ULL开发板在线教材与源码仓库 使用Debian 野火鲁班猫镜像</font>](https://doc.embedfire.com/products/link/zh/latest/linux/ebf_i.mx6ull_doc.html)
+  - [EBF_6ULL开发板快速使用手册](https://doc.embedfire.com/linux/imx6/quick_start/zh/latest/index.html)
+  - [基础与应用开发实战指南——基于i.MX6ULL](https://doc.embedfire.com/linux/imx6/linux_base/zh/latest/index.html)
+  - [<font color=Red>驱动开发实战指南——基于i.MX6ULL</font>](https://doc.embedfire.com/linux/imx6/driver/zh/latest/index.html)
+  - [嵌入式Linux镜像构建与部署——基于鲁班猫系列开发板](https://doc.embedfire.com/lubancat/build_and_deploy/zh/latest/index.html)
+  - [《嵌入式Qt应用开发实战》](https://doc.embedfire.com/linux/qt/embed/zh/latest/index.html)
+  - [Python应用开发实践](https://doc.embedfire.com/lubancat/python/zh/latest/index.html)
 - [<font color=Red>内核深度解读</font>](https://blog.csdn.net/u012489236?type=blog)
 - [<font color=Red>设备驱动</font>](https://blog.csdn.net/tiantianhaoxinqing__?type=blog)
 - [Linux内核之旅](http://kerneltravel.net/)
