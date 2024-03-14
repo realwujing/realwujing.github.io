@@ -11,12 +11,42 @@
 - [Python使用清华大学镜像源](https://blog.csdn.net/liuYinXinAll/article/details/90042947)
 - [pipreqs（找当前项目依赖的包）](https://www.cnblogs.com/believepd/p/10423094.html)
 - [python国内镜像源](https://www.cnblogs.com/songzhixue/p/11296720.html)
-- [Ubuntu中conda的安装及常用命令](https://blog.csdn.net/weixin_40922744/article/details/109866687)
+- [<font color=Red>Ubuntu中conda的安装及常用命令</font>](https://blog.csdn.net/weixin_40922744/article/details/109866687)
 - [anaconda | 镜像站使用帮助 | 清华大学开源软件镜像站 | Tsinghua Open Source Mirror](https://mirrors.tuna.tsinghua.edu.cn/help/anaconda/)
 
     ```bash
     pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple/
     ```
+
+### Anaconda3-2022.05-Linux-x86_64.sh
+
+```bash
+wget https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/Anaconda3-2022.05-Linux-x86_64.sh
+sudo mkdir -p /opt/anaconda3
+sudo chmod +x Anaconda3-2022.05-Linux-x86_64.sh
+sudo chmod -R 777 /opt/anaconda3
+./Anaconda3-2022.05-Linux-x86_64.sh -u
+```
+
+在启动终端时取消自动激活 base 环境:
+
+```bash
+conda config --set auto_activate_base false
+```
+
+```bash
+conda activate base
+```
+
+```bash
+conda deactivate
+```
+
+将社区驱动的conda-forge channel添加到你的channel列表中：
+
+```bash
+conda config --append channels conda-forge
+```
 
 ## 日志
 
