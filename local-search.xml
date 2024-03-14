@@ -614,11 +614,11 @@
   
   
   <entry>
-    <title>hda_codec</title>
-    <link href="/linux/kernel/drivers/sound/hda_codec/"/>
-    <url>/linux/kernel/drivers/sound/hda_codec/</url>
+    <title>hdmi-audio</title>
+    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
+    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
     
-    <content type="html"><![CDATA[<p>mv /usr/bin/pulseaudio /usr/bin/pulseaudio_bak mv /sbin/alsactl /sbin/alsactl_bak</p><p>ps aux | grep -i alsactl ps aux | grep -i pulseaudio</p><p>killall alsactl pulseaudio</p><p>cd /sys/class/sound/hwC0D0</p><p>echo 1 &gt; reconfig</p><p>snd_hda_gen_parse_auto_config+0x1 [kernel] snd_hda_parse_generic_codec+0xa3 [kernel] hda_codec_driver_probe+0x74 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>snd_pcm_new+0x1 [kernel] snd_hda_attach_pcm_stream+0x8e [kernel] snd_hda_codec_build_pcms+0x102 [kernel] hda_codec_driver_probe+0x82 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>./sound/pci/hda/hda_sysfs.c:436:int snd_hda_get_bool_hint(struct hda_codec <em>codec, const char </em>key) ./sound/pci/hda/hda_sysfs.c:420:const char <em>snd_hda_get_hint(struct hda_codec </em>codec, const char <em>key) ./sound/pci/hda/hda_sysfs.c:281:static struct hda_hint </em>get_hint(struct hda_codec <em>codec, const char </em>key)</p><p>./sound/pci/hda/hda_auto_parser.c:176:int snd_hda_parse_pin_defcfg(struct hda_codec <em>codec, struct auto_pin_cfg </em>cfg, const hda_nid_t <em>ignore_nids, unsigned int cond_flags) ./sound/pci/hda/hda_codec.c:unsigned int snd_hda_codec_get_pincfg(struct hda_codec </em>codec, hda_nid_t nid)</p><p>sound/pci/hda/hda_codec.c:560:init_pins</p><p>./sound/pci/hda/hda_codec.c:445:static int read_pin_defaults(struct hda_codec *codec)</p><p>混音器 pcm 转换器 codec 端 card</p>]]></content>
+    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
     
     
     <categories>
@@ -639,11 +639,11 @@
   
   
   <entry>
-    <title>hdmi-audio</title>
-    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
-    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
+    <title>hda_codec</title>
+    <link href="/linux/kernel/drivers/sound/hda_codec/"/>
+    <url>/linux/kernel/drivers/sound/hda_codec/</url>
     
-    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
+    <content type="html"><![CDATA[<p>mv /usr/bin/pulseaudio /usr/bin/pulseaudio_bak mv /sbin/alsactl /sbin/alsactl_bak</p><p>ps aux | grep -i alsactl ps aux | grep -i pulseaudio</p><p>killall alsactl pulseaudio</p><p>cd /sys/class/sound/hwC0D0</p><p>echo 1 &gt; reconfig</p><p>snd_hda_gen_parse_auto_config+0x1 [kernel] snd_hda_parse_generic_codec+0xa3 [kernel] hda_codec_driver_probe+0x74 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>snd_pcm_new+0x1 [kernel] snd_hda_attach_pcm_stream+0x8e [kernel] snd_hda_codec_build_pcms+0x102 [kernel] hda_codec_driver_probe+0x82 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>./sound/pci/hda/hda_sysfs.c:436:int snd_hda_get_bool_hint(struct hda_codec <em>codec, const char </em>key) ./sound/pci/hda/hda_sysfs.c:420:const char <em>snd_hda_get_hint(struct hda_codec </em>codec, const char <em>key) ./sound/pci/hda/hda_sysfs.c:281:static struct hda_hint </em>get_hint(struct hda_codec <em>codec, const char </em>key)</p><p>./sound/pci/hda/hda_auto_parser.c:176:int snd_hda_parse_pin_defcfg(struct hda_codec <em>codec, struct auto_pin_cfg </em>cfg, const hda_nid_t <em>ignore_nids, unsigned int cond_flags) ./sound/pci/hda/hda_codec.c:unsigned int snd_hda_codec_get_pincfg(struct hda_codec </em>codec, hda_nid_t nid)</p><p>sound/pci/hda/hda_codec.c:560:init_pins</p><p>./sound/pci/hda/hda_codec.c:445:static int read_pin_defaults(struct hda_codec *codec)</p><p>混音器 pcm 转换器 codec 端 card</p>]]></content>
     
     
     <categories>
@@ -1414,6 +1414,27 @@
   
   
   <entry>
+    <title>README</title>
+    <link href="/debug/binary-analysis/README/"/>
+    <url>/debug/binary-analysis/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>debug</category>
+      
+      <category>binary-analysis</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>assembly</title>
     <link href="/debug/assembly/assembly/"/>
     <url>/debug/assembly/assembly/</url>
@@ -1450,20 +1471,32 @@
   
   <entry>
     <title>README</title>
-    <link href="/debug/binary-analysis/README/"/>
-    <url>/debug/binary-analysis/README/</url>
+    <link href="/debug/bpf/README/"/>
+    <url>/debug/bpf/README/</url>
     
-    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="bpf-learning">bpf-learning</h1><h2 id="安装教程">安装教程</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install bpfcc-tools linux-headers-$(<span class="hljs-built_in">uname</span> -r) bpftrace<br></code></pre></td></tr></table></figure><ul><li><a href="bcc.md">BPF Compiler Collection (BCC)</a></li><li><a href="bpftrace.md">bpftrace</a></li></ul><h2 id="动态追踪">动态追踪</h2><p>可以通过探针机制，来采集内核或者应用程序的运行信息。所谓动态，表示他可以不用修改内核和应用程序的代码，就获得丰富的信息。因为在以往的排查和调试性能问题过程中，我们往往会先给应用程序设置一系列的断点(gdb),然后以手动或者脚本(GDB的Python扩展)的方式，在断点处去分析程序状态，或者增加一系列的日志，在日志中寻找线索。相比以往的进程及追踪方法(ptrace)，动态追踪往往只需要消耗很小的性能消耗（5%甚至更少）。</p><p>根据类型不同，动态追踪所使用的事件源，可以分为静态探针，动态探针，硬件事件这三类。</p><h3 id="硬件事件">硬件事件</h3><p>其中硬件事件通常由性能监控计数器PMC(Performance Monitoring Counter)产生，他包括了各种硬件的性能指标，比如CPU的缓存，指令周期，分支预测等等。</p><h3 id="静态探针">静态探针</h3><p>静态探针，指事先在代码中定义好，并编译到应用程序和内核中的探针。这些探针只有在开启探测功能时，才会被执行到。未开启时，不会执行。常见的静态探针包括内核中的跟踪点(tracepoints)和USDT(Userland Statically Defined Tracing)探针：</p><ul><li><p>跟踪点(tracepoints) - 在源码中插入一些带控制条件的探测点，这些探测点允许事后添加处理函数，比如在内核中，最常见的静态追踪方法就是printk(),输出日志，Linux内核定义了大量的跟踪点，可以通过内核编译选项来开启和关闭。</p></li><li><p>USDT探针，全称是用户级静态定义跟踪，需要在源码中插入DTRACE_PROBE()代码，并编译到应用程序中。不过在很多应用程序内置了USDT探针，比如MySQL, PostgreSQL等。</p></li></ul><h3 id="动态探针">动态探针</h3><p>动态探针，是指没有实现在代码定义，但却可以在运行时动态添加的探针。比如函数的调用和返回等，动态探针支持按需在内核或者应用程序中添加探测点，具有更高的灵活性，常见的动态探针有两种，即用于内核态的kprobes以及用户态的uprobes:</p><ul><li><p>kprobes - 用来跟踪内核态的函数，包括用于函数调用的kprobe和用于函数返回的kretprobe。</p></li><li><p>uprobes - 用来跟踪用户态的函数，包括用于函数调用的uprobe以及用于函数返回的uretprobe。</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.toutiao.com/article/7077801491347833374">Linux动态追踪技术概念介绍</a></li></ul>]]></content>
     
     
     <categories>
       
       <category>debug</category>
       
-      <category>binary-analysis</category>
+      <category>bpf</category>
       
     </categories>
     
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>bpf</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>bcc</tag>
+      
+    </tags>
     
   </entry>
   
@@ -1532,39 +1565,6 @@
       <tag>bpf</tag>
       
       <tag>linux</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/debug/bpf/README/"/>
-    <url>/debug/bpf/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="bpf-learning">bpf-learning</h1><h2 id="安装教程">安装教程</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install bpfcc-tools linux-headers-$(<span class="hljs-built_in">uname</span> -r) bpftrace<br></code></pre></td></tr></table></figure><ul><li><a href="bcc.md">BPF Compiler Collection (BCC)</a></li><li><a href="bpftrace.md">bpftrace</a></li></ul><h2 id="动态追踪">动态追踪</h2><p>可以通过探针机制，来采集内核或者应用程序的运行信息。所谓动态，表示他可以不用修改内核和应用程序的代码，就获得丰富的信息。因为在以往的排查和调试性能问题过程中，我们往往会先给应用程序设置一系列的断点(gdb),然后以手动或者脚本(GDB的Python扩展)的方式，在断点处去分析程序状态，或者增加一系列的日志，在日志中寻找线索。相比以往的进程及追踪方法(ptrace)，动态追踪往往只需要消耗很小的性能消耗（5%甚至更少）。</p><p>根据类型不同，动态追踪所使用的事件源，可以分为静态探针，动态探针，硬件事件这三类。</p><h3 id="硬件事件">硬件事件</h3><p>其中硬件事件通常由性能监控计数器PMC(Performance Monitoring Counter)产生，他包括了各种硬件的性能指标，比如CPU的缓存，指令周期，分支预测等等。</p><h3 id="静态探针">静态探针</h3><p>静态探针，指事先在代码中定义好，并编译到应用程序和内核中的探针。这些探针只有在开启探测功能时，才会被执行到。未开启时，不会执行。常见的静态探针包括内核中的跟踪点(tracepoints)和USDT(Userland Statically Defined Tracing)探针：</p><ul><li><p>跟踪点(tracepoints) - 在源码中插入一些带控制条件的探测点，这些探测点允许事后添加处理函数，比如在内核中，最常见的静态追踪方法就是printk(),输出日志，Linux内核定义了大量的跟踪点，可以通过内核编译选项来开启和关闭。</p></li><li><p>USDT探针，全称是用户级静态定义跟踪，需要在源码中插入DTRACE_PROBE()代码，并编译到应用程序中。不过在很多应用程序内置了USDT探针，比如MySQL, PostgreSQL等。</p></li></ul><h3 id="动态探针">动态探针</h3><p>动态探针，是指没有实现在代码定义，但却可以在运行时动态添加的探针。比如函数的调用和返回等，动态探针支持按需在内核或者应用程序中添加探测点，具有更高的灵活性，常见的动态探针有两种，即用于内核态的kprobes以及用户态的uprobes:</p><ul><li><p>kprobes - 用来跟踪内核态的函数，包括用于函数调用的kprobe和用于函数返回的kretprobe。</p></li><li><p>uprobes - 用来跟踪用户态的函数，包括用于函数调用的uprobe以及用于函数返回的uretprobe。</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.toutiao.com/article/7077801491347833374">Linux动态追踪技术概念介绍</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>debug</category>
-      
-      <category>bpf</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>bpf</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>bcc</tag>
       
     </tags>
     
@@ -2323,6 +2323,33 @@
   
   
   <entry>
+    <title>数学与经济管理</title>
+    <link href="/architect/%E6%95%B0%E5%AD%A6%E4%B8%8E%E7%BB%8F%E6%B5%8E%E7%AE%A1%E7%90%86/"/>
+    <url>/architect/%E6%95%B0%E5%AD%A6%E4%B8%8E%E7%BB%8F%E6%B5%8E%E7%AE%A1%E7%90%86/</url>
+    
+    <content type="html"><![CDATA[<h1 id="数学与经济管理">数学与经济管理</h1><ul><li><a href="https://blog.51cto.com/jackwei/5408077">软考系统分析师倒计时第7天</a></li></ul><h2 id="图论应用">图论应用</h2><h3 id="最小生成树">最小生成树</h3><ul><li><a href="https://baijiahao.baidu.com/s?id=1711403874944606800&amp;wfr=spider&amp;for=pc">最小生成树两大算法：prim、kruskal</a></li></ul><h3 id="最短路径">最短路径</h3><ul><li><a href="https://seineo.github.io/%E5%9B%BE%E8%AE%BA%EF%BC%9A%E5%B8%B8%E7%94%A8%E7%9A%84%E6%9C%80%E7%9F%AD%E8%B7%AF%E7%AE%97%E6%B3%95%E8%AF%A6%E8%A7%A3.html">图论：常用的最短路算法详解</a></li><li><a href="https://blog.csdn.net/asdfjklingok/article/details/119522489">有一批货物要从城市s发送到城市t，线条上的数字代表通过这条路的费用（单位为万元）。那么，运送这批货物，至少需要花费多少万元？</a></li></ul><h3 id="网络与最大流量">网络与最大流量</h3><ul><li><a href="https://blog.51cto.com/jackwei/5408077">下图标出了某地区的运输网。各节点之间的运输能力如下表（万吨/小时），从节点1到节点6的最大运输能力（流量）可以达到（）万吨/小时。</a></li></ul><h3 id="其它">其它</h3><ul><li><a href="https://wx.xisaiwang.com/tiku2/85220.html">甲、乙、丙、丁4人加工A、B 、C、D四种工件所需工时如下表所示。指派每人加工一种工件，四人加工四种工件其总工时最短的最优方案中，工件B应由（ ）加工。</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>architect</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>git</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>操作系统</title>
     <link href="/architect/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/"/>
     <url>/architect/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/</url>
@@ -2342,33 +2369,6 @@
       <tag>Linux</tag>
       
       <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>数学与经济管理</title>
-    <link href="/architect/%E6%95%B0%E5%AD%A6%E4%B8%8E%E7%BB%8F%E6%B5%8E%E7%AE%A1%E7%90%86/"/>
-    <url>/architect/%E6%95%B0%E5%AD%A6%E4%B8%8E%E7%BB%8F%E6%B5%8E%E7%AE%A1%E7%90%86/</url>
-    
-    <content type="html"><![CDATA[<h1 id="数学与经济管理">数学与经济管理</h1><ul><li><a href="https://blog.51cto.com/jackwei/5408077">软考系统分析师倒计时第7天</a></li></ul><h2 id="图论应用">图论应用</h2><h3 id="最小生成树">最小生成树</h3><ul><li><a href="https://baijiahao.baidu.com/s?id=1711403874944606800&amp;wfr=spider&amp;for=pc">最小生成树两大算法：prim、kruskal</a></li></ul><h3 id="最短路径">最短路径</h3><ul><li><a href="https://seineo.github.io/%E5%9B%BE%E8%AE%BA%EF%BC%9A%E5%B8%B8%E7%94%A8%E7%9A%84%E6%9C%80%E7%9F%AD%E8%B7%AF%E7%AE%97%E6%B3%95%E8%AF%A6%E8%A7%A3.html">图论：常用的最短路算法详解</a></li><li><a href="https://blog.csdn.net/asdfjklingok/article/details/119522489">有一批货物要从城市s发送到城市t，线条上的数字代表通过这条路的费用（单位为万元）。那么，运送这批货物，至少需要花费多少万元？</a></li></ul><h3 id="网络与最大流量">网络与最大流量</h3><ul><li><a href="https://blog.51cto.com/jackwei/5408077">下图标出了某地区的运输网。各节点之间的运输能力如下表（万吨/小时），从节点1到节点6的最大运输能力（流量）可以达到（）万吨/小时。</a></li></ul><h3 id="其它">其它</h3><ul><li><a href="https://wx.xisaiwang.com/tiku2/85220.html">甲、乙、丙、丁4人加工A、B 、C、D四种工件所需工时如下表所示。指派每人加工一种工件，四人加工四种工件其总工时最短的最优方案中，工件B应由（ ）加工。</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>architect</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>git</tag>
       
       <tag>HTML</tag>
       
@@ -2406,25 +2406,6 @@
   
   
   <entry>
-    <title>考试介绍及备考攻略</title>
-    <link href="/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/"/>
-    <url>/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/</url>
-    
-    <content type="html"><![CDATA[<h1 id="考试介绍及备考攻略">考试介绍及备考攻略</h1><ul><li>核心<ul><li>软件工程</li><li>软件架构设计</li><li>操作系统</li></ul></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>architect</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>计算机组成与体系结构</title>
     <link href="/architect/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BB%84%E6%88%90%E4%B8%8E%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/"/>
     <url>/architect/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BB%84%E6%88%90%E4%B8%8E%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/</url>
@@ -2450,6 +2431,25 @@
   
   
   <entry>
+    <title>考试介绍及备考攻略</title>
+    <link href="/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/"/>
+    <url>/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/</url>
+    
+    <content type="html"><![CDATA[<h1 id="考试介绍及备考攻略">考试介绍及备考攻略</h1><ul><li>核心<ul><li>软件工程</li><li>软件架构设计</li><li>操作系统</li></ul></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>architect</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>计算机网络</title>
     <link href="/architect/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/"/>
     <url>/architect/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/</url>
@@ -2467,39 +2467,6 @@
     <tags>
       
       <tag>Linux</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>C++多线程</title>
-    <link href="/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/"/>
-    <url>/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/</url>
-    
-    <content type="html"><![CDATA[<h1 id="c多线程">C++多线程</h1><ul><li><p><a href="https://mp.weixin.qq.com/s/Z07Hc9SRfGz6n8XhFHGVyA">高并发高性能服务器是如何实现的</a></p></li><li><p><a href="https://blog.csdn.net/github_37382319/article/details/108478589">看完这篇还不懂高并发中的线程与线程池你来打我(内含20张图)</a></p></li><li><p><a href="https://blog.csdn.net/valada/article/details/104707137">写给大忙人看的进程和线程（内附思维导图）</a></p></li></ul><h2 id="pthread">pthread</h2><ul><li><p><a href="https://mp.weixin.qq.com/s/gfON0gD6gV3QdobC_uYckA">为什么glibc 2.34删除libpthread</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/2eetiUAtedavND8c-sQM5w">Linux 多线程全面解析</a></p></li><li><p><a href="https://blog.csdn.net/w903414/article/details/110005612"><font color=Red>【Linux】多线程详解，一篇文章彻底搞懂多线程中各个难点！！！</font></a></p></li><li><p><a href="https://www.cnblogs.com/yinbiao/p/11190336.html"><font color=Red>【Linux】多线程同步的四种方式 - Y先森0.0 - 博客园 (cnblogs.com)</font></a></p></li><li><p><a href="https://www.toutiao.com/article/7106767459059089923"><font color=Red>linux c/c++开发：多线程并发锁：互斥锁、自旋锁、原子操作、CAS</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/QITWTjR1T9eVBwPJ6sGZBA">详解Linux多线程中互斥锁、读写锁、自旋锁、条件变量、信号量</a></p></li><li><p><a href="https://blog.csdn.net/hairetz/article/details/4535920"><font color=Red>pthread_cond_wait()用法分析</font></a></p></li><li><p><a href="https://blog.csdn.net/wteruiycbqqvwt/article/details/99707580"><font color=Red>linux对线程等待和唤醒操作（pthread_cond_timedwait 详解）</font></a></p></li></ul><h2 id="c11多线程">C++11多线程</h2><ul><li><p><a href="https://www.cnblogs.com/HeyLUMouMou/p/17481385.html">从C++mutex到futex</a></p></li><li><p><a href="https://www.toutiao.com/article/7153230059011686948/">从无栈协程到 C++异步框架</a></p></li><li><p><a href="https://blog.csdn.net/fanyun_01/article/details/100178104">c++11中关于std::thread的join函数详解_fanyun的博客-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3284540.html">C++11 并发指南系列 - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3252041.html">C++11 并发指南五(std::condition_variable 详解) - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/feikudai8460/article/details/109604690">C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客_c++ notify_one</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/WsYEvRays-l58KAOwwzP-w">C++11是如何封装Thread库的？</a></p></li></ul><h3 id="join">join</h3><ul><li><a href="https://www.cnblogs.com/chen-cs/p/13055211.html">【C++多线程】join()及注意 - Chen沉尘 - 博客园 (cnblogs.com)</a></li></ul><h4 id="文件锁">文件锁</h4><ul><li><a href="https://zhuanlan.zhihu.com/p/25134841">被遗忘的桃源——flock 文件锁 - 知乎 (zhihu.com)</a></li><li><a href="https://blog.csdn.net/Cassiel_Paris/article/details/79776712">linux 文件记录锁</a></li><li><a href="https://blog.csdn.net/weixin_35983774/article/details/126050686">Linux Programming 学习笔记 ：File Locking</a></li><li><a href="https://blog.csdn.net/ls2018536/article/details/121856510">linux文件锁</a></li><li><a href="https://www.cnblogs.com/wanpengcoder/p/5305749.html">Linux-进程间通信（六）: 记录锁</a></li><li><a href="https://blog.csdn.net/ciguaxi2841/article/details/100778292">Linux文件锁实现之flock(2)与fcntl(2)</a></li></ul><h2 id="死锁">死锁</h2><ul><li><p><a href="https://www.toutiao.com/article/7131231200097862158">手把手带你实现一个死锁检测组件</a></p></li><li><p><a href="https://blog.csdn.net/qq_26553393/article/details/122281044">2.4.2 死锁的处理策略-预防死锁（破坏互斥条件、破坏不可剥夺条件、破坏请求和保持条件、破坏循环等待条件）</a></p></li><li><p><a href="https://blog.csdn.net/zsiming/article/details/126695393"><font color=Red>Linux下排除死锁详细教程（基于C++11、GDB）</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Jjio-cNapfUMBqEOefi1og">手画图解 | 关于死锁，面试的一切都在这里了</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/446932523"><font color=Red>多线程检测工具ThreadSanitizer 与 Helgrind 的使用</font></a></p></li></ul><h2 id="线程池">线程池</h2><ul><li><a href="https://blog.csdn.net/MOU_IT/article/details/88712090">C++实现线程池_蓬莱道人的博客-CSDN博客_c++实现线程池</a></li><li><a href="https://www.cnblogs.com/oloroso/p/5881863.html">C++11的简单线程池代码阅读-乌合之众-博客园(cnblogs.com)</a></li><li><a href="https://wangpengcheng.github.io/2019/05/17/cplusplus_theadpool/"><font color=Red>C++ 线程池</font></a></li><li><a href="https://blog.csdn.net/zzhongcy/article/details/89453370">c++11：线程池，boost threadpool、thread_group example_zzhongcy的专栏-CSDN博客_boost 线程池</a></li><li><a href="https://www.cnblogs.com/lidabo/p/3328402.html">线程池原理及创建（C++实现）- DoubleLi -博客园(cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/cpper-kaixuan/articles/3640485.html">C++线程池原理及创建（转）- cpper-kaixuan -博客园(cnblogs.com)</a></li><li><a href="https://www.jb51.net/article/75295.htm">深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/qq_36359022/article/details/78796784">线程池原理及C语言实现线程池</a></li><li><a href="https://blog.csdn.net/robothj/article/details/80172287">c++/c实现线程池</a></li><li><a href="https://github.com/lzpong/threadpool/blob/master/Main.cpp">threadpool/Main.cpp at master · lzpong/threadpool (github.com)</a></li><li><a href="https://www.cnblogs.com/lzpong/p/6397997.html">基于C++11的线程池(threadpool),简洁且可以带任意多的参数 - _Ong - 博客园 (cnblogs.com)</a></li></ul><h3 id="数据库连接池">数据库连接池</h3><ul><li><a href="https://blog.csdn.net/weixin_43825537/article/details/104516274">C++数据库连接池的设计与实现_暮明已逝的博客-CSDN博客_c++数据库连接池</a></li><li><a href="https://www.toutiao.com/i7004734534830801420/">基于c++的数据库连接池的实现与理解(toutiao.com)</a></li></ul><h2 id="其他">其他</h2><ul><li><p><a href="https://www.coder.work/article/1954428">c++ - 执行并行任务而无需等待C++中的结果</a></p></li><li><p><a href="https://github.com/seanmiddleditch/jobxx" class="uri">https://github.com/seanmiddleditch/jobxx</a></p></li><li><p><a href="https://github.com/cdwfs/cds_job" class="uri">https://github.com/cdwfs/cds_job</a></p></li><li><p><a href="https://github.com/delscorcho/basic-job-system" class="uri">https://github.com/delscorcho/basic-job-system</a></p></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
       
       <tag>linux</tag>
       
@@ -2539,6 +2506,39 @@
       <tag>HTML</tag>
       
       <tag>Java</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>C++多线程</title>
+    <link href="/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/"/>
+    <url>/cpp/C++%E5%A4%9A%E7%BA%BF%E7%A8%8B/</url>
+    
+    <content type="html"><![CDATA[<h1 id="c多线程">C++多线程</h1><ul><li><p><a href="https://mp.weixin.qq.com/s/Z07Hc9SRfGz6n8XhFHGVyA">高并发高性能服务器是如何实现的</a></p></li><li><p><a href="https://blog.csdn.net/github_37382319/article/details/108478589">看完这篇还不懂高并发中的线程与线程池你来打我(内含20张图)</a></p></li><li><p><a href="https://blog.csdn.net/valada/article/details/104707137">写给大忙人看的进程和线程（内附思维导图）</a></p></li></ul><h2 id="pthread">pthread</h2><ul><li><p><a href="https://mp.weixin.qq.com/s/gfON0gD6gV3QdobC_uYckA">为什么glibc 2.34删除libpthread</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/2eetiUAtedavND8c-sQM5w">Linux 多线程全面解析</a></p></li><li><p><a href="https://blog.csdn.net/w903414/article/details/110005612"><font color=Red>【Linux】多线程详解，一篇文章彻底搞懂多线程中各个难点！！！</font></a></p></li><li><p><a href="https://www.cnblogs.com/yinbiao/p/11190336.html"><font color=Red>【Linux】多线程同步的四种方式 - Y先森0.0 - 博客园 (cnblogs.com)</font></a></p></li><li><p><a href="https://www.toutiao.com/article/7106767459059089923"><font color=Red>linux c/c++开发：多线程并发锁：互斥锁、自旋锁、原子操作、CAS</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/QITWTjR1T9eVBwPJ6sGZBA">详解Linux多线程中互斥锁、读写锁、自旋锁、条件变量、信号量</a></p></li><li><p><a href="https://blog.csdn.net/hairetz/article/details/4535920"><font color=Red>pthread_cond_wait()用法分析</font></a></p></li><li><p><a href="https://blog.csdn.net/wteruiycbqqvwt/article/details/99707580"><font color=Red>linux对线程等待和唤醒操作（pthread_cond_timedwait 详解）</font></a></p></li></ul><h2 id="c11多线程">C++11多线程</h2><ul><li><p><a href="https://www.cnblogs.com/HeyLUMouMou/p/17481385.html">从C++mutex到futex</a></p></li><li><p><a href="https://www.toutiao.com/article/7153230059011686948/">从无栈协程到 C++异步框架</a></p></li><li><p><a href="https://blog.csdn.net/fanyun_01/article/details/100178104">c++11中关于std::thread的join函数详解_fanyun的博客-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3284540.html">C++11 并发指南系列 - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://www.cnblogs.com/haippy/p/3252041.html">C++11 并发指南五(std::condition_variable 详解) - Haippy - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/feikudai8460/article/details/109604690">C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客_c++ notify_one</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/WsYEvRays-l58KAOwwzP-w">C++11是如何封装Thread库的？</a></p></li></ul><h3 id="join">join</h3><ul><li><a href="https://www.cnblogs.com/chen-cs/p/13055211.html">【C++多线程】join()及注意 - Chen沉尘 - 博客园 (cnblogs.com)</a></li></ul><h4 id="文件锁">文件锁</h4><ul><li><a href="https://zhuanlan.zhihu.com/p/25134841">被遗忘的桃源——flock 文件锁 - 知乎 (zhihu.com)</a></li><li><a href="https://blog.csdn.net/Cassiel_Paris/article/details/79776712">linux 文件记录锁</a></li><li><a href="https://blog.csdn.net/weixin_35983774/article/details/126050686">Linux Programming 学习笔记 ：File Locking</a></li><li><a href="https://blog.csdn.net/ls2018536/article/details/121856510">linux文件锁</a></li><li><a href="https://www.cnblogs.com/wanpengcoder/p/5305749.html">Linux-进程间通信（六）: 记录锁</a></li><li><a href="https://blog.csdn.net/ciguaxi2841/article/details/100778292">Linux文件锁实现之flock(2)与fcntl(2)</a></li></ul><h2 id="死锁">死锁</h2><ul><li><p><a href="https://www.toutiao.com/article/7131231200097862158">手把手带你实现一个死锁检测组件</a></p></li><li><p><a href="https://blog.csdn.net/qq_26553393/article/details/122281044">2.4.2 死锁的处理策略-预防死锁（破坏互斥条件、破坏不可剥夺条件、破坏请求和保持条件、破坏循环等待条件）</a></p></li><li><p><a href="https://blog.csdn.net/zsiming/article/details/126695393"><font color=Red>Linux下排除死锁详细教程（基于C++11、GDB）</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Jjio-cNapfUMBqEOefi1og">手画图解 | 关于死锁，面试的一切都在这里了</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/446932523"><font color=Red>多线程检测工具ThreadSanitizer 与 Helgrind 的使用</font></a></p></li></ul><h2 id="线程池">线程池</h2><ul><li><a href="https://blog.csdn.net/MOU_IT/article/details/88712090">C++实现线程池_蓬莱道人的博客-CSDN博客_c++实现线程池</a></li><li><a href="https://www.cnblogs.com/oloroso/p/5881863.html">C++11的简单线程池代码阅读-乌合之众-博客园(cnblogs.com)</a></li><li><a href="https://wangpengcheng.github.io/2019/05/17/cplusplus_theadpool/"><font color=Red>C++ 线程池</font></a></li><li><a href="https://blog.csdn.net/zzhongcy/article/details/89453370">c++11：线程池，boost threadpool、thread_group example_zzhongcy的专栏-CSDN博客_boost 线程池</a></li><li><a href="https://www.cnblogs.com/lidabo/p/3328402.html">线程池原理及创建（C++实现）- DoubleLi -博客园(cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/cpper-kaixuan/articles/3640485.html">C++线程池原理及创建（转）- cpper-kaixuan -博客园(cnblogs.com)</a></li><li><a href="https://www.jb51.net/article/75295.htm">深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)深入解析C++编程中线程池的使用_C 语言_脚本之家 (jb51.net)</a></li><li><a href="https://blog.csdn.net/qq_36359022/article/details/78796784">线程池原理及C语言实现线程池</a></li><li><a href="https://blog.csdn.net/robothj/article/details/80172287">c++/c实现线程池</a></li><li><a href="https://github.com/lzpong/threadpool/blob/master/Main.cpp">threadpool/Main.cpp at master · lzpong/threadpool (github.com)</a></li><li><a href="https://www.cnblogs.com/lzpong/p/6397997.html">基于C++11的线程池(threadpool),简洁且可以带任意多的参数 - _Ong - 博客园 (cnblogs.com)</a></li></ul><h3 id="数据库连接池">数据库连接池</h3><ul><li><a href="https://blog.csdn.net/weixin_43825537/article/details/104516274">C++数据库连接池的设计与实现_暮明已逝的博客-CSDN博客_c++数据库连接池</a></li><li><a href="https://www.toutiao.com/i7004734534830801420/">基于c++的数据库连接池的实现与理解(toutiao.com)</a></li></ul><h2 id="其他">其他</h2><ul><li><p><a href="https://www.coder.work/article/1954428">c++ - 执行并行任务而无需等待C++中的结果</a></p></li><li><p><a href="https://github.com/seanmiddleditch/jobxx" class="uri">https://github.com/seanmiddleditch/jobxx</a></p></li><li><p><a href="https://github.com/cdwfs/cds_job" class="uri">https://github.com/cdwfs/cds_job</a></p></li><li><p><a href="https://github.com/delscorcho/basic-job-system" class="uri">https://github.com/delscorcho/basic-job-system</a></p></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -2644,6 +2644,31 @@
   
   
   <entry>
+    <title>automake</title>
+    <link href="/cpp/automake/"/>
+    <url>/cpp/automake/</url>
+    
+    <content type="html"><![CDATA[<h1 id="automake">automake</h1><ul><li><a href="https://www.cnblogs.com/seaspring/p/13905757.html">首先要了解为什么要有autoconf，automake这类工具</a></li><li><a href="https://blog.csdn.net/cnsword/article/details/7542696#commentBox">cmake与autoconf+automake的对比</a></li><li><a href="https://www.jianshu.com/p/17e777868d6b">Automake的使用</a></li><li><a href="https://www.jianshu.com/p/3f69197f9055">解剖automake和autoconf(autoreconf)</a></li><li><a href="https://www.cnblogs.com/silvermagic/p/7665868.html">Automake使用说明</a></li><li><a href="https://www.jianshu.com/p/2f5e586c3402">Makefile.am 规则和实例详解</a></li><li><a href="https://blog.csdn.net/vevenlcf/article/details/48134313">Makefile.am 语法_梦想专栏-CSDN博客_makefile.am</a></li><li><a href="https://blog.csdn.net/weixin_38503885/article/details/110931206">makefile.am_make与makefile的区别_makefile编写_weixin_38503885的博客-CSDN博客_makefile.am</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>cmake</title>
     <link href="/cpp/cmake/"/>
     <url>/cpp/cmake/</url>
@@ -2696,31 +2721,6 @@
       <tag>C++</tag>
       
       <tag>git</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>automake</title>
-    <link href="/cpp/automake/"/>
-    <url>/cpp/automake/</url>
-    
-    <content type="html"><![CDATA[<h1 id="automake">automake</h1><ul><li><a href="https://www.cnblogs.com/seaspring/p/13905757.html">首先要了解为什么要有autoconf，automake这类工具</a></li><li><a href="https://blog.csdn.net/cnsword/article/details/7542696#commentBox">cmake与autoconf+automake的对比</a></li><li><a href="https://www.jianshu.com/p/17e777868d6b">Automake的使用</a></li><li><a href="https://www.jianshu.com/p/3f69197f9055">解剖automake和autoconf(autoreconf)</a></li><li><a href="https://www.cnblogs.com/silvermagic/p/7665868.html">Automake使用说明</a></li><li><a href="https://www.jianshu.com/p/2f5e586c3402">Makefile.am 规则和实例详解</a></li><li><a href="https://blog.csdn.net/vevenlcf/article/details/48134313">Makefile.am 语法_梦想专栏-CSDN博客_makefile.am</a></li><li><a href="https://blog.csdn.net/weixin_38503885/article/details/110931206">makefile.am_make与makefile的区别_makefile编写_weixin_38503885的博客-CSDN博客_makefile.am</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
       
       <tag>HTML</tag>
       
@@ -2845,35 +2845,6 @@
   
   
   <entry>
-    <title>vscode-cmake</title>
-    <link href="/cpp/vscode-cmake/"/>
-    <url>/cpp/vscode-cmake/</url>
-    
-    <content type="html"><![CDATA[<h1 id="vscode-cmake">vscode-cmake</h1><ul><li><p><a href="https://blog.csdn.net/u013894860/article/details/97555901">VS code 调试Cmake 工程：</a></p></li><li><p><a href="https://code.visualstudio.com/docs/cpp/faq-cpp" class="uri">https://code.visualstudio.com/docs/cpp/faq-cpp</a></p></li><li><p><a href="https://github.com/MaskRay/ccls/wiki/Build" class="uri">https://github.com/MaskRay/ccls/wiki/Build</a></p></li><li><p><a href="https://blog.csdn.net/hb69222/article/details/117034317">VS Code中C/C++ 无法跳转到定义的解决办法</a></p></li><li><p><a href="https://www.cnblogs.com/cong-wang/p/15026530.html">vscode使用compile_commands.json</a></p></li><li><p><a href="https://edward852.github.io/post/%E7%94%9F%E6%88%90compile_commands.json%E6%96%87%E4%BB%B6/">生成compile_commands.json文件</a></p></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>静态库与动态库</title>
     <link href="/cpp/%E9%9D%99%E6%80%81%E5%BA%93%E4%B8%8E%E5%8A%A8%E6%80%81%E5%BA%93/"/>
     <url>/cpp/%E9%9D%99%E6%80%81%E5%BA%93%E4%B8%8E%E5%8A%A8%E6%80%81%E5%BA%93/</url>
@@ -2895,6 +2866,35 @@
       <tag>C++</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>vscode-cmake</title>
+    <link href="/cpp/vscode-cmake/"/>
+    <url>/cpp/vscode-cmake/</url>
+    
+    <content type="html"><![CDATA[<h1 id="vscode-cmake">vscode-cmake</h1><ul><li><p><a href="https://blog.csdn.net/u013894860/article/details/97555901">VS code 调试Cmake 工程：</a></p></li><li><p><a href="https://code.visualstudio.com/docs/cpp/faq-cpp" class="uri">https://code.visualstudio.com/docs/cpp/faq-cpp</a></p></li><li><p><a href="https://github.com/MaskRay/ccls/wiki/Build" class="uri">https://github.com/MaskRay/ccls/wiki/Build</a></p></li><li><p><a href="https://blog.csdn.net/hb69222/article/details/117034317">VS Code中C/C++ 无法跳转到定义的解决办法</a></p></li><li><p><a href="https://www.cnblogs.com/cong-wang/p/15026530.html">vscode使用compile_commands.json</a></p></li><li><p><a href="https://edward852.github.io/post/%E7%94%9F%E6%88%90compile_commands.json%E6%96%87%E4%BB%B6/">生成compile_commands.json文件</a></p></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
       
       <tag>HTML</tag>
       
@@ -3239,6 +3239,27 @@
   
   <entry>
     <title>README</title>
+    <link href="/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/"/>
+    <url>/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/</url>
+    
+    <content type="html"><![CDATA[<p><a href="https://blog.csdn.net/onlyshi/article/details/81672279">C 语言实现面向对象编程_onlyshi的专栏-CSDN博客_c 面向对象</a></p>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>C 实现 C++ 类</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/"/>
     <url>/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/</url>
     
@@ -3259,27 +3280,6 @@
       <tag>C++</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/"/>
-    <url>/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/</url>
-    
-    <content type="html"><![CDATA[<p><a href="https://blog.csdn.net/onlyshi/article/details/81672279">C 语言实现面向对象编程_onlyshi的专栏-CSDN博客_c 面向对象</a></p>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>C 实现 C++ 类</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -3443,27 +3443,6 @@
   
   <entry>
     <title>README</title>
-    <link href="/cpp/thread/thread/README/"/>
-    <url>/cpp/thread/thread/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="stdthread">std::thread</h1><h2 id="stdthread-hello_world"><a href="hello_world">std::thread hello_world</a></h2>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>thread</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
     <link href="/cpp/qt-learning/qprocess_wget/README/"/>
     <url>/cpp/qt-learning/qprocess_wget/README/</url>
     
@@ -3477,6 +3456,27 @@
       <category>qt-learning</category>
       
       <category>qprocess_wget</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/cpp/thread/thread/README/"/>
+    <url>/cpp/thread/thread/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="stdthread">std::thread</h1><h2 id="stdthread-hello_world"><a href="hello_world">std::thread hello_world</a></h2>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>thread</category>
       
     </categories>
     
@@ -4053,7 +4053,7 @@
     <link href="/python/python/"/>
     <url>/python/python/</url>
     
-    <content type="html"><![CDATA[<h1 id="python">python</h1><h2 id="anaconda">anaconda</h2><ul><li><p><a href="https://blog.csdn.net/qq_36338754/article/details/96430294">Anaconda python3.6版本安装_华仔的博客-CSDN博客_anaconda python3.6</a></p></li><li><p><code>wget https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/Anaconda3-5.2.0-Linux-x86_64.sh</code></p></li><li><p><a href="https://www.cnblogs.com/zhaopanpan/p/9383350.html">pipreqs查找python项目依赖并生成requirements.txt - 一抹浅笑 - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/129866307">python使用清华源进行pip安装的方法（最方便，不用换源只需一行代码）</a></p></li><li><p><a href="https://blog.csdn.net/weixin_43667077/article/details/106521015">【2020-06】3个Anaconda国内开源镜像站</a></p></li><li><p><a href="https://blog.csdn.net/liuYinXinAll/article/details/90042947">Python使用清华大学镜像源</a></p></li><li><p><a href="https://www.cnblogs.com/believepd/p/10423094.html">pipreqs（找当前项目依赖的包）</a></p></li><li><p><a href="https://www.cnblogs.com/songzhixue/p/11296720.html">python国内镜像源</a></p></li><li><p><a href="https://blog.csdn.net/weixin_40922744/article/details/109866687">Ubuntu中conda的安装及常用命令</a></p></li><li><p><a href="https://mirrors.tuna.tsinghua.edu.cn/help/anaconda/">anaconda | 镜像站使用帮助 | 清华大学开源软件镜像站 | Tsinghua Open Source Mirror</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">pip config <span class="hljs-built_in">set</span> global.index-url https://pypi.mirrors.ustc.edu.cn/simple/<br></code></pre></td></tr></table></figure></p></li></ul><h2 id="日志">日志</h2><ul><li><a href="https://blog.csdn.net/pansaky/article/details/90710751">python 日志 logging模块(详细解析)_pansaky的博客-CSDN博客</a></li><li><a href="https://pypi.org/project/loguru/">loguru · PyPI</a></li><li><a href="https://www.cnblogs.com/yyds/p/6901864.html">Python之日志处理（logging模块） - 云游道士 - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/qq_41767116/article/details/113734410">python logging模块打印log到指定文件_Lucky小黄人的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/qq_38641985/article/details/81672283">python logging 日志 通过修饰器获取错误信息_桜-CSDN博客</a></li><li><a href="https://blog.csdn.net/pansaky/article/details/90710751">python日志logging模块(详细解析)</a></li><li><a href="https://blog.csdn.net/lvmengzou/article/details/118307249">Python + logging 输出到屏幕，将log日志写入文件_lvmengzou的专栏-CSDN博客</a></li><li><a href="https://blog.csdn.net/Jason_WangYing/article/details/114155112">loguru如何创建两个不同的日志文件_Jason_WangYing的博客-CSDN博客</a></li></ul><h2 id="爬虫">爬虫</h2><ul><li><p><a href="https://www.cnblogs.com/nmsghgnv/p/12369656.html">scrapy框架中多个spider,tiems,pipelines的使用及运行方法</a></p></li><li><p><a href="https://www.cnblogs.com/jackzz/p/10774517.html">Scrapy：配置日志</a></p></li><li><p><a href="https://blog.csdn.net/weixin_43958804/article/details/88308992">python 爬虫面试整理</a></p></li><li><p><a href="https://github.com/realReid/LHB.git" class="uri">https://github.com/realReid/LHB.git</a></p></li><li><p><a href="https://www.zhihu.com/question/56148271">xpath 如何选取某个节点但是排除掉某个子节点？ - 知乎 (zhihu.com)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/78571606">Python爬虫实战(一) 用Python爬取百度百科 - 知乎 (zhihu.com)</a></p></li><li><p><a href="https://www.jianshu.com/p/6a0dbb4e246a">Xpath 详解 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.cnblogs.com/Neeo/articles/11520952.html">Python - urllib - 听雨危楼 - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://www.jianshu.com/p/c8f896d668d6">[Python]requests使用代理 - 简书 (jianshu.com)</a></p></li></ul><h2 id="python-mysql">python mysql</h2><ul><li><a href="https://www.cnblogs.com/jiangxiaobo/p/12786205.html">python3 实现mysql数据库连接池 - jiangxiaobo - 博客园 (cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/c-x-a/p/9045646.html">pymysql 线程安全pymysqlpool - 公众号python学习开发 - 博客园 (cnblogs.com)</a></li><li><a href="http://www.zzvips.com/article/117347.html">Python MySQL数据库连接池组件pymysqlpool详解_Python_脚本之家 (zzvips.com)</a></li><li><a href="http://www.manongjc.com/detail/5-mnpaewuzaaewzpm.html">Python MySQL数据库连接池组件pymysqlpool详解 - 码农教程 (manongjc.com)</a></li><li><a href="https://blog.csdn.net/wait_2030/article/details/90266211">MySQL插入数据时自动添加创建时间（create_time）和修改时间（update_time）_wait_2030的博客-CSDN博客</a></li><li><a href="https://www.cnblogs.com/feiquan/p/11350374.html">Python 使用 PyMysql、DBUtils 创建连接池，提升性能 - feiquan - 博客园 (cnblogs.com)</a></li></ul><h2 id="pandas">pandas</h2><ul><li><a href="https://blog.csdn.net/weixin_51098806/article/details/115265280">python如何转换dataframe列的类型astype()方法（超级详细）_爱代码的小哥的博客-CSDN博客</a></li><li><a href="https://www.jianshu.com/p/3d797335f467">pandas从mysql读写数据 - 简书 (jianshu.com)</a></li><li><a href="https://www.cnblogs.com/onemorepoint/p/9404753.html">pandas 数据类型转换 - 多一点 - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/ls13552912394/article/details/79349809">在pandas中遍历DataFrame行_ls13552912394的博客-CSDN博客_dataframe遍历行</a></li><li><a href="https://www.cnblogs.com/wqbin/p/11775812.html">pandas df 遍历行方法 - wqbin - 博客园 (cnblogs.com)</a></li><li><a href="https://www.jb51.net/article/209858.htm">python基于Pandas读写MySQL数据库_python_脚本之家 (jb51.net)</a></li><li><a href="https://www.jianshu.com/p/72274ccb647a">Pandas 中 SettingwithCopyWarning 的原理和解决方案 - 简书 (jianshu.com)</a></li><li><a href="https://www.jianshu.com/p/732858f89a00">python pandas &gt;loc、iloc用法 - 简书 (jianshu.com)</a></li><li><a href="https://blog.csdn.net/qq_42711381/article/details/90451301">(3条消息) Pandas - A value is trying to be set on a copy of a slice from a DataFrame_NFII-CSDN博客</a></li><li><a href="https://blog.csdn.net/curry3030/article/details/100533296">(3条消息) 处理pandas出现warning: “A value is trying to be set on a copy of a slice from a DataFrame.”_curry3030的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/yudajiangshan/article/details/112402130">python pandas Dataframe增加一列遇到A value is trying to be set on a copy of a slice from a DataFrame._yudajiangshan的博客-CSDN博客</a></li><li><a href="https://mp.weixin.qq.com/s/BNMj5VL3QW6Qjg6WoKqCXA">收藏学习：100个Pandas常用的函数</a></li></ul><h2 id="机器学习">机器学习</h2><ul><li><p><a href="http://www.feiguyunai.com/">Python技术交流与分享</a></p></li><li><p><a href="https://github.com/Kunal-Varma/GPT3-Demos" class="uri">https://github.com/Kunal-Varma/GPT3-Demos</a></p></li><li><p><a href="https://mofanpy.com/">莫烦python</a></p></li><li><p><a href="https://github.com/fighting41love/funNLP">NLP民工的乐园:几乎最全的中文NLP资源库</a></p></li><li><p><a href="https://github.com/apachecn/apachecn-dl-zh">ApacheCN深度学习译文集</a></p></li><li><p><a href="https://pytorch.apachecn.org/docs/1.7/">PyTorch中文官方教程1.7</a></p></li><li><p><a href="https://blog.csdn.net/Yellow_python/article/details/81021142">Python+gensim-文本相似度分析（小白进）</a></p></li><li><p><a href="https://www.cnblogs.com/tornadomeet/p/3395593.html">机器学习&amp;数据挖掘笔记_16（常见面试之机器学习算法思想简单梳理）</a></p></li><li><p><a href="https://blog.csdn.net/jiaoyangwm/article/details/79805939">机器学习笔试面试超详细总结（一）</a></p></li></ul><h2 id="其他">其他</h2><ul><li><a href="http://c.biancheng.net/view/4552.html">Python实例方法、静态方法和类方法详解（包含区别和用法） (biancheng.net)</a></li><li><a href="https://www.cnblogs.com/finer/p/12846475.html">110道python面试题</a></li><li><a href="https://blog.csdn.net/sinat_38682860/article/details/94763641">吐血总结！50道Python面试题集锦（附答案）</a></li><li><a href="https://zhuanlan.zhihu.com/p/87524388">【进阶Python】第六讲：单例模式的妙用 - 知乎 (zhihu.com)</a></li><li><a href="https://www.liaoxuefeng.com/wiki/1016959663602400/1017328525009056">函数式编程 - 廖雪峰的官方网站 (liaoxuefeng.com)</a></li><li><a href="https://blog.51cto.com/u_15127500/3822046">ubuntu 上的python安装包位置</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="python">python</h1><h2 id="anaconda">anaconda</h2><ul><li><p><a href="https://blog.csdn.net/qq_36338754/article/details/96430294">Anaconda python3.6版本安装_华仔的博客-CSDN博客_anaconda python3.6</a></p></li><li><p><code>wget https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/Anaconda3-5.2.0-Linux-x86_64.sh</code></p></li><li><p><a href="https://www.cnblogs.com/zhaopanpan/p/9383350.html">pipreqs查找python项目依赖并生成requirements.txt - 一抹浅笑 - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/129866307">python使用清华源进行pip安装的方法（最方便，不用换源只需一行代码）</a></p></li><li><p><a href="https://blog.csdn.net/weixin_43667077/article/details/106521015">【2020-06】3个Anaconda国内开源镜像站</a></p></li><li><p><a href="https://blog.csdn.net/liuYinXinAll/article/details/90042947">Python使用清华大学镜像源</a></p></li><li><p><a href="https://www.cnblogs.com/believepd/p/10423094.html">pipreqs（找当前项目依赖的包）</a></p></li><li><p><a href="https://www.cnblogs.com/songzhixue/p/11296720.html">python国内镜像源</a></p></li><li><p><a href="https://blog.csdn.net/weixin_40922744/article/details/109866687">Ubuntu中conda的安装及常用命令</a></p></li><li><p><a href="https://mirrors.tuna.tsinghua.edu.cn/help/anaconda/">anaconda | 镜像站使用帮助 | 清华大学开源软件镜像站 | Tsinghua Open Source Mirror</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">pip config <span class="hljs-built_in">set</span> global.index-url https://pypi.mirrors.ustc.edu.cn/simple/<br></code></pre></td></tr></table></figure></p></li></ul><h3 id="anaconda3-2022.05-linux-x86_64.sh">Anaconda3-2022.05-Linux-x86_64.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/Anaconda3-2022.05-Linux-x86_64.sh<br>sudo <span class="hljs-built_in">mkdir</span> -p /opt/anaconda3<br>sudo <span class="hljs-built_in">chmod</span> +x Anaconda3-2022.05-Linux-x86_64.sh<br>sudo <span class="hljs-built_in">chmod</span> -R 777 /opt/anaconda3<br>./Anaconda3-2022.05-Linux-x86_64.sh -u<br></code></pre></td></tr></table></figure><p>在启动终端时取消自动激活 base 环境:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">conda config --<span class="hljs-built_in">set</span> auto_activate_base <span class="hljs-literal">false</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">conda activate base<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">conda deactivate<br></code></pre></td></tr></table></figure><h2 id="日志">日志</h2><ul><li><a href="https://blog.csdn.net/pansaky/article/details/90710751">python 日志 logging模块(详细解析)_pansaky的博客-CSDN博客</a></li><li><a href="https://pypi.org/project/loguru/">loguru · PyPI</a></li><li><a href="https://www.cnblogs.com/yyds/p/6901864.html">Python之日志处理（logging模块） - 云游道士 - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/qq_41767116/article/details/113734410">python logging模块打印log到指定文件_Lucky小黄人的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/qq_38641985/article/details/81672283">python logging 日志 通过修饰器获取错误信息_桜-CSDN博客</a></li><li><a href="https://blog.csdn.net/pansaky/article/details/90710751">python日志logging模块(详细解析)</a></li><li><a href="https://blog.csdn.net/lvmengzou/article/details/118307249">Python + logging 输出到屏幕，将log日志写入文件_lvmengzou的专栏-CSDN博客</a></li><li><a href="https://blog.csdn.net/Jason_WangYing/article/details/114155112">loguru如何创建两个不同的日志文件_Jason_WangYing的博客-CSDN博客</a></li></ul><h2 id="爬虫">爬虫</h2><ul><li><p><a href="https://www.cnblogs.com/nmsghgnv/p/12369656.html">scrapy框架中多个spider,tiems,pipelines的使用及运行方法</a></p></li><li><p><a href="https://www.cnblogs.com/jackzz/p/10774517.html">Scrapy：配置日志</a></p></li><li><p><a href="https://blog.csdn.net/weixin_43958804/article/details/88308992">python 爬虫面试整理</a></p></li><li><p><a href="https://github.com/realReid/LHB.git" class="uri">https://github.com/realReid/LHB.git</a></p></li><li><p><a href="https://www.zhihu.com/question/56148271">xpath 如何选取某个节点但是排除掉某个子节点？ - 知乎 (zhihu.com)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/78571606">Python爬虫实战(一) 用Python爬取百度百科 - 知乎 (zhihu.com)</a></p></li><li><p><a href="https://www.jianshu.com/p/6a0dbb4e246a">Xpath 详解 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.cnblogs.com/Neeo/articles/11520952.html">Python - urllib - 听雨危楼 - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://www.jianshu.com/p/c8f896d668d6">[Python]requests使用代理 - 简书 (jianshu.com)</a></p></li></ul><h2 id="python-mysql">python mysql</h2><ul><li><a href="https://www.cnblogs.com/jiangxiaobo/p/12786205.html">python3 实现mysql数据库连接池 - jiangxiaobo - 博客园 (cnblogs.com)</a></li><li><a href="https://www.cnblogs.com/c-x-a/p/9045646.html">pymysql 线程安全pymysqlpool - 公众号python学习开发 - 博客园 (cnblogs.com)</a></li><li><a href="http://www.zzvips.com/article/117347.html">Python MySQL数据库连接池组件pymysqlpool详解_Python_脚本之家 (zzvips.com)</a></li><li><a href="http://www.manongjc.com/detail/5-mnpaewuzaaewzpm.html">Python MySQL数据库连接池组件pymysqlpool详解 - 码农教程 (manongjc.com)</a></li><li><a href="https://blog.csdn.net/wait_2030/article/details/90266211">MySQL插入数据时自动添加创建时间（create_time）和修改时间（update_time）_wait_2030的博客-CSDN博客</a></li><li><a href="https://www.cnblogs.com/feiquan/p/11350374.html">Python 使用 PyMysql、DBUtils 创建连接池，提升性能 - feiquan - 博客园 (cnblogs.com)</a></li></ul><h2 id="pandas">pandas</h2><ul><li><a href="https://blog.csdn.net/weixin_51098806/article/details/115265280">python如何转换dataframe列的类型astype()方法（超级详细）_爱代码的小哥的博客-CSDN博客</a></li><li><a href="https://www.jianshu.com/p/3d797335f467">pandas从mysql读写数据 - 简书 (jianshu.com)</a></li><li><a href="https://www.cnblogs.com/onemorepoint/p/9404753.html">pandas 数据类型转换 - 多一点 - 博客园 (cnblogs.com)</a></li><li><a href="https://blog.csdn.net/ls13552912394/article/details/79349809">在pandas中遍历DataFrame行_ls13552912394的博客-CSDN博客_dataframe遍历行</a></li><li><a href="https://www.cnblogs.com/wqbin/p/11775812.html">pandas df 遍历行方法 - wqbin - 博客园 (cnblogs.com)</a></li><li><a href="https://www.jb51.net/article/209858.htm">python基于Pandas读写MySQL数据库_python_脚本之家 (jb51.net)</a></li><li><a href="https://www.jianshu.com/p/72274ccb647a">Pandas 中 SettingwithCopyWarning 的原理和解决方案 - 简书 (jianshu.com)</a></li><li><a href="https://www.jianshu.com/p/732858f89a00">python pandas &gt;loc、iloc用法 - 简书 (jianshu.com)</a></li><li><a href="https://blog.csdn.net/qq_42711381/article/details/90451301">(3条消息) Pandas - A value is trying to be set on a copy of a slice from a DataFrame_NFII-CSDN博客</a></li><li><a href="https://blog.csdn.net/curry3030/article/details/100533296">(3条消息) 处理pandas出现warning: “A value is trying to be set on a copy of a slice from a DataFrame.”_curry3030的博客-CSDN博客</a></li><li><a href="https://blog.csdn.net/yudajiangshan/article/details/112402130">python pandas Dataframe增加一列遇到A value is trying to be set on a copy of a slice from a DataFrame._yudajiangshan的博客-CSDN博客</a></li><li><a href="https://mp.weixin.qq.com/s/BNMj5VL3QW6Qjg6WoKqCXA">收藏学习：100个Pandas常用的函数</a></li></ul><h2 id="机器学习">机器学习</h2><ul><li><p><a href="http://www.feiguyunai.com/">Python技术交流与分享</a></p></li><li><p><a href="https://github.com/Kunal-Varma/GPT3-Demos" class="uri">https://github.com/Kunal-Varma/GPT3-Demos</a></p></li><li><p><a href="https://mofanpy.com/">莫烦python</a></p></li><li><p><a href="https://github.com/fighting41love/funNLP">NLP民工的乐园:几乎最全的中文NLP资源库</a></p></li><li><p><a href="https://github.com/apachecn/apachecn-dl-zh">ApacheCN深度学习译文集</a></p></li><li><p><a href="https://pytorch.apachecn.org/docs/1.7/">PyTorch中文官方教程1.7</a></p></li><li><p><a href="https://blog.csdn.net/Yellow_python/article/details/81021142">Python+gensim-文本相似度分析（小白进）</a></p></li><li><p><a href="https://www.cnblogs.com/tornadomeet/p/3395593.html">机器学习&amp;数据挖掘笔记_16（常见面试之机器学习算法思想简单梳理）</a></p></li><li><p><a href="https://blog.csdn.net/jiaoyangwm/article/details/79805939">机器学习笔试面试超详细总结（一）</a></p></li></ul><h2 id="其他">其他</h2><ul><li><a href="http://c.biancheng.net/view/4552.html">Python实例方法、静态方法和类方法详解（包含区别和用法） (biancheng.net)</a></li><li><a href="https://www.cnblogs.com/finer/p/12846475.html">110道python面试题</a></li><li><a href="https://blog.csdn.net/sinat_38682860/article/details/94763641">吐血总结！50道Python面试题集锦（附答案）</a></li><li><a href="https://zhuanlan.zhihu.com/p/87524388">【进阶Python】第六讲：单例模式的妙用 - 知乎 (zhihu.com)</a></li><li><a href="https://www.liaoxuefeng.com/wiki/1016959663602400/1017328525009056">函数式编程 - 廖雪峰的官方网站 (liaoxuefeng.com)</a></li><li><a href="https://blog.51cto.com/u_15127500/3822046">ubuntu 上的python安装包位置</a></li></ul>]]></content>
     
     
     <categories>
