@@ -305,6 +305,8 @@ dpkg-buildpackage -b -nc -uc -us -j16
 
 ## 内核模块
 
+- [<font color=Red>1. Linux内核模块</font>](https://doc.embedfire.com/linux/imx6/driver/zh/latest/linux_driver/module.html)
+- [Linux内核模块原理](https://blog.csdn.net/vs2008ASPNET/article/details/118029772)
 - [Linux内核模块HelloWorld](https://blog.csdn.net/u012184539/article/details/120326741)
 - [<font color=Red>Linux内核驱动学习-编写最简单Linux内核模块HelloWorld</font>](https://blog.csdn.net/weixin_46048542/article/details/123171177)
 
