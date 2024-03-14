@@ -192,6 +192,14 @@ sudo mount -a
 - [kvm虚拟化技术：实战与原理解析.pdf](http://www.downcc.com/soft/317578.html)
 - [QEMU/KVM源码解析与应用-李强编著-微信读书](https://weread.qq.com/web/bookDetail/ec132be07263ffc1ec1dc10)
 
+## openstack
+
+- [什么是OpenStack？](https://info.support.huawei.com/info-finder/encyclopedia/zh/OpenStack.html)
+- [OpenStack是什么？](https://c.biancheng.net/view/3892.html)
+- [OpenStack Installation Guide for Ubuntu](https://docs.openstack.org/mitaka/zh_CN/install-guide-ubuntu/)
+- [超详细ubuntu20安装搭建openstack](https://blog.csdn.net/qq_53348314/article/details/123021856)
+- [Ubuntu 20使用devstack快速安装openstack最新版](https://www.cnblogs.com/dyd168/p/14476271.html)
+
 ## More
 
 - [Wine 开发者指导/架构概览](https://blog.csdn.net/Flora_xuan1993/article/details/89205922)
