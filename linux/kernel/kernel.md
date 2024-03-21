@@ -447,7 +447,27 @@ dpkg-buildpackage -b -nc -uc -us -j16
 - [<font color=Red>介绍Linux系统调用（值得收藏）</font>](https://blog.csdn.net/m0_74282605/article/details/128097944)
 - [linux系统下的各种hook方式Linux内核hook系统调用](https://m.dandelioncloud.cn/article/details/1567859018796593153)
 - [Linux系统调用Hook姿势总结](https://m.dandelioncloud.cn/article/details/1552321452504739842)
-- [没有open的手册页条目](https://blog.csdn.net/yuechuxuan/article/details/70308126)
+- [<font color=Red>没有open的手册页条目</font>](https://blog.csdn.net/yuechuxuan/article/details/70308126)
+
+    安装 POSIX 系统帮助手册：
+
+    ```bash
+    sudo apt-get install manpages-posix-dev
+    ```
+
+    查看所有系统调用：
+
+    ```bash
+    man syscalls
+    ```
+
+    查看open系统调用：
+
+    ```bash
+    man open
+    man 2 open
+    ```
+
 - [系统调用的三种方式](https://blog.csdn.net/QFFQFF/article/details/76762232)
 - [应用程序如何直接调用一个系统调用, 不经过C库?](https://blog.csdn.net/weixin_42992444/article/details/108688932)
 - [Linux系统调用汇总](https://www.toutiao.com/article/7159607330227798562/)
