@@ -476,6 +476,10 @@ dpkg-buildpackage -b -nc -uc -us -j16
 - [linux系统调用和库函数调用的区别](https://www.cnblogs.com/Yogurshine/p/3666527.html)
 - [系统调用与函数调用有什么区别？](https://mp.weixin.qq.com/s/2rzzQTuZKSW0O4zM1DlAWQ)
 
+### ERESTARTSYS
+
+- [解析：signal_pending与返回-ERESTARTSYS](https://blog.csdn.net/vhghhd/article/details/6856659)
+
 ### open openat
 
 - [open和openat系统调用](https://www.modb.pro/db/379821)
