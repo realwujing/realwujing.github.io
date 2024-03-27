@@ -1,0 +1,168 @@
+From 7283921f1ab350fd47cae287dfe01cfe84f8fa87 Mon Sep 17 00:00:00 2001
+From: yuanqiliang <yuanqiliang@uniontech.com>
+Date: Thu, 21 Mar 2024 15:48:19 +0800
+Subject: [PATCH] arm/kernel: cpuinfo: fix kmemleak on get_cpu_name()
+
+bug: https://pms.uniontech.com/bug-view-238303.html
+
+log: When multiple threads call get_cpu_name(), there is a thread safety issue that can lead to memory leaks.
+
+It is not recommended to use kmalloc within a spin lock because kmalloc
+can potentially cause the process to sleep, which is not allowed while
+holding a spin lock. As a result, the cpu_name variable has been changed
+to a character array.
+
+GFP_ATOMIC is a combination of flags __GFP_HIGH, __GFP_ATOMIC, and
+__GFP_KSWAPD_RECLAIM. It indicates that memory allocation behavior must
+be atomic and high-priority. Under no circumstances is sleeping allowed.
+If there is not enough free memory available, memory will be allocated
+from emergency reserved memory. This flag is suitable for interrupt
+handlers as well as processes running in the context of holding spin
+locks.
+
+Therefore, we can also replace dmi_alloc with kmalloc(size, GFP_ATOMIC)
+in the context of spin locks.
+
+unreferenced object 0xffff8003955c6980 (size 128):
+  comm "systemd", pid 1, jiffies 4294893016 (age 13460.512s)
+  hex dump (first 32 bytes):
+    76 69 72 74 2d 72 68 65 6c 37 2e 36 2e 30 00 00  virt-rhel7.6.0..
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  backtrace:
+    [<00000000720211f3>] __kmalloc+0x154/0x2e0
+    [<000000001b6361bf>] get_cpuname_by_dmi+0x9c/0xc8
+    [<000000001f423e33>] dmi_decode_table+0xe8/0xf8
+    [<00000000ea6aa39f>] dmi_walk+0x48/0x78
+    [<000000005cd77eaf>] get_cpu_name+0x48/0x68
+    [<0000000050013ad7>] os_run_evn_is_virt+0xc/0x30
+    [<00000000620b1835>] c_show+0x240/0x420
+    [<000000006759dfc8>] seq_read+0x140/0x448
+    [<0000000004062a93>] proc_reg_read+0x60/0xd0
+    [<00000000692249ad>] __vfs_read+0x20/0x158
+    [<00000000c2fad215>] vfs_read+0x90/0x168
+    [<0000000083dab445>] ksys_read+0x4c/0xb8
+    [<0000000027155268>] __arm64_sys_read+0x18/0x20
+    [<0000000081aeee94>] el0_svc_common+0x90/0x178
+    [<000000002ed13754>] el0_svc_handler+0x9c/0xa8
+    [<0000000078603995>] el0_svc+0x8/0xc
+unreferenced object 0xffff8003955c6900 (size 128):
+  comm "systemd", pid 1, jiffies 4294893016 (age 13460.512s)
+  hex dump (first 32 bytes):
+    76 69 72 74 2d 72 68 65 6c 37 2e 36 2e 30 00 00  virt-rhel7.6.0..
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  backtrace:
+    [<00000000720211f3>] __kmalloc+0x154/0x2e0
+    [<000000001b6361bf>] get_cpuname_by_dmi+0x9c/0xc8
+    [<000000001f423e33>] dmi_decode_table+0xe8/0xf8
+    [<00000000ea6aa39f>] dmi_walk+0x48/0x78
+    [<000000005cd77eaf>] get_cpu_name+0x48/0x68
+    [<0000000050013ad7>] os_run_evn_is_virt+0xc/0x30
+    [<00000000620b1835>] c_show+0x240/0x420
+    [<000000006759dfc8>] seq_read+0x140/0x448
+    [<0000000004062a93>] proc_reg_read+0x60/0xd0
+    [<00000000692249ad>] __vfs_read+0x20/0x158
+    [<00000000c2fad215>] vfs_read+0x90/0x168
+    [<0000000083dab445>] ksys_read+0x4c/0xb8
+    [<0000000027155268>] __arm64_sys_read+0x18/0x20
+    [<0000000081aeee94>] el0_svc_common+0x90/0x178
+    [<000000002ed13754>] el0_svc_handler+0x9c/0xa8
+    [<0000000078603995>] el0_svc+0x8/0xc
+
+trace-bpfcc -tKU get_cpu_name
+TIME     PID     TID     COMM            FUNC
+5.135070 19084   19084   lshw            get_cpu_name
+        get_cpu_name+0x0 [kernel]
+        c_show+0x240 [kernel]
+        seq_read+0x140 [kernel]
+        proc_reg_read+0x60 [kernel]
+        __vfs_read+0x20 [kernel]
+        vfs_read+0x90 [kernel]
+        ksys_read+0x4c [kernel]
+        __arm64_sys_read+0x18 [kernel]
+        el0_svc_common+0x90 [kernel]
+        el0_svc_handler+0x9c [kernel]
+        el0_svc+0x8 [kernel]
+        __read+0x2c [libc-2.28.so]
+        [unknown] [lshw]
+        [unknown] [lshw]
+        [unknown] [lshw]
+        __libc_start_main+0xe4 [libc-2.28.so]
+        [unknown] [lshw]
+
+5.135083 19084   19084   lshw            get_cpu_name
+        get_cpu_name+0x0 [kernel]
+        seq_read+0x140 [kernel]
+        proc_reg_read+0x60 [kernel]
+        __vfs_read+0x20 [kernel]
+        vfs_read+0x90 [kernel]
+        ksys_read+0x4c [kernel]
+        __arm64_sys_read+0x18 [kernel]
+        el0_svc_common+0x90 [kernel]
+        el0_svc_handler+0x9c [kernel]
+        el0_svc+0x8 [kernel]
+        __read+0x2c [libc-2.28.so]
+        [unknown] [lshw]
+        [unknown] [lshw]
+        [unknown] [lshw]
+        __libc_start_main+0xe4 [libc-2.28.so]
+        [unknown] [lshw]
+
+Signed-off-by: yuanqiliang <yuanqiliang@uniontech.com>
+Change-Id: Ifa665a3b320401b7d53ce6aff8430fc95603cbbb
+---
+ arch/arm64/kernel/cpuinfo.c | 22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/arch/arm64/kernel/cpuinfo.c b/arch/arm64/kernel/cpuinfo.c
+index 6c06c9034f5c..c8fdeb837adb 100644
+--- a/arch/arm64/kernel/cpuinfo.c
++++ b/arch/arm64/kernel/cpuinfo.c
+@@ -149,8 +149,10 @@ static char *midr_to_desc(u32 midr)
+ 	return "Arm";
+ }
+ 
+-static char *cpu_name = NULL;
++static char cpu_name[256];
+ static bool get_cpu_flag = false;
++static DEFINE_SPINLOCK(cpu_name_lock);
++
+ static void get_cpuname_by_dmi(const struct dmi_header *dm, void *data)
+ {
+ 	const char *bp;
+@@ -174,12 +176,13 @@ static void get_cpuname_by_dmi(const struct dmi_header *dm, void *data)
+ 		nsp = bp;
+ 		while (*nsp == ' ')
+ 			nsp++;
+-		if (*nsp != '\0'){
+-			cpu_name = dmi_alloc(strlen(bp) + 1);
+-			if (cpu_name != NULL)
++		if (*nsp != '\0') {
++			spin_lock(&cpu_name_lock);
++			if (!get_cpu_flag) {  // Check again inside the lock
+ 				strcpy(cpu_name, bp);
+-
+-			get_cpu_flag = true;
++				get_cpu_flag = true;
++			}
++			spin_unlock(&cpu_name_lock);
+ 			return;
+ 		}
+ 	}
+@@ -189,8 +192,13 @@ static void get_cpuname_by_dmi(const struct dmi_header *dm, void *data)
+ 
+ char * get_cpu_name(void)
+ {
+-	if(!get_cpu_flag)
++	spin_lock(&cpu_name_lock);
++	if(!get_cpu_flag) {
++		spin_unlock(&cpu_name_lock);
+ 		dmi_walk(get_cpuname_by_dmi, cpu_name);
++	} else {
++		spin_unlock(&cpu_name_lock);
++	}
+ 
+ 	if(cpu_name == NULL) {
+ 		/* Some BIOS don't support getting CPU name from DMI  */
+-- 
+2.20.1
+
