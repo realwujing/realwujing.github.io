@@ -1,6 +1,6 @@
 ---
 date: 2023/04/19 14:09:07
-updated: 2023/04/21 17:36:33
+updated: 2024/01/31 16:49:52
 ---
 
 # linux教程
@@ -18,6 +18,7 @@ updated: 2023/04/21 17:36:33
 - [令人拍手叫绝的运维小技巧](https://mp.weixin.qq.com/s/uavyYSfpSy4v1ovmZLE1hw)
 
 - [<font color=Red>Linux基础知识汇总，收藏！</font>](https://mp.weixin.qq.com/s/0kyyki6IrmojiUnzGVlUzA)
+- [<font color=Red>10个提高生产力的 Linux 命令与技巧，用完直接起飞！</font>](https://mp.weixin.qq.com/s/rFI56ytk0mmr6hgKJ432qQ)
 - [Linux基础总结，这一篇就够了](https://mp.weixin.qq.com/s/zUKmA3sh-uzdyThEG6e1qA)
 - [计算机操作系统知识点总结（相当到位！！）](https://mp.weixin.qq.com/s/OLrN2irwzjCI937iDW4XJg)
 
@@ -30,6 +31,7 @@ updated: 2023/04/21 17:36:33
 
 - [汇总了89个系统相关的基本概念！](https://mp.weixin.qq.com/s/UN7lbdp6OardlqFUfyY-nQ)
 - [6个已弃用的Linux命令和您应该使用的替代工具](https://mp.weixin.qq.com/s/s3w1r5BCYAxAq2YQNHaRCw)
+- [技术硬核 | Linux基础操作命令记不住？把这个甩过去！](https://mp.weixin.qq.com/s/VJJWhPRIkAgZDT7D4J6AtQ)
 
 ## history
 
@@ -45,7 +47,6 @@ updated: 2023/04/21 17:36:33
 - [linux之登录式shell和非登录式shell](https://cloud.tencent.com/developer/article/1883601)
 - [linux之登录式shell和非登录式shell](https://zhuanlan.zhihu.com/p/415152910)
 
-
 ## 父子shell
 
 - [linux中父shell与子shell（脚本执行的几种方式）_peacewind-CSDN博客](https://blog.csdn.net/NOStandby/article/details/82914930)
@@ -55,7 +56,6 @@ updated: 2023/04/21 17:36:33
 - [你知道shell脚本中$0 $1 $# $@ $* $? $$都是什么意思吗？](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&mid=2247498444&idx=1&sn=2150e8461c1d6a40cef8f9fe9d36013e&chksm=f96b8838ce1c012ed600fcd1b4c5964b93f6b061343bc6e3d91bd9f45d0230838e3ce8666e4f&scene=178&cur_album_id=1507350615537025026#rd)
 - [Linux多命令顺序执行连接符(; || && |)_Don't lost way-CSDN博客](https://blog.csdn.net/wang740209668/article/details/53152596)
 - [Linux中单引号和双引号的区别](https://www.cnblogs.com/yeyuzhuanjia/p/16407968.html)
-
 
 ## 上传下载文件
 
@@ -71,15 +71,25 @@ updated: 2023/04/21 17:36:33
 
 ## 忽略大小写
 
-- [Linux终端忽略大小写自动补全_、moddemod-CSDN博客_ubuntu 终端忽略大小写 ](https://blog.csdn.net/weixin_43833642/article/details/104712175)
+- [Linux终端忽略大小写自动补全](https://blog.csdn.net/weixin_43833642/article/details/104712175)
 
   ```bash
   echo "set completion-ignore-case on" >> ~/.inputrc
   ```
 
+## python
+
+- [linux系统下将python3设置为默认的python](https://blog.51cto.com/u_15351425/3727453)
+
 ## 时间
 
+- [为什么计算机关机重启后的时间始终正确？](https://mp.weixin.qq.com/s/nKzLOfb5aZLXKBzKQmzXpw)
 - [linux中通过date命令获取昨天或明天时间的方法_花落花开，春去秋来！-CSDN博客](https://blog.csdn.net/GGxiaobai/article/details/53504629)
+
+### 时间协议
+
+- [NTP/PTP时间同步入门](https://hongwangle.com/use-case/time-sync/ntp-ptp-time-sync/)
+- [简单理解时间同步和时钟同步](https://blog.csdn.net/zu7543/article/details/102584313)
 
 ## 数组
 
@@ -105,10 +115,15 @@ updated: 2023/04/21 17:36:33
 - [stdbuf让nohup实时输出日志](https://blog.csdn.net/v6543210/article/details/104636198)
 - [命令行实现单个进度条，或者刷新一行的内容](https://blog.csdn.net/Tangs_/article/details/88998799)
 - [Linux 标准输入输出、重定向、管道、文件权限、后台启动进程命令](https://www.toutiao.com/article/7077055246081540646)
+- [深入理解Linux中2>&1的含义](https://mp.weixin.qq.com/s/-7Hb0-7p9FDQWYT_iD2pUg)
 
 ## rm
 
 - [Linux手误rm可能不需要跑路](https://mp.weixin.qq.com/s/aVQj2Qz0eAQ2pYRCZhKAyg)
+
+## trash-cli
+
+- [Trash-Cli：Linux 上的命令行回收站工具](https://www.toutiao.com/article/6602932678066962951)
 
 ## 正则表达式
 
@@ -118,6 +133,7 @@ updated: 2023/04/21 17:36:33
 - [正则表达式中的 .*和.*?的区别](https://blog.csdn.net/qq_34172780/article/details/104954879)
 - [正则表达式和扩展正则表达式](https://www.cnblogs.com/yan888/p/16137904.html)
 - [C语言中的正则表达式使用](https://www.cnblogs.com/xiaojiu/archive/2013/11/19/3430875.html)
+- [Linux0基础入门，教你如何在Shell中使用正则表达式](https://mp.weixin.qq.com/s/I3pxGtWLg86wfHItRafXQQ)
 
 ## find
 
@@ -150,6 +166,12 @@ updated: 2023/04/21 17:36:33
 
 ### sed
 
+- [<font color=Red>linux复制一行或几行数据到另一个文本</font>](https://blog.csdn.net/benben0503/article/details/91493515)
+
+```bash
+sed -n '1119,1224'p kern.log > pm.log
+```
+
 - [在Bash脚本中完成变量替换和指定文件内容替换的方法](https://blog.csdn.net/Howard_Liu/article/details/5891110)
 - [<font color=Red>sed 模式分隔符</font>](https://www.twle.cn/c/yufei/sed/sed-basic-strings-delimiter.html)
 - [sed 字符串替换 - Amei1314 - 博客园 (cnblogs.com)](https://www.cnblogs.com/linux-wangkun/p/5745584.html)
@@ -164,6 +186,13 @@ updated: 2023/04/21 17:36:33
 - [精通awk系列文章](https://www.junmajinlong.com/shell/awk/index/)
 - [Linux 下强大的 awk 命令，你真的会了吗？](https://mp.weixin.qq.com/s/WEE702IgzgUbRI7u3K39gg)
 - [Linux之awk使用技巧](https://mp.weixin.qq.com/s/f093fiQ6XYqAUobRMeCHqg)
+
+## 日志
+
+- [rsyslog服务及Linux系统日志简介](https://www.jianshu.com/p/3b11a2b7c746)
+- [Enable Rsyslog Logging on Debian 12](https://kifarunix.com/enable-rsyslog-logging-on-debian-12/)
+- [Linux系统中的日志管理——journal、rsyslog、timedatectl、时间同步](https://blog.csdn.net/qq_45225437/article/details/104294044)
+- [Linux 下使用 Logrotate 旋转和压缩日志文件](https://www.toutiao.com/article/7228735741931864631/)
 
 ## tail
 
@@ -189,13 +218,9 @@ updated: 2023/04/21 17:36:33
 
 - [强大的Linux终端行为记录和回放工具：script命令详解](https://blog.csdn.net/Victor2code/article/details/103378542)
 - [linux情况屏幕一条命令是,Linux中通过script命令那个记录屏幕的输出](https://blog.csdn.net/weixin_29763641/article/details/116925273)
-- [linux下使用script命令生成^ [和^ M个字符的原因和方法](https://blog.csdn.net/weixin_42096901/article/details/107922971)
+- [linux下使用script命令生成^ \[和^ M个字符的原因和方法](https://blog.csdn.net/weixin_42096901/article/details/107922971)
 - [【Linux学习 】Linux使用Script命令来记录并回放终端会话](https://blog.csdn.net/ouyang_peng/article/details/78818492)
 - [终于知道保存SCP日志了](https://blog.csdn.net/reyleon/article/details/13999033)
-
-## python
-
-- [linux系统下将python3设置为默认的python](https://blog.51cto.com/u_15351425/3727453)
 
 ## 终端
 
@@ -212,6 +237,10 @@ updated: 2023/04/21 17:36:33
 - [tmux常用命令及快捷键](https://blog.51cto.com/u_6997825/3748023)
 - [tmux 解决屏幕比例不协调问题](https://blog.csdn.net/chaokudeztt/article/details/126299939)
 
+## 随机数
+
+- [Linux中的随机数知多少](https://mp.weixin.qq.com/s/YhSMBitB6bA1QkXUcUe5_Q)
+
 ## 查找进程
 
 - [第9章Linux进程和信号超详细分析](https://www.cnblogs.com/f-ck-need-u/p/7058920.html)
@@ -224,14 +253,71 @@ updated: 2023/04/21 17:36:33
 - [使用ps、grep、kill批量杀死进程 - 物博网 (wubo.net.cn)](https://www.wubo.net.cn/security/ps_grep_kill_process.html)
 - [no no no. 不要使用kill -9](https://mp.weixin.qq.com/s/UkzMZYbmtSHYLQ-SShSnHg)
 - [SIGTERM等信号含义](https://blog.csdn.net/weixin_34121304/article/details/85553216)
+- [Linux下使用ps命令查看某个进程文件的启动位置](https://www.cnblogs.com/diyunpeng/p/8535504.html)
+
+## 硬件信息
+
+- [9个Linux 常用查看系统硬件信息命令(实例详解)](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&mid=2247493224&idx=1&sn=d020f84b7e607e740ac487c61b231c25&chksm=f96b949cce1c1d8ada3bab434c88c43972032874405597084d43db5b0b605df9213b6f51ef47&scene=21#wechat_redirect)
+
+### lshw
+
+- [Linux 中的 lshw 命令：获取硬件详细信息](https://www.toutiao.com/article/7257841565858103819/)
+
+  查看硬件信息的 class 分类:
+
+  ```bash
+  lshw -short
+  ```
+
+  查看特定类型的数据:
+
+  ```bash
+  lshw -c multimedia
+  ```
+
+  把硬件信息输出到 html:
+
+  ```bash
+  lshw -html > hw.hhtml
+  ```
+
+### dmidecode
+
+- [dmidecode(8) - Linux man page](https://linux.die.net/man/8/dmidecode)
+- [Linux下dmi信息分析工具dmidecode原理](https://blog.csdn.net/tugouxp/article/details/128739019)
+
+### lstopo
+
+- [Linux 性能调优之硬件资源监控](https://mp.weixin.qq.com/s/kFcfXQgSemHfL5Uz1deoJg)
+
+  ```bash
+  sudo apt install hwloc
+  ```
+
+  图形化展示硬件拓扑结构:
+
+  ```bash
+  lstopo
+  ```
+
+  文字信息输出硬件拓扑结构:
+
+  ```bash
+  lstopo-no-graphics
+  ```
+
+## top
+
+- [linux top命令详解（看这一篇就够了）](https://blog.csdn.net/weixin_45465395/article/details/115728520)
+- [<font color=Red>top命令里内存参数 VIRT, RES 和 SHR 分别是什么意思</font>](https://segmentfault.com/a/1190000013504502)
+- [Linux命令系列之top——里面藏着很多鲜为人知的宝藏知识](https://www.toutiao.com/article/7152513156642816519)
 
 ## 系统状态
 
 - [<font color=Red>第10章统计和查看Linux的系统状态</font>](https://www.cnblogs.com/f-ck-need-u/p/7059074.html)
 - [<font color=Red>61秒，摸透Linux的健康状态！</font>](https://mp.weixin.qq.com/s/Fv64jRXmAe-H81Qh8RJK7w)
-- [Linux命令系列之top——里面藏着很多鲜为人知的宝藏知识](https://www.toutiao.com/article/7152513156642816519)
 - [Linux 进程管理之四大名捕](https://mp.weixin.qq.com/s/XzoekOLtREOUftHhGE3FLQ)
-- [<font color=Red>top命令里内存参数 VIRT, RES 和 SHR 分别是什么意思</font>](https://segmentfault.com/a/1190000013504502)
+
 - [linux 实际可用内存_beyond_zb的博客-CSDN博客_linux 可用内存](https://blog.csdn.net/u014265442/article/details/90211142)
 - [linux找出占用内存，占用CPU资源最多的前10个进程_huangbaokang的博客-CSDN博客_linux查看内存占用前十](https://blog.csdn.net/huangbaokang/article/details/84934957)
 - [界面酷炫，功能强大！这款Linux性能实时监控工具超好用！](https://www.toutiao.com/article/7195829422606467587/)
@@ -254,6 +340,7 @@ updated: 2023/04/21 17:36:33
 
 - [nc命令 全称netcat，用于设置路由器](https://wangchujiang.com/linux-command/c/nc.html)
 - [linux 测试端口通不通(四种方法）](https://blog.csdn.net/weixin_30696427/article/details/95817700)
+- [<font color=Red>Linux系统中如何验证网络端口通不通</font>](https://mp.weixin.qq.com/s/_YYk_uWSoOln_yU8kbUqjg)
 - [LINUX中如何查看某个端口是否被占用](https://www.cnblogs.com/hindy/p/7249234.html)
 - [Linux 查看端口占用情况](https://www.runoob.com/w3cnote/linux-check-port-usage.html)
 
@@ -350,6 +437,44 @@ updated: 2023/04/21 17:36:33
 - [linux的mount bind命令](https://blog.csdn.net/langb2014/article/details/115454647)
 - [Linux 中列出挂载驱动器的 4 个命令](https://mp.weixin.qq.com/s/dbSZmESQmZaommTFd3-UPA)
 
+### /etc/fstab
+
+```bash
+cat /etc/fstab 
+# /dev/nvme0n1p3
+UUID=b8785205-a668-4d32-8cd8-e506b9850f01       /               ext4            rw,relatime     0 1
+
+# /dev/nvme0n1p2
+UUID=89d974e1-1e99-49ac-a814-b340cc37b17a       /boot           ext4            rw,relatime     0 2
+
+# /dev/nvme0n1p1
+UUID=1762-ADDC          /boot/efi       vfat            rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,utf8,errors=remount-ro       0 2
+
+# /dev/nvme0n1p5
+UUID=c614a533-2615-48e9-812d-dccc8871fcea       /data           ext4            rw,relatime     0 2
+
+# /dev/nvme0n1p6
+UUID=5a93ac13-1983-4a13-9e03-97494cf04f79       /recovery       ext4            rw,relatime     0 2
+
+
+
+
+
+# /dev/nvme0n1p7
+UUID=3ac2cbc4-96f5-44ae-b7fc-449e3e963508       none            swap            defaults,pri=-2 0 0
+
+/data/home /home none defaults,bind 0 0
+/data/opt /opt none defaults,bind 0 0
+/data/root /root none defaults,bind 0 0
+/data/var /var none defaults,bind 0 0
+
+# /dev/sda1
+UUID=cc5da720-dbfb-4bc2-8f35-f566d1603508       /media/wujing/data      ext4            rw,relatime     0 2
+/media/wujing/data/Downloads /home/wujing/Downloads none defaults,bind 0 0
+/media/wujing/data/Documents /home/wujing/Documents none defaults,bind 0 0
+/media/wujing/data/code /home/wujing/code none defaults,bind 0 0
+```
+
 ## 软链接和硬链接
 
 - [linux里创建快捷方式和查看快捷方式的指向](https://blog.csdn.net/ljw_jiawei/article/details/91044595)
@@ -368,6 +493,12 @@ updated: 2023/04/21 17:36:33
 - [Linux下tar命令解压到指定的目录](https://blog.csdn.net/libing_zeng/article/details/73268032)
 - [想学Linux中的打包和压缩？看这一篇就够了](https://www.toutiao.com/article/7172630331697218059)
 
+- ### 分卷压缩
+
+- [linux下分卷压缩，合并解压的3种方法](http://blog.51yip.com/linux/988.html)
+- [linux使用tar打包压缩和分卷压缩](https://blog.csdn.net/sumengnan/article/details/107806838)
+- [Linux新手入门系列：Linux分卷压缩与分卷解压缩](https://zhuanlan.zhihu.com/p/397071336)
+
 ## set
 
 - [Linux 系统设置 : set 命令详解](https://blog.csdn.net/yexiangCSDN/article/details/82828811)
@@ -376,6 +507,14 @@ updated: 2023/04/21 17:36:33
 
 - [Linux PATH环境变量及作用（初学者必读）](http://c.biancheng.net/view/5876.html)
 - [Environment variables (简体中文)](https://wiki.archlinux.org/title/Environment_variables_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87))
+- [<font color=Red>Linux环境变量及其加载顺序</font>](https://blog.csdn.net/niaooer/article/details/100305567)
+
+  在 Ubuntu 等使用 PAM（Pluggable Authentication Modules）的系统中，/etc/environment 是在 PAM 模块中读取的，而 /etc/profile 是由 Bourne Shell（例如 Bash）在启动时读取的。
+
+  具体来说，在用户登录时，PAM 模块首先读取 /etc/environment 中的环境变量，然后 Bash 或其他 Bourne Shell 在启动时读取 /etc/profile。
+
+  所以，/etc/environment 的环境变量会影响整个系统的默认环境，而 /etc/profile 主要影响用户登录 Shell 时的环境。
+
 - [<font color=Red>Linux设置PATH环境变量的几个地方和设置方法</font>](https://blog.csdn.net/Kruck/article/details/50977880)
 - [Ubuntu环境变量——添加与删除_Beanocean-CSDN博客_ubuntu删除环境变量](https://blog.csdn.net/beanocean/article/details/14677833)
 - [<font color=Red>Linux添加路径到PATH环境变量</font>](https://www.cnblogs.com/windyvalley/p/linux_path_append.html)
@@ -387,6 +526,10 @@ updated: 2023/04/21 17:36:33
 - [Linux 中 DISPLAY 环境变量设置——本地显示 Linux 服务器GUI程序](https://blog.csdn.net/qq_37698947/article/details/122361495)
 
 - [Linux MIME type](https://www.jianshu.com/p/4617e8e600ad)
+
+## 登录
+
+- [如何在Linux上查找上次登录信息？](https://www.toutiao.com/article/7246400362771612216/)
 
 ## ssh
 
@@ -404,12 +547,60 @@ updated: 2023/04/21 17:36:33
 - [vscode SSH 保存密码自动登录服务器](https://www.jianshu.com/p/cc1f599c8841)
 
 - [VSCode Remote ssh跳板机配置(linux环境)](https://blog.csdn.net/qq_21407811/article/details/110938940)
+
+  现有三台机器A、B、C,期望从机器A上通过跳板机B免密远程登录机器C。
+
+  在机器A上执行如下命令:
+  
+  ```bash
+  ssh-keygen
+  ssh-copy-id uos@10.20.53.160
+  # 将机器A的公钥复制到机器B
+  rsync -avzP ~/.ssh/id_rsa.pub uos@10.20.53.160:~
+  ```
+
+  在机器B上执行如下命令:
+  
+  ```bash
+  ssh-keygen
+  ssh-copy-id uos@192.168.122.76
+  # 将机器A的公钥复制到机器C
+  rsync -avzP ~/id_rsa.pub uos@192.168.122.76:~
+  ```
+
+  在机器C上执行如下命令:
+  
+  ```bash
+  cat id_rsa.pub >> ~/.ssh/authorized_keys
+  ```
+
+  在机器A上的`~/.ssh/config`添加机器A、B、C配置(机器A是本机，可以忽略):
+
+  ```bash
+  Host 192.168.122.76-uos20-1060-arm #机器C
+    HostName 192.168.122.76
+    User uos
+    ProxyJump 10.20.53.160-uos20-1060-arm
+
+  Host 10.20.53.160-uos20-1060-arm # 机器B
+    HostName 10.20.53.160
+    User uos
+
+  Host 10.20.53.48-deepin20.9-amd # 机器A
+    HostName 10.20.53.48
+    User uos
+  ```
+
 - [deepin安装ssh服务并设置开机自启动](https://www.cnblogs.com/Thenext/p/15437824.html)
 - [ssh登录后,ulimit的值无法修改的问题](http://i01.org/show.php?id=390)
 - [什么是堡垒机？为什么需要堡垒机？](https://mp.weixin.qq.com/s/qW7zQfevhRIPb1PXLRXmAA)
 - [你还不会 Jumpserver 堡垒机(保护服务器)搭建部署?](https://mp.weixin.qq.com/s/o-F_VLQF-lqu3N1_R1mNDg)
 
 - [首页>向日葵> Linux及国产化系统> Linux个人版（命令行版本）使用手册](https://service.oray.com/question/11017.html)
+
+### termux
+
+- [Termux 上运行SSH Server](https://zhuanlan.zhihu.com/p/226393968)
 
 ## crontab计划任务
 
@@ -428,17 +619,18 @@ updated: 2023/04/21 17:36:33
 - [BuildStream，软件集成工具](https://www.buildstream.build/)
 - [BuildStream 文档](https://docs.buildstream.build/1.4.3/index.html)
 
+## 输入法
+
+- [Linux 系统Kde桌面环境的fcitx输入问题解决](https://zhuanlan.zhihu.com/p/41338951)
+
 ## 其它
 
 - [解决VSCode终端在Linux下打不开的问题_hqsiswiliam的博客-CSDN博客_vscode打不开](https://blog.csdn.net/hqsiswiliam/article/details/105832597)
 
-- [3 种方法教你在 Linux 中修改打开文件数量限制](https://www.163.com/dy/article/FSEENEN90531I6Y1.html)
 - [安装OhMyZsh插件后提示错误：“zsh compinit: insecure directories”- bobjoy的个人空间- OSCHINA -中文开源技术交流社区](https://my.oschina.net/u/215547/blog/824106)
 - [ubuntu搭建http服务器用于下载ubuntu文件](https://blog.csdn.net/yy1695990107/article/details/116976994)
 
 - [你和 Linux 极客只差一个 LFS - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/26546592)
-- [服务器虚拟化组件有哪些？](http://c.biancheng.net/view/3842.html)
-- [ubuntu18.04上搭建KVM虚拟机环境超完整过程](https://mp.weixin.qq.com/s/FVyzPVwwQ85AC4jlVZvF4g)
 - [改造rm命令，删除文件至回收站](https://segmentfault.com/a/1190000018464527)
 - [ubuntu16.04 安装x11vnc桌面](https://www.jianshu.com/p/f1997b5e1031)
 - [VSCode安装shell、bash格式化工具](https://www.jianshu.com/p/484e5be21786)
@@ -451,11 +643,4 @@ updated: 2023/04/21 17:36:33
 
 - [盘一盘各种”xPU”](https://mp.weixin.qq.com/s/UAzN_7Bmb9uLRy8GJ-9rFg)
 
-- [菜鸟也能懂的 - 音视频基础知识。](https://mp.weixin.qq.com/s/HzJyf9QLZYjRsacf_veK4g)
-- [Camera | 2.MIPI、CSI基础](https://mp.weixin.qq.com/s/5qYO5RjCDUcxo4tR3_f_ow)
 - [Linux虚拟网络设备bridge你真搞懂了吗？](https://cloud.tencent.com/developer/article/1871867)
-
-## 时间协议
-
-- [NTP/PTP时间同步入门](https://hongwangle.com/use-case/time-sync/ntp-ptp-time-sync/)
-- [简单理解时间同步和时钟同步](https://blog.csdn.net/zu7543/article/details/102584313)

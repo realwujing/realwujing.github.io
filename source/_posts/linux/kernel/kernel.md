@@ -1,145 +1,450 @@
 ---
 date: 2023/04/19 14:50:19
-updated: 2023/04/21 17:47:50
+updated: 2024/03/24 18:18:38
 ---
 
 # kernel
 
-## 启动管理
-
-- [Linux系统启动管理](http://c.biancheng.net/linux_tutorial/12/)
-- [BIOS和grub](https://blog.csdn.net/qq_43178138/article/details/109524002)
-- [聊聊BIOS、UEFI、MBR、GPT、GRUB……](https://segmentfault.com/a/1190000020850901)
-- [BIOS, UEFI, MBR, GPT, GRUB介绍](https://blog.csdn.net/xhtchina/article/details/113789538)
-- [GRUB-一个多重操作系统启动管理器](https://www.baike.com/wikiid/7276828077877800951)
-- [主分区、扩展分区、逻辑分区](https://www.cnblogs.com/itmeatball/p/11469673.html)
-- [主磁盘分区和逻辑磁盘分区的区别是什么？](https://blog.csdn.net/weixin_33906657/article/details/92576959)
-- [ubuntu 修改开机启动项默认值](https://blog.csdn.net/DEEP_M/article/details/118103914)
-
-## 内核
-
-- [<font color=Red>Linux内核之旅</font>](http://kerneltravel.net/)
-- [30分钟读懂Linux五大模块内核源码，内核整体架构设计](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&mid=2247500232&idx=2&sn=9a81b4fa46e234192ae6fab97840026c&chksm=f96bb33cce1c3a2a770760031fc58ebc6dc367695eebc5db6a08048774789cdee630f6c58d5f&mpshare=1&scene=1&srcid=0407Gxo7W7KdCRYn2kb8WEsB&sharer_sharetime=1649316737801&sharer_shareid=2dfdf936388dba04865b3e883d5a3225&version=3.1.12.6001&platform=win#rd)
+- [<font color=Red>6ULL开发板在线教材与源码仓库 使用Debian 野火鲁班猫镜像</font>](https://doc.embedfire.com/products/link/zh/latest/linux/ebf_i.mx6ull_doc.html)
+  - [EBF_6ULL开发板快速使用手册](https://doc.embedfire.com/linux/imx6/quick_start/zh/latest/index.html)
+  - [基础与应用开发实战指南——基于i.MX6ULL](https://doc.embedfire.com/linux/imx6/linux_base/zh/latest/index.html)
+  - [<font color=Red>驱动开发实战指南——基于i.MX6ULL</font>](https://doc.embedfire.com/linux/imx6/driver/zh/latest/index.html)
+  - [嵌入式Linux镜像构建与部署——基于鲁班猫系列开发板](https://doc.embedfire.com/lubancat/build_and_deploy/zh/latest/index.html)
+  - [《嵌入式Qt应用开发实战》](https://doc.embedfire.com/linux/qt/embed/zh/latest/index.html)
+  - [Python应用开发实践](https://doc.embedfire.com/lubancat/python/zh/latest/index.html)
+- [<font color=Red>内核深度解读</font>](https://blog.csdn.net/u012489236?type=blog)
+- [<font color=Red>设备驱动</font>](https://blog.csdn.net/tiantianhaoxinqing__?type=blog)
+- [Linux内核之旅](http://kerneltravel.net/)
+- [30分钟读懂Linux五大模块内核源码，内核整体架构设计](https://mp.weixin.qq.com/s/Gg4QxwI51Q1TRVqYkfFIcg)
 - [Linux 内核概念和学习路线](https://mp.weixin.qq.com/s/RaNeUkveH_AdKnkzY70TEg)
-- [Linux系统内核概述](https://mp.weixin.qq.com/s/VJFXFs8430SrpnJTmUsIZg)
-- [Linux内核  内核源码结构](https://www.cnblogs.com/y4247464/p/12333955.html)
-- [linux查看安装的所有内核,查看已安装的Linux内核](https://blog.csdn.net/weixin_39702400/article/details/116625705)
-- [deepin系统更改默认启动内核](https://blog.csdn.net/jxwzh/article/details/116041716)
+
 - [操作系统如何实现：什么是宏内核、微内核](https://mp.weixin.qq.com/s/aPTCt5cmzEtq0xeeMgQLRQ)
-- [一篇文章汇总嵌入式处理器相关的知识](https://mp.weixin.qq.com/s/Aai7Ccwwp7SROEXpPnEfzA)
 
-## 内核Makefileconfig
+- [<font color=Red>【精华】Linux阅码场原创精华文章汇总</font>](https://mp.weixin.qq.com/s/co0CzrJBmbZd0I0ddjHGaQ)
 
-- [Linux内核Makefile分析](https://blog.csdn.net/lizuobin2/article/details/51464152)
-- [linux内核编译系统-kbuild系统详解](https://zhuanlan.zhihu.com/p/358801667)
-- [浅析Kbuild系统](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/88548273)
-- [以deb包方式编译内核](https://blog.csdn.net/weixin_40182062/article/details/108230678)
-- [第 10 章 Debian 和内核](https://www.debian.org/doc/manuals/debian-faq/kernel.zh-cn.html)
-- [Linux内核配置以及Make menuconfig过程分析](https://blog.csdn.net/lizuobin2/article/details/51429937)
-- [make defconfig savedefconfig olddefconfig区别](https://blog.csdn.net/flc2762/article/details/103735072)
-- [linux内核配置清理make clean](https://blog.csdn.net/gp18391818575/article/details/112555781)
+- [https://richardweiyang-2.gitbook.io/kernel-exploring/](https://richardweiyang-2.gitbook.io/kernel-exploring/)
 
-- [ubuntu查看内核config](https://www.csdn.net/tags/MtjaAg5sMTU4MjMtYmxvZwO0O0OO0O0O.html)
-- [ubuntu(20.04)+linux内核（5.17.3）的config文件](https://blog.csdn.net/weixin_62882080/article/details/124262374)
-- [Linux内核编译很简单，6步编译一个自己的内核](https://www.51cto.com/article/663841.html)
-- [ubuntu(20.04)+linux内核（5.17.3）编译内核](https://blog.csdn.net/weixin_62882080/article/details/124260136)
-- [内核编译更新](https://blog.csdn.net/proware/article/details/117386555)
-- [“make deb-pkg” broken](https://davejingtian.org/2018/03/15/make-deb-pkg-broken/)
+- [海康一面过！（纯Linux八股）](https://mp.weixin.qq.com/s/3P1fL5RbuLq_ARqp4ATIaw)
 
-## 内核模块
+## The Linux Kernel documentation
 
-- [Linux内核模块HelloWorld](https://blog.csdn.net/u012184539/article/details/120326741)
-- [Linux内核驱动学习-编写最简单Linux内核模块HelloWorld](https://blog.csdn.net/weixin_46048542/article/details/123171177)
-- [linux内核模块加载命令](https://blog.csdn.net/Lihuihui006/article/details/112199469)
-
-## ASLR
-
-- [Linux下关闭ASLR(地址空间随机化)的方法](https://blog.csdn.net/counsellor/article/details/81543197)
-- [Linux关闭KASLR](https://blog.csdn.net/zy_zhengyang/article/details/95451484)
-- [开启内核地址随机化KASLR后, qemu 调试 kernel 不能设置断点](https://blog.csdn.net/gatieme/article/details/104266966)
-- [逻辑地址、线性地址、物理地址区别](https://zhuanlan.zhihu.com/p/90004914)
-- [Linux内存管理中，代码段和数据段映射成的线性地址重叠，不会冲突吗？](https://www.zhihu.com/question/420128789)
-- [x86段寄存器和分段机制](https://zhuanlan.zhihu.com/p/324210723)
-
-## audio
-
-- [ALSA（高级Linux声音架构）浅析](https://mp.weixin.qq.com/s/1TJQc3Ktdw_Qz576iLjB1Q)
-
-## 系统日志
-
-- [Linux进程被杀掉（OOM killer），查看系统日志](https://www.cnblogs.com/duanxz/p/10185946.html)
-
-## 其他
-
-- [用户态和内核态的切换耗费时间的原因](https://blog.csdn.net/weixin_43871678/article/details/106723029)
-- [linux内核中likely与unlikely](https://blog.csdn.net/u014470361/article/details/81193023)
+- [https://www.kernel.org/doc/html/](https://www.kernel.org/doc/html/)
 
 ## linux内核源码
 
-- [linux内核源码在线阅读](https://www.cnblogs.com/igoodful/p/14081782.html)
+- [https://www.kernel.org/](https://www.kernel.org/)
+
+- [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
+- [Linux kernel source tree](https://github.com/torvalds/linux)
+- [Linux kernel stable tree mirror](https://github.com/gregkh/linux)
+- [OpenCloudOS kernel](https://gitee.com/OpenCloudOS/OpenCloudOS-Kernel/tree/master)
+
+### DebianKernel
+
+- <https://wiki.debian.org/DebianKernel>
+- <https://salsa.debian.org/kernel-team/linux>
+
+### 内核源码结构
+
+- [Linux内核  内核源码结构](https://www.cnblogs.com/y4247464/p/12333955.html)
+
+### 内核源码在线阅读
+
+- [linux内核源码在线阅读](https://elixir.bootlin.com/linux/latest/source)
+
+### Linux 0.11
+
 - [品读 Linux 0.11 核心代码](https://github.com/sunym1993/flash-linux0.11-talk)
 - [Linux内核完全注释(修正版v3.0).pdf](https://github.com/realwujing/Linux-0.11)
 - [<font color=Red>调试 Linux 最早期的代码</font>](https://mp.weixin.qq.com/s/cx_vaRTcC29h0pWkJPpqQQ)
 - [Linux-0.11操作系统源码调试-在 Ubuntu22 上](https://blog.csdn.net/chaoguo1234/article/details/128613219)
 - [<font color=Red>https://github.com/yuan-xy/Linux-0.11</font>](https://github.com/yuan-xy/Linux-0.11)
 
-- [https://richardweiyang-2.gitbook.io/kernel-exploring/](https://richardweiyang-2.gitbook.io/kernel-exploring/)
-- [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
+## 启动过程
 
-## 内核链表
+- [Linux基础- Linux 启动过程](https://www.toutiao.com/article/7271522135665902115/)
+- [你知道Linux的启动过程吗？#程序员##Linux#](https://www.toutiao.com/article/7204305085835346467)
+    ![你知道Linux的启动过程吗？#程序员##Linux#](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/8e2accc090364ccf9792e064817f091e~tplv-obj_1280_1664.gif)
 
-- [玩转内核链表list_head，教你管理不同类型节点的实现，建议收藏](https://mp.weixin.qq.com/s/Ddonv6FdY4oroIT32IGxOw)
-- [Linux内核中经典链表 list_head 常见使用方法解析](https://blog.csdn.net/wanshilun/article/details/79747710)
-- [Linux内核中的常用宏container_of其实很简单](https://blog.csdn.net/npy_lp/article/details/7010752#:~:text=Containe,%E4%BD%93%E5%8F%98%E9%87%8F%E7%9A%84%E9%A6%96%E5%9C%B0%E5%9D%80%E3%80%82)
-- [<font color=Red>Linux内核中container_of的原理及其使用详解</font>](https://blog.csdn.net/u010632165/article/details/107523477)
-- [Linux 内核 hlist 详解](https://blog.csdn.net/hs794502825/article/details/24597773)
-- [hlist用法以及hlist_for_each_entry 使用举例](https://blog.csdn.net/oHeHui1/article/details/128176831)
+### grub
+
+### grub doc
+
+- [GNU GRUB Manual 2.12](https://www.gnu.org/software/grub/manual/grub/grub.html)
+- [6.1 Simple configuration handling /etc/default/grub](https://www.gnu.org/software/grub/manual/grub/grub.html#Simple-configuration)
+- [17.3.1 serial](https://www.gnu.org/software/grub/manual/grub/grub.html#serial)
+- [15 GRUB environment variables](https://www.gnu.org/software/grub/manual/grub/grub.html#Environment)
+
+### grub命令
+
+- [<font color=Red>GRUB 引导流程</font>](https://www.cnblogs.com/Link-Luck/p/9858869.html)
+- [<font color=Red>grub命令 – 交互式的管理GRUB引导程序</font>](https://www.linuxcool.com/grub)
+- [GRUB-一个多重操作系统启动管理器](https://www.baike.com/wikiid/7276828077877800951)
+- [<font color=Red>Linux系统启动管理</font>](http://c.biancheng.net/linux_tutorial/12/)
+- [如何手动安装(并配置)GRUB？](https://www.zhihu.com/question/610484788?utm_id=0)
+
+#### grub串口
+
+- [配置Grub2实现串口终端控制Linux系统](https://blog.csdn.net/qq_39852676/article/details/112853995)
+- [Linux串口调试配置_GRUB串口通信_串口登陆](https://blog.csdn.net/yandaqijian/article/details/41248919)
+- [针对于grub的让开机信息重定向输出到串口上(内含精简操作指南)](https://blog.csdn.net/qq_46695411/article/details/126803759)
+- [FT2000+模块在麒麟系统下串口输出功能调试](https://blog.csdn.net/zhaoxinfan/article/details/125054064)
+
+将GRUB输出重定向到串口步骤如下：
+
+1. 同时启用图形终端和串行终端，并设置了串行终端的参数
+
+    ```bash
+    1 # Generated by deepin-installer  vim /etc/default/grub
+    2 GRUB_BACKGROUND="/boot/grub/themes/deepin-fallback/background.jpg"
+    3 GRUB_CMDLINE_LINUX_DEFAULT="video=efifb:nobgrt splash ignore_loglevel initcall_debug acpi.debug_layer=0x2 acpi.debug_level=0xffffffff no_console_suspend console=tty console=ttyAMA0,115200 dyndbg='module snd_soc_pmdk_dp +p; file *usb* +p' plymouth.ignore-serial-consoles"
+    4 GRUB_DEFAULT=0
+    5 GRUB_DISTRIBUTOR="`/usr/bin/lsb_release -d -s 2>/dev/null || echo Deepin`"
+    6 GRUB_THEME="/boot/grub/themes/deepin-fallback/theme.txt"
+    7 GRUB_TIMEOUT=5
+    8 GRUB_GFXMODE=
+    9 DEEPIN_GFXMODE_DETECT=1
+    10 GRUB_TERMINAL="console serial"
+    11 GRUB_SERIAL_COMMAND="serial --speed=115200 efi0 --word=8 --parity=no --stop=1"
+    ```
+
+    在这个 GRUB 配置中，你配置了同时启用图形终端和串行终端，并设置了串行终端的参数。具体解释如下：
+
+    第 10 行 (GRUB_TERMINAL="console serial")： 这一行指示 GRUB 同时启用图形终端和串行终端。这意味着 GRUB 将能够在本地控制台（图形终端）和串行控制台（通过串行端口）上进行交互。
+
+    第 11 行 (GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1")： 这一行配置了串行终端的参数。具体的参数设置如下：
+
+    - --speed=115200：串行通信的波特率设置为 115200 比特每秒。
+    - --unit=0：串行端口的编号或单元号设置为 0，通常对应于 /dev/ttyS0 或 /dev/ttyAMA0，这是第一个串口。但比如loongarch、ft2000机器, 串口可能注册为了别的名字, 比如efi0。
+    - --word=8：数据位设置为 8 位。
+    - --parity=no：不使用奇偶校验。
+    - --stop=1：停止位设置为 1 位。
+
+    这个配置表明 GRUB 将同时在图形终端和串行终端上操作，并且串行终端的参数已设置为常见的串口通信配置。如果你的系统具有串行控制台（例如通过串口连接到终端服务器），这个配置允许你在本地和远程两个终端上查看 GRUB 菜单和启动过程。
+
+2. 最大程度开启grub调试信息
+
+    ```bash
+    grub-editenv /boot/grub/grubenv set debug=all
+    ```
+
+3. 更新 GRUB 以应用更改
+
+    ```bash
+    update-grub
+    ```
+
+#### grub源码
+
+- [修改GRUB2源码与编译安装流程](https://blog.csdn.net/qq_43280079/article/details/109221969)
+- [Grub调试总结](http://www.manongjc.com/article/119359.html)
+- [PXE Config & Grub2 debug](https://www.cnblogs.com/bigbigworf/p/16995320.html)
+- [<font color=Red>Grub编译与调试</font>](https://mp.weixin.qq.com/s/t6II_YQDunpPEhEMPVwVHQ)
+
+#### BIOS, UEFI, MBR, GPT, GRUB
+
+- [BIOS和grub](https://blog.csdn.net/qq_43178138/article/details/109524002)
+- [<font color=Red>聊聊BIOS、UEFI、MBR、GPT、GRUB……</font>](https://segmentfault.com/a/1190000020850901)
+- [MBR与GPT详解](https://blog.csdn.net/weixin_45938367/article/details/130933437)
+- [BIOS, UEFI, MBR, GPT, GRUB介绍](https://blog.csdn.net/xhtchina/article/details/113789538)
+
+- [主分区、扩展分区、逻辑分区](https://www.cnblogs.com/itmeatball/p/11469673.html)
+- [主磁盘分区和逻辑磁盘分区的区别是什么？](https://blog.csdn.net/weixin_33906657/article/details/92576959)
+
+#### 更改默认启动内核
+
+- [linux查看安装的所有内核,查看已安装的Linux内核](https://blog.csdn.net/weixin_39702400/article/details/116625705)
+- [Debian 指定内核启动](https://blog.chenxiaosheng.com/posts/2022-05-07/debian-switch-kernel-boot.html)
+- [deepin系统更改默认启动内核](https://blog.csdn.net/jxwzh/article/details/116041716)
+- [ubuntu 修改开机启动项默认值](https://blog.csdn.net/DEEP_M/article/details/118103914)
+
+#### 启动参数
+
+- [The kernel's command-line parameters](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html)
+
+    ```bash
+    initcall_debug no_console_suspend ignore_loglevel initcall_blacklist=phytium_spi_driver_init module_blacklist=spi_phytium_plat dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p; file *usb* +p'
+    ```
+
+- grub中不加载某个驱动
+
+    `initcall_blacklist=phytium_spi_driver_init`
+
+    ```bash
+    initcall_blacklist=  [KNL] Do not execute a comma-separated list of
+                        initcall functions.  Useful for debugging built-in
+                        modules and initcalls.
+    ```
+
+    ```bash
+    module_blacklist=  [KNL] Do not load a comma-separated list of
+                        modules.  Useful for debugging problem modules.
+    ```
+
+### 日志级别
+
+- [ignore_loglevel](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=ignore_loglevel)
+
+#### dynamic debug
+
+- [<font color=Red>https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html</font>](https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html)
+
+dyndbg="QUERY", module.dyndbg="QUERY", or ddebug_query="QUERY"三者的区别？
+
+If foo module is not built-in, foo.dyndbg will still be processed at boot time, without effect, but will be reprocessed when module is loaded later. dyndbg_query= and bare dyndbg= are only processed at boot.
+
+- foo.dyndbg：
+
+    如果 foo 模块不是内核的一部分，而是在运行时可加载的模块，foo.dyndbg 的设置会在系统启动时被处理，但在此时不会产生实际效果。这是因为 foo 模块尚未加载，所以动态调试设置在这个时候并不影响任何东西。
+
+    当稍后加载 foo 模块时，foo.dyndbg 的设置会被重新处理并生效。因此，动态调试设置在模块加载后才真正生效。
+
+- dyndbg_query= 和 dyndbg=：
+
+    这两种设置（全局动态调试设置）只在系统启动时被处理，而不会在系统运行时重新处理。一旦系统进入运行状态，这些设置就不再生效。
+
+    这意味着如果你想要在系统运行时动态调整调试设置，你应该使用模块特定的设置，比如 foo.dyndbg，而不是全局设置。
+
+    综合来说，foo.dyndbg 在系统启动时会被处理，但不会在 foo 模块加载前生效。而 dyndbg_query= 和dyndbg= 这两种设置只在系统启动时生效，进入系统后不再生效。
+
+在grub中新增 dyndbg 参数：
+
+```bash
+dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p; file *usb* +p'
+```
+
+```bash
+update-grub
+```
+
+进入系统后：
+
+```bash
+echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p; file *usb* +p' > /sys/kernel/debug/dynamic_debug/control
+```
+
+- [dev_info、dev_dbg、dev_err及动态调试](https://blog.csdn.net/daocaokafei/article/details/116102271)
+- [打开dev_dbg()调试开关](https://blog.csdn.net/u014770862/article/details/81408859)
+- [<font color=Red>内核动态打印</font>](https://blog.csdn.net/lyndon_li/article/details/126276835)
+
+#### printk
+
+- [Message logging with printk](https://www.kernel.org/doc/html/latest/core-api/printk-basics.html?highlight=loglevel)
+- [Linux 内核调试工具Printk介绍](https://mp.weixin.qq.com/s/Uaq-rm0SLmWUNZMw5krgsw)
+
+## 内核 Makefile config
+
+- [Linux系统内核概述](https://mp.weixin.qq.com/s/VJFXFs8430SrpnJTmUsIZg)
+- [make 参数 ARCH与CROSS_COMPILE***](https://www.cnblogs.com/jiangzhaowei/p/12288515.html)
+- [Linux内核编译很简单，6步编译一个自己的内核](https://www.51cto.com/article/663841.html)
+
+### Makefile kbuild
+
+- [Linux内核Makefile分析](https://blog.csdn.net/lizuobin2/article/details/51464152)
+- [linux内核编译系统-kbuild系统详解](https://zhuanlan.zhihu.com/p/358801667)
+- [浅析Kbuild系统](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/88548273)
+
+### defconfig
+
+- [Linux内核配置以及Make menuconfig过程分析](https://blog.csdn.net/lizuobin2/article/details/51429937)
+- [<font color=Red>linux kernel: defconfig和.config</font>](https://blog.csdn.net/u012247418/article/details/105347429)
+
+    ```bash
+    make savedefconfig
+    ```
+
+- [make defconfig savedefconfig olddefconfig区别](https://blog.csdn.net/flc2762/article/details/103735072)
+
+### clean
+
+- [<font color=Red>linux内核配置清理make clean</font>](https://blog.csdn.net/gp18391818575/article/details/112555781)
+
+    ```bash
+    make clean      # 删除大多数的编译生成文件， 但是会保留内核的配置文件.config， 还有足够的编译支持来建立扩展模块
+    make mrproper   # 删除所有的编译生成文件， 还有内核配置文件， 再加上各种备份文件
+    make distclean  # mrproper删除的文件， 加上编辑备份文件和一些补丁文件
+    ```
+
+### 编译内核deb包
+
+在 Linux 内核构建过程中，make deb-pkg 和 make bindeb-pkg 是用于生成 Debian 包的两个目标。这两个目标的主要区别在于生成的 Debian 包的内容和形式：
+
+`make deb-pkg`：
+
+- 这个目标生成的是一个包含完整内核源代码、配置文件和构建所需的所有内容的 Debian 源码包（source package）。
+- Debian 源码包一般包括 `linux-<version>.tar.xz` 源码压缩包、debian/ 目录中的维护文件以及其他构建所需的文件。这个包允许其他人在其系统上重新构建内核。
+- 也包含`make bindeb-pkg`产物。
+
+`make bindeb-pkg`：
+
+- 这个目标生成的是一个包含已编译内核二进制文件、头文件、模块、配置文件等内容的 Debian 二进制包（binary package）。
+- Debian 二进制包的形式为 `linux-image-<version>_<architecture>.deb`。这个包通常用于直接在 Debian 或基于 Debian 的系统上安装内核二进制文件，而不需要重新构建整个内核。
+
+- [内核编译更新](https://blog.csdn.net/proware/article/details/117386555)
+
+- [以deb包方式编译内核](https://blog.csdn.net/weixin_40182062/article/details/108230678)
+- [第 10 章 Debian 和内核](https://www.debian.org/doc/manuals/debian-faq/kernel.zh-cn.html)
+- [“make deb-pkg” broken](https://davejingtian.org/2018/03/15/make-deb-pkg-broken/)
+
+#### linux-perf deb
+
+- [make deb-pkg linux-kernel源码支持构建perf工具](https://blog.csdn.net/qq_24423085/article/details/132696041)
+- [Building .deb package for Linux perf?](https://unix.stackexchange.com/questions/362758/building-deb-package-for-linux-perf)
+
+#### 在deepin 23上构建 linux-perf deb包
+
+在debian12中下载内核源码：
+
+```bash
+apt source linux=6.1.55-1
+```
+
+将内核原源码拷贝到deepin 23上：
+
+```bash
+rsync -avzP linux-6.1.55 wujing@10.20.53.48:~/code/linux-6.1.55-1
+```
+
+在deepin 23 上构建deb包(包含 linux-perf)：
+
+```bash
+cd code/linux-6.1.55-1/linux-6.1.55
+```
+
+```bash
+dpkg-buildpackage -b -nc -uc -us -j16
+```
+
+## 内核模块
+
+- [<font color=Red>1. Linux内核模块</font>](https://doc.embedfire.com/linux/imx6/driver/zh/latest/linux_driver/module.html)
+- [Linux内核模块原理](https://blog.csdn.net/vs2008ASPNET/article/details/118029772)
+- [Linux内核模块HelloWorld](https://blog.csdn.net/u012184539/article/details/120326741)
+- [<font color=Red>Linux内核驱动学习-编写最简单Linux内核模块HelloWorld</font>](https://blog.csdn.net/weixin_46048542/article/details/123171177)
+
+    ```bash
+    KVERS = $(shell uname -r)
+    # Kernel modules
+    obj-m += hello.o
+    # Specify flags for the module compilation. 
+    #EXTRA_CFLAGS=-g -O0 
+    build: kernel_modules
+    kernel_modules: 
+    	make -C /lib/modules/$(KVERS)/build M=$(CURDIR) modules
+    clean:
+    	make -C /lib/modules/$(KVERS)/build M=$(CURDIR) clean
+    ```
+
+- [linux内核模块加载命令](https://blog.csdn.net/Lihuihui006/article/details/112199469)
+- [<font color=Red>Linux内核模块通信 | 符号导出解析</font>](https://mp.weixin.qq.com/s/zNfS2XULX2by1d2O_qQTtg)
+- [Linux驱动程序Makefile文件见解](https://juejin.cn/post/7242186721784938556)
+- [如何编写一个Linux内核模块，这次手把手教你](https://zhuanlan.zhihu.com/p/420194002)
+- [<font color=Red>Linux下使用内核源码单独编译某一模块</font>](https://blog.csdn.net/bingyu9875/article/details/95972059)
+
+    ```bash
+    make CONFIG_SPI_PHYTIUM_PLAT=m -C /data3/home/yuanqiliang/code/arm-kernel-5.10/kernel M=/data3/home/yuanqiliang/code/arm-kernel-5.10/kernel/drivers/spi modules
+    ```
+
+- [Linux - Kernel Module 编译过程拆解](https://mp.weixin.qq.com/s/cvQevwrzUlTkyw81w59X9w)
 - [内核模块开发中__init和__exit的作用](https://blog.csdn.net/bhniunan/article/details/104082581)
-- [linux内核中6个经典C语言函数代码赏析](https://www.toutiao.com/article/7222172647486964258)
 
-## 内核section
+### KBUILD_EXTRA_SYMBOLS
+
+- [<font color=Red>KBUILD_EXTRA_SYMBOLS</font>](https://zhuanlan.zhihu.com/p/525378647)
+- [Linux内核模块通信](https://nu-ll.github.io/2020/06/20/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E9%80%9A%E4%BF%A1/)
+
+### dkms
+
+- [Linux 模块管理方法之 DKMS](https://zhuanlan.zhihu.com/p/353393598)
+- [linux dkms,DKMS简介](https://blog.csdn.net/weixin_42388631/article/details/117547371)
+- [Linux 模块管理方法之 DKMS](https://blog.csdn.net/Wang_anna/article/details/126955523)
+
+## ASLR
+
+- [Linux下关闭ASLR(地址空间随机化)的方法](https://blog.csdn.net/counsellor/article/details/81543197)
+- [Linux关闭KASLR](https://blog.csdn.net/zy_zhengyang/article/details/95451484)
+- [开启内核地址随机化KASLR后, qemu 调试 kernel 不能设置断点](https://blog.csdn.net/gatieme/article/details/104266966)
+
+## 内核 C 语言
+
+- [linux内核中6个经典C语言函数代码赏析](https://www.toutiao.com/article/7222172647486964258)
+- [Linux内核中常用的C语言技巧](https://mp.weixin.qq.com/s/tim50z93e-E-Jbl08rDY2A)
+- [弱符号__attribute__((weak))](https://mp.weixin.qq.com/s/EyIx5BkOxPGAjWxDNMXVyg)
+
+### likely和unlikely
+
+- [为什么Linux内核代码中有这么多的likely和unlikely](https://mp.weixin.qq.com/s/JWj5MhMPvc5BmwejqXx3Vw)
+- [linux内核中likely与unlikely](https://blog.csdn.net/u014470361/article/details/81193023)
+
+### 内核section
 
 - [<font color=Red>C关键字section的作用</font>](https://mp.weixin.qq.com/s/sglxUkdboT4epiJOH5z7pg)
 
-## initramfs
+### 内核链表
 
-- [initramfs详解-初识initramfs](https://blog.csdn.net/zyqash/article/details/126041951)
-- [linux initramfs启动原理](https://blog.csdn.net/oqqYuJi12345678/article/details/103218438)
-- [<font color=Red>Linux内核Ramdisk(initrd)机制【转】</font>](https://www.cnblogs.com/sky-heaven/p/13856545.html)
-- [Initramfs 原理和实践](https://www.cnblogs.com/wipan/p/9269505.html)
-- [<font color=Red>关于initrd和initramfs</font>](https://blog.csdn.net/u012787604/article/details/121685547)
-- [<font color=Red>Linux aarch64 编译 & qemu 搭建实验平台 initrd initramfs</font>](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609)
-- [initramfs详解-初识initramfs](https://huaweicloud.csdn.net/6356178ed3efff3090b59d10.html)
-- [linux 内核启动Initramfs与initrd 及其挂载](https://blog.csdn.net/u012332571/article/details/121906322)
-- [精通initramfs构建step by step](http://t.zoukankan.com/FullStack-p-8041964.html)
-- [新型的initrd的解压方法](https://blog.csdn.net/xiaofeng_yan/article/details/83303544)
-- [BinWalk安装和命令参数详解](https://cloud.tencent.com/developer/article/1515285)
+- [玩转内核链表list_head，教你管理不同类型节点的实现，建议收藏](https://mp.weixin.qq.com/s/Ddonv6FdY4oroIT32IGxOw)
+- [Linux内核中经典链表 list_head 常见使用方法解析](https://blog.csdn.net/wanshilun/article/details/79747710)
+- [Linux内核中的常用宏container_of其实很简单](https://blog.csdn.net/npy_lp/article/details/7010752)
+- [<font color=Red>Linux内核中container_of的原理及其使用详解</font>](https://blog.csdn.net/u010632165/article/details/107523477)
+- [Linux 内核 hlist 详解](https://blog.csdn.net/hs794502825/article/details/24597773)
+- [hlist用法以及hlist_for_each_entry 使用举例](https://blog.csdn.net/oHeHui1/article/details/128176831)
 
 ## 启动流程
 
-- [kernel启动流程-start_kernel的执行_8.cpio initrd解包](https://blog.csdn.net/jasonactions/article/details/114080652)
-- [kernel启动流程-start_kernel的执行_7.arch_call_rest_init](https://blog.csdn.net/jasonactions/article/details/114007646)
-- [linux内核中do_initcalls函数的执行逻辑分析](https://m.elecfans.com/article/1980482.html)
-- [Linux0号进程，1号进程，2号进程](https://www.cnblogs.com/MrLiuZF/p/15187310.html)
-- [Linux下0号进程的前世(init_task进程)今生(idle进程)](https://blog.csdn.net/21cnbao/article/details/105885390)
 - [Linux | Kernel 启动流程源码分析](https://mp.weixin.qq.com/s/umB4mgMUtAvL52AcjDq55g)
 
-- [Linux 实现原理 — 网卡驱动程序初始化流程](https://mp.weixin.qq.com/s/jcolfo4bvKPS-eRdeCkRCg)
+### 0号进程，1号进程，2号进程
 
-## 根文件系统挂载
+- [Linux下0号进程的前世(init_task进程)今生(idle进程)](https://blog.csdn.net/21cnbao/article/details/105885390)
+- [Linux0号进程，1号进程，2号进程](https://www.cnblogs.com/MrLiuZF/p/15187310.html)
+
+- [kernel启动流程-start_kernel的执行_7.arch_call_rest_init](https://blog.csdn.net/jasonactions/article/details/114007646)
+
+### 根文件系统rootfs
 
 - [一文讲解Linux内核中根文件系统挂载流程](https://zhuanlan.zhihu.com/p/489819324)
 - [根文件系统挂载 原创](https://blog.51cto.com/csdyabc/856177)
+- [rootfs根文件系统制作及挂载方法-详解](https://mp.weixin.qq.com/s/0sM0y0Bc8pJvzohJ_cpmoQ)
+- [根文件系统挂载](http://blog.chinaunix.net/uid-305141-id-2133773.html)
 
-## percpu变量
+#### initramfs
 
-- [一张图看懂linux内核中percpu变量的实现 KING.YT](https://zhuanlan.zhihu.com/p/340985476)
-- [一张图看懂linux内核中percpu变量的实现](https://cloud.tencent.com/developer/article/1769514)
-- [<font color=Red>amd64下基于per_cpu变量current_task获取task_struct</font>](https://github.com/realwujing/realwujing.github.io/blob/main/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eper_cpu%E5%8F%98%E9%87%8Fcurrent_task%E8%8E%B7%E5%8F%96task_struct.md)
+- [kernel启动流程-start_kernel的执行_8.cpio initrd解包](https://blog.csdn.net/jasonactions/article/details/114080652)
+- [linux initramfs启动原理](https://blog.csdn.net/oqqYuJi12345678/article/details/103218438)
 
-    ```text
-    p ((struct task_struct*)(*(unsigned long*)((char*)__per_cpu_offset[0] + 0x15d00)))->comm
-    ```
+##### initrd 和 initramfs
+
+- [<font color=Red>关于initrd和initramfs</font>](https://blog.csdn.net/u012787604/article/details/121685547)
+- [<font color=Red>Linux内核Ramdisk(initrd)机制【转】</font>](https://www.cnblogs.com/sky-heaven/p/13856545.html)
+- [<font color=Red>initramfs详解-初识initramfs</font>initramfs详解-初识initramfs](https://blog.csdn.net/zyqash/article/details/126041951)
+
+##### 制作initramfs
+
+- [Initramfs 原理和实践](https://www.cnblogs.com/wipan/p/9269505.html)
+- [<font color=Red>Linux aarch64 编译 & qemu 搭建实验平台 initrd initramfs</font>](https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609)
+
+##### initramfs解压
+
+- [新型的initrd的解压方法](https://blog.csdn.net/xiaofeng_yan/article/details/83303544)
+- [BinWalk安装和命令参数详解](https://cloud.tencent.com/developer/article/1515285)
+
+##### lsinitramfs
+
+- [lsinitramfs lsinitrd 系统镜像操作相关命令一览表](https://cloud.tencent.com/developer/article/2128401)
+- [lsinitramfs - list content of an initramfs image](https://manpages.ubuntu.com/manpages/xenial/man8/lsinitramfs.8.html)
+
+## do_initcalls
+
+- [<font color=Red>Linux 驱动开发 二：module_init机制</font>](https://blog.csdn.net/OnlyLove_/article/details/121641335)
+- [<font color=Red>initcall 机制</font>](https://www.bookstack.cn/read/linux-insides-zh/Concepts-linux-cpu-3.md)
+- [linux内核中do_initcalls函数的执行逻辑分析](https://m.elecfans.com/article/1980482.html)
+- [initcall_debug来查看开机慢问题](https://blog.csdn.net/rikeyone/article/details/84258391)
+- [<font color=Red>Linux 各种 initcall 的调用原理</font>](https://blog.csdn.net/enlaihe/article/details/123904759)
+- [【Linux内核源码分析】initcall机制与module_init](https://mp.weixin.qq.com/s/2lgtL6dRJEs803Gn43tLsg)
+
+## cpu调频
+
+- [Linux&Tina动态调压调频配置与实现](https://blog.csdn.net/tugouxp/article/details/120527174)
 
 ## 系统调用
 
@@ -147,7 +452,27 @@ updated: 2023/04/21 17:47:50
 - [<font color=Red>介绍Linux系统调用（值得收藏）</font>](https://blog.csdn.net/m0_74282605/article/details/128097944)
 - [linux系统下的各种hook方式Linux内核hook系统调用](https://m.dandelioncloud.cn/article/details/1567859018796593153)
 - [Linux系统调用Hook姿势总结](https://m.dandelioncloud.cn/article/details/1552321452504739842)
-- [没有open的手册页条目](https://blog.csdn.net/yuechuxuan/article/details/70308126)
+- [<font color=Red>没有open的手册页条目</font>](https://blog.csdn.net/yuechuxuan/article/details/70308126)
+
+    安装 POSIX 系统帮助手册：
+
+    ```bash
+    sudo apt-get install manpages-posix-dev
+    ```
+
+    查看所有系统调用：
+
+    ```bash
+    man syscalls
+    ```
+
+    查看open系统调用：
+
+    ```bash
+    man open
+    man 2 open
+    ```
+
 - [系统调用的三种方式](https://blog.csdn.net/QFFQFF/article/details/76762232)
 - [应用程序如何直接调用一个系统调用, 不经过C库?](https://blog.csdn.net/weixin_42992444/article/details/108688932)
 - [Linux系统调用汇总](https://www.toutiao.com/article/7159607330227798562/)
@@ -156,14 +481,22 @@ updated: 2023/04/21 17:47:50
 - [linux系统调用和库函数调用的区别](https://www.cnblogs.com/Yogurshine/p/3666527.html)
 - [系统调用与函数调用有什么区别？](https://mp.weixin.qq.com/s/2rzzQTuZKSW0O4zM1DlAWQ)
 
-## open openat
+### ERESTARTSYS
+
+- [解析：signal_pending与返回-ERESTARTSYS](https://blog.csdn.net/vhghhd/article/details/6856659)
+
+### open openat
 
 - [open和openat系统调用](https://www.modb.pro/db/379821)
 
-## uid和euid
+### uid和euid
 
 - [理解Effective UID(EUID)和Real UID(RUID)](https://www.junmajinlong.com/linux/euid_ruid/)
 - [Linux进程的uid和euid](https://www.cnblogs.com/itech/archive/2012/04/01/2429081.html)
 - [geteuid()和getuid（）的区别](https://blog.csdn.net/dongzhongshu/article/details/6215054)
 - [getuid() 与 geteuid()  获得 UID 以及 有效 UID 值](https://blog.csdn.net/dedlous/article/details/7188776)
 - [linux c setuid函数解析](https://blog.csdn.net/whatday/article/details/102844879)
+
+## 其它
+
+- [用户态和内核态的切换耗费时间的原因](https://blog.csdn.net/weixin_43871678/article/details/106723029)
