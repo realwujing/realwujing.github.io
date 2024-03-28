@@ -63,7 +63,15 @@
 <meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20231122154606.png">
 <meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328090419.png">
 <meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328090322.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328113730.png">
 <meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328001326.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114224.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114324.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114412.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114445.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114521.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114532.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328113837.png">
 <meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328001902.png">
 <meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328002049.png">
 <meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328002231.png">
@@ -88,7 +96,7 @@
 <meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328110106.png">
 <meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328111443.png">
 <meta property="article:published_time" content="2023-11-22T14:38:37.000Z">
-<meta property="article:modified_time" content="2024-03-28T11:22:05.000Z">
+<meta property="article:modified_time" content="2024-03-28T11:46:04.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="qemu">
@@ -343,7 +351,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          45k 字
+          46k 字
         
       </span>
     
@@ -354,7 +362,7 @@
         
         
         
-          376 分钟
+          381 分钟
         
       </span>
     
@@ -397,7 +405,7 @@
               <p class="note note-info">
                 
                   
-                    本文最后更新于：2024年3月28日 上午
+                    本文最后更新于：2024年3月28日 中午
                   
                 
               </p>
@@ -1087,6 +1095,16 @@
 <figure>
 <img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20231122154606.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>内存管理架构图</figcaption>
 </figure>
+<h3 id="物理内存">物理内存</h3>
+<p>快速路径 fast path：该路径的下，内存分配的逻辑比较简单，主要是在 WMARK_LOW 水位线之上快速的扫描一下各个内存区域中是否有足够的空闲内存能够满足本次内存分配，如果有则立马从伙伴系统中申请，如果没有立即返回。</p>
+<p>慢速路径 slow path：慢速路径下的内存分配逻辑就变的非常复杂了，其中包含了内存分配的各种异常情况的处理，并且会根据文中介绍的 GFP_，ALLOC_ 等各种内存分配策略掩码进行不同分支的处理，整个链路非常庞大且繁杂。</p>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328090419.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>物理内存分配链路</figcaption>
+</figure>
+<p>无论是快速路径还是慢速路径下的内存分配都需要最终调用 get_page_from_freelist 函数进行最终的内存分配。只不过，不同路径下 get_page_from_freelist 函数的内存分配策略以及需要考虑的内存水位线会有所不同，其中慢速路径下的内存分配策略会更加激进一些。</p>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328090322.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>get_page_from_freelist</figcaption>
+</figure>
 <h3 id="用户空间">1. 用户空间</h3>
 <p>应用程序使用 malloc()申请内存，使用 free()释放内存。</p>
 <p>malloc()和 free()是 glibc 库的内存分配器 ptmalloc 提供的接口，ptmalloc 使用系统调用 brk 或 mmap 向内核以页为单位申请内存，然后划分成小内存块分配给应用程序。</p>
@@ -1098,15 +1116,6 @@
 <p>页分配器负责分配物理页，当前使用的页分配器是伙伴分配器。</p>
 <p>内核空间提供了把页划分成小内存块分配的块分配器，提供分配内存的接口 kmalloc() 和释放内存的接口 kfree()，支持 3 种块分配器：SLAB 分配器、SLUB 分配器和 SLOB 分配器。</p>
 <p>在内核初始化的过程中，页分配器还没准备好，需要使用临时的引导内存分配器分配 内存。</p>
-<p>快速路径 fast path：该路径的下，内存分配的逻辑比较简单，主要是在 WMARK_LOW 水位线之上快速的扫描一下各个内存区域中是否有足够的空闲内存能够满足本次内存分配，如果有则立马从伙伴系统中申请，如果没有立即返回。</p>
-<p>慢速路径 slow path：慢速路径下的内存分配逻辑就变的非常复杂了，其中包含了内存分配的各种异常情况的处理，并且会根据文中介绍的 GFP_，ALLOC_ 等各种内存分配策略掩码进行不同分支的处理，整个链路非常庞大且繁杂。</p>
-<figure>
-<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328090419.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>物理内存分配链路</figcaption>
-</figure>
-<p>无论是快速路径还是慢速路径下的内存分配都需要最终调用 get_page_from_freelist 函数进行最终的内存分配。只不过，不同路径下 get_page_from_freelist 函数的内存分配策略以及需要考虑的内存水位线会有所不同，其中慢速路径下的内存分配策略会更加激进一些。</p>
-<figure>
-<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328090322.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>get_page_from_freelist</figcaption>
-</figure>
 <h4 id="内核空间的扩展功能">（2）内核空间的扩展功能</h4>
 <p>不连续页分配器提供了分配内存的接口 vmalloc 和释放内存的接口 vfree，在内存碎片 化的时候，申请连续物理页的成功率很低，可以申请不连续的物理页，映射到连续的虚拟 页，即虚拟地址连续而物理地址不连续。</p>
 <p>每处理器内存分配器用来为每处理器变量分配内存。</p>
@@ -1127,6 +1136,35 @@
 </ul>
 <p>SLOB 分配器最大的特点就是简洁，代码只有 600 多行，特别适合小内存的嵌入式设备。</p>
 <h4 id="slub-分配器内存缓存的数据结构">SLUB 分配器内存缓存的数据结构</h4>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/yHF5xBm5yMXDAHmE_noeCg">（图片清晰版）细节拉满，80 张图带你一步一步推演 slab 内存池的设计与实现</a></li>
+</ul>
+<h5 id="slab-的总体架构设计">slab 的总体架构设计</h5>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328113730.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>6. slab 的总体架构设计</figcaption>
+</figure>
+<h5 id="slab-cache-的架构全貌">slab cache 的架构全貌</h5>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328001326.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>slab cache 的架构全貌</figcaption>
+</figure>
+<h5 id="slab-内存分配原理">7. slab 内存分配原理</h5>
+<h6 id="从本地-cpu-缓存中直接分配">7.1 从本地 cpu 缓存中直接分配</h6>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114224.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>7.1 从本地 cpu 缓存中直接分配</figcaption>
+</figure>
+<h6 id="从本地-cpu-缓存-partial-列表中分配">7.2 从本地 cpu 缓存 partial 列表中分配</h6>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114324.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>7.2 从本地 cpu 缓存 partial 列表中分配</figcaption>
+</figure>
+<h6 id="从-numa-节点缓存中分配">7.3 从 NUMA 节点缓存中分配</h6>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114412.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>20240328114412</figcaption>
+</figure>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114445.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>20240328114445</figcaption>
+</figure>
+<h6 id="从伙伴系统中重新申请-slab">7.4 从伙伴系统中重新申请 slab</h6>
+<p><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114521.png" srcset="/img/loading.gif" lazyload alt="20240328114521" /> <img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328114532.png" srcset="/img/loading.gif" lazyload alt="20240328114532" /></p>
 <h5 id="数据结构">1．数据结构</h5>
 <p>SLUB 分配器内存缓存的数据结构如图 3.37 所示。</p>
 <ul>
@@ -1167,11 +1205,15 @@
 </ul></li>
 </ul></li>
 </ul>
+<h6 id="freepointer">freepointer</h6>
 <p>对象有两种内存布局，区别是空闲指针的位置不同。</p>
 <p>第一种内存布局如图 3.38 所示，空闲指针在红色区域 2 的后面。</p>
 <figure>
-<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328001326.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>slab cache 的架构全貌</figcaption>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328113837.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>freepointer</figcaption>
 </figure>
+<p>在上小节我们介绍 freepointer 指针的时候提到过，当对象在 slab 中缓存并没有被分配出去之前，其实对象所占内存中存储的是什么，用户根本不会去关心。内核会巧妙的利用对象的内存空间来存储 freepointer 指针，用于指向 slab 中的下一个空闲对象。</p>
+<p>但是当 kmem_cache 结构中的 flags 设置了 SLAB_POISON 标志位之后，slab 中的对象会 POISON 毒化，被特殊字节 0x6b 和 0xa5 所填充，这样一来就会覆盖原有的 freepointer，在这种情况下，内核就需要把 freepointer 存储在对象所在内存区域的外面。</p>
+<p>所以内核就需要用一个字段来标识 freepointer 的位置，struct kmem_cache 结构中的 unsigned int offset 字段干的就是这个事情，它表示对象的 freepointer 指针距离对象的起始内存地址的偏移 offset。</p>
 <h2 id="中断">中断</h2>
 <p>这段文字概述了第10章《中断与时钟》的主要内容，主要涵盖了中断和定时器在Linux设备驱动编程中的重要性以及相应的处理流程和机制。以下是对每个小节的简要解释：</p>
 <p>10.1 节 - 中断和定时器的概念及处理流程： 中断和定时器概念： 介绍中断和定时器的基本概念，以及它们在Linux设备驱动中的作用。 处理流程： 概述中断和定时器的处理流程，强调中断服务程序需要尽量短暂，因为它执行在非进程上下文中。</p>
