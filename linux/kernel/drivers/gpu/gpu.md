@@ -40,6 +40,12 @@ sudo apt install task-gnome-desktop
 - [Xsession :warning:unable to write to /tmp; X session may exit with an error问题解决](https://blog.csdn.net/moyu123456789/article/details/90483108)
 - [Ubuntu系统开机后类似死机（鼠标键盘失效 但系统时间仍在正常更新）解决办法](https://www.cnblogs.com/yutian-blogs/p/13549657.html)
 
+##### multiseat
+
+- [Xorg multiseat](https://wiki.archlinux.org/title/Xorg_multiseat)
+- [Multi_Seat_Debian_HOWTO](https://wiki.debian.org/Multi_Seat_Debian_HOWTO)
+- [Multiseat on Debian](https://kcore.org/2010/04/04/multiseat-on-debian/)
+
 ##### 窗口管理器
 
 - [<font color=Red>Window manager (简体中文)</font>](https://wiki.archlinux.org/title/Window_manager_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87))
