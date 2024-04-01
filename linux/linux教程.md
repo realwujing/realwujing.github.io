@@ -404,6 +404,10 @@ sed -n '1119,1224'p kern.log > pm.log
 - [Linux/CentOS设置全局代理（http）](https://www.cnblogs.com/daijiabao/p/11358743.html)
 - [linux下的全局代理工具proxychain](https://monkeywie.cn/2020/07/06/linux-global-proxy-tool-proxychain/)
 
+### 正向代理 反向代理
+
+- [终于有人把正向代理和反向代理解释的明明白白了！](https://cloud.tencent.com/developer/article/1418457)
+
 ## Linux 权限
 
 - [Linux 中的权限（0755或0644或-rwxr-xr-x）](https://blog.csdn.net/dengjili/article/details/90735669)
