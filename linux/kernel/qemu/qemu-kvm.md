@@ -1,5 +1,6 @@
-# qemu
+# qemu-kvm
 
+- [<font color=Red>虚拟化指南</font>](https://documentation.suse.com/zh-cn/sles/15-SP4/html/SLES-all/cha-kvm.html)
 - [<font color=Red>Linux虚拟化</font>](https://www.cnblogs.com/LoyenWang/category/1828942.html)
 
 - [服务器虚拟化组件有哪些？](http://c.biancheng.net/view/3842.html)
@@ -15,21 +16,10 @@
 - [<font color=Red>https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu</font>](https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu)
 - [<font color=Red>Linux内核调试</font>](https://blog.csdn.net/onlylove_/category_11607029.html)
 
-## libvirt
-
-- [KVM虚拟化解决方案系列之KVM管理工具-libvirt介绍篇](https://blog.csdn.net/jianghu0755/article/details/129776841)
-- [CentOS创建KVM虚拟机-在Edit→Preferences里面开启XML文件编辑功能](https://tinychen.com/20200405-centos-create-kvm-vm/)
-- [<font color=Red>libvirt的virsh命令和qemu参数转换</font>](https://blog.csdn.net/YuZhiHui_No1/article/details/53909925)
-- [libvirt and QEMU 基础篇](https://blog.csdn.net/lingshengxiyou/article/details/128665491)
-
-### qemu monitor
-
-- [QEMU Monitor](https://www.qemu.org/docs/master/system/monitor.html)
-- [QEMU monitor控制台使用详解](https://blog.csdn.net/qq_43523618/article/details/106278245)
-- [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
-
 ## virt-manager
 
+- [<font color=Red>虚拟化入门指南</font>](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/virtualization_getting_started_guide/index)
+- [<font color=Red>虚拟化部署和管理指南</font>](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/virtualization_deployment_and_administration_guide/index)
 - [<font color=Red>How to Install and Configure KVM on Debian 11 Bullseye Linux</font>](https://linux.how2shout.com/how-to-install-and-configure-kvm-on-debian-11-bullseye-linux/)
 
   ```bash
@@ -47,6 +37,17 @@
   sudo virsh net-start default
   sudo virsh net-autostart default
   ```
+
+### libvirt
+
+- [KVM虚拟化解决方案系列之KVM管理工具-libvirt介绍篇](https://blog.csdn.net/jianghu0755/article/details/129776841)
+- [CentOS创建KVM虚拟机-在Edit→Preferences里面开启XML文件编辑功能](https://tinychen.com/20200405-centos-create-kvm-vm/)
+- [<font color=Red>libvirt的virsh命令和qemu参数转换</font>](https://blog.csdn.net/YuZhiHui_No1/article/details/53909925)
+- [libvirt and QEMU 基础篇](https://blog.csdn.net/lingshengxiyou/article/details/128665491)
+- [KVM虚拟化解决方案系列之KVM管理工具-libvirt介绍篇](https://blog.csdn.net/jianghu0755/article/details/129776841)
+- [CentOS创建KVM虚拟机-在Edit→Preferences里面开启XML文件编辑功能](https://tinychen.com/20200405-centos-create-kvm-vm/)
+- [<font color=Red>libvirt的virsh命令和qemu参数转换</font>](https://blog.csdn.net/YuZhiHui_No1/article/details/53909925)
+- [libvirt and QEMU 基础篇](https://blog.csdn.net/lingshengxiyou/article/details/128665491)
 
 ### 共享剪切板
 
@@ -106,6 +107,19 @@ sudo mount -a
 - [虚拟化技术 — Libvirt 异构虚拟化管理组件](https://mp.weixin.qq.com/s/oEDuaFs7DQM3zMCIx_CiFA)
 - [<font color=Red>Ubuntu 20.04 物理机 QEMU-KVM + Virt-Manager 创建桥接模式的虚拟机</font>](https://www.cnblogs.com/whjblog/p/17213359.html)
 - [[Debian10]使用KVM虚拟机并配置桥接网络](https://www.cnblogs.com/DouglasLuo/p/12731591.html)
+
+## qemu monitor
+
+- [36 使用 QEMU 监视器管理虚拟机](https://documentation.suse.com/zh-cn/sles/15-SP4/html/SLES-all/cha-qemu-monitor.html)
+- [QEMU Monitor](https://www.qemu.org/docs/master/system/monitor.html)
+- [QEMU monitor控制台使用详解](https://blog.csdn.net/qq_43523618/article/details/106278245)
+- [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
+
+## VIFO透传
+
+- [KVM设备透传与重定向](https://blog.csdn.net/zhongbeida_xue/article/details/103602105)
+- [19.3.2. 将 USB 设备附加到虚拟机](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/virtualization_deployment_and_administration_guide/sect-the_virtual_hardware_details_window-attaching_usb_devices_to_a_guest_virtual_machine)
+- [19.3.3. USB 重定向](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/virtualization_deployment_and_administration_guide/sect-the_virtual_hardware_details_window-usb_redirection)
 
 ## x86_64下qemu虚拟x86_64
 
