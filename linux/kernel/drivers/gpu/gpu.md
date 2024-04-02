@@ -45,6 +45,7 @@ sudo apt install task-gnome-desktop
 - [Xorg multiseat](https://wiki.archlinux.org/title/Xorg_multiseat)
 - [Multi_Seat_Debian_HOWTO](https://wiki.debian.org/Multi_Seat_Debian_HOWTO)
 - [Multiseat on Debian](https://kcore.org/2010/04/04/multiseat-on-debian/)
+- [MultiseatOneCard  多座一卡](https://help.ubuntu.com/community/MultiseatOneCard)
 
 ##### 窗口管理器
 
