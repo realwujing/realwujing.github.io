@@ -127,6 +127,8 @@
 
 ## 抓包
 
+- [Linux性能优化-用tcpdump 和 Wireshark 分析网络流量](https://blog.csdn.net/hixiaoxiaoniao/article/details/87596703)
+- [一文掌握 Linux 性能分析之网络篇](https://www.cnblogs.com/bakari/p/10515977.html)
 - [wireshark过滤http包](https://blog.csdn.net/github_40044758/article/details/111290919)
 - [<font color=Red>如何在 Linux 上使用 Wireshark 过滤器</font>](https://cn.linux-console.net/?p=8295)
 
