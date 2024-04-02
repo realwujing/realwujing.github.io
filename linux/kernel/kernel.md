@@ -5,8 +5,9 @@
   - [基础与应用开发实战指南——基于i.MX6ULL](https://doc.embedfire.com/linux/imx6/linux_base/zh/latest/index.html)
   - [<font color=Red>驱动开发实战指南——基于i.MX6ULL</font>](https://doc.embedfire.com/linux/imx6/driver/zh/latest/index.html)
   - [嵌入式Linux镜像构建与部署——基于鲁班猫系列开发板](https://doc.embedfire.com/lubancat/build_and_deploy/zh/latest/index.html)
-  - [《嵌入式Qt应用开发实战》](https://doc.embedfire.com/linux/qt/embed/zh/latest/index.html)
+  - [嵌入式Qt应用开发实战](https://doc.embedfire.com/linux/qt/embed/zh/latest/index.html)
   - [Python应用开发实践](https://doc.embedfire.com/lubancat/python/zh/latest/index.html)
+
 - [<font color=Red>内核深度解读</font>](https://blog.csdn.net/u012489236?type=blog)
 - [<font color=Red>设备驱动</font>](https://blog.csdn.net/tiantianhaoxinqing__?type=blog)
 - [Linux内核之旅](http://kerneltravel.net/)
@@ -309,6 +310,15 @@ cd code/linux-6.1.55-1/linux-6.1.55
 ```bash
 dpkg-buildpackage -b -nc -uc -us -j16
 ```
+
+#### 内核调试包
+
+- [<font color=Red>Ubuntu Debug Symbol Packages</font>](https://wiki.ubuntu.com/Debug%20Symbol%20Packages)
+- [Linux内核调试的方式以及工具集锦](https://github.com/gatieme/LDD-LinuxDeviceDrivers/blob/master/study/debug/tools/systemtap/01-install/README.md)
+- [如何下载或安装 RHEL 系统的内核调试信息包？](https://access.redhat.com/solutions/9907)
+- [<font color=Red>Linux 之十八 Ubuntu 22.04 配置内核版本、GRUB 引导、远程桌面、包后缀（-dev、-dbg等）</font>](https://blog.csdn.net/ZCShouCSDN/article/details/128188958)
+- [（转载）ubuntu 安装 dbgsym (debug-info)](https://cloud.tencent.com/developer/article/1637887)
+- [dpkg-buildpackage error](https://github.com/Mellanox/nv_peer_memory/issues/77)
 
 ## 内核模块
 
