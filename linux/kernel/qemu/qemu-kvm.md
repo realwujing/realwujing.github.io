@@ -120,6 +120,8 @@ sudo mount -a
 - [KVM设备透传与重定向](https://blog.csdn.net/zhongbeida_xue/article/details/103602105)
 - [19.3.2. 将 USB 设备附加到虚拟机](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/virtualization_deployment_and_administration_guide/sect-the_virtual_hardware_details_window-attaching_usb_devices_to_a_guest_virtual_machine)
 - [19.3.3. USB 重定向](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/virtualization_deployment_and_administration_guide/sect-the_virtual_hardware_details_window-usb_redirection)
+- [USB虚拟化](https://blog.csdn.net/jerryxiao1979/article/details/128453912)
+- [unraid 直通usb](https://juejin.cn/s/unraid%20%E7%9B%B4%E9%80%9Ausb)
 
 ## x86_64下qemu虚拟x86_64
 
