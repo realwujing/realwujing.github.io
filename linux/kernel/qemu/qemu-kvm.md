@@ -122,6 +122,7 @@ sudo mount -a
 - [19.3.3. USB 重定向](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/virtualization_deployment_and_administration_guide/sect-the_virtual_hardware_details_window-usb_redirection)
 - [USB虚拟化](https://blog.csdn.net/jerryxiao1979/article/details/128453912)
 - [unraid 直通usb](https://juejin.cn/s/unraid%20%E7%9B%B4%E9%80%9Ausb)
+- [libvirt-usb设备透传给虚拟机](http://www.manongjc.com/detail/50-cxzuhdjzmdqrklm.html)
 
 ## x86_64下qemu虚拟x86_64
 
