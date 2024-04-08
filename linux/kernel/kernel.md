@@ -43,6 +43,8 @@
 ### 内核源码结构
 
 - [Linux内核  内核源码结构](https://www.cnblogs.com/y4247464/p/12333955.html)
+- [Linux kernel diagram](https://makelinux.github.io/kernel/diagram/)
+- [Interactive map of Linux kernel](https://makelinux.github.io/kernel/map/)
 
 ### 内核源码在线阅读
 
