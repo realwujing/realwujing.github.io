@@ -91,6 +91,10 @@ slub_debug=UFPZ
 echo 1 > /sys/kernel/slab/kernfs_node_cache/trace  && sleep 60 && echo 0 > /sys/kernel/slab/kernfs_node_cache/trace
 ```
 
+```bash
+/sys/kernel/slab/kernfs_node_cache/group
+```
+
 在/var/log/kern.log中查看kernfs_node_cache alloc:
 
 ```bash
@@ -203,8 +207,8 @@ trace-bpfcc -tKU 'r::kernfs_new_node "%llx", retval'
         kernfs_new_node+0x0 [kernel]
         sysfs_add_file_mode_ns+0x9c [kernel]
         internal_create_group+0x104 [kernel]
-        sysfs_create_group+0x14 [kernel]
-        sysfs_slab_add+0xb8 [kernel]
+        sysfs_create_group+0x14 [kernel]  # 上游4.19.306这里没走到
+        sysfs_slab_add+0xb8 [kernel]      # 上游4.19.306这里走到了
         __kmem_cache_create+0x128 [kernel]
         create_cache+0xcc [kernel]
         memcg_create_kmem_cache+0xf8 [kernel]
@@ -490,7 +494,9 @@ __read_once_size 于 include/linux/compiler.h:193
 
 ###### kthread_create_on_node
 
-```c vim kernel/kthread.c +370
+```c
+// vim kernel/kthread.c +370
+
 347 /**
  348  * kthread_create_on_node - 创建一个内核线程。
  349  * @threadfn: 要运行的函数，直到 signal_pending(current)。
@@ -533,7 +539,9 @@ __read_once_size 于 include/linux/compiler.h:193
 
 ###### maybe_create_worker
 
-```c // vim kernel/workqueue.c +1972
+```c
+// vim kernel/workqueue.c +1972
+
 1943 /**
 1944  * maybe_create_worker - 如果需要，创建一个新的工作线程
 1945  * @pool: 用于创建新工作线程的线程池
@@ -591,8 +599,8 @@ arch_static_branch 于 arch/arm64/include/asm/jump_label.h:20
 (已内连入)process_one_work 于 kernel/workqueue.c:2158
 ```
 
-```c // vim kernel/workqueue.c +2158
-
+```c
+// vim kernel/workqueue.c +2158
 // 2158行对应下方代码2133行
 
 2032 /**
@@ -866,6 +874,62 @@ css_put 于 include/linux/cgroup.h:391
 2606 }
 ```
 
+用bpf追踪一下哪些进程会调用memcg_kmem_get_cache：
+
+```bash
+trace-bpfcc -t memcg_kmem_get_cache | tee memcg_kmem_get_cache1.log
+```
+
+输出结果如下：
+
+```bash
+TIME     PID     TID     COMM            FUNC             
+1.620114 935     935     redis-server    memcg_kmem_get_cache 
+1.620177 935     935     redis-server    memcg_kmem_get_cache 
+1.620193 935     935     redis-server    memcg_kmem_get_cache 
+1.620216 935     935     redis-server    memcg_kmem_get_cache 
+1.720512 935     935     redis-server    memcg_kmem_get_cache 
+1.720576 935     935     redis-server    memcg_kmem_get_cache 
+1.720591 935     935     redis-server    memcg_kmem_get_cache 
+1.720620 935     935     redis-server    memcg_kmem_get_cache 
+1.787920 895     954     QDBusConnection memcg_kmem_get_cache 
+1.787975 895     954     QDBusConnection memcg_kmem_get_cache 
+1.788464 2975    2975    deepin-system-m memcg_kmem_get_cache 
+1.788496 2975    2975    deepin-system-m memcg_kmem_get_cache 
+1.788512 2975    2975    deepin-system-m memcg_kmem_get_cache 
+1.788527 2975    2975    deepin-system-m memcg_kmem_get_cache 
+1.788538 2975    2975    deepin-system-m memcg_kmem_get_cache 
+1.788678 2975    2975    deepin-system-m memcg_kmem_get_cache 
+1.788694 2975    2975    deepin-system-m memcg_kmem_get_cache 
+1.788705 2975    2975    deepin-system-m memcg_kmem_get_cache 
+1.788715 2975    2975    deepin-system-m memcg_kmem_get_cache 
+1.788737 2975    2975    deepin-system-m memcg_kmem_get_cache 
+1.788440 895     963     QThread         memcg_kmem_get_cache 
+1.789300 4405    4405    deepin-terminal memcg_kmem_get_cache 
+1.789335 4405    4405    deepin-terminal memcg_kmem_get_cache 
+1.789422 895     965     QThread         memcg_kmem_get_cache 
+1.789467 895     965     QThread         memcg_kmem_get_cache 
+1.789586 895     965     QThread         memcg_kmem_get_cache 
+1.789426 1205    1205    Xorg            memcg_kmem_get_cache 
+1.789465 1205    1205    Xorg            memcg_kmem_get_cache 
+1.789734 895     965     QThread         memcg_kmem_get_cache 
+1.797259 4405    4405    deepin-terminal memcg_kmem_get_cache 
+1.797301 4405    4405    deepin-terminal memcg_kmem_get_cache 
+1.797425 1205    1205    Xorg            memcg_kmem_get_cache 
+1.797450 1205    1205    Xorg            memcg_kmem_get_cache 
+1.797629 4405    4405    deepin-terminal memcg_kmem_get_cache 
+1.797657 4405    4405    deepin-terminal memcg_kmem_get_cache 
+1.797735 1205    1205    Xorg            memcg_kmem_get_cache 
+1.797751 1205    1205    Xorg            memcg_kmem_get_cache 
+1.798109 4405    4405    deepin-terminal memcg_kmem_get_cache 
+1.798136 4405    4405    deepin-terminal memcg_kmem_get_cache 
+1.803705 895     965     QThread         memcg_kmem_get_cache 
+1.803754 895     965     QThread         memcg_kmem_get_cache 
+1.803770 895     965     QThread         memcg_kmem_get_cache 
+```
+
+貌似每个进程都会调用memcg_kmem_get_cache函数，也就意味着每次分配都会在内存控制组缓存中创建一个新的缓存。
+
 ###### slab_pre_alloc_hook
 
 ```c
@@ -892,6 +956,18 @@ css_put 于 include/linux/cgroup.h:391
 432 } 
 
 ```
+
+此处好像有个递归？？？
+
+```c
+slab_pre_alloc_hook               // mm/slab.h +414
+  memcg_kmem_get_cache            // mm/slab.h +429
+    kmem_cache_alloc              // mm/slub.c +2719
+      slab_alloc_node             // mm/slub.c +2714
+        slab_pre_alloc_hook       // mm/slub.c +2632
+```
+
+这个递归解释了memcg_schedule_kmem_cache_create函数注释中提到的可能存在递归的原因。
 
 #### systemd
 
@@ -1189,3 +1265,18 @@ sudo systemctl restart avahi-daemon
   - [Bug 1507149 - [LLNL 7.5 Bug] slab leak causing a crash when using kmem control group](https://bugzilla.redhat.com/show_bug.cgi?id=1507149)
 - <https://lore.kernel.org/linux-mm/CA+CK2bCQcnTpzq2wGFa3D50PtKwBoWbDBm56S9y8c+j+pD+KSw@mail.gmail.com/t/>
 - [ [Solved] dbus-org.freedesktop.Avahi.service missing from distribution?](https://bbs.archlinux.org/viewtopic.php?id=261924)
+
+### patch
+
+- [一个疑似slab泄漏问题排查](https://blog.csdn.net/kaka__55/article/details/124063773)
+- [[PATCH v3 01/19] mm: memcg: factor out memcg- and lruvec-level changes out of __mod_lruvec_state() Roman Gushchin](https://lore.kernel.org/lkml/20200422204708.2176080-1-guro@fb.com/t/)
+- [The new cgroup slab memory controller](https://lwn.net/Articles/824216/)
+- [[PATCH v7 12/19] mm: memcg/slab: use a single set of kmem_caches for all accounted allocations](https://www.mail-archive.com/linux-kernel@vger.kernel.org/msg2206757.html)
+
+linux-5.15.y
+memcg_alloc_page_obj_cgroups
+git show 10befea
+
+
+
+cgroup: disable kernel memory accounting for all memory cgroups by default
