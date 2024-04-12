@@ -222,6 +222,37 @@ trace-bpfcc -tKU 'r::kernfs_new_node "%llx", retval'
 
 在 Linux 内核中，错误代码 -14 对应的含义是 EFAULT，表示发生了“无效地址”（Bad address）错误。通常情况下，EFAULT 错误表示系统调用中传递的参数指针指向的地址无效，无法访问或者无法写入。
 
+##### sysfs_slab_add
+
+tyy-1053 sysfs_slab_add 参数追踪：
+
+```c
+trace-bpfcc -t -Ilinux/slab.h -Ilinux/slub_def.h 'sysfs_slab_add(struct kmem_cache *s) "%llx" s->memcg_params.root_cache'
+TIME     PID     TID     COMM            FUNC             -
+96.61296 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001f10d0780
+96.61350 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001f10d0400
+96.61372 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001f10d3880
+96.61390 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001f10d2e00
+96.61434 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001f131b500
+96.61457 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001f0a3a700
+96.61485 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001f131b880
+96.61504 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001ff684780
+96.61535 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001ff7d4b00
+96.61571 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001ff7d5580
+96.61589 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001ff7d6700
+96.61608 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001ff7d7500
+96.61624 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001ff7d4780
+96.61962 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001f10d2a80
+96.61981 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001ff684400
+96.62001 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001ff687180
+96.62299 23371   23371   kworker/2:1     sysfs_slab_add   ffff8001ff687500
+```
+
+可以看到root_cache不是null。
+
+
+
+
 ##### 查看cgroup相关内核线程
 
 ```bash
@@ -1280,3 +1311,18 @@ git show 10befea
 
 
 cgroup: disable kernel memory accounting for all memory cgroups by default
+
+
+mm: slab: fix kmem_cache_create failed when sysfs node not destroyed
+
+bb7dd80
+
+trace-bpfcc -t -Ilinux/slab.h -Ilinux/slub_def.h 'sysfs_slab_add(struct kmem_cache *s) "%llx" s->memcg_params.root_cache'
+
+state_in_sysfs
+
+```c
+lib/kobject.c:250
+
+pr_debug("kobject: '%s' (%p):
+```
