@@ -250,37 +250,6 @@ TIME     PID     TID     COMM            FUNC             -
 
 可以看到root_cache不是null。
 
-
-
-
-##### 查看cgroup相关内核线程
-
-```bash
-ps aux | grep -i cgroup
-root      7061  0.0  0.0      0     0 ?        I    15:14   0:00 [kworker/0:0-cgroup_destroy]
-root     24993  0.0  0.0      0     0 ?        I    15:56   0:00 [kworker/2:0-cgroup_destroy]
-root     29464  0.0  0.0      0     0 ?        I    16:06   0:00 [kworker/3:3-cgroup_destroy]
-root     29835  0.0  0.0      0     0 ?        I    16:07   0:00 [kworker/1:2-cgroup_destroy]
-root     31297  0.0  0.0      0     0 ?        I    16:11   0:00 [kworker/0:3-cgroup_destroy]
-root     31641  0.0  0.0      0     0 ?        I    16:11   0:00 [kworker/2:3-cgroup_destroy]
-ctyun    32314  0.0  0.0  12992   628 pts/0    S+   16:13   0:00 grep -i cgroup
-```
-
-```bash
-ps -eLf | grep -i cgroup
-UID        PID  PPID   LWP  C NLWP STIME TTY          TIME CMD
-ctyun      670  4423   670  0    1 16:15 pts/0    00:00:00 grep -i cgroup
-root      7061     2  7061  0    1 15:14 ?        00:00:00 [kworker/0:0-cgroup_destroy]
-root     24993     2 24993  0    1 15:56 ?        00:00:00 [kworker/2:0-cgroup_destroy]
-root     27074     2 27074  0    1 16:01 ?        00:00:00 [kworker/0:1-cgroup_destroy]
-root     29464     2 29464  0    1 16:06 ?        00:00:00 [kworker/3:3-cgroup_destroy]
-root     29835     2 29835  0    1 16:07 ?        00:00:00 [kworker/1:2-cgroup_destroy]
-root     31297     2 31297  0    1 16:11 ?        00:00:00 [kworker/0:3-cgroup_destroy]
-root     31641     2 31641  0    1 16:11 ?        00:00:00 [kworker/2:3-cgroup_destroy]
-root     31877     2 31877  0    1 16:12 ?        00:00:00 [kworker/3:1-cgroup_destroy]
-root     32216     2 32216  0    1 16:13 ?        00:00:00 [kworker/1:0-cgroup_destroy]
-```
-
 ##### ret_from_fork+0x10
 
 ```bash
@@ -1000,6 +969,91 @@ slab_pre_alloc_hook               // mm/slab.h +414
 
 这个递归解释了memcg_schedule_kmem_cache_create函数注释中提到的可能存在递归的原因。
 
+##### 修复方案
+
+```c
+From dfd4043beff95e15bad4207cc9db9b29940e20d4 Mon Sep 17 00:00:00 2001
+From: yuanqiliang <yuanqiliang@uniontech.com>
+Date: Tue, 16 Apr 2024 11:12:58 +0800
+Subject: [PATCH] mm/memcg: very high memory usage due to kernfs_node_cache slabs
+
+Bug: https://pms.uniontech.com/bug-view-238303.html
+
+Log:
+use command "slabtop -s c -o", kernfs_node_cache is ranked first
+and continues to grow. SUnreclaim is also continuously increasing.
+
+The current memory management code has significant differences from
+upstream. This issue does not exist in upstream linux-4.19.y. Although
+this commit fixes the problem, it is still recommended to sync with the
+upstream code.
+
+Check kernfs_node_cache allocation in /var/log/kern.log:
+
+all trace:
+dump_backtrace+0x0/0x190
+show_stack+0x14/0x20
+dump_stack+0xa8/0xcc
+alloc_debug_processing+0x58/0x188
+___slab_alloc.constprop.34+0x31c/0x388
+kmem_cache_alloc+0x210/0x278
+__kernfs_new_node+0x60/0x1f8
+kernfs_new_node+0x24/0x48
+kernfs_create_dir_ns+0x30/0x88
+cgroup_mkdir+0x2f0/0x4e8
+kernfs_iop_mkdir+0x58/0x88
+vfs_mkdir+0xfc/0x1c0
+do_mkdirat+0xec/0x100
+__arm64_sys_mkdirat+0x1c/0x28
+el0_svc_common+0x90/0x178
+el0_svc_handler+0x9c/0xa8
+el0_svc+0x8/0xc
+
+To trace kernfs_new_node using BPF:
+
+trace-bpfcc -tKU kernfs_new_node
+3.796820 47      47      kworker/3:1     kernfs_new_node
+kernfs_new_node+0x0 [kernel]
+sysfs_add_file_mode_ns+0x9c [kernel]
+internal_create_group+0x104 [kernel]
+sysfs_create_group+0x14 [kernel]  # 上游4.19.306这里没走到
+sysfs_slab_add+0xb8 [kernel]      # 上游4.19.306这里走到了
+__kmem_cache_create+0x128 [kernel]
+create_cache+0xcc [kernel]
+memcg_create_kmem_cache+0xf8 [kernel]
+memcg_kmem_cache_create_func+0x1c [kernel]
+process_one_work+0x1e8 [kernel]
+worker_thread+0x48 [kernel]
+kthread+0x128 [kernel]
+ret_from_fork+0x10 [kernel]
+-14
+
+Signed-off-by: yuanqiliang <yuanqiliang@uniontech.com>
+Change-Id: Ia13f72f6a0b8e9944fd8dafb6f68c7170081a591
+---
+
+diff --git a/mm/slab_common.c b/mm/slab_common.c
+index 1519956..93343e5 100644
+--- a/mm/slab_common.c
++++ b/mm/slab_common.c
+@@ -147,6 +147,7 @@
+ 
+ 	if (root_cache) {
+ 		s->memcg_params.root_cache = root_cache;
++		s->memcg_params.root_cache->memcg_kset = NULL;
+ 		s->memcg_params.memcg = memcg;
+ 		INIT_LIST_HEAD(&s->memcg_params.children_node);
+ 		INIT_LIST_HEAD(&s->memcg_params.kmem_caches_node);
+```
+
+linux-4.19.y上`*(s->memcg_params.root_cache->memcg_kset) = 0`， uos-arm-kernel-1053-tyy上`*(s->memcg_params.root_cache->memcg_kset)`是个随机值。
+
+kmem_cache通过双向链表管理，kmem_cache父节点的memcg_kset会传导给子节点，故第一个非根节点的kset需要初始化为null。
+
+本次问题虽然修复了，但是感觉uos-arm-kernel-1053-tyy上存在一个CVE。
+
+![修复后跟上游对比](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17132357917855.png)
+
 #### systemd
 
 ```bash
@@ -1303,26 +1357,3 @@ sudo systemctl restart avahi-daemon
 - [[PATCH v3 01/19] mm: memcg: factor out memcg- and lruvec-level changes out of __mod_lruvec_state() Roman Gushchin](https://lore.kernel.org/lkml/20200422204708.2176080-1-guro@fb.com/t/)
 - [The new cgroup slab memory controller](https://lwn.net/Articles/824216/)
 - [[PATCH v7 12/19] mm: memcg/slab: use a single set of kmem_caches for all accounted allocations](https://www.mail-archive.com/linux-kernel@vger.kernel.org/msg2206757.html)
-
-linux-5.15.y
-memcg_alloc_page_obj_cgroups
-git show 10befea
-
-
-
-cgroup: disable kernel memory accounting for all memory cgroups by default
-
-
-mm: slab: fix kmem_cache_create failed when sysfs node not destroyed
-
-bb7dd80
-
-trace-bpfcc -t -Ilinux/slab.h -Ilinux/slub_def.h 'sysfs_slab_add(struct kmem_cache *s) "%llx" s->memcg_params.root_cache'
-
-state_in_sysfs
-
-```c
-lib/kobject.c:250
-
-pr_debug("kobject: '%s' (%p):
-```
