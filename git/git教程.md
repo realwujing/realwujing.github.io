@@ -50,6 +50,31 @@ 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
 
 - [<font color=Red>git 回退一个文件的版本</font>](https://blog.csdn.net/weixin_39580031/article/details/123826439)
 
+### 查看某个补丁在内核哪些版本中有
+
+在Linux kernel stable tree mirror中查找某个提交：
+
+```bash
+git remote -v
+origin  https://github.com/gregkh/linux.git (fetch)
+origin  https://github.com/gregkh/linux.git (push)
+```
+
+```bash
+git log --oneline | grep "arm64: implement ftrace with regs"
+3b23e4991fb6 arm64: implement ftrace with regs
+```
+
+在Linux kernel source tree中查找这个提交：
+
+<https://github.com/torvalds/linux/commit/3b23e4991fb6>
+
+将`3b23e4991fb6`替换成要查找的commit:
+
+![3b23e4991fb6最早出现在linux-v5.5-rc1上](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240418101723.png)
+
+![3b23e4991fb6最早出现在linux-v5.5-rc1上](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240418101819.png)
+
 ## head
 
 - [git深入理解(二)：HEAD是什么](https://blog.csdn.net/raoxiaoya/article/details/110862360)
