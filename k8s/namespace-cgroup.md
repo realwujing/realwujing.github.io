@@ -32,3 +32,11 @@
 - [LINUX系统安全_SANDBOX](https://codeantenna.com/a/JHdL7Auz5n)
 - [内核是如何给容器中的进程分配CPU资源的？](https://mp.weixin.qq.com/s/Fw4gE2d0hnRJX5iQfkStQA)
 - [从 500 行 C 代码全面解析 Linux 容器底层工作机制](https://mp.weixin.qq.com/s/BnYtkQO03MR8KnxRX7lWLg)
+
+## cgroup
+
+CPU 控制组：可以使用 cgroup 创建任务组和把进程加入任务组。cgroup 已经从版
+本 1（cgroup v1）演进到版本 2（cgroup v2）：
+
+- 版本 1 可以创建多个控制组层级树
+- 版本 2 只有一个控制组层级树。
