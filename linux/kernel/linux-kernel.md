@@ -2798,8 +2798,8 @@ $ echo 8086 10ca /sys/bus/pci/drivers/vfio-pci/new_id
 7）修改这个设备节点的属性。
 
 ```bash
-# chownqemu /dev/vfio/15
-# chgrpqemu /dev/vfio/15
+# chown qemu /dev/vfio/15
+# chgrp qemu /dev/vfio/15
 ```
 
 8）设置能够锁定的内存为虚拟机内存+一些 IO 空间。
