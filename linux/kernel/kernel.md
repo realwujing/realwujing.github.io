@@ -35,6 +35,11 @@
 - [Linux kernel stable tree mirror](https://github.com/gregkh/linux)
 - [OpenCloudOS kernel](https://gitee.com/OpenCloudOS/OpenCloudOS-Kernel/tree/master)
 
+### LKML
+
+- [从 LKML 优雅的摘取补丁](https://blog.xzr.moe/archives/293/)
+- [正确使用邮件列表参与开源社区的协作](https://tinylab.org/mailing-list-intro/)
+
 ### DebianKernel
 
 - <https://wiki.debian.org/DebianKernel>
