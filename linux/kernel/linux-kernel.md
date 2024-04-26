@@ -2817,6 +2817,24 @@ sudo qemuqemu-system-x86_64 -m 2048 -hda rhel6vm \
  -device vfio-pci,host=01:10.0,id=net0
 ```
 
+#### VFIO中断处理
+
+![图 7-60 VFIO 的中断注入过程](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240426134738.png)
+
+通过 VFIO 将 PCI 设备直通给虚拟机之后，vfio-pci 驱动会接管该 PCI 设备的中断，所以
+vfio-pci 会为设备注册中断处理函数，该中断处理函数需要把中断注入到虚拟机中。物理机接收
+到直通设备中断的时候，既可以在内核直接处理注入虚拟机中，也可以交给 QEMU 处理。本节
+先讨论中断完全在内核处理的情况，这种情况下 QEMU、vfio-pci 驱动、KVM 驱动以及虚拟机
+的相互关系如图 7-61 所示。
+
+![图 7-61 QEMU、虚拟机、KVM 模块以及 VFIO 模块的关系](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240426134841.png)
+
+初始化过程中，QEMU 在 VFIO 虚拟设备的 fd 上调用 ioctl(VFIO_DEVICE_SET_IRQS)设置
+一个 eventfd，当 vfio-pci 驱动接收到直通设备的中断时就会向这个 eventfd 发送信号。初始化过
+程中，QEMU 还会在虚拟机的 fd 上调用 ioctl(KVM_IRQFD)将前述 eventfd 与 VFIO 虚拟设备的
+中断号联系起来，当 eventfd 上有信号时则向虚拟机注入中断。这样即完成了物理设备触发中
+断、虚拟机接收中断的流程。
+
 ### QEMU 虚拟机热迁移
 
 虚拟化环境下的热迁移指的是在虚拟机运行的过程中透明地从源宿主机迁移到目的宿主
