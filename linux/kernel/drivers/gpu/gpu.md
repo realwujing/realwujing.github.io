@@ -3,6 +3,7 @@
 
 - [深夜磨刀，Linux Graphics Stack 概述 | Linux 驱动](https://zhuanlan.zhihu.com/p/414403029)
 - [深度探索Linux操作系统 —— Linux图形原理探讨](https://blog.csdn.net/Liuqz2009/article/details/134988734)
+- [GPU入门](https://qiankunli.github.io/2021/08/18/gpu.html)
 
 ## 桌面环境
 
