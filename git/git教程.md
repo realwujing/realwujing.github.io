@@ -40,7 +40,14 @@ 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
 
 ## commit
 
-- [Git怎样合并最近两次commit](https://blog.csdn.net/keeplook/article/details/39324971)
+- [<font color=Red>Git怎样合并最近两次commit</font>](https://blog.csdn.net/keeplook/article/details/39324971)
+
+```bash
+git rebase -i HEAD~2
+```
+
+根据提示，把第二个“pick”改成“squash”，这样就可以把第二个commit合并到到第一个里。
+
 - [对之前的commit 提交进行修改](https://www.jianshu.com/p/7d40838883af)
 - [<font color=Red>Git 修改已提交 commit 的信息</font>](https://cloud.tencent.com/developer/article/1730774)
 - [<font color=Red>git只合并某一个分支的某个commit</font>](https://www.cnblogs.com/boshen-hzb/p/9764835.html)
