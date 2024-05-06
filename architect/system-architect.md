@@ -1,5 +1,8 @@
 # system-architect
 
+- [💯2024年 系统架构设计师（软考高级）备考资源库+配套免费刷题软件。](https://github.com/xiaomabenten/system_architect)
+- [软考达人](https://ruankaodaren.com/)
+
 ## 软件开发模型
 
 - [软件工程基础 - 九种开发模型](https://blog.csdn.net/xc917563264/article/details/115024764)
