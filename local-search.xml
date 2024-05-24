@@ -756,6 +756,31 @@
   
   
   <entry>
+    <title>hdmi-audio</title>
+    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
+    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
+    
+    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>drivers</category>
+      
+      <category>sound</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>ALC885_1-1</title>
     <link href="/linux/kernel/drivers/sound/ALC885_1-1/"/>
     <url>/linux/kernel/drivers/sound/ALC885_1-1/</url>
@@ -781,31 +806,6 @@
       <tag>git</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>hdmi-audio</title>
-    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
-    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
-    
-    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>drivers</category>
-      
-      <category>sound</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -1238,9 +1238,9 @@
       
       <tag>architect</tag>
       
-      <tag>Java</tag>
-      
       <tag>strings</tag>
+      
+      <tag>Java</tag>
       
     </tags>
     
@@ -1566,6 +1566,27 @@
   
   
   <entry>
+    <title>README</title>
+    <link href="/debug/binary-analysis/README/"/>
+    <url>/debug/binary-analysis/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>debug</category>
+      
+      <category>binary-analysis</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>assembly</title>
     <link href="/debug/assembly/assembly/"/>
     <url>/debug/assembly/assembly/</url>
@@ -1595,27 +1616,6 @@
       <tag>HTML</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/debug/binary-analysis/README/"/>
-    <url>/debug/binary-analysis/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>debug</category>
-      
-      <category>binary-analysis</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -1764,7 +1764,7 @@
     <link href="/debug/bpf/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/"/>
     <url>/debug/bpf/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/</url>
     
-    <content type="html"><![CDATA[<h1 id="性能调优">性能调优</h1><ul><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&amp;mid=2247498209&amp;idx=1&amp;sn=80567d62967575953d0d33132841d907&amp;chksm=f96b8b15ce1c0203b09acee19f2570a011678987077c7a0c3905a6ba108cfeae21ee121ca9da&amp;token=526082791&amp;lang=zh_CN&amp;scene=21#wechat_redirect">Linux性能调优工具9张图-你肯定会用到</a></p></li><li><p><a href="https://www.cnblogs.com/alantu2018/p/8997149.html">Linux内核调试方法总结</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/n42ngcgBdbCdF927ncTa3Q">Linux 性能分析工具汇总</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/uMPr0ZlRtLmIperu8hA0EQ">性能优化基础：深入理解Linux文件系统</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Cv_9-wxXQ9GrUMjQ606sbw">技术硬核 | Linux性能优化总结，赞！赞！赞！咱熬夜也要读完！</a></p></li><li><p><a href="https://linux.cn/article-9424-1.html">Linux跟踪器之选</a></p></li><li><p><a href="https://linux.cn/article-8038-1.html">Linux 中的 DTrace ：BPF 进入 4.9 内核</a></p></li><li><p><a href="https://linux.cn/article-9507-1.html">深入理解 BPF：一个阅读清单</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1698426">Linux超能力BPF技术介绍及学习分享（技术创作101训练营）</a></p></li><li><p><a href="https://www.toutiao.com/article/7077801491347833374"><font color=Red>Linux动态追踪技术概念介绍</font></a></p></li><li><p><a href="https://lzz5235.github.io/2013/11/22/ltrace-strace-ftrace.html"><font color=Red>调试工具ltrace strace ftrace的使用</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/NoVJlGQFh02NiuE3d355XQ">Linux 中 CPU 利用率是如何算出来的？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/bxuKq1up9xs3VfZaPfbkxw">Linux 中 CPU 利用率是如何算出来的？</a></p></li><li><p><a href="http://arthurchiao.art/blog/linux-tracing-basis-zh/#412-%E5%8A%9F%E8%83%BD%E4%BA%8C%E8%B0%83%E7%94%A8%E6%A0%88%E5%B1%95%E5%BC%80stack-unwinding">Linux tracing/profiling 基础：符号表、调用栈、perf/bpftrace 示例等（2022）</a></p></li><li><p><a href="https://blog.csdn.net/wzx8731/article/details/106631071">gdb、strace、pmap、perf等跟踪调试工具使用介绍</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/_PYGtj-7my9uGyuRbbkD1g">改了一行代码，数组遍历耗时从10.3秒降到了0.5秒！</a></p></li></ul><h2 id="性能优化">性能优化</h2><ul><li><p><a href="https://www.toutiao.com/article/7090814899458146855/"><font color=Red>Linux性能问题分析流程与性能优化思路</font></a></p></li><li><p><a href="https://www.cnblogs.com/luoahong/p/10496701.html">深挖计算机基础实战目录</a></p><ul><li><a href="https://www.cnblogs.com/luoahong/p/11792459.html"><font color=Red>深挖计算机基础：Linux性能优化学习笔记</font></a></li></ul></li><li><p><a href="https://pdai.tech/md/db/nosql-redis/db-redis-x-performance.html"><font color=Red>Redis进阶 - 性能调优：Redis性能调优详解</font></a></p><ul><li><a href="https://www.toutiao.com/article/7103456440978997763">从通用的协议栈层面来优化Redis性能的实践</a></li></ul></li><li><p><a href="https://www.toutiao.com/article/7146843167709594147/">Nginx性能调优实战</a></p></li><li><p><a href="https://www.toutiao.com/article/7152791666980651531/">linux性能优化之网络篇</a></p><ul><li><a href="https://www.cnblogs.com/luoahong/p/11475110.html"><font color=Red>C10K 和 C1000K 问题，以更好理解 Linux 网络的工作原理，并进一步分析，如何做到单机支持 C10M</font></a></li></ul></li><li><p><a href="https://www.toutiao.com/article/7152410220101583401/">linux性能优化之内存篇</a></p></li><li><p><a href="https://blog.csdn.net/weixin_45334346/article/details/136923606">CPU狂飙900%，该怎么处理？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/H2P0-WcnZDzMCnLm0xcZ6A">如何排查网络丢包问题</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/JSx-l20fnmZd0symx5MNEw">Linux内核分析：页回收导致的cpu load瞬间飙高的问题分析与思考</a></p></li></ul><h2 id="ltrace">ltrace</h2><ul><li><a href="https://www.cnblogs.com/machangwei-8/p/10388938.html">ltrace命令详解</a></li><li><a href="https://www.toutiao.com/article/6793545198694564355">Linux库函数调用工具—ltrace命令</a></li></ul><h2 id="strace">strace</h2><ul><li><a href="https://www.cnblogs.com/kongzhongqijing/articles/4913192.html">linux命令—— strace命令（跟踪进程中的系统调用）</a></li><li><a href="https://blog.csdn.net/a6864657/article/details/123915757">Linux之strace命令</a></li><li><a href="https://linuxtools-rst.readthedocs.io/zh_CN/latest/tool/gdb.html">strace 跟踪进程中的系统调用</a></li><li><a href="https://www.toutiao.com/article/7090332571376337408">Linux strace 跟踪进程中的系统调用</a></li></ul><h2 id="ftrace">ftrace</h2><ul><li><p><a href="https://blog.csdn.net/u012489236/article/details/119427091">linux性能工具--ftrace基础篇</a></p></li><li><p><a href="https://carlyleliu.github.io/2021/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E8%AF%95%EF%BC%88%E4%B8%80%EF%BC%89ftrace/">Linux内核调试（一）ftrace</a></p></li><li><p><a href="https://blog.csdn.net/Luckiers/article/details/124646205">ftrace命令调试内核详细总结（快速掌握附实例讲解）</a></p></li><li><p><a href="https://blog.csdn.net/longerzone/article/details/16884703">Linux内核调试工具 Ftrace 进阶使用手册</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/644133270">通过Ftrace实现高效、精确的内核调试与分析</a></p></li><li><p><a href="https://blog.csdn.net/scarecrow_byr/article/details/102748967">使用ftrace跟踪函数</a></p></li><li><p><a href="https://www.toutiao.com/w/1737234292871172">实时获取linux内核函数的调用栈以及各个子函数的执行时间，linux ftrace是最适合的</a></p></li><li><p><a href="https://www.cnblogs.com/jefree/p/4439017.html"><font color=Red>如何使用ftrace</font></a></p></li><li><p><a href="https://www.cnblogs.com/wsg1100/p/17020703.html"><font color=Red>Ftrace使用及实现机制</font></a> <img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240412193310.png" alt="sym-offset:不仅显示函数名称，还显示函数中的偏移量:" /></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/33267453">ftrace：跟踪你的内核函数！</a></p></li><li><p><a href="https://linux.cn/article-13852-1.html"><font color=Red>使用 trace-cmd 追踪内核</font></a></p></li><li><p><a href="https://blog.csdn.net/Rong_Toa/article/details/116718182">Linux内核 eBPF基础：ftrace基础-ftrace_init初始化</a></p></li><li><p><a href="https://blog.csdn.net/u012489236/article/details/119519361">linux性能工具--ftrace使用</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd list -f snd_usb_audio<br>trace-cmd record -p function_graph -g usb_audio_probe<br>trace-cmd report<br></code></pre></td></tr></table></figure></p></li></ul><h2 id="perf">perf</h2><ul><li><p><a href="https://blog.csdn.net/zhangpeterx/article/details/98505349">debian/ubuntu 安装和使用perf</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/2Hu-D0k9a42-j-IfRzXPxw">Linux perf：掀开性能分析的神秘面纱</a></p></li><li><p><a href="https://ruanyifeng.com/blog/2017/09/flame-graph.html"><font color=Red>L如何读懂火焰图？</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/530622057"><font color=Red>硬核干货！perf工具简介及火焰图制作与解读</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/54276509"><font color=Red>Linux Perf 性能分析工具及火焰图浅析</font></a></p></li><li><p><a href="https://kernel.0voice.com/forum.php?mod=viewthread&amp;tid=6072">Linux Perf 性能分析工具及火焰图浅析</a></p></li><li><p><a href="https://github.com/brendangregg/FlameGraph">https://github.com/brendangregg/FlameGraph</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/134721612"><font color=Red>用Perf寻找程序中的性能热点</font></a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install linux-perf<br>git <span class="hljs-built_in">clone</span> https://github.com/brendangregg/FlameGraph.git<br><span class="hljs-built_in">cd</span> FlameGraph<br>sudo perf record -F 99 -p 512318 -g -- <span class="hljs-built_in">sleep</span> 30<br>sudo perf report -i perf.data<br>sudo perf script | ./stackcollapse-perf.pl | ./flamegraph.pl &gt; WXWork.exe.svg<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.toutiao.com/article/7154336826105266726/">一文看懂 Linux 性能分析｜perf 源码实现（超详细~）</a></p></li><li><p><a href="https://www.toutiao.com/article/7154278740749517347/">一文看懂 Linux 性能分析｜perf原理（超详细~）</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/AubfEBTfwcyslSqWLYl6ag">Perfetto工具集之traced_perf</a></p></li></ul><h3 id="性能采集小工具">性能采集小工具</h3><p>获取自制性能采集小工具：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo wget -P /usr/local/bin https://raw.githubusercontent.com/realwujing/realwujing.github.io/main/debug/bpf/perf.sh<br>sudo <span class="hljs-built_in">chmod</span> +x /usr/local/bin/perf.sh<br>sudo wget -P /etc/systemd/system https://raw.githubusercontent.com/realwujing/realwujing.github.io/main/debug/bpf/perf.service<br></code></pre></td></tr></table></figure><p>重新加载systemd配置：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br></code></pre></td></tr></table></figure><p>开机自动启动且立马启动性能采集服务：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">enable</span> --now perf.service<br></code></pre></td></tr></table></figure><p>查看性能采集服务状态：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl status perf.service<br></code></pre></td></tr></table></figure><p>查看性能采集服务日志:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo journalctl -fxeu perf.service<br></code></pre></td></tr></table></figure><p>关闭性能采集服务：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl stop perf.service<br></code></pre></td></tr></table></figure><p>禁止性能采集服务开机自动启动：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">disable</span> perf.service<br></code></pre></td></tr></table></figure><p>收集日志:</p><p>/var/log：系统日志</p><p>/var/log/iostat：实时报告系统的磁盘 I/O 统计信息</p><p>/var/log/pidstat：找到 IO 占用高的进程</p><p>/var/log/top：实时报告系统的进程资源占用</p><p>/var/log/perf：实时报告系统的性能热点</p><h3 id="perf实践">perf实践</h3><ul><li><a href="https://www.bbsmax.com/A/QW5YvYZ9dm/"><font color=Red>Linux性能优化实战学习笔记：第四十九讲</font></a></li><li><a href="https://pingcap.com/zh/blog/online-environment-analysis-system">线上环境 Linux 系统调用追踪丨TiDB 应用实践 perf trace traceloop</a></li></ul><h2 id="hcache">hcache</h2><ul><li><a href="https://blog.csdn.net/linxi7/article/details/109078516">Linux查看Buffer&amp;Cache被哪些进程占用</a></li><li><a href="https://github.com/silenceshell/hcache">https://github.com/silenceshell/hcache</a></li></ul><h2 id="ebpf">eBPF</h2><ul><li><p><a href="http://kerneltravel.net/blog/2021/ebpf_beginner/ebpf.pdf"><font color=Red>高效入门eBPF</font></a></p></li><li><p><a href="http://kerneltravel.net/blog/2020/ebpf_ljr_no1/">EBPF学习——EBPF简介、安装和简单示例</a></p></li><li><p><a href="https://blog.csdn.net/qq_33344148/article/details/123255679">BCC在ubuntu18.04源码安装</a></p></li><li><p><a href="https://github.com/iovisor/bcc" class="uri">https://github.com/iovisor/bcc</a></p></li><li><p><a href="https://github.com/realwujing/ebpf-learning/blob/main/BCC.md"><font color=Red>BCC安装教程</font></a></p></li><li><p><a href="https://github.com/DavadDi/bpf_study">bpf 学习仓库</a></p></li><li><p><a href="https://github.com/zoidbergwill/awesome-ebpf">https://github.com/zoidbergwill/awesome-ebpf</a></p></li><li><p><a href="https://github.com/iovisor/bpftrace/blob/master/docs/tutorial_one_liners_chinese.md"><font color=Red>bpftrace一行教程</font></a></p></li><li><p><a href="https://github.com/iovisor/bpftrace/blob/master/docs/reference_guide.md"><font color=Red>bpftrace 参考指南</font></a></p></li><li><p><a href="https://blog.csdn.net/qq_31220203/article/details/118686482"><font color=Red>BPF之巅洞悉Linux系统和应用性能 Brendan Gregg</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/98XAzJ-9SByM2RzhUcYsMQ">BCC小白写测试上下文切换延时程序</a></p></li><li><p><a href="https://www.toutiao.com/article/7168812402375787043/">eunomia-bpf项目重磅开源！eBPF 轻量级开发框架来了 | 龙蜥技术</a></p></li><li><p><a href="https://www.toutiao.com/article/7156057067848106530">中国工商银行基于eBPF技术的云原生可观测图谱探索与实践</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/zx-zxoKZQqsaK2pU0fj7FQ">使用 ChatGPT ，通过自然语言编写 eBPF 程序和追踪 Linux 系统</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/iwpV4akZDIukDVFH-PJ7lA">eBPF程序注入到内核中的流程，现在就带你研究(上）</a></p></li></ul><h3 id="bpftrace">bpftrace</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;tracepoint:signal:signal_generate &#123; printf(&quot;Process %d %s send SIGNAL %d to process %d %s\n&quot;, pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); &#125;&#x27;</span><br></code></pre></td></tr></table></figure><p>您提供的命令是使用 bpftrace 工具来跟踪信号生成事件，并打印相关信息。让我解释一下这个命令的含义：</p><p>bpftrace：是一个强大的跟踪和探查工具，它使用BPF（Berkley Packet Filter）技术来提供对内核和用户空间的动态跟踪能力。</p><p>-e：这是 bpftrace 命令的选项，用于指定要执行的跟踪程序。</p><p>'tracepoint:signal:signal_generate { printf("Process %d %s send SIGNAL %d to process %d %s", pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); }'：这是要执行的 bpftrace 跟踪程序。</p><p>跟踪程序的含义是：当信号生成事件（signal_generate）发生时，打印相关信息。具体来说，它打印了发送信号的进程的进程ID（pid）、进程名称（comm），以及接收信号的进程的进程ID（args-&gt;pid）和进程名称（args-&gt;comm）。</p><p>这个命令可以帮助您跟踪信号的生成情况，并提供有关发送和接收信号的进程信息。您可以根据需要修改打印的信息或添加其他的跟踪逻辑来满足您的需求。请注意，使用 bpftrace 跟踪程序需要在支持BPF的内核版本上运行，并具有足够的权限。</p><h4 id="sigterm">SIGTERM</h4><p>专门追踪信号：SIGTERM （15）：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;tracepoint:signal:signal_generate /args-&gt;sig == 15/ &#123; printf(&quot;Process %d %s send SIGNAL %d to process %d %s\n&quot;, pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); &#125;&#x27;</span><br></code></pre></td></tr></table></figure><p>专门追踪信号：SIGTERM （15）并输出到sigterm.log：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;tracepoint:signal:signal_generate /args-&gt;sig == 15/ &#123; printf(&quot;Process %d %s send SIGNAL %d to process %d %s\n&quot;, pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); &#125;&#x27;</span> | <span class="hljs-built_in">tee</span> sigterm.log<br></code></pre></td></tr></table></figure><h4 id="oom">oom</h4><p>追踪OOM Killer事件：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace --include <span class="hljs-string">&#x27;linux/oom.h&#x27;</span> -e <span class="hljs-string">&#x27;kprobe:oom_kill_process &#123;printf(&quot;triggered by pid :%d, comm: %s, oom kill of pid: %d, comm: %s\n&quot;, pid, comm, ((struct oom_control *)arg1)-&gt;chosen-&gt;pid, ((struct oom_control *)arg1)-&gt;chosen-&gt;comm)&#125;&#x27;</span><br></code></pre></td></tr></table></figure><h2 id="pstack">pstack</h2><ul><li><a href="https://blog.csdn.net/jusu10/article/details/121745153">linux命令-- pstack命令(跟踪进程栈)</a></li><li><a href="https://www.cnblogs.com/chenxinshuo/p/11986858.html">Debug 利器：pstack &amp; strace</a></li></ul><h2 id="method-tracing">method tracing</h2><ul><li><a href="https://mp.weixin.qq.com/s/j-zgr50wCY5beppYpXGAyQ">ART虚拟机method tracing技术解析</a></li></ul><h2 id="grafana">Grafana</h2><p>安装环境：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install grafana prometheus prometheus-alertmanager<br></code></pre></td></tr></table></figure><p>由于主机9090端口被占用，故通过systemd启动prometheus时需要更改一下端口为9999：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /etc/default/prometheus | <span class="hljs-built_in">head</span> -n5<br><span class="hljs-comment"># Set the command-line arguments to pass to the server.</span><br>ARGS=<span class="hljs-string">&quot;&quot;</span>--web.listen-address=<span class="hljs-string">&quot;127.0.0.1:9999&quot;</span><br><br><span class="hljs-comment"># Prometheus supports the following options:</span><br><span class="hljs-comment">#  --config.file=&quot;/etc/prometheus/prometheus.yml&quot;</span><br></code></pre></td></tr></table></figure><p>开启自启：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> --now grafana-server.service prometheus.service prometheus-alertmanager.service<br></code></pre></td></tr></table></figure><p>登录grafana：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">http://localhost:3000 <span class="hljs-comment"># 初始账号密码都是admin</span><br></code></pre></td></tr></table></figure><p>Add your first data source:</p><p>选择Prometheus</p><p>Connection</p><p>Prometheus server URL *填入下方url:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">http://localhost:9999<br></code></pre></td></tr></table></figure><p>跳到最下方点击Save &amp; test即可。</p><p>Create your first dashboard：</p><p>Import dashboard填入下方链接(本机为deepin 20.9，不支持最新版本的Node Exporter Full，建议使用下方链接)：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">https://grafana.com/api/dashboards/1860/revisions/22/download<br></code></pre></td></tr></table></figure><p>也可通过id导入，建议id:</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">1860<br>10842<br>8919<br>15172<br>2747<br></code></pre></td></tr></table></figure><p>prometheus-alertmanager暂未配置。</p><ul><li><a href="https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/">Install Grafana on Debian or Ubuntu</a></li><li><a href="https://blog.csdn.net/weixin_42230348/article/details/108324882">分分钟搞定Grafana（图文详解）</a></li><li><a href="https://www.toutiao.com/article/6914917162675192324/">CentOS7搭建prometheus 监控Linux主机</a></li><li><a href="https://grafana.com/api/dashboards/1860/revisions/22/download">Node Exporter Full</a></li></ul><h2 id="其它">其它</h2><ul><li><a href="https://mp.weixin.qq.com/s/wPXcfzfFXygyAOatypVwxQ">CPU 空闲时在干嘛？</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="性能调优">性能调优</h1><ul><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&amp;mid=2247498209&amp;idx=1&amp;sn=80567d62967575953d0d33132841d907&amp;chksm=f96b8b15ce1c0203b09acee19f2570a011678987077c7a0c3905a6ba108cfeae21ee121ca9da&amp;token=526082791&amp;lang=zh_CN&amp;scene=21#wechat_redirect">Linux性能调优工具9张图-你肯定会用到</a></p></li><li><p><a href="https://www.cnblogs.com/alantu2018/p/8997149.html">Linux内核调试方法总结</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/n42ngcgBdbCdF927ncTa3Q">Linux 性能分析工具汇总</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/uMPr0ZlRtLmIperu8hA0EQ">性能优化基础：深入理解Linux文件系统</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Cv_9-wxXQ9GrUMjQ606sbw">技术硬核 | Linux性能优化总结，赞！赞！赞！咱熬夜也要读完！</a></p></li><li><p><a href="https://linux.cn/article-9424-1.html">Linux跟踪器之选</a></p></li><li><p><a href="https://linux.cn/article-8038-1.html">Linux 中的 DTrace ：BPF 进入 4.9 内核</a></p></li><li><p><a href="https://linux.cn/article-9507-1.html">深入理解 BPF：一个阅读清单</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1698426">Linux超能力BPF技术介绍及学习分享（技术创作101训练营）</a></p></li><li><p><a href="https://www.toutiao.com/article/7077801491347833374"><font color=Red>Linux动态追踪技术概念介绍</font></a></p></li><li><p><a href="https://lzz5235.github.io/2013/11/22/ltrace-strace-ftrace.html"><font color=Red>调试工具ltrace strace ftrace的使用</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/NoVJlGQFh02NiuE3d355XQ">Linux 中 CPU 利用率是如何算出来的？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/bxuKq1up9xs3VfZaPfbkxw">Linux 中 CPU 利用率是如何算出来的？</a></p></li><li><p><a href="http://arthurchiao.art/blog/linux-tracing-basis-zh/#412-%E5%8A%9F%E8%83%BD%E4%BA%8C%E8%B0%83%E7%94%A8%E6%A0%88%E5%B1%95%E5%BC%80stack-unwinding">Linux tracing/profiling 基础：符号表、调用栈、perf/bpftrace 示例等（2022）</a></p></li><li><p><a href="https://blog.csdn.net/wzx8731/article/details/106631071">gdb、strace、pmap、perf等跟踪调试工具使用介绍</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/_PYGtj-7my9uGyuRbbkD1g">改了一行代码，数组遍历耗时从10.3秒降到了0.5秒！</a></p></li></ul><h2 id="性能优化">性能优化</h2><ul><li><p><a href="https://www.toutiao.com/article/7090814899458146855/"><font color=Red>Linux性能问题分析流程与性能优化思路</font></a></p></li><li><p><a href="https://www.cnblogs.com/luoahong/p/10496701.html">深挖计算机基础实战目录</a></p><ul><li><a href="https://www.cnblogs.com/luoahong/p/11792459.html"><font color=Red>深挖计算机基础：Linux性能优化学习笔记</font></a></li></ul></li><li><p><a href="https://pdai.tech/md/db/nosql-redis/db-redis-x-performance.html"><font color=Red>Redis进阶 - 性能调优：Redis性能调优详解</font></a></p><ul><li><a href="https://www.toutiao.com/article/7103456440978997763">从通用的协议栈层面来优化Redis性能的实践</a></li></ul></li><li><p><a href="https://www.toutiao.com/article/7146843167709594147/">Nginx性能调优实战</a></p></li><li><p><a href="https://www.toutiao.com/article/7152791666980651531/">linux性能优化之网络篇</a></p><ul><li><a href="https://www.cnblogs.com/luoahong/p/11475110.html"><font color=Red>C10K 和 C1000K 问题，以更好理解 Linux 网络的工作原理，并进一步分析，如何做到单机支持 C10M</font></a></li></ul></li><li><p><a href="https://www.toutiao.com/article/7152410220101583401/">linux性能优化之内存篇</a></p></li><li><p><a href="https://blog.csdn.net/weixin_45334346/article/details/136923606">CPU狂飙900%，该怎么处理？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/H2P0-WcnZDzMCnLm0xcZ6A">如何排查网络丢包问题</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/JSx-l20fnmZd0symx5MNEw">Linux内核分析：页回收导致的cpu load瞬间飙高的问题分析与思考</a></p></li></ul><h2 id="ltrace">ltrace</h2><ul><li><a href="https://www.cnblogs.com/machangwei-8/p/10388938.html">ltrace命令详解</a></li><li><a href="https://www.toutiao.com/article/6793545198694564355">Linux库函数调用工具—ltrace命令</a></li></ul><h2 id="strace">strace</h2><ul><li><a href="https://www.cnblogs.com/kongzhongqijing/articles/4913192.html">linux命令—— strace命令（跟踪进程中的系统调用）</a></li><li><a href="https://blog.csdn.net/a6864657/article/details/123915757">Linux之strace命令</a></li><li><a href="https://linuxtools-rst.readthedocs.io/zh_CN/latest/tool/gdb.html">strace 跟踪进程中的系统调用</a></li><li><a href="https://www.toutiao.com/article/7090332571376337408">Linux strace 跟踪进程中的系统调用</a></li></ul><h2 id="ftrace">ftrace</h2><ul><li><p><a href="https://blog.csdn.net/u012489236/article/details/119427091">linux性能工具--ftrace基础篇</a></p></li><li><p><a href="https://carlyleliu.github.io/2021/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E8%AF%95%EF%BC%88%E4%B8%80%EF%BC%89ftrace/">Linux内核调试（一）ftrace</a></p></li><li><p><a href="https://blog.csdn.net/Luckiers/article/details/124646205">ftrace命令调试内核详细总结（快速掌握附实例讲解）</a></p></li><li><p><a href="https://blog.csdn.net/longerzone/article/details/16884703">Linux内核调试工具 Ftrace 进阶使用手册</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/644133270">通过Ftrace实现高效、精确的内核调试与分析</a></p></li><li><p><a href="https://blog.csdn.net/scarecrow_byr/article/details/102748967">使用ftrace跟踪函数</a></p></li><li><p><a href="https://www.toutiao.com/w/1737234292871172">实时获取linux内核函数的调用栈以及各个子函数的执行时间，linux ftrace是最适合的</a></p></li><li><p><a href="https://www.cnblogs.com/jefree/p/4439017.html"><font color=Red>如何使用ftrace</font></a></p></li><li><p><a href="https://www.cnblogs.com/wsg1100/p/17020703.html"><font color=Red>Ftrace使用及实现机制</font></a> <img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240412193310.png" alt="sym-offset:不仅显示函数名称，还显示函数中的偏移量:" /></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/33267453">ftrace：跟踪你的内核函数！</a></p></li><li><p><a href="https://linux.cn/article-13852-1.html"><font color=Red>使用 trace-cmd 追踪内核</font></a></p></li><li><p><a href="https://blog.csdn.net/Rong_Toa/article/details/116718182">Linux内核 eBPF基础：ftrace基础-ftrace_init初始化</a></p></li><li><p><a href="https://blog.csdn.net/u012489236/article/details/119519361">linux性能工具--ftrace使用</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd list -f snd_usb_audio<br>trace-cmd record -p function_graph -g usb_audio_probe<br>trace-cmd report<br></code></pre></td></tr></table></figure></p></li></ul><h3 id="ftrace-hook">ftrace hook</h3><ul><li><a href="https://www.cnblogs.com/pwl999/p/15535004.html">Ftrace Hook (Linux内核热补丁) 详解</a></li></ul><h2 id="perf">perf</h2><ul><li><p><a href="https://blog.csdn.net/zhangpeterx/article/details/98505349">debian/ubuntu 安装和使用perf</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/2Hu-D0k9a42-j-IfRzXPxw">Linux perf：掀开性能分析的神秘面纱</a></p></li><li><p><a href="https://ruanyifeng.com/blog/2017/09/flame-graph.html"><font color=Red>L如何读懂火焰图？</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/530622057"><font color=Red>硬核干货！perf工具简介及火焰图制作与解读</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/54276509"><font color=Red>Linux Perf 性能分析工具及火焰图浅析</font></a></p></li><li><p><a href="https://kernel.0voice.com/forum.php?mod=viewthread&amp;tid=6072">Linux Perf 性能分析工具及火焰图浅析</a></p></li><li><p><a href="https://github.com/brendangregg/FlameGraph">https://github.com/brendangregg/FlameGraph</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/134721612"><font color=Red>用Perf寻找程序中的性能热点</font></a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install linux-perf<br>git <span class="hljs-built_in">clone</span> https://github.com/brendangregg/FlameGraph.git<br><span class="hljs-built_in">cd</span> FlameGraph<br>sudo perf record -F 99 -p 512318 -g -- <span class="hljs-built_in">sleep</span> 30<br>sudo perf report -i perf.data<br>sudo perf script | ./stackcollapse-perf.pl | ./flamegraph.pl &gt; WXWork.exe.svg<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.toutiao.com/article/7154336826105266726/">一文看懂 Linux 性能分析｜perf 源码实现（超详细~）</a></p></li><li><p><a href="https://www.toutiao.com/article/7154278740749517347/">一文看懂 Linux 性能分析｜perf原理（超详细~）</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/AubfEBTfwcyslSqWLYl6ag">Perfetto工具集之traced_perf</a></p></li></ul><h3 id="性能采集小工具">性能采集小工具</h3><p>获取自制性能采集小工具：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo wget -P /usr/local/bin https://raw.githubusercontent.com/realwujing/realwujing.github.io/main/debug/bpf/perf.sh<br>sudo <span class="hljs-built_in">chmod</span> +x /usr/local/bin/perf.sh<br>sudo wget -P /etc/systemd/system https://raw.githubusercontent.com/realwujing/realwujing.github.io/main/debug/bpf/perf.service<br></code></pre></td></tr></table></figure><p>重新加载systemd配置：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br></code></pre></td></tr></table></figure><p>开机自动启动且立马启动性能采集服务：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">enable</span> --now perf.service<br></code></pre></td></tr></table></figure><p>查看性能采集服务状态：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl status perf.service<br></code></pre></td></tr></table></figure><p>查看性能采集服务日志:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo journalctl -fxeu perf.service<br></code></pre></td></tr></table></figure><p>关闭性能采集服务：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl stop perf.service<br></code></pre></td></tr></table></figure><p>禁止性能采集服务开机自动启动：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">disable</span> perf.service<br></code></pre></td></tr></table></figure><p>收集日志:</p><p>/var/log：系统日志</p><p>/var/log/iostat：实时报告系统的磁盘 I/O 统计信息</p><p>/var/log/pidstat：找到 IO 占用高的进程</p><p>/var/log/top：实时报告系统的进程资源占用</p><p>/var/log/perf：实时报告系统的性能热点</p><h3 id="perf实践">perf实践</h3><ul><li><a href="https://www.bbsmax.com/A/QW5YvYZ9dm/"><font color=Red>Linux性能优化实战学习笔记：第四十九讲</font></a></li><li><a href="https://pingcap.com/zh/blog/online-environment-analysis-system">线上环境 Linux 系统调用追踪丨TiDB 应用实践 perf trace traceloop</a></li></ul><h2 id="hcache">hcache</h2><ul><li><a href="https://blog.csdn.net/linxi7/article/details/109078516">Linux查看Buffer&amp;Cache被哪些进程占用</a></li><li><a href="https://github.com/silenceshell/hcache">https://github.com/silenceshell/hcache</a></li></ul><h2 id="ebpf">eBPF</h2><ul><li><p><a href="http://kerneltravel.net/blog/2021/ebpf_beginner/ebpf.pdf"><font color=Red>高效入门eBPF</font></a></p></li><li><p><a href="http://kerneltravel.net/blog/2020/ebpf_ljr_no1/">EBPF学习——EBPF简介、安装和简单示例</a></p></li><li><p><a href="https://blog.csdn.net/qq_33344148/article/details/123255679">BCC在ubuntu18.04源码安装</a></p></li><li><p><a href="https://github.com/iovisor/bcc" class="uri">https://github.com/iovisor/bcc</a></p></li><li><p><a href="https://github.com/realwujing/ebpf-learning/blob/main/BCC.md"><font color=Red>BCC安装教程</font></a></p></li><li><p><a href="https://github.com/DavadDi/bpf_study">bpf 学习仓库</a></p></li><li><p><a href="https://github.com/zoidbergwill/awesome-ebpf">https://github.com/zoidbergwill/awesome-ebpf</a></p></li><li><p><a href="https://github.com/iovisor/bpftrace/blob/master/docs/tutorial_one_liners_chinese.md"><font color=Red>bpftrace一行教程</font></a></p></li><li><p><a href="https://github.com/iovisor/bpftrace/blob/master/docs/reference_guide.md"><font color=Red>bpftrace 参考指南</font></a></p></li><li><p><a href="https://blog.csdn.net/qq_31220203/article/details/118686482"><font color=Red>BPF之巅洞悉Linux系统和应用性能 Brendan Gregg</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/98XAzJ-9SByM2RzhUcYsMQ">BCC小白写测试上下文切换延时程序</a></p></li><li><p><a href="https://www.toutiao.com/article/7168812402375787043/">eunomia-bpf项目重磅开源！eBPF 轻量级开发框架来了 | 龙蜥技术</a></p></li><li><p><a href="https://www.toutiao.com/article/7156057067848106530">中国工商银行基于eBPF技术的云原生可观测图谱探索与实践</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/zx-zxoKZQqsaK2pU0fj7FQ">使用 ChatGPT ，通过自然语言编写 eBPF 程序和追踪 Linux 系统</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/iwpV4akZDIukDVFH-PJ7lA">eBPF程序注入到内核中的流程，现在就带你研究(上）</a></p></li></ul><h3 id="bpftrace">bpftrace</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;tracepoint:signal:signal_generate &#123; printf(&quot;Process %d %s send SIGNAL %d to process %d %s\n&quot;, pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); &#125;&#x27;</span><br></code></pre></td></tr></table></figure><p>您提供的命令是使用 bpftrace 工具来跟踪信号生成事件，并打印相关信息。让我解释一下这个命令的含义：</p><p>bpftrace：是一个强大的跟踪和探查工具，它使用BPF（Berkley Packet Filter）技术来提供对内核和用户空间的动态跟踪能力。</p><p>-e：这是 bpftrace 命令的选项，用于指定要执行的跟踪程序。</p><p>'tracepoint:signal:signal_generate { printf("Process %d %s send SIGNAL %d to process %d %s", pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); }'：这是要执行的 bpftrace 跟踪程序。</p><p>跟踪程序的含义是：当信号生成事件（signal_generate）发生时，打印相关信息。具体来说，它打印了发送信号的进程的进程ID（pid）、进程名称（comm），以及接收信号的进程的进程ID（args-&gt;pid）和进程名称（args-&gt;comm）。</p><p>这个命令可以帮助您跟踪信号的生成情况，并提供有关发送和接收信号的进程信息。您可以根据需要修改打印的信息或添加其他的跟踪逻辑来满足您的需求。请注意，使用 bpftrace 跟踪程序需要在支持BPF的内核版本上运行，并具有足够的权限。</p><h4 id="sigterm">SIGTERM</h4><p>专门追踪信号：SIGTERM （15）：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;tracepoint:signal:signal_generate /args-&gt;sig == 15/ &#123; printf(&quot;Process %d %s send SIGNAL %d to process %d %s\n&quot;, pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); &#125;&#x27;</span><br></code></pre></td></tr></table></figure><p>专门追踪信号：SIGTERM （15）并输出到sigterm.log：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;tracepoint:signal:signal_generate /args-&gt;sig == 15/ &#123; printf(&quot;Process %d %s send SIGNAL %d to process %d %s\n&quot;, pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); &#125;&#x27;</span> | <span class="hljs-built_in">tee</span> sigterm.log<br></code></pre></td></tr></table></figure><h4 id="oom">oom</h4><p>追踪OOM Killer事件：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace --include <span class="hljs-string">&#x27;linux/oom.h&#x27;</span> -e <span class="hljs-string">&#x27;kprobe:oom_kill_process &#123;printf(&quot;triggered by pid :%d, comm: %s, oom kill of pid: %d, comm: %s\n&quot;, pid, comm, ((struct oom_control *)arg1)-&gt;chosen-&gt;pid, ((struct oom_control *)arg1)-&gt;chosen-&gt;comm)&#125;&#x27;</span><br></code></pre></td></tr></table></figure><h2 id="pstack">pstack</h2><ul><li><a href="https://blog.csdn.net/jusu10/article/details/121745153">linux命令-- pstack命令(跟踪进程栈)</a></li><li><a href="https://www.cnblogs.com/chenxinshuo/p/11986858.html">Debug 利器：pstack &amp; strace</a></li></ul><h2 id="method-tracing">method tracing</h2><ul><li><a href="https://mp.weixin.qq.com/s/j-zgr50wCY5beppYpXGAyQ">ART虚拟机method tracing技术解析</a></li></ul><h2 id="grafana">Grafana</h2><p>安装环境：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install grafana prometheus prometheus-alertmanager<br></code></pre></td></tr></table></figure><p>由于主机9090端口被占用，故通过systemd启动prometheus时需要更改一下端口为9999：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /etc/default/prometheus | <span class="hljs-built_in">head</span> -n5<br><span class="hljs-comment"># Set the command-line arguments to pass to the server.</span><br>ARGS=<span class="hljs-string">&quot;&quot;</span>--web.listen-address=<span class="hljs-string">&quot;127.0.0.1:9999&quot;</span><br><br><span class="hljs-comment"># Prometheus supports the following options:</span><br><span class="hljs-comment">#  --config.file=&quot;/etc/prometheus/prometheus.yml&quot;</span><br></code></pre></td></tr></table></figure><p>开启自启：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> --now grafana-server.service prometheus.service prometheus-alertmanager.service<br></code></pre></td></tr></table></figure><p>登录grafana：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">http://localhost:3000 <span class="hljs-comment"># 初始账号密码都是admin</span><br></code></pre></td></tr></table></figure><p>Add your first data source:</p><p>选择Prometheus</p><p>Connection</p><p>Prometheus server URL *填入下方url:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">http://localhost:9999<br></code></pre></td></tr></table></figure><p>跳到最下方点击Save &amp; test即可。</p><p>Create your first dashboard：</p><p>Import dashboard填入下方链接(本机为deepin 20.9，不支持最新版本的Node Exporter Full，建议使用下方链接)：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">https://grafana.com/api/dashboards/1860/revisions/22/download<br></code></pre></td></tr></table></figure><p>也可通过id导入，建议id:</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">1860<br>10842<br>8919<br>15172<br>2747<br></code></pre></td></tr></table></figure><p>prometheus-alertmanager暂未配置。</p><ul><li><a href="https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/">Install Grafana on Debian or Ubuntu</a></li><li><a href="https://blog.csdn.net/weixin_42230348/article/details/108324882">分分钟搞定Grafana（图文详解）</a></li><li><a href="https://www.toutiao.com/article/6914917162675192324/">CentOS7搭建prometheus 监控Linux主机</a></li><li><a href="https://grafana.com/api/dashboards/1860/revisions/22/download">Node Exporter Full</a></li></ul><h2 id="其它">其它</h2><ul><li><a href="https://mp.weixin.qq.com/s/wPXcfzfFXygyAOatypVwxQ">CPU 空闲时在干嘛？</a></li></ul>]]></content>
     
     
     <categories>
@@ -2947,6 +2947,25 @@
   
   
   <entry>
+    <title>makefile</title>
+    <link href="/cpp/makefile/"/>
+    <url>/cpp/makefile/</url>
+    
+    <content type="html"><![CDATA[<h1 id="makefile">MakeFile</h1><ul><li><a href="https://blog.codekissyoung.com/C%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1/Make%E6%9E%84%E5%BB%BA%E5%B7%A5%E5%85%B7"><font color=Red>GNU Make项目管理</font></a></li><li><a href="http://blog.hanschen.site/2016/08/17/makefile/">Makefile使用指南</a></li><li><a href="http://c.biancheng.net/makefile/"><font color=Red>Makefile教程：Makefile文件编写1天入门</font></a></li><li><a href="https://www.bookstack.cn/read/makefile-basic/16858cbb3e00b884.md"><font color=Red>Makefile 基础教程</font></a></li><li><a href="https://www.bookstack.cn/read/how-to-write-makefile/b473e56b6c52d350.md"><font color=Red>跟我一起写Makefile</font></a></li><li><a href="https://blog.csdn.net/zhaoyun_zzz/article/details/82466031">Makefile编译与链接选项及CFLAGS与LDFLAGS示例说明_zhaoyun_zzz的专栏-CSDN博客_ldflags</a></li><li><a href="https://blog.csdn.net/shenhuxi_yu/article/details/79788760">makefile中的CPPFLAGS LDFLAGS CFLAGS选项详解</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>tars</title>
     <link href="/cpp/tars/"/>
     <url>/cpp/tars/</url>
@@ -2974,25 +2993,6 @@
       <tag>HTML</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>makefile</title>
-    <link href="/cpp/makefile/"/>
-    <url>/cpp/makefile/</url>
-    
-    <content type="html"><![CDATA[<h1 id="makefile">MakeFile</h1><ul><li><a href="https://blog.codekissyoung.com/C%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1/Make%E6%9E%84%E5%BB%BA%E5%B7%A5%E5%85%B7"><font color=Red>GNU Make项目管理</font></a></li><li><a href="http://blog.hanschen.site/2016/08/17/makefile/">Makefile使用指南</a></li><li><a href="http://c.biancheng.net/makefile/"><font color=Red>Makefile教程：Makefile文件编写1天入门</font></a></li><li><a href="https://www.bookstack.cn/read/makefile-basic/16858cbb3e00b884.md"><font color=Red>Makefile 基础教程</font></a></li><li><a href="https://www.bookstack.cn/read/how-to-write-makefile/b473e56b6c52d350.md"><font color=Red>跟我一起写Makefile</font></a></li><li><a href="https://blog.csdn.net/zhaoyun_zzz/article/details/82466031">Makefile编译与链接选项及CFLAGS与LDFLAGS示例说明_zhaoyun_zzz的专栏-CSDN博客_ldflags</a></li><li><a href="https://blog.csdn.net/shenhuxi_yu/article/details/79788760">makefile中的CPPFLAGS LDFLAGS CFLAGS选项详解</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -3136,39 +3136,6 @@
   
   
   <entry>
-    <title>submodule</title>
-    <link href="/git/submodule/"/>
-    <url>/git/submodule/</url>
-    
-    <content type="html"><![CDATA[<h1 id="git-submodules">git submodules</h1><h2 id="更新-submodule">更新 submodule</h2><ul><li><p>自动初始化并更新仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> --recurse-submodules https://github.com/realwujing/linux-learning.git<br></code></pre></td></tr></table></figure></p></li><li><p>方式2</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/realwujing/linux-learning.git<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ol></li><li><p>递归地抓取子模块的更改并更新当前仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull --recurse-submodules<br></code></pre></td></tr></table></figure></p></li><li><p>方式2</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ol></li></ul><h2 id="推送-submodule">推送 submodule</h2><ul><li><p>推送当前仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git push --recurse-submodules=on-demand<br></code></pre></td></tr></table></figure></p></li><li><p>方式2(方式1报错情况下使用)</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git submodule foreach --recursive <span class="hljs-string">&#x27;git push&#x27;</span> &amp;&amp; git push<br></code></pre></td></tr></table></figure></p></li></ol></li></ul><h2 id="更改submodule分支">更改submodule分支</h2><ul><li><p>更改submodule分支</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config -f .gitmodules submodule.assembly.branch main<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git submodule update --remote<br></code></pre></td></tr></table></figure></p></li><li><p>在你拉取的提交中， 可能 .gitmodules 文件中记录的子模块的 URL 发生了改变。 比如，若子模块项目改变了它的托管平台，就会发生这种情况</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 将新的 URL 复制到本地配置中</span><br>git submodule <span class="hljs-built_in">sync</span> --recursive<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 从新 URL 更新子模块</span><br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ul><h2 id="删除-submodule">删除 submodule</h2><ul><li><p>删除 submodule</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 卸载子模块</span><br>git submodule deinit [submodule_folder]<br><span class="hljs-comment"># 如果想移除子库的本地修改,可使用--force标签</span><br>git submodule deinit [submodule_folder] --force<br><br><br><span class="hljs-comment"># 删除文件夹</span><br>git <span class="hljs-built_in">rm</span> [submodule_folder]<br><br><span class="hljs-comment"># 提交代码</span><br>git commit -m <span class="hljs-string">&quot;delete submodule xxxxx&quot;</span><br><br></code></pre></td></tr></table></figure></p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.jianshu.com/p/f8a55b972972/">git submodule 使用小结</a></li><li><a href="https://www.cnblogs.com/hustcpp/p/13092625.html">git 添加submodule 以及更名</a></li><li><a href="https://blog.csdn.net/weixin_45115705/article/details/104303730">Git 修改.Submodule文件 url 生效</a></li><li><a href="https://git-scm.com/book/zh/v2/Git-%E5%B7%A5%E5%85%B7-%E5%AD%90%E6%A8%A1%E5%9D%97">7.11 Git 工具 - 子模块</a></li><li><a href="https://blog.csdn.net/weixin_43455581/article/details/120174578">git中子模块/子仓库的使用</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>git</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>git</tag>
-      
-      <tag>assembly</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>git教程</title>
     <link href="/git/git%E6%95%99%E7%A8%8B/"/>
     <url>/git/git%E6%95%99%E7%A8%8B/</url>
@@ -3194,6 +3161,39 @@
       <tag>HTML</tag>
       
       <tag>Java</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>submodule</title>
+    <link href="/git/submodule/"/>
+    <url>/git/submodule/</url>
+    
+    <content type="html"><![CDATA[<h1 id="git-submodules">git submodules</h1><h2 id="更新-submodule">更新 submodule</h2><ul><li><p>自动初始化并更新仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> --recurse-submodules https://github.com/realwujing/linux-learning.git<br></code></pre></td></tr></table></figure></p></li><li><p>方式2</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/realwujing/linux-learning.git<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ol></li><li><p>递归地抓取子模块的更改并更新当前仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull --recurse-submodules<br></code></pre></td></tr></table></figure></p></li><li><p>方式2</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ol></li></ul><h2 id="推送-submodule">推送 submodule</h2><ul><li><p>推送当前仓库中的每一个子模块， 包括可能存在的嵌套子模块。</p><ol type="1"><li><p>方式1</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git push --recurse-submodules=on-demand<br></code></pre></td></tr></table></figure></p></li><li><p>方式2(方式1报错情况下使用)</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git submodule foreach --recursive <span class="hljs-string">&#x27;git push&#x27;</span> &amp;&amp; git push<br></code></pre></td></tr></table></figure></p></li></ol></li></ul><h2 id="更改submodule分支">更改submodule分支</h2><ul><li><p>更改submodule分支</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config -f .gitmodules submodule.assembly.branch main<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git submodule update --remote<br></code></pre></td></tr></table></figure></p></li><li><p>在你拉取的提交中， 可能 .gitmodules 文件中记录的子模块的 URL 发生了改变。 比如，若子模块项目改变了它的托管平台，就会发生这种情况</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 将新的 URL 复制到本地配置中</span><br>git submodule <span class="hljs-built_in">sync</span> --recursive<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 从新 URL 更新子模块</span><br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure></p></li></ul><h2 id="删除-submodule">删除 submodule</h2><ul><li><p>删除 submodule</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 卸载子模块</span><br>git submodule deinit [submodule_folder]<br><span class="hljs-comment"># 如果想移除子库的本地修改,可使用--force标签</span><br>git submodule deinit [submodule_folder] --force<br><br><br><span class="hljs-comment"># 删除文件夹</span><br>git <span class="hljs-built_in">rm</span> [submodule_folder]<br><br><span class="hljs-comment"># 提交代码</span><br>git commit -m <span class="hljs-string">&quot;delete submodule xxxxx&quot;</span><br><br></code></pre></td></tr></table></figure></p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.jianshu.com/p/f8a55b972972/">git submodule 使用小结</a></li><li><a href="https://www.cnblogs.com/hustcpp/p/13092625.html">git 添加submodule 以及更名</a></li><li><a href="https://blog.csdn.net/weixin_45115705/article/details/104303730">Git 修改.Submodule文件 url 生效</a></li><li><a href="https://git-scm.com/book/zh/v2/Git-%E5%B7%A5%E5%85%B7-%E5%AD%90%E6%A8%A1%E5%9D%97">7.11 Git 工具 - 子模块</a></li><li><a href="https://blog.csdn.net/weixin_43455581/article/details/120174578">git中子模块/子仓库的使用</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>git</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>git</tag>
+      
+      <tag>assembly</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3346,9 +3346,9 @@
       
       <tag>HTML</tag>
       
-      <tag>namespace</tag>
-      
       <tag>Golang</tag>
+      
+      <tag>namespace</tag>
       
     </tags>
     
@@ -3393,6 +3393,27 @@
   
   <entry>
     <title>README</title>
+    <link href="/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/"/>
+    <url>/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/</url>
+    
+    <content type="html"><![CDATA[<p><a href="https://blog.csdn.net/onlyshi/article/details/81672279">C 语言实现面向对象编程_onlyshi的专栏-CSDN博客_c 面向对象</a></p>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>C 实现 C++ 类</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/"/>
     <url>/cpp/C++%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80/README/</url>
     
@@ -3413,27 +3434,6 @@
       <tag>C++</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/"/>
-    <url>/cpp/C%20%E5%AE%9E%E7%8E%B0%20C++%20%E7%B1%BB/README/</url>
-    
-    <content type="html"><![CDATA[<p><a href="https://blog.csdn.net/onlyshi/article/details/81672279">C 语言实现面向对象编程_onlyshi的专栏-CSDN博客_c 面向对象</a></p>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>C 实现 C++ 类</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -3574,6 +3574,29 @@
   
   <entry>
     <title>README</title>
+    <link href="/cpp/qt-learning/qprocess_wget/README/"/>
+    <url>/cpp/qt-learning/qprocess_wget/README/</url>
+    
+    <content type="html"><![CDATA[<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">ostree --repo=/deepin/linglong/repo/repo-test refs --delete com.qq.weixin.work.deepin/4.0.0.6007/x86_64 &amp;&amp; ostree --repo=/deepin/linglong/repo/repo-test prune --refs-only<br><br>ostree --repo=/deepin/linglong/repo/repo-test pull --mirror repo:com.qq.weixin.work.deepin/4.0.0.6007/x86_64<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>qt-learning</category>
+      
+      <category>qprocess_wget</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/cpp/qt-learning/dbus/README/"/>
     <url>/cpp/qt-learning/dbus/README/</url>
     
@@ -3608,29 +3631,6 @@
       <category>cpp</category>
       
       <category>thread</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/qt-learning/qprocess_wget/README/"/>
-    <url>/cpp/qt-learning/qprocess_wget/README/</url>
-    
-    <content type="html"><![CDATA[<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">ostree --repo=/deepin/linglong/repo/repo-test refs --delete com.qq.weixin.work.deepin/4.0.0.6007/x86_64 &amp;&amp; ostree --repo=/deepin/linglong/repo/repo-test prune --refs-only<br><br>ostree --repo=/deepin/linglong/repo/repo-test pull --mirror repo:com.qq.weixin.work.deepin/4.0.0.6007/x86_64<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>qt-learning</category>
-      
-      <category>qprocess_wget</category>
       
     </categories>
     
@@ -4470,39 +4470,6 @@
   
   
   <entry>
-    <title>rpm-ostree安装教程</title>
-    <link href="/linux/package/rpm-ostree/rpm-ostree%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/"/>
-    <url>/linux/package/rpm-ostree/rpm-ostree%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/</url>
-    
-    <content type="html"><![CDATA[<h1 id="rpm-ostree安装教程">rpm-ostree安装教程</h1><p>Rpm-ostree通过autogen.sh自动生成makefile文件，点击下方链接了解autogen.sh。</p><p>Linux工具之autogen.sh</p><p>autotools自动编译系列之三---autogen.sh实例</p><h2 id="进入rpm-ostree代码目录下">1. 进入rpm-ostree代码目录下</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> rpm-ostree<br></code></pre></td></tr></table></figure><h2 id="执行脚本autogen.sh">2. 执行脚本autogen.sh</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install autoconf libtool automake<br>./autogen.sh<br></code></pre></td></tr></table></figure><h2 id="configure-error-package-requirements-gio-unix-2.0-were-not-met">3、configure: error: Package requirements (gio-unix-2.0) were not met:</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Package &#x27;gio-unix-2.0&#x27;, required by &#x27;virtual:world&#x27;, not found<br></code></pre></td></tr></table></figure><p>https://centos.pkgs.org/8/centos-baseos-x86_64/glib2-devel-2.56.4-10.el8_4.1.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install glib2-devel<br></code></pre></td></tr></table></figure><h2 id="package-json-glib-1.0-required-by-virtualworld-not-found">4. Package 'json-glib-1.0', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-appstream-x86_64/json-glib-devel-1.4.4-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install json-glib-devel<br></code></pre></td></tr></table></figure><h2 id="package-ostree-1-required-by-virtualworld-not-found">5. Package 'ostree-1', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/raven-extras-x86_64/ostree-libs-2021.2-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://pkgs.dyn.su/el8/extras/x86_64/ostree-libs-2021.2-1.el8.x86_64.rpm<br>dnf install ostree-libs-2021.2-1.el8.x86_64.rpm<br></code></pre></td></tr></table></figure><p>https://centos.pkgs.org/8/raven-extras-x86_64/ostree-devel-2021.2-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://pkgs.dyn.su/el8/extras/x86_64/ostree-devel-2021.2-1.el8.x86_64.rpm<br>dnf install ostree-devel-2021.2-1.el8.x86_64.rpm<br></code></pre></td></tr></table></figure><h2 id="package-rpm-required-by-virtualworld-not-found">6. Package 'rpm', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-baseos-x86_64/rpm-devel-4.14.3-14.el8_4.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install rpm-devel<br></code></pre></td></tr></table></figure><h2 id="package-polkit-gobject-1-required-by-virtualworld-not-found">7. Package 'polkit-gobject-1', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-baseos-x86_64/polkit-devel-0.115-11.el8_4.1.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install polkit-devel<br></code></pre></td></tr></table></figure><h2 id="package-libarchive-required-by-virtualworld-not-found">8. Package 'libarchive', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-powertools-x86_64/libarchive-devel-3.3.3-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf --enablerepo=powertools install libarchive-devel<br></code></pre></td></tr></table></figure><h2 id="configure-error-cargo-is-required-for---enable-rust">9. configure: error: cargo is required for --enable-rust</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install rust cargo<br></code></pre></td></tr></table></figure><h2 id="config.status-error-in-rootcoderpm-ostree">10. config.status: error: in `/root/code/rpm-ostree':</h2><p>config.status: error: Something went wrong bootstrapping makefile fragments for automatic dependency tracking. Try re-running configure with the '--disable-dependency-tracking' option to at least be able to build the package (albeit without support for automatic dependency tracking).</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">./autogen.sh --disable-dependency-tracking<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>package</category>
-      
-      <category>rpm-ostree</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>rpm-ostree</title>
     <link href="/linux/package/rpm-ostree/rpm-ostree/"/>
     <url>/linux/package/rpm-ostree/rpm-ostree/</url>
@@ -4526,6 +4493,39 @@
       <tag>Linux</tag>
       
       <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>rpm-ostree安装教程</title>
+    <link href="/linux/package/rpm-ostree/rpm-ostree%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/"/>
+    <url>/linux/package/rpm-ostree/rpm-ostree%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/</url>
+    
+    <content type="html"><![CDATA[<h1 id="rpm-ostree安装教程">rpm-ostree安装教程</h1><p>Rpm-ostree通过autogen.sh自动生成makefile文件，点击下方链接了解autogen.sh。</p><p>Linux工具之autogen.sh</p><p>autotools自动编译系列之三---autogen.sh实例</p><h2 id="进入rpm-ostree代码目录下">1. 进入rpm-ostree代码目录下</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> rpm-ostree<br></code></pre></td></tr></table></figure><h2 id="执行脚本autogen.sh">2. 执行脚本autogen.sh</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install autoconf libtool automake<br>./autogen.sh<br></code></pre></td></tr></table></figure><h2 id="configure-error-package-requirements-gio-unix-2.0-were-not-met">3、configure: error: Package requirements (gio-unix-2.0) were not met:</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Package &#x27;gio-unix-2.0&#x27;, required by &#x27;virtual:world&#x27;, not found<br></code></pre></td></tr></table></figure><p>https://centos.pkgs.org/8/centos-baseos-x86_64/glib2-devel-2.56.4-10.el8_4.1.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install glib2-devel<br></code></pre></td></tr></table></figure><h2 id="package-json-glib-1.0-required-by-virtualworld-not-found">4. Package 'json-glib-1.0', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-appstream-x86_64/json-glib-devel-1.4.4-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install json-glib-devel<br></code></pre></td></tr></table></figure><h2 id="package-ostree-1-required-by-virtualworld-not-found">5. Package 'ostree-1', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/raven-extras-x86_64/ostree-libs-2021.2-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://pkgs.dyn.su/el8/extras/x86_64/ostree-libs-2021.2-1.el8.x86_64.rpm<br>dnf install ostree-libs-2021.2-1.el8.x86_64.rpm<br></code></pre></td></tr></table></figure><p>https://centos.pkgs.org/8/raven-extras-x86_64/ostree-devel-2021.2-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://pkgs.dyn.su/el8/extras/x86_64/ostree-devel-2021.2-1.el8.x86_64.rpm<br>dnf install ostree-devel-2021.2-1.el8.x86_64.rpm<br></code></pre></td></tr></table></figure><h2 id="package-rpm-required-by-virtualworld-not-found">6. Package 'rpm', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-baseos-x86_64/rpm-devel-4.14.3-14.el8_4.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install rpm-devel<br></code></pre></td></tr></table></figure><h2 id="package-polkit-gobject-1-required-by-virtualworld-not-found">7. Package 'polkit-gobject-1', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-baseos-x86_64/polkit-devel-0.115-11.el8_4.1.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install polkit-devel<br></code></pre></td></tr></table></figure><h2 id="package-libarchive-required-by-virtualworld-not-found">8. Package 'libarchive', required by 'virtual:world', not found</h2><p>https://centos.pkgs.org/8/centos-powertools-x86_64/libarchive-devel-3.3.3-1.el8.x86_64.rpm.html</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf --enablerepo=powertools install libarchive-devel<br></code></pre></td></tr></table></figure><h2 id="configure-error-cargo-is-required-for---enable-rust">9. configure: error: cargo is required for --enable-rust</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dnf install rust cargo<br></code></pre></td></tr></table></figure><h2 id="config.status-error-in-rootcoderpm-ostree">10. config.status: error: in `/root/code/rpm-ostree':</h2><p>config.status: error: Something went wrong bootstrapping makefile fragments for automatic dependency tracking. Try re-running configure with the '--disable-dependency-tracking' option to at least be able to build the package (albeit without support for automatic dependency tracking).</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">./autogen.sh --disable-dependency-tracking<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>package</category>
+      
+      <category>rpm-ostree</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
       
       <tag>linux</tag>
       
