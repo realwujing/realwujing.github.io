@@ -239,3 +239,4 @@ sudo mount -a
 - [Linux kernel debug on macOS 搭建可视化内核debug环境](https://zhuanlan.zhihu.com/p/399857241)
 - [UTM - Virtual machines for iOS and macOS](https://github.com/utmapp/UTM)
 - [Parallels Desktop 19.2.1 54832 破解教程（pd19永久授权）](https://www.luoxx.top/archives/pd-18-active?cid=162)
+- [如何轻松扩展Parallel Desktop下的Ubuntu虚拟机磁盘空间](https://blog.coderluny.com/archives/53)
