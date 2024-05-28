@@ -334,6 +334,7 @@ sed -n '1119,1224'p kern.log > pm.log
 ## 端口
 
 - [nc命令 全称netcat，用于设置路由器](https://wangchujiang.com/linux-command/c/nc.html)
+- [nc on debian no proxy option? (probably dumb question)](https://www.reddit.com/r/debian/comments/5ygo2i/nc_on_debian_no_proxy_option_probably_dumb/)
 - [linux 测试端口通不通(四种方法）](https://blog.csdn.net/weixin_30696427/article/details/95817700)
 - [<font color=Red>Linux系统中如何验证网络端口通不通</font>](https://mp.weixin.qq.com/s/_YYk_uWSoOln_yU8kbUqjg)
 - [LINUX中如何查看某个端口是否被占用](https://www.cnblogs.com/hindy/p/7249234.html)
