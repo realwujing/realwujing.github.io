@@ -49,6 +49,42 @@
 - [<font color=Red>libvirt的virsh命令和qemu参数转换</font>](https://blog.csdn.net/YuZhiHui_No1/article/details/53909925)
 - [libvirt and QEMU 基础篇](https://blog.csdn.net/lingshengxiyou/article/details/128665491)
 
+### virsh
+
+#### 克隆一个虚拟机
+
+```bash
+virt-clone --original my_zjnorg --name wujing --file wujing.qcow2
+```
+
+#### 启动虚拟机
+
+```bash
+virsh start wujing
+```
+
+#### 将虚拟机vcpu扩充到16核心
+
+```bash
+virsh shutdown wujing
+virsh edit wujing   # 修改vcpu字段
+virsh start wujing
+```
+
+重启虚拟机后验证是否16核心：
+
+```bash
+nproc
+```
+
+#### 删除虚拟机
+
+```bash
+virsh undefine wujing --nvram
+```
+
+- [KVM 报错以及处理](https://www.cnblogs.com/loudyten/articles/10233268.html)
+
 ### 共享剪切板
 
 - [qemu/kvm linux 虚拟机配置（共享剪切版，文件拖拽进虚拟机）](https://blog.csdn.net/qq_33831360/article/details/123700719)
