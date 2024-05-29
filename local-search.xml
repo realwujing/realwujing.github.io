@@ -756,6 +756,31 @@
   
   
   <entry>
+    <title>hdmi-audio</title>
+    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
+    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
+    
+    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>drivers</category>
+      
+      <category>sound</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>ALC885_1-1</title>
     <link href="/linux/kernel/drivers/sound/ALC885_1-1/"/>
     <url>/linux/kernel/drivers/sound/ALC885_1-1/</url>
@@ -781,31 +806,6 @@
       <tag>git</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>hdmi-audio</title>
-    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
-    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
-    
-    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>drivers</category>
-      
-      <category>sound</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -2423,31 +2423,6 @@
   
   
   <entry>
-    <title>README</title>
-    <link href="/architect/README/"/>
-    <url>/architect/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="system-architect-learning">system-architect-learning</h1><ul><li><a href="考试介绍及备考攻略.md">考试介绍及备考攻略</a></li><li><a href="计算机组成与体系结构.md">计算机组成与体系结构</a></li><li><a href="操作系统.md">操作系统</a></li><li><a href="数据库系统.md">数据库系统</a></li><li><a href="计算机网络.md">计算机网络</a></li><li><a href="数学与经济管理.md">数学与经济管理</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>architect</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>architect</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>system-architect</title>
     <link href="/architect/system-architect/"/>
     <url>/architect/system-architect/</url>
@@ -2467,6 +2442,31 @@
       <tag>git</tag>
       
       <tag>HTML</tag>
+      
+      <tag>architect</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/architect/README/"/>
+    <url>/architect/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="system-architect-learning">system-architect-learning</h1><ul><li><a href="考试介绍及备考攻略.md">考试介绍及备考攻略</a></li><li><a href="计算机组成与体系结构.md">计算机组成与体系结构</a></li><li><a href="操作系统.md">操作系统</a></li><li><a href="数据库系统.md">数据库系统</a></li><li><a href="计算机网络.md">计算机网络</a></li><li><a href="数学与经济管理.md">数学与经济管理</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>architect</category>
+      
+    </categories>
+    
+    
+    <tags>
       
       <tag>architect</tag>
       
@@ -3441,27 +3441,6 @@
   
   <entry>
     <title>README</title>
-    <link href="/cpp/thread/README/"/>
-    <url>/cpp/thread/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="pthread与stdthread">pthread与std::thread</h1><h2 id="pthread"><a href="pthread">pthread</a></h2><h2 id="stdthread"><a href="thread">std::thread</a></h2>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>thread</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
     <link href="/cpp/valgrind/README/"/>
     <url>/cpp/valgrind/README/</url>
     
@@ -3473,6 +3452,27 @@
       <category>cpp</category>
       
       <category>valgrind</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/cpp/thread/README/"/>
+    <url>/cpp/thread/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="pthread与stdthread">pthread与std::thread</h1><h2 id="pthread"><a href="pthread">pthread</a></h2><h2 id="stdthread"><a href="thread">std::thread</a></h2>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>thread</category>
       
     </categories>
     
@@ -3666,6 +3666,31 @@
   
   <entry>
     <title>README</title>
+    <link href="/cpp/qt-learning/dbus/struct/README/"/>
+    <url>/cpp/qt-learning/dbus/struct/README/</url>
+    
+    <content type="html"><![CDATA[<h2 id="deepin下qt-qdebug输出到终端">deepin下qt qDebug()输出到终端</h2><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs routeros"><span class="hljs-built_in">export</span> <span class="hljs-attribute">QT_LOGGING_RULES</span>=<span class="hljs-string">&quot;*.debug=true&quot;</span><br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>qt-learning</category>
+      
+      <category>dbus</category>
+      
+      <category>struct</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/cpp/thread/pthread/ThreadPool/README/"/>
     <url>/cpp/thread/pthread/ThreadPool/README/</url>
     
@@ -3690,31 +3715,6 @@
       <tag>HTML</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/qt-learning/dbus/struct/README/"/>
-    <url>/cpp/qt-learning/dbus/struct/README/</url>
-    
-    <content type="html"><![CDATA[<h2 id="deepin下qt-qdebug输出到终端">deepin下qt qDebug()输出到终端</h2><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs routeros"><span class="hljs-built_in">export</span> <span class="hljs-attribute">QT_LOGGING_RULES</span>=<span class="hljs-string">&quot;*.debug=true&quot;</span><br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>qt-learning</category>
-      
-      <category>dbus</category>
-      
-      <category>struct</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -4645,7 +4645,7 @@
     <link href="/linux/kernel/network/"/>
     <url>/linux/kernel/network/</url>
     
-    <content type="html"><![CDATA[<h1 id="network">network</h1><ul><li><a href="https://mp.weixin.qq.com/s/SVscsnpOAtsZ6IBk34AYug">通俗理解数据中心CPU和GPU之后的第三颗关键芯片“DPU”</a></li></ul><h2 id="计算机网络">计算机网络</h2><ul><li><p><a href="https://www.cnblogs.com/wuwuyong/p/12198928.html">计算机网络常见面试题</a></p></li><li><p><a href="https://www.cnblogs.com/inception6-lxc/p/9152691.html">计算机网络常见面试题</a></p></li><li><p><a href="https://www.toutiao.com/article/7194724931555607100">字节一面：“为什么网络要分层？每一层的职责、包含哪些协议？”</a></p></li><li><p><a href="https://github.com/balloonwj/CppGuide">高性能服务器开发</a></p><ul><li><a href="https://balloonwj.github.io/cpp-guide-web/">在线阅读站点1：https://balloonwj.github.io/cpp-guide-web/</a></li><li><a href="http://balloonwj.gitee.io/cpp-guide-web/">在线阅读站点2：http://balloonwj.gitee.io/cpp-guide-web/</a></li><li><a href="http://101.37.25.166/blog/">备份站点：http://101.37.25.166/blog/</a></li></ul></li></ul><h2 id="socket">socket</h2><ul><li><a href="http://m.biancheng.net/socket/">socket编程入门：1天玩转socket通信技术（非常详细）</a></li><li><a href="http://m.biancheng.net/view/2349.html">socket缓冲区以及阻塞模式</a></li><li><a href="https://blog.csdn.net/summer_fish/article/details/121740570"><font color=Red>Socket缓冲区</font></a></li><li><a href="https://zhuanlan.zhihu.com/p/486140420">Ubuntu 设置Socket缓冲区大小</a></li><li><a href="https://os.51cto.com/article/682138.html"><font color=Red>Linux fd 系列 — socket fd 是什么？</font></a></li><li><a href="https://mp.weixin.qq.com/s/6fxS9GDdKOIkKASiz0e07Q">Linux内核 | socket底层的来龙去脉</a></li><li><a href="https://mp.weixin.qq.com/s/0eomyTaKWVeJbryIEdo1ug">如何学习 Linux 内核网络协议栈</a></li></ul><h3 id="netlink">Netlink</h3><ul><li><a href="https://mp.weixin.qq.com/s/CMWxPcJzoN6TlDypaB4kXA">Linux用户空间与内核空间通信(Netlink通信机制)</a></li><li><a href="https://mp.weixin.qq.com/s/odS7qoVGrtOgSt99o5hw0g">深入了解Linux netlink机制：实现高性能网络通信</a></li></ul><h2 id="select">select</h2><ul><li><a href="https://www.cnblogs.com/skyfsm/p/7079458.html">Linux编程之select</a></li></ul><h2 id="epoll">epoll</h2><ul><li><p><a href="https://mp.weixin.qq.com/s/rpk0QmNfNiUoUH1fuDUpuA">Linux 高性能服务 epoll 的本质，真的不简单（含实例源码）</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/63179839"><font color=Red>如果这篇文章说不清epoll的本质，那就过来掐死我吧！ （1） - 知乎 (zhihu.com)</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/64138532">如果这篇文章说不清epoll的本质，那就过来掐死我吧！ （2） - 知乎 (zhihu.com)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/64746509">如果这篇文章说不清epoll的本质，那就过来掐死我吧！ （3） - 知乎 (zhihu.com)</a></p></li><li><p><a href="https://blog.csdn.net/songchuwang1868/article/details/89877739">Epoll的本质（内部实现原理）</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1636224">epoll LT 模式和 ET 模式详解（文末赠书） - 云+社区 - 腾讯云 (tencent.com)</a></p></li><li><p><a href="https://www.cnblogs.com/lojunren/p/3856290.html">Linux下的I/O复用与epoll详解</a></p></li><li><p><a href="https://blog.csdn.net/wendy_keeping/article/details/76577770">epoll源码剖析_wendy_keeping的博客-CSDN博客</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/tu7ovS2xO6ju-H5gB8TNCw">盘点Linux Epoll那些致命弱点</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1005481">大话 Select、Poll、Epoll - 云+社区 - 腾讯云 (tencent.com)</a></p></li></ul><h2 id="libevent">libevent</h2><ul><li><p><a href="https://www.bookstack.cn/read/libevent/450ef2232c710e15.md">Libevent深入浅出-《Libevent深入浅出》-书栈网·BookStack</a></p></li><li><p><a href="https://www.bookstack.cn/read/libevent/450ef2232c710e15.md">Libevent深入浅出· libevent深入浅出- Gitbooks</a></p></li><li><p><a href="https://blog.csdn.net/none123java321/article/details/113134499">libevent深入浅出_none123java321的博客-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/lfsblack/p/5498556.html">libevent源码深度剖析</a></p></li><li><p><a href="https://blog.csdn.net/Lemon_tea666/article/details/92637297">详解libevent网络库（一）-框架的搭建</a></p></li><li><p><a href="https://blog.csdn.net/Lemon_tea666/article/details/92797520">详解libevent网络库（二）-即时聊天通讯</a></p></li><li><p><a href="https://blog.csdn.net/y396397735/article/details/50684558">Linux网络编程 socketpair的使用</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/73u2kO43gGp0BCHncQO0ng">一文讲懂什么是vlan、三层交换机、网关、DNS、子网掩码、MAC地址</a></p></li><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&amp;mid=2247501617&amp;idx=2&amp;sn=460849b920d167dba10f7c4ad1fd927a&amp;chksm=f96bb5c5ce1c3cd30bdfe24e10b07d227d45c1d1e9cb64eeabae977eb62f7203618740a88b5e&amp;scene=178&amp;cur_album_id=1598710257097179137#rd">46张图带你了解网络传输、WIFI、以太网协议和网络寻址</a></p></li><li><p><a href="https://bbs.huaweicloud.com/blogs/147408">解析：单播、广播和组播的区别</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/2znyxjMUqpH9qjqCqTd69g">「linux」Socket缓存是如何影响TCP性能的？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/6uuL-oq5FCIMTER1M9Dnmg">Linux 网络性能的 15 个优化建议！</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/cqmZX32TK50e7Ix_Uz_HoA">虾皮二面：既然有 HTTP 协议，为什么还要有 RPC?</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/cqmZX32TK50e7Ix_Uz_HoA">虾皮二面：既然有 HTTP 协议，为什么还要有 RPC?</a></p></li></ul><h2 id="io模型">IO模型</h2><ul><li><a href="https://www.jianshu.com/p/486b0965c296">聊聊Linux 五种IO模型</a></li><li><a href="https://cloud.tencent.com/developer/article/1901999">深入理解Linux I/O系统</a></li><li><a href="http://www.daileinote.com/computer/linux_sys/10">linux文件io缓冲</a></li><li><a href="https://mp.weixin.qq.com/s/0aC4z2yl3n6kQ2PTt-aPNw">Linux 实现原理 — I/O 处理流程与优化手段</a></li><li><a href="https://blog.csdn.net/chenxiyuehh/article/details/90577631">【Linux】—— Linux下的文件缓冲区</a></li><li><a href="https://www.cnblogs.com/eason-liu/p/8053558.html">[基础]同步消息和异步消息传递的区别？</a></li><li><a href="https://mp.weixin.qq.com/s?__biz=Mzg4OTYzODM4Mw==&amp;mid=2247485708&amp;idx=1&amp;sn=d7c8bec26de6ddcaaff49eac0766dc87&amp;source=41#wechat_redirect">终于明白了，一文彻底理解I/O多路复用</a></li><li><a href="https://mp.weixin.qq.com/s/uJLw9tCUANNhWlFAIZfDIA">这次答应我，一举拿下I/O多路复用！</a></li></ul><h2 id="reactor">reactor</h2><ul><li><p><a href="https://www.toutiao.com/article/7171814310321291810/"><font color=Red>一文图解高性能网络架构：Reactor和Proactor</font></a></p></li><li><p><a href="https://www.toutiao.com/article/7196173859631219238"><font color=Red>​网络 IO 演变发展过程和模型介绍</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/kyEYNLtpsLZHK9n3j1pO0w">3000字|程序员应如何理解Reactor模式？</a></p></li><li><p><a href="https://www.jianshu.com/p/188ef8462100">Reactor模式详解＋源码实现</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Z07Hc9SRfGz6n8XhFHGVyA">高并发高性能服务器是如何实现的</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/xARtnqFQmi-Hzw01m__KQA">从小白到高手，你需要理解同步与异步(内含10张图)</a></p></li><li><p><a href="https://mp.weixin.qq.com/s?__biz=Mzg4OTYzODM4Mw==&amp;mid=2247485706&amp;idx=1&amp;sn=bc5d6e4bf9ee5dccef520e5b2051d943&amp;source=41#wechat_redirect">读取文件时，程序经历了什么？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/AqTcVaxElxgwVjCPcxAFDA">Mac 地址会重复吗？Mac 地址也会耗尽吗？</a></p></li><li><p><a href="https://www.toutiao.com/article/7204305085835346467">要理解网络，其实不就是理解这三张表吗</a></p></li><li><p><a href="https://www.toutiao.com/article/7166152475840561704/">为什么要使用 TCP keepalive？C/C++代码实现TCP keepalive</a></p></li><li><p><a href="https://www.toutiao.com/article/7191463571258343948/">一文读懂物联网MQTT协议之基础特性篇</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Qafa3nE_vTzdl1jGTiUaMw">为什么HTTPS是安全的？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/siG1XMxQnduBWdY-hvQO8g">刚插上网线，电脑怎么知道自己的IP是什么？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/f19jaSwKA0oTE87yAfyb2w">一张图了解八种流行的网络协议</a></p></li></ul><h2 id="phy">phy</h2><ul><li><a href="https://mp.weixin.qq.com/s/jcolfo4bvKPS-eRdeCkRCg">Linux 实现原理 — 网卡驱动程序初始化流程</a></li><li><a href="https://blog.csdn.net/qq_40715266/article/details/124095801">PHY芯片快速深度理解（持续更新中……）</a></li><li><a href="https://mp.weixin.qq.com/s/VQWEkycARPQ2pCpDxx_Rnw">【网络驱动】ifconfig up 后内核网络驱动做了什么？</a></li></ul><h2 id="扫描工具">扫描工具</h2><ul><li><a href="https://mp.weixin.qq.com/s/HnerPmV34KWKLADVsEx5gA">【工具更新】内网大杀器Fscan</a></li></ul><h2 id="内网穿透">内网穿透</h2><ul><li><a href="https://www.toutiao.com/article/7317562665730097704/">内网穿透详解</a></li></ul><h2 id="抓包">抓包</h2><ul><li><p><a href="https://blog.csdn.net/hixiaoxiaoniao/article/details/87596703">Linux性能优化-用tcpdump 和 Wireshark 分析网络流量</a></p></li><li><p><a href="https://www.cnblogs.com/bakari/p/10515977.html">一文掌握 Linux 性能分析之网络篇</a></p></li><li><p><a href="https://blog.csdn.net/github_40044758/article/details/111290919">wireshark过滤http包</a></p></li><li><p><a href="https://cn.linux-console.net/?p=8295"><font color=Red>如何在 Linux 上使用 Wireshark 过滤器</font></a></p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">http.host==<span class="hljs-string">&quot;www.baidu.com&quot;</span><br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240117135816.png" alt="" /><figcaption>http.host=="www.baidu.com"</figcaption></figure></li></ul><h2 id="dns">dns</h2><ul><li><a href="https://blog.csdn.net/i_do_not_know_you/article/details/105594269">Github Pages 绑定域名遇到的坑</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="network">network</h1><ul><li><a href="https://mp.weixin.qq.com/s/SVscsnpOAtsZ6IBk34AYug">通俗理解数据中心CPU和GPU之后的第三颗关键芯片“DPU”</a></li><li><a href="https://mp.weixin.qq.com/s/4G4il3rZSMmEgvdvGSH_Gw">字节校招：TCP 和 UDP 可以同时绑定相同的端口吗？</a></li></ul><h2 id="计算机网络">计算机网络</h2><ul><li><p><a href="https://www.cnblogs.com/wuwuyong/p/12198928.html">计算机网络常见面试题</a></p></li><li><p><a href="https://www.cnblogs.com/inception6-lxc/p/9152691.html">计算机网络常见面试题</a></p></li><li><p><a href="https://www.toutiao.com/article/7194724931555607100">字节一面：“为什么网络要分层？每一层的职责、包含哪些协议？”</a></p></li><li><p><a href="https://github.com/balloonwj/CppGuide">高性能服务器开发</a></p><ul><li><a href="https://balloonwj.github.io/cpp-guide-web/">在线阅读站点1：https://balloonwj.github.io/cpp-guide-web/</a></li><li><a href="http://balloonwj.gitee.io/cpp-guide-web/">在线阅读站点2：http://balloonwj.gitee.io/cpp-guide-web/</a></li><li><a href="http://101.37.25.166/blog/">备份站点：http://101.37.25.166/blog/</a></li></ul></li></ul><h2 id="socket">socket</h2><ul><li><a href="http://m.biancheng.net/socket/">socket编程入门：1天玩转socket通信技术（非常详细）</a></li><li><a href="http://m.biancheng.net/view/2349.html">socket缓冲区以及阻塞模式</a></li><li><a href="https://blog.csdn.net/summer_fish/article/details/121740570"><font color=Red>Socket缓冲区</font></a></li><li><a href="https://zhuanlan.zhihu.com/p/486140420">Ubuntu 设置Socket缓冲区大小</a></li><li><a href="https://os.51cto.com/article/682138.html"><font color=Red>Linux fd 系列 — socket fd 是什么？</font></a></li><li><a href="https://mp.weixin.qq.com/s/6fxS9GDdKOIkKASiz0e07Q">Linux内核 | socket底层的来龙去脉</a></li><li><a href="https://mp.weixin.qq.com/s/0eomyTaKWVeJbryIEdo1ug">如何学习 Linux 内核网络协议栈</a></li></ul><h3 id="netlink">Netlink</h3><ul><li><a href="https://mp.weixin.qq.com/s/CMWxPcJzoN6TlDypaB4kXA">Linux用户空间与内核空间通信(Netlink通信机制)</a></li><li><a href="https://mp.weixin.qq.com/s/odS7qoVGrtOgSt99o5hw0g">深入了解Linux netlink机制：实现高性能网络通信</a></li></ul><h2 id="select">select</h2><ul><li><a href="https://www.cnblogs.com/skyfsm/p/7079458.html">Linux编程之select</a></li></ul><h2 id="epoll">epoll</h2><ul><li><p><a href="https://mp.weixin.qq.com/s/rpk0QmNfNiUoUH1fuDUpuA">Linux 高性能服务 epoll 的本质，真的不简单（含实例源码）</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/63179839"><font color=Red>如果这篇文章说不清epoll的本质，那就过来掐死我吧！ （1） - 知乎 (zhihu.com)</font></a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/64138532">如果这篇文章说不清epoll的本质，那就过来掐死我吧！ （2） - 知乎 (zhihu.com)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/64746509">如果这篇文章说不清epoll的本质，那就过来掐死我吧！ （3） - 知乎 (zhihu.com)</a></p></li><li><p><a href="https://blog.csdn.net/songchuwang1868/article/details/89877739">Epoll的本质（内部实现原理）</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1636224">epoll LT 模式和 ET 模式详解（文末赠书） - 云+社区 - 腾讯云 (tencent.com)</a></p></li><li><p><a href="https://www.cnblogs.com/lojunren/p/3856290.html">Linux下的I/O复用与epoll详解</a></p></li><li><p><a href="https://blog.csdn.net/wendy_keeping/article/details/76577770">epoll源码剖析_wendy_keeping的博客-CSDN博客</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/tu7ovS2xO6ju-H5gB8TNCw">盘点Linux Epoll那些致命弱点</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1005481">大话 Select、Poll、Epoll - 云+社区 - 腾讯云 (tencent.com)</a></p></li></ul><h2 id="libevent">libevent</h2><ul><li><p><a href="https://www.bookstack.cn/read/libevent/450ef2232c710e15.md">Libevent深入浅出-《Libevent深入浅出》-书栈网·BookStack</a></p></li><li><p><a href="https://www.bookstack.cn/read/libevent/450ef2232c710e15.md">Libevent深入浅出· libevent深入浅出- Gitbooks</a></p></li><li><p><a href="https://blog.csdn.net/none123java321/article/details/113134499">libevent深入浅出_none123java321的博客-CSDN博客</a></p></li><li><p><a href="https://www.cnblogs.com/lfsblack/p/5498556.html">libevent源码深度剖析</a></p></li><li><p><a href="https://blog.csdn.net/Lemon_tea666/article/details/92637297">详解libevent网络库（一）-框架的搭建</a></p></li><li><p><a href="https://blog.csdn.net/Lemon_tea666/article/details/92797520">详解libevent网络库（二）-即时聊天通讯</a></p></li><li><p><a href="https://blog.csdn.net/y396397735/article/details/50684558">Linux网络编程 socketpair的使用</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/73u2kO43gGp0BCHncQO0ng">一文讲懂什么是vlan、三层交换机、网关、DNS、子网掩码、MAC地址</a></p></li><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&amp;mid=2247501617&amp;idx=2&amp;sn=460849b920d167dba10f7c4ad1fd927a&amp;chksm=f96bb5c5ce1c3cd30bdfe24e10b07d227d45c1d1e9cb64eeabae977eb62f7203618740a88b5e&amp;scene=178&amp;cur_album_id=1598710257097179137#rd">46张图带你了解网络传输、WIFI、以太网协议和网络寻址</a></p></li><li><p><a href="https://bbs.huaweicloud.com/blogs/147408">解析：单播、广播和组播的区别</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/2znyxjMUqpH9qjqCqTd69g">「linux」Socket缓存是如何影响TCP性能的？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/6uuL-oq5FCIMTER1M9Dnmg">Linux 网络性能的 15 个优化建议！</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/cqmZX32TK50e7Ix_Uz_HoA">虾皮二面：既然有 HTTP 协议，为什么还要有 RPC?</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/cqmZX32TK50e7Ix_Uz_HoA">虾皮二面：既然有 HTTP 协议，为什么还要有 RPC?</a></p></li></ul><h2 id="io模型">IO模型</h2><ul><li><a href="https://www.jianshu.com/p/486b0965c296">聊聊Linux 五种IO模型</a></li><li><a href="https://cloud.tencent.com/developer/article/1901999">深入理解Linux I/O系统</a></li><li><a href="http://www.daileinote.com/computer/linux_sys/10">linux文件io缓冲</a></li><li><a href="https://mp.weixin.qq.com/s/0aC4z2yl3n6kQ2PTt-aPNw">Linux 实现原理 — I/O 处理流程与优化手段</a></li><li><a href="https://blog.csdn.net/chenxiyuehh/article/details/90577631">【Linux】—— Linux下的文件缓冲区</a></li><li><a href="https://www.cnblogs.com/eason-liu/p/8053558.html">[基础]同步消息和异步消息传递的区别？</a></li><li><a href="https://mp.weixin.qq.com/s?__biz=Mzg4OTYzODM4Mw==&amp;mid=2247485708&amp;idx=1&amp;sn=d7c8bec26de6ddcaaff49eac0766dc87&amp;source=41#wechat_redirect">终于明白了，一文彻底理解I/O多路复用</a></li><li><a href="https://mp.weixin.qq.com/s/uJLw9tCUANNhWlFAIZfDIA">这次答应我，一举拿下I/O多路复用！</a></li></ul><h2 id="reactor">reactor</h2><ul><li><p><a href="https://www.toutiao.com/article/7171814310321291810/"><font color=Red>一文图解高性能网络架构：Reactor和Proactor</font></a></p></li><li><p><a href="https://www.toutiao.com/article/7196173859631219238"><font color=Red>​网络 IO 演变发展过程和模型介绍</font></a></p></li><li><p><a href="https://mp.weixin.qq.com/s/kyEYNLtpsLZHK9n3j1pO0w">3000字|程序员应如何理解Reactor模式？</a></p></li><li><p><a href="https://www.jianshu.com/p/188ef8462100">Reactor模式详解＋源码实现</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Z07Hc9SRfGz6n8XhFHGVyA">高并发高性能服务器是如何实现的</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/xARtnqFQmi-Hzw01m__KQA">从小白到高手，你需要理解同步与异步(内含10张图)</a></p></li><li><p><a href="https://mp.weixin.qq.com/s?__biz=Mzg4OTYzODM4Mw==&amp;mid=2247485706&amp;idx=1&amp;sn=bc5d6e4bf9ee5dccef520e5b2051d943&amp;source=41#wechat_redirect">读取文件时，程序经历了什么？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/AqTcVaxElxgwVjCPcxAFDA">Mac 地址会重复吗？Mac 地址也会耗尽吗？</a></p></li><li><p><a href="https://www.toutiao.com/article/7204305085835346467">要理解网络，其实不就是理解这三张表吗</a></p></li><li><p><a href="https://www.toutiao.com/article/7166152475840561704/">为什么要使用 TCP keepalive？C/C++代码实现TCP keepalive</a></p></li><li><p><a href="https://www.toutiao.com/article/7191463571258343948/">一文读懂物联网MQTT协议之基础特性篇</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/Qafa3nE_vTzdl1jGTiUaMw">为什么HTTPS是安全的？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/siG1XMxQnduBWdY-hvQO8g">刚插上网线，电脑怎么知道自己的IP是什么？</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/f19jaSwKA0oTE87yAfyb2w">一张图了解八种流行的网络协议</a></p></li></ul><h2 id="phy">phy</h2><ul><li><a href="https://mp.weixin.qq.com/s/jcolfo4bvKPS-eRdeCkRCg">Linux 实现原理 — 网卡驱动程序初始化流程</a></li><li><a href="https://blog.csdn.net/qq_40715266/article/details/124095801">PHY芯片快速深度理解（持续更新中……）</a></li><li><a href="https://mp.weixin.qq.com/s/VQWEkycARPQ2pCpDxx_Rnw">【网络驱动】ifconfig up 后内核网络驱动做了什么？</a></li></ul><h2 id="扫描工具">扫描工具</h2><ul><li><a href="https://mp.weixin.qq.com/s/HnerPmV34KWKLADVsEx5gA">【工具更新】内网大杀器Fscan</a></li></ul><h2 id="内网穿透">内网穿透</h2><ul><li><a href="https://www.toutiao.com/article/7317562665730097704/">内网穿透详解</a></li></ul><h2 id="抓包">抓包</h2><ul><li><p><a href="https://blog.csdn.net/hixiaoxiaoniao/article/details/87596703">Linux性能优化-用tcpdump 和 Wireshark 分析网络流量</a></p></li><li><p><a href="https://www.cnblogs.com/bakari/p/10515977.html">一文掌握 Linux 性能分析之网络篇</a></p></li><li><p><a href="https://blog.csdn.net/github_40044758/article/details/111290919">wireshark过滤http包</a></p></li><li><p><a href="https://cn.linux-console.net/?p=8295"><font color=Red>如何在 Linux 上使用 Wireshark 过滤器</font></a></p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">http.host==<span class="hljs-string">&quot;www.baidu.com&quot;</span><br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240117135816.png" alt="" /><figcaption>http.host=="www.baidu.com"</figcaption></figure></li></ul><h2 id="dns">dns</h2><ul><li><a href="https://blog.csdn.net/i_do_not_know_you/article/details/105594269">Github Pages 绑定域名遇到的坑</a></li></ul>]]></content>
     
     
     <categories>
