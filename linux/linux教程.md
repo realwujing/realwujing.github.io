@@ -307,6 +307,11 @@ sed -n '1119,1224'p kern.log > pm.log
 - [<font color=Red>top命令里内存参数 VIRT, RES 和 SHR 分别是什么意思</font>](https://segmentfault.com/a/1190000013504502)
 - [Linux命令系列之top——里面藏着很多鲜为人知的宝藏知识](https://www.toutiao.com/article/7152513156642816519)
 
+## htop
+
+- [Lunix线程、内存管理—htop命令详解](https://blog.csdn.net/xixirupan/article/details/82930750)
+- [htop命令中显示相同进程的解决方案](https://blog.csdn.net/weixin_45817309/article/details/134675773)
+
 ## 系统状态
 
 - [<font color=Red>第10章统计和查看Linux的系统状态</font>](https://www.cnblogs.com/f-ck-need-u/p/7059074.html)
