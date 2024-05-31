@@ -34,3 +34,16 @@
 - <https://ccache.dev/>
 - [高速的C/C++编译工具——ccache](https://blog.csdn.net/King_weng/article/details/117415618)
 - [Linux 5.10.20 上使用ccache加快内核编译速度（安装配置及使用方法）](https://blog.csdn.net/weixin_48299611/article/details/115563624)
+
+安装ccache:
+
+```bash
+sudo apt install ccache
+```
+
+在～/.bashrc中添加如下内容:
+
+```bash
+# ccache
+export PATH=/usr/lib/ccache:$PATH
+```
