@@ -53,6 +53,10 @@
 
 - [大话 Select、Poll、Epoll - 云+社区 - 腾讯云 (tencent.com)](https://cloud.tencent.com/developer/article/1005481)
 
+### 惊群效应
+
+- [深入理解linux惊群效应（超详细）](https://mp.weixin.qq.com/s/CTj-HpnmX8d_hDWk5t-oqQ)
+
 ## libevent
 
 - [Libevent深入浅出-《Libevent深入浅出》-书栈网·BookStack](https://www.bookstack.cn/read/libevent/450ef2232c710e15.md)
