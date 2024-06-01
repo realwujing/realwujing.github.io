@@ -756,31 +756,6 @@
   
   
   <entry>
-    <title>hdmi-audio</title>
-    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
-    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
-    
-    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>drivers</category>
-      
-      <category>sound</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>ALC885_1-1</title>
     <link href="/linux/kernel/drivers/sound/ALC885_1-1/"/>
     <url>/linux/kernel/drivers/sound/ALC885_1-1/</url>
@@ -806,6 +781,31 @@
       <tag>git</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>hdmi-audio</title>
+    <link href="/linux/kernel/drivers/sound/hdmi-audio/"/>
+    <url>/linux/kernel/drivers/sound/hdmi-audio/</url>
+    
+    <content type="html"><![CDATA[<h1 id="hdmi-audio">hdmi-audio</h1><p>217721 HDMI连接带有Audio 显示器，S3/S5/reboot唤醒听不到唤醒音</p><h2 id="排查思路">排查思路</h2><ul><li><p>S3: 暂停到内存，唤醒播放提示音前pulseaudio存在</p></li><li><p>S4: 暂停到硬盘，唤醒播放提示音前pulseaudio存在</p></li><li><p>S5: 关机，播放提示音前pulseaudio存在</p></li><li><p>reboot: 重新启动，启动时播放提示音前pulseaudio不存在</p></li></ul><p>查看deepin-login-sound.service依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies deepin-login-sound.service<br>deepin-login-sound.service<br>● ├─system.slice<br>● ├─sound.target<br>● │ ├─alsa-restore.service<br>○ │ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看sound.target依赖:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl list-dependencies sound.target<br>sound.target<br>● ├─alsa-restore.service<br>○ └─alsa-state.service<br></code></pre></td></tr></table></figure><p>查看deepin-login-sound.service文件:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl <span class="hljs-built_in">cat</span> deepin-login-sound.service<br><span class="hljs-comment"># /lib/systemd/system/deepin-login-sound.service</span><br>[Unit]<br>Description=Deepin login sound<br>Requires=sound.target<br>After=dbus.service lightdm.service<br><br>[Service]<br>Type=oneshot<br>ExecStart=/usr/lib/deepin-api/deepin-boot-sound.sh<br>RemainAfterExit=<span class="hljs-built_in">yes</span><br><br>[Install]<br>WantedBy=multi-user.target<br></code></pre></td></tr></table></figure><p>查看 /usr/lib/deepin-api/deepin-boot-sound.sh脚本</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cat</span> /usr/lib/deepin-api/deepin-boot-sound.sh<br><span class="hljs-comment">#!/bin/sh</span><br><br>/usr/bin/dbus-send --system --print-reply --dest=com.deepin.api.SoundThemePlayer /com/deepin/api/SoundThemePlayer com.deepin.api.SoundThemePlayer.PlaySoundDesktopLogin&amp;<br></code></pre></td></tr></table></figure><h2 id="问题">问题</h2><p>deepin-boot-sound.sh提示音的播放逻辑没问题，前后依赖关系没问题。</p><p>com.deepin.api.SoundThemePlayer这个走pulseaudio接口 or alsa接口？</p><p>应该走alsa接口，pulseauido在用户登录后才启动。</p><p>问题应该出在alsa-restore.service这个服务没有等到hdmi audio恢复到可用状态后再执行，还是cat /proc/asound/card<em>/eld#</em> 的问题</p><h2 id="解决方案">解决方案</h2><h3 id="etcudevrules.d69-hdmi-audio-check.rules">/etc/udev/rules.d/69-hdmi-audio-check.rules</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/udev/rules.d/69-hdmi-audio-check.rules &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string"># Run the HDMI audio check script before the alsa-restore.service</span><br><span class="hljs-string">ACTION==&quot;add&quot;, SUBSYSTEM==&quot;sound&quot;, TAG+=&quot;systemd&quot;, ENV&#123;SYSTEMD_WANTS&#125;=&quot;check-hdmi-card.service&quot;, ENV&#123;SYSTEMD_WANT_BEFORE&#125;=&quot;alsa-restore.service&quot;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo udevadm control --reload-rules<br></code></pre></td></tr></table></figure><h3 id="etcsystemdsystemcheck-hdmi-card.service">/etc/systemd/system/check-hdmi-card.service</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /etc/systemd/system/check-hdmi-card.service &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">[Unit]</span><br><span class="hljs-string">Description=Check HDMI Audio Availability</span><br><span class="hljs-string">After=sysinit.target</span><br><span class="hljs-string">Before=alsa-restore.service</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Service]</span><br><span class="hljs-string">Type=oneshot</span><br><span class="hljs-string">ExecStart=/usr/bin/bash -c &#x27;/usr/lib/deepin-api/check-hdmi-card.sh&#x27;</span><br><span class="hljs-string"></span><br><span class="hljs-string">[Install]</span><br><span class="hljs-string">WantedBy=multi-user.target</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><h3 id="usrlibdeepin-apicheck-hdmi-card.sh">/usr/lib/deepin-api/check-hdmi-card.sh</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">tee</span> /usr/lib/deepin-api/check-hdmi-card.sh &lt;&lt;<span class="hljs-string">EOF</span><br><span class="hljs-string">#!/bin/bash</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Check HDMI audio devices</span><br><span class="hljs-string">hdmi_found=false</span><br><span class="hljs-string"></span><br><span class="hljs-string">for eld_file in /proc/asound/card*/eld#*; do</span><br><span class="hljs-string">    if [ -e &quot;$eld_file&quot; ]; then</span><br><span class="hljs-string">        echo &quot;HDMI audio device information is available in $eld_file:&quot;</span><br><span class="hljs-string">        cat &quot;$eld_file&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">        # Check the monitor_present and eld_valid flags</span><br><span class="hljs-string">        monitor_present=$(grep &quot;monitor_present&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string">        eld_valid=$(grep &quot;eld_valid&quot; &quot;$eld_file&quot; | awk &#x27;&#123;print $2&#125;&#x27;)</span><br><span class="hljs-string"></span><br><span class="hljs-string">        if [ &quot;$monitor_present&quot; = &quot;1&quot; ] &amp;&amp; [ &quot;$eld_valid&quot; = &quot;1&quot; ]; then</span><br><span class="hljs-string">            hdmi_found=true</span><br><span class="hljs-string">            # Perform additional actions as needed here</span><br><span class="hljs-string">        fi</span><br><span class="hljs-string">    else</span><br><span class="hljs-string">        echo &quot;No HDMI audio device found in $eld_file.&quot;</span><br><span class="hljs-string">    fi</span><br><span class="hljs-string">done</span><br><span class="hljs-string"></span><br><span class="hljs-string"># Output the result</span><br><span class="hljs-string">if [ &quot;$hdmi_found&quot; = true ]; then</span><br><span class="hljs-string">    echo &quot;HDMI audio device is ready and connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">else</span><br><span class="hljs-string">    echo &quot;No HDMI audio device found or not connected to an HDMI monitor.&quot;</span><br><span class="hljs-string">fi</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">chmod</span> +x /usr/lib/deepin-api/check-hdmi-card.sh<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo systemctl daemon-reload<br>sudo systemctl <span class="hljs-built_in">enable</span> check-hdmi-card.service<br></code></pre></td></tr></table></figure><h3 id="优缺点">优缺点</h3><p>优点：</p><ul><li>耦合性大幅降低</li><li>播放时不必等待</li></ul><p>缺点：</p><ul><li>更改配置文件较多</li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>drivers</category>
+      
+      <category>sound</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -948,33 +948,6 @@
   
   
   <entry>
-    <title>pa_alsa_path_probe</title>
-    <link href="/linux/kernel/drivers/sound/pulseaudio/pa_alsa_path_probe/"/>
-    <url>/linux/kernel/drivers/sound/pulseaudio/pa_alsa_path_probe/</url>
-    
-    <content type="html"><![CDATA[<h1 id="pa_alsa_path_probe">pa_alsa_path_probe</h1><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">pa_alsa_path_probe</span><span class="hljs-params">(pa_alsa_path *p, pa_alsa_mapping *mapping, <span class="hljs-type">snd_mixer_t</span> *m, <span class="hljs-type">bool</span> ignore_dB)</span> &#123;<br>    pa_alsa_element *e;<br>    pa_alsa_jack *j;<br>    <span class="hljs-type">double</span> min_dB[PA_CHANNEL_POSITION_MAX], max_dB[PA_CHANNEL_POSITION_MAX];<br>    <span class="hljs-type">pa_channel_position_t</span> t;<br>    <span class="hljs-type">pa_channel_position_mask_t</span> path_volume_channels = <span class="hljs-number">0</span>;<br><br>    pa_assert(p);<br>    pa_assert(m);<br><br>    <span class="hljs-comment">// 如果路径已经被探测过，返回其是否受支持的状态</span><br>    <span class="hljs-keyword">if</span> (p-&gt;probed)<br>        <span class="hljs-keyword">return</span> p-&gt;supported ? <span class="hljs-number">0</span> : <span class="hljs-number">-1</span>;<br>    p-&gt;probed = <span class="hljs-literal">true</span>;<br><br>    <span class="hljs-comment">// 初始化 min_dB 和 max_dB 数组</span><br>    pa_zero(min_dB);<br>    pa_zero(max_dB);<br><br>    <span class="hljs-comment">// 输出调试信息，表示正在探测此路径</span><br>    pa_log_debug(<span class="hljs-string">&quot;Probing path &#x27;%s&#x27;&quot;</span>, p-&gt;name);<br><br>    <span class="hljs-comment">// 遍历路径中的所有插孔，进行探测</span><br>    PA_LLIST_FOREACH(j, p-&gt;jacks) &#123;<br>        <span class="hljs-comment">// 调用 jack_probe 函数对插孔进行探测</span><br>        <span class="hljs-keyword">if</span> (jack_probe(j, mapping, m) &lt; <span class="hljs-number">0</span>) &#123;<br>            <span class="hljs-comment">// 插孔探测失败，标记路径不受支持，并返回错误</span><br>            p-&gt;supported = <span class="hljs-literal">false</span>;<br>            pa_log_debug(<span class="hljs-string">&quot;Probe of jack &#x27;%s&#x27; failed.&quot;</span>, j-&gt;alsa_name);<br>            <span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>        &#125;<br>        <span class="hljs-comment">// 输出调试信息，表示插孔探测成功</span><br>        pa_log_debug(<span class="hljs-string">&quot;Probe of jack &#x27;%s&#x27; succeeded (%s)&quot;</span>, j-&gt;alsa_name, j-&gt;has_control ? <span class="hljs-string">&quot;found!&quot;</span> : <span class="hljs-string">&quot;not found&quot;</span>);<br>    &#125;<br><br>    <span class="hljs-comment">// 遍历路径中的所有元素，进行探测</span><br>    PA_LLIST_FOREACH(e, p-&gt;elements) &#123;<br>        <span class="hljs-comment">// 调用 element_probe 函数对元素进行探测</span><br>        <span class="hljs-keyword">if</span> (element_probe(e, m) &lt; <span class="hljs-number">0</span>) &#123;<br>            <span class="hljs-comment">// 元素探测失败，标记路径不受支持，并返回错误</span><br>            p-&gt;supported = <span class="hljs-literal">false</span>;<br>            pa_log_debug(<span class="hljs-string">&quot;Probe of element &#x27;%s&#x27; failed.&quot;</span>, e-&gt;alsa_name);<br>            <span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>        &#125;<br>        <span class="hljs-comment">// 输出调试信息，表示元素探测成功，并显示其音量、开关和枚举使用情况</span><br>        pa_log_debug(<span class="hljs-string">&quot;Probe of element &#x27;%s&#x27; succeeded (volume=%d, switch=%d, enumeration=%d).&quot;</span>, e-&gt;alsa_name, e-&gt;volume_use, e-&gt;switch_use, e-&gt;enumeration_use);<br><br>        <span class="hljs-comment">// 如果忽略 dB 信息，将 has_dB 设置为 false</span><br>        <span class="hljs-keyword">if</span> (ignore_dB)<br>            e-&gt;has_dB = <span class="hljs-literal">false</span>;<br><br>        <span class="hljs-keyword">if</span> (e-&gt;volume_use == PA_ALSA_VOLUME_MERGE) &#123;<br>            <span class="hljs-comment">// 处理合并音量的情况</span><br><br>            <span class="hljs-comment">// 如果路径中尚无音量信息，初始化 min_volume 和 max_volume</span><br>            <span class="hljs-keyword">if</span> (!p-&gt;has_volume) &#123;<br>                p-&gt;min_volume = e-&gt;min_volume;<br>                p-&gt;max_volume = e-&gt;max_volume;<br>            &#125;<br><br>            <span class="hljs-keyword">if</span> (e-&gt;has_dB) &#123;<br>                <span class="hljs-comment">// 如果元素有 dB 信息，处理 dB 音量</span><br><br>                <span class="hljs-comment">// 如果路径中尚无音量信息，初始化 min_dB 和 max_dB，并记录音量通道位置</span><br>                <span class="hljs-keyword">if</span> (!p-&gt;has_volume) &#123;<br>                    <span class="hljs-keyword">for</span> (t = <span class="hljs-number">0</span>; t &lt; PA_CHANNEL_POSITION_MAX; t++)<br>                        <span class="hljs-keyword">if</span> (PA_CHANNEL_POSITION_MASK(t) &amp; e-&gt;merged_mask) &#123;<br>                            min_dB[t] = e-&gt;min_dB;<br>                            max_dB[t] = e-&gt;max_dB;<br>                            path_volume_channels |= PA_CHANNEL_POSITION_MASK(t);<br>                        &#125;<br><br>                    p-&gt;has_dB = <span class="hljs-literal">true</span>;<br>                &#125; <span class="hljs-keyword">else</span> &#123;<br>                    <span class="hljs-comment">// 如果路径中已经存在音量信息，更新 min_dB 和 max_dB，以及音量通道位置</span><br>                    <span class="hljs-keyword">if</span> (p-&gt;has_dB) &#123;<br>                        <span class="hljs-keyword">for</span> (t = <span class="hljs-number">0</span>; t &lt; PA_CHANNEL_POSITION_MAX; t++)<br>                            <span class="hljs-keyword">if</span> (PA_CHANNEL_POSITION_MASK(t) &amp; e-&gt;merged_mask) &#123;<br>                                min_dB[t] += e-&gt;min_dB;<br>                                max_dB[t] += e-&gt;max_dB;<br>                                path_volume_channels |= PA_CHANNEL_POSITION_MASK(t);<br>                            &#125;<br>                    &#125; <span class="hljs-keyword">else</span> &#123;<br>                        <span class="hljs-comment">/* 哎呀，我们前面有另一个元素无法使用 dB 音量，所以我们需要 &quot;中和&quot; 这个滑块 */</span><br>                        e-&gt;volume_use = PA_ALSA_VOLUME_ZERO;<br>                        pa_log_info(<span class="hljs-string">&quot;Zeroing volume of &#x27;%s&#x27; on path &#x27;%s&#x27;&quot;</span>, e-&gt;alsa_name, p-&gt;name);<br>                    &#125;<br>                &#125;<br>            &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (p-&gt;has_volume) &#123;<br>                <span class="hljs-comment">/* 我们无法使用这个音量，所以我们将其忽略 */</span><br>                e-&gt;volume_use = PA_ALSA_VOLUME_IGNORE;<br>                pa_log_info(<span class="hljs-string">&quot;Ignoring volume of &#x27;%s&#x27; on path &#x27;%s&#x27; (missing dB info)&quot;</span>, e-&gt;alsa_name, p-&gt;name);<br>            &#125;<br>            p-&gt;has_volume = <span class="hljs-literal">true</span>;<br>        &#125;<br><br>        <span class="hljs-keyword">if</span> (e-&gt;switch_use == PA_ALSA_SWITCH_MUTE)<br>            p-&gt;has_mute = <span class="hljs-literal">true</span>;<br>    &#125;<br><br>    <span class="hljs-comment">// 如果路径需要任何元素，但没有预置的元素，则标记路径不受支持</span><br>    <span class="hljs-keyword">if</span> (p-&gt;has_req_any &amp;&amp; !p-&gt;req_any_present) &#123;<br>        p-&gt;supported = <span class="hljs-literal">false</span>;<br>        pa_log_debug(<span class="hljs-string">&quot;Skipping path &#x27;%s&#x27;, none of required-any elements preset.&quot;</span>, p-&gt;name);<br>        <span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>    &#125;<br><br>    <span class="hljs-comment">// 丢弃不受支持的元素</span><br>    path_drop_unsupported(p);<br>    <span class="hljs-comment">// 确保路径选项唯一</span><br>    path_make_options_unique(p);<br>    <span class="hljs-comment">// 为路径创建设置项</span><br><br>    <span class="hljs-comment">// 标记路径受支持</span><br>    p-&gt;supported = <span class="hljs-literal">true</span>;<br><br>    <span class="hljs-comment">// 初始化路径的最小和最大 dB 值</span><br>    p-&gt;min_dB = INFINITY;<br>    p-&gt;max_dB = -INFINITY;<br><br>    <span class="hljs-comment">// 计算路径的最小和最大 dB 值</span><br>    <span class="hljs-keyword">for</span> (t = <span class="hljs-number">0</span>; t &lt; PA_CHANNEL_POSITION_MAX; t++) &#123;<br>        <span class="hljs-keyword">if</span> (path_volume_channels &amp; PA_CHANNEL_POSITION_MASK(t)) &#123;<br>            <span class="hljs-keyword">if</span> (p-&gt;min_dB &gt; min_dB[t])<br>                p-&gt;min_dB = min_dB[t];<br><br>            <span class="hljs-keyword">if</span> (p-&gt;max_dB &lt; max_dB[t])<br>                p-&gt;max_dB = max_dB[t];<br>        &#125;<br>    &#125;<br><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>drivers</category>
-      
-      <category>sound</category>
-      
-      <category>pulseaudio</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>pa_alsa_profile_set_new</title>
     <link href="/linux/kernel/drivers/sound/pulseaudio/pa_alsa_profile_set_new/"/>
     <url>/linux/kernel/drivers/sound/pulseaudio/pa_alsa_profile_set_new/</url>
@@ -1002,6 +975,33 @@
       <tag>strings</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>pa_alsa_path_probe</title>
+    <link href="/linux/kernel/drivers/sound/pulseaudio/pa_alsa_path_probe/"/>
+    <url>/linux/kernel/drivers/sound/pulseaudio/pa_alsa_path_probe/</url>
+    
+    <content type="html"><![CDATA[<h1 id="pa_alsa_path_probe">pa_alsa_path_probe</h1><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">pa_alsa_path_probe</span><span class="hljs-params">(pa_alsa_path *p, pa_alsa_mapping *mapping, <span class="hljs-type">snd_mixer_t</span> *m, <span class="hljs-type">bool</span> ignore_dB)</span> &#123;<br>    pa_alsa_element *e;<br>    pa_alsa_jack *j;<br>    <span class="hljs-type">double</span> min_dB[PA_CHANNEL_POSITION_MAX], max_dB[PA_CHANNEL_POSITION_MAX];<br>    <span class="hljs-type">pa_channel_position_t</span> t;<br>    <span class="hljs-type">pa_channel_position_mask_t</span> path_volume_channels = <span class="hljs-number">0</span>;<br><br>    pa_assert(p);<br>    pa_assert(m);<br><br>    <span class="hljs-comment">// 如果路径已经被探测过，返回其是否受支持的状态</span><br>    <span class="hljs-keyword">if</span> (p-&gt;probed)<br>        <span class="hljs-keyword">return</span> p-&gt;supported ? <span class="hljs-number">0</span> : <span class="hljs-number">-1</span>;<br>    p-&gt;probed = <span class="hljs-literal">true</span>;<br><br>    <span class="hljs-comment">// 初始化 min_dB 和 max_dB 数组</span><br>    pa_zero(min_dB);<br>    pa_zero(max_dB);<br><br>    <span class="hljs-comment">// 输出调试信息，表示正在探测此路径</span><br>    pa_log_debug(<span class="hljs-string">&quot;Probing path &#x27;%s&#x27;&quot;</span>, p-&gt;name);<br><br>    <span class="hljs-comment">// 遍历路径中的所有插孔，进行探测</span><br>    PA_LLIST_FOREACH(j, p-&gt;jacks) &#123;<br>        <span class="hljs-comment">// 调用 jack_probe 函数对插孔进行探测</span><br>        <span class="hljs-keyword">if</span> (jack_probe(j, mapping, m) &lt; <span class="hljs-number">0</span>) &#123;<br>            <span class="hljs-comment">// 插孔探测失败，标记路径不受支持，并返回错误</span><br>            p-&gt;supported = <span class="hljs-literal">false</span>;<br>            pa_log_debug(<span class="hljs-string">&quot;Probe of jack &#x27;%s&#x27; failed.&quot;</span>, j-&gt;alsa_name);<br>            <span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>        &#125;<br>        <span class="hljs-comment">// 输出调试信息，表示插孔探测成功</span><br>        pa_log_debug(<span class="hljs-string">&quot;Probe of jack &#x27;%s&#x27; succeeded (%s)&quot;</span>, j-&gt;alsa_name, j-&gt;has_control ? <span class="hljs-string">&quot;found!&quot;</span> : <span class="hljs-string">&quot;not found&quot;</span>);<br>    &#125;<br><br>    <span class="hljs-comment">// 遍历路径中的所有元素，进行探测</span><br>    PA_LLIST_FOREACH(e, p-&gt;elements) &#123;<br>        <span class="hljs-comment">// 调用 element_probe 函数对元素进行探测</span><br>        <span class="hljs-keyword">if</span> (element_probe(e, m) &lt; <span class="hljs-number">0</span>) &#123;<br>            <span class="hljs-comment">// 元素探测失败，标记路径不受支持，并返回错误</span><br>            p-&gt;supported = <span class="hljs-literal">false</span>;<br>            pa_log_debug(<span class="hljs-string">&quot;Probe of element &#x27;%s&#x27; failed.&quot;</span>, e-&gt;alsa_name);<br>            <span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>        &#125;<br>        <span class="hljs-comment">// 输出调试信息，表示元素探测成功，并显示其音量、开关和枚举使用情况</span><br>        pa_log_debug(<span class="hljs-string">&quot;Probe of element &#x27;%s&#x27; succeeded (volume=%d, switch=%d, enumeration=%d).&quot;</span>, e-&gt;alsa_name, e-&gt;volume_use, e-&gt;switch_use, e-&gt;enumeration_use);<br><br>        <span class="hljs-comment">// 如果忽略 dB 信息，将 has_dB 设置为 false</span><br>        <span class="hljs-keyword">if</span> (ignore_dB)<br>            e-&gt;has_dB = <span class="hljs-literal">false</span>;<br><br>        <span class="hljs-keyword">if</span> (e-&gt;volume_use == PA_ALSA_VOLUME_MERGE) &#123;<br>            <span class="hljs-comment">// 处理合并音量的情况</span><br><br>            <span class="hljs-comment">// 如果路径中尚无音量信息，初始化 min_volume 和 max_volume</span><br>            <span class="hljs-keyword">if</span> (!p-&gt;has_volume) &#123;<br>                p-&gt;min_volume = e-&gt;min_volume;<br>                p-&gt;max_volume = e-&gt;max_volume;<br>            &#125;<br><br>            <span class="hljs-keyword">if</span> (e-&gt;has_dB) &#123;<br>                <span class="hljs-comment">// 如果元素有 dB 信息，处理 dB 音量</span><br><br>                <span class="hljs-comment">// 如果路径中尚无音量信息，初始化 min_dB 和 max_dB，并记录音量通道位置</span><br>                <span class="hljs-keyword">if</span> (!p-&gt;has_volume) &#123;<br>                    <span class="hljs-keyword">for</span> (t = <span class="hljs-number">0</span>; t &lt; PA_CHANNEL_POSITION_MAX; t++)<br>                        <span class="hljs-keyword">if</span> (PA_CHANNEL_POSITION_MASK(t) &amp; e-&gt;merged_mask) &#123;<br>                            min_dB[t] = e-&gt;min_dB;<br>                            max_dB[t] = e-&gt;max_dB;<br>                            path_volume_channels |= PA_CHANNEL_POSITION_MASK(t);<br>                        &#125;<br><br>                    p-&gt;has_dB = <span class="hljs-literal">true</span>;<br>                &#125; <span class="hljs-keyword">else</span> &#123;<br>                    <span class="hljs-comment">// 如果路径中已经存在音量信息，更新 min_dB 和 max_dB，以及音量通道位置</span><br>                    <span class="hljs-keyword">if</span> (p-&gt;has_dB) &#123;<br>                        <span class="hljs-keyword">for</span> (t = <span class="hljs-number">0</span>; t &lt; PA_CHANNEL_POSITION_MAX; t++)<br>                            <span class="hljs-keyword">if</span> (PA_CHANNEL_POSITION_MASK(t) &amp; e-&gt;merged_mask) &#123;<br>                                min_dB[t] += e-&gt;min_dB;<br>                                max_dB[t] += e-&gt;max_dB;<br>                                path_volume_channels |= PA_CHANNEL_POSITION_MASK(t);<br>                            &#125;<br>                    &#125; <span class="hljs-keyword">else</span> &#123;<br>                        <span class="hljs-comment">/* 哎呀，我们前面有另一个元素无法使用 dB 音量，所以我们需要 &quot;中和&quot; 这个滑块 */</span><br>                        e-&gt;volume_use = PA_ALSA_VOLUME_ZERO;<br>                        pa_log_info(<span class="hljs-string">&quot;Zeroing volume of &#x27;%s&#x27; on path &#x27;%s&#x27;&quot;</span>, e-&gt;alsa_name, p-&gt;name);<br>                    &#125;<br>                &#125;<br>            &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (p-&gt;has_volume) &#123;<br>                <span class="hljs-comment">/* 我们无法使用这个音量，所以我们将其忽略 */</span><br>                e-&gt;volume_use = PA_ALSA_VOLUME_IGNORE;<br>                pa_log_info(<span class="hljs-string">&quot;Ignoring volume of &#x27;%s&#x27; on path &#x27;%s&#x27; (missing dB info)&quot;</span>, e-&gt;alsa_name, p-&gt;name);<br>            &#125;<br>            p-&gt;has_volume = <span class="hljs-literal">true</span>;<br>        &#125;<br><br>        <span class="hljs-keyword">if</span> (e-&gt;switch_use == PA_ALSA_SWITCH_MUTE)<br>            p-&gt;has_mute = <span class="hljs-literal">true</span>;<br>    &#125;<br><br>    <span class="hljs-comment">// 如果路径需要任何元素，但没有预置的元素，则标记路径不受支持</span><br>    <span class="hljs-keyword">if</span> (p-&gt;has_req_any &amp;&amp; !p-&gt;req_any_present) &#123;<br>        p-&gt;supported = <span class="hljs-literal">false</span>;<br>        pa_log_debug(<span class="hljs-string">&quot;Skipping path &#x27;%s&#x27;, none of required-any elements preset.&quot;</span>, p-&gt;name);<br>        <span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>    &#125;<br><br>    <span class="hljs-comment">// 丢弃不受支持的元素</span><br>    path_drop_unsupported(p);<br>    <span class="hljs-comment">// 确保路径选项唯一</span><br>    path_make_options_unique(p);<br>    <span class="hljs-comment">// 为路径创建设置项</span><br><br>    <span class="hljs-comment">// 标记路径受支持</span><br>    p-&gt;supported = <span class="hljs-literal">true</span>;<br><br>    <span class="hljs-comment">// 初始化路径的最小和最大 dB 值</span><br>    p-&gt;min_dB = INFINITY;<br>    p-&gt;max_dB = -INFINITY;<br><br>    <span class="hljs-comment">// 计算路径的最小和最大 dB 值</span><br>    <span class="hljs-keyword">for</span> (t = <span class="hljs-number">0</span>; t &lt; PA_CHANNEL_POSITION_MAX; t++) &#123;<br>        <span class="hljs-keyword">if</span> (path_volume_channels &amp; PA_CHANNEL_POSITION_MASK(t)) &#123;<br>            <span class="hljs-keyword">if</span> (p-&gt;min_dB &gt; min_dB[t])<br>                p-&gt;min_dB = min_dB[t];<br><br>            <span class="hljs-keyword">if</span> (p-&gt;max_dB &lt; max_dB[t])<br>                p-&gt;max_dB = max_dB[t];<br>        &#125;<br>    &#125;<br><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>drivers</category>
+      
+      <category>sound</category>
+      
+      <category>pulseaudio</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -1238,9 +1238,9 @@
       
       <tag>architect</tag>
       
-      <tag>strings</tag>
-      
       <tag>Java</tag>
+      
+      <tag>strings</tag>
       
     </tags>
     
@@ -1516,27 +1516,6 @@
   
   
   <entry>
-    <title>16位汇编语言</title>
-    <link href="/debug/assembly/16%E4%BD%8D%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80/"/>
-    <url>/debug/assembly/16%E4%BD%8D%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80/</url>
-    
-    <content type="html"><![CDATA[<h1 id="位汇编语言">16位汇编语言</h1><h2 id="寄存器">寄存器</h2><p>8086CPU有14个寄存器，所有寄存器都是16位的，可以存放2个字节：</p><ul><li>AX</li><li>BX</li><li>CX</li><li>DX</li><li>SI</li><li>DI</li><li>SP</li><li>BP</li><li>CS</li><li>SS</li><li>DS</li><li>ES</li><li>PSW</li></ul><p>这 14 个寄存器有可能进行具体的划分，按照功能可以分为三种：</p><ul><li>通用寄存器</li><li>段寄存器</li><li>控制寄存器</li></ul><h3 id="通用寄存器">通用寄存器</h3><p>8086CPU有4个通用寄存器，用来存放一般性的数据：</p><ul><li><p>AX(Accumulator Register) ：累加寄存器，它主要用于输入/输出和大规模的指令运算。</p></li><li><p>BX(Base Register)：基址寄存器，用来存储基础访问地址。</p></li><li><p>CX(Count Register)：计数寄存器，CX 寄存器在迭代的操作中会循环计数。</p></li><li><p>DX(Data Register)：数据寄存器，它也用于输入/输出操作。它还与 AX 寄存器以及 DX 一起使用，用于涉及大数值的乘法和除法运算。</p></li></ul><p>8086CPU的<code>AX</code>、<code>BX</code>、<code>CX</code>、<code>DX</code>这4个通用寄存器都可以分为两个可独立使用的8位寄存器来用：</p><table><thead><tr class="header"><th>寄存器</th><th>高位</th><th>低位</th></tr></thead><tbody><tr class="odd"><td>AX</td><td>AH</td><td>AL</td></tr><tr class="even"><td>BX</td><td>BH</td><td>BL</td></tr><tr class="odd"><td>CX</td><td>CH</td><td>CL</td></tr><tr class="even"><td>DX</td><td>DH</td><td>DL</td></tr></tbody></table><p>除了<code>AX</code>、<code>BX</code>、<code>CX</code>、<code>DX</code> 寄存器以外，其他寄存器均不可以分为两个独立的 8 位寄存器。</p><p>寄存器的存储方式是先存储低位，如果低位满足不了就存储高位，如果低位能够满足，高位用 0 补全，在其他低位能满足的情况下，其余位也用 0 补全。</p><p>8086 CPU 可以一次存储两种类型的数据：</p><ul><li><p>字节(byte)： 一个字节由 8 bit 组成，这是一种恒定不变的存储方式</p></li><li><p>字(word)：字是由指令集或处理器硬件作为单元处理的固定大小的数据，对于 intel 来说，一个字长就是两个字节。</p></li></ul><p>字是计算机一个非常重要的特征，针对不同的指令集架构来说，计算机一次处理的数据也是不同的。也就是说，针对不同指令集的机器，一次能处理不用的字长，有字、双字（32位）、四字（64位）等。</p><h3 id="段寄存器">段寄存器</h3><p>8086CPU有4个段寄存器：</p><ul><li>CS(Code Segment)：代码段寄存器，程序代码的基础位置。</li><li>DS(Data Segment)：数据段寄存器，变量的基本位置。</li><li>SS(Stack Segment)：堆栈段寄存器，栈的基础位置。</li><li>ES(Extra Segment)：附加段寄存器，内存中变量的其他基本位置。</li></ul><h4 id="代码段寄存器">代码段寄存器</h4><ul><li>CS</li></ul><h4 id="数据段寄存器">数据段寄存器</h4><ul><li>DS</li></ul><p>8086CPU不支持将数据直接送入段寄存器，需要先将数据送入一个一般的寄存器，如<code>BX</code>，再将<code>BX</code>中的内容送入<code>DS</code>。</p><h4 id="堆栈段寄存器">堆栈段寄存器</h4><ul><li>SS</li></ul><p>8086CPU中，有两个寄存器，堆栈段寄存器<code>SS</code>和栈指针寄存器<code>SP</code>，栈顶的段地址存放在<code>SS</code>中，偏移地址存放在<code>SP</code>中。</p><p>任意时刻，<code>SS:SP</code>指向栈顶元素。</p><p><code>push</code>指令和<code>pop</code>指令执行时，CPU从<code>SS</code>和<code>SP</code>中得到栈顶的地址。</p><h5 id="栈顶超界的问题">栈顶超界的问题</h5><p>当栈满的时候，使用<code>push</code>指令入栈，或栈空的时候使用<code>pop</code>指令出栈，都将发生栈顶超界的问题。</p><p>8086CPU不保证我们对栈的操作不会越界，8086CPU只知道栈顶在何处（由<code>SS:SP</code>指示），而不知道我们安排的栈空间有多大。</p><p>编程时要根据可能用到的最大栈空间，来安排栈的大小，防止入栈的数据太多而导致超界；执行出栈操作的时候也要注意，以防栈空的时候继续出栈而导致的超界。</p><h4 id="索引寄存器">索引寄存器</h4><p>索引寄存器主要包含段地址的偏移量，索引寄存器主要分为：</p><ul><li>BP(Base Pointer)：基础指针，它是栈寄存器上的偏移量，用来定位栈上变量。</li><li>SP(Stack Pointer)：栈指针，它是栈寄存器上的偏移量，用来定位栈顶。</li><li>SI(Source Index)：变址寄存器，用来拷贝源字符串。</li><li>DI(Destination Index)：目标变址寄存器，用来复制到目标字符串。</li></ul><h3 id="控制寄存器">控制寄存器</h3><ul><li>IP(Instruction Pointer)：指令指针寄存器，它是从 Code Segment 代码寄存器处的偏移来存储执行的下一条指令.</li><li>FLAG(EFLAGS Register)：标志寄存器用于存储当前进程的状态。</li></ul><h4 id="指令指针寄存器">指令指针寄存器</h4><p>指令指针寄存器（Instruction Pointer）</p><ul><li>IP</li></ul><p>在8086PC机中，任意时刻，设<code>CS</code>中的内容为<code>M</code>，<code>IP</code>中的内容为<code>N</code>，8086CPU将从内存<code>M*16+N</code>单元开始，读取一条指令并执行。</p><p>也可以这样表述：8086机中，任意时刻，CPU将<code>CS:IP</code>指向的内容当做指令执行。</p><p><code>mov</code>指令不能用于设置<code>CS</code>、<code>IP</code>寄存器的值，原因很简单，因为8086CPU没有提供这样的功能。</p><p>使用<code>jmp 段地址:偏移地址</code>指令可以同时修改<code>CS:IP</code>寄存器的值：</p><ul><li><code>jmp 2AE3:3</code>，执行后：<code>CS=2AE3H</code>， <code>IP=0003H</code>，CPU将从<code>2AE33H</code>处读取指令。</li><li><code>jmp 3:0B16</code>，执行后：<code>CS=0003H</code>， <code>IP=0B16H</code>，CPU将从<code>00B46H</code>处读取指令。</li></ul><p>若想仅修改<code>IP</code>寄存器的内容，可用<code>jmp 某一合法寄存器</code>的指令完成，如：</p><ul><li><code>jmp ax</code>，指令执行前，<code>ax=1000H</code>，<code>CS=2000H</code>，<code>IP=0003H</code> 指令执行后，<code>ax=1000H</code>，<code>CS=2000H</code>，<code>IP=1000H</code></li></ul><h4 id="标志寄存器">标志寄存器</h4><p>FLAG(EFLAGS Register)：标志寄存器用于存储当前进程的状态。</p><p>标志寄存器，又称程序状态寄存器（它的内容是Program Status Word，PSW）。</p><p>这是一个，控制标志和系统标志的寄存器。</p><p>标志寄存器EFLAGS中的系统标志和IOPL字段用于控制I/O访问、可屏蔽硬件中断、调试、任务切换以及虚拟8086模式。</p><p>FLAG : Flag 寄存器用于存储当前进程的状态，这些状态有：</p><ul><li><p>位置 (Direction)：用于数据块的传输方向，是向上传输还是向下传输</p></li><li><p>中断标志位 (Interrupt) ：1 - 允许；0 - 禁止</p></li><li><p>陷入位 (Trap) ：确定每条指令执行完成后，CPU 是否应该停止。1 - 开启，0 - 关闭</p></li><li><p>进位 (Carry) : 设置最后一个无符号算术运算是否带有进位</p></li><li><p>溢出 (Overflow) : 设置最后一个有符号运算是否溢出</p></li><li><p>符号 (Sign) : 如果最后一次算术运算为负，则设置 1 =负，0 =正</p></li><li><p>零位 (Zero) : 如果最后一次算术运算结果为零，1 = 零</p></li><li><p>辅助进位 (Aux Carry) ：用于第三位到第四位的进位</p></li><li><p>奇偶校验 (Parity) : 用于奇偶校验</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.jb51.net/article/230062.htm">图文详解通俗易懂的汇编语言寄存器</a></li><li><a href="https://www.toutiao.com/article/7039892076707807748">二进制分析实战：x86汇编快速入门</a></li><li><a href="https://baike.baidu.com/item/cs/19501238">硬件CPU中的代码段寄存器</a></li><li><a href="https://blog.csdn.net/weixin_42240667/article/details/104503184">8086cpu中的寄存器（cs、ds、es、ss、ip、sp、bp、si、di）</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>debug</category>
-      
-      <category>assembly</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>README</title>
     <link href="/debug/assembly/README/"/>
     <url>/debug/assembly/README/</url>
@@ -1560,6 +1539,27 @@
       <tag>HTML</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>16位汇编语言</title>
+    <link href="/debug/assembly/16%E4%BD%8D%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80/"/>
+    <url>/debug/assembly/16%E4%BD%8D%E6%B1%87%E7%BC%96%E8%AF%AD%E8%A8%80/</url>
+    
+    <content type="html"><![CDATA[<h1 id="位汇编语言">16位汇编语言</h1><h2 id="寄存器">寄存器</h2><p>8086CPU有14个寄存器，所有寄存器都是16位的，可以存放2个字节：</p><ul><li>AX</li><li>BX</li><li>CX</li><li>DX</li><li>SI</li><li>DI</li><li>SP</li><li>BP</li><li>CS</li><li>SS</li><li>DS</li><li>ES</li><li>PSW</li></ul><p>这 14 个寄存器有可能进行具体的划分，按照功能可以分为三种：</p><ul><li>通用寄存器</li><li>段寄存器</li><li>控制寄存器</li></ul><h3 id="通用寄存器">通用寄存器</h3><p>8086CPU有4个通用寄存器，用来存放一般性的数据：</p><ul><li><p>AX(Accumulator Register) ：累加寄存器，它主要用于输入/输出和大规模的指令运算。</p></li><li><p>BX(Base Register)：基址寄存器，用来存储基础访问地址。</p></li><li><p>CX(Count Register)：计数寄存器，CX 寄存器在迭代的操作中会循环计数。</p></li><li><p>DX(Data Register)：数据寄存器，它也用于输入/输出操作。它还与 AX 寄存器以及 DX 一起使用，用于涉及大数值的乘法和除法运算。</p></li></ul><p>8086CPU的<code>AX</code>、<code>BX</code>、<code>CX</code>、<code>DX</code>这4个通用寄存器都可以分为两个可独立使用的8位寄存器来用：</p><table><thead><tr class="header"><th>寄存器</th><th>高位</th><th>低位</th></tr></thead><tbody><tr class="odd"><td>AX</td><td>AH</td><td>AL</td></tr><tr class="even"><td>BX</td><td>BH</td><td>BL</td></tr><tr class="odd"><td>CX</td><td>CH</td><td>CL</td></tr><tr class="even"><td>DX</td><td>DH</td><td>DL</td></tr></tbody></table><p>除了<code>AX</code>、<code>BX</code>、<code>CX</code>、<code>DX</code> 寄存器以外，其他寄存器均不可以分为两个独立的 8 位寄存器。</p><p>寄存器的存储方式是先存储低位，如果低位满足不了就存储高位，如果低位能够满足，高位用 0 补全，在其他低位能满足的情况下，其余位也用 0 补全。</p><p>8086 CPU 可以一次存储两种类型的数据：</p><ul><li><p>字节(byte)： 一个字节由 8 bit 组成，这是一种恒定不变的存储方式</p></li><li><p>字(word)：字是由指令集或处理器硬件作为单元处理的固定大小的数据，对于 intel 来说，一个字长就是两个字节。</p></li></ul><p>字是计算机一个非常重要的特征，针对不同的指令集架构来说，计算机一次处理的数据也是不同的。也就是说，针对不同指令集的机器，一次能处理不用的字长，有字、双字（32位）、四字（64位）等。</p><h3 id="段寄存器">段寄存器</h3><p>8086CPU有4个段寄存器：</p><ul><li>CS(Code Segment)：代码段寄存器，程序代码的基础位置。</li><li>DS(Data Segment)：数据段寄存器，变量的基本位置。</li><li>SS(Stack Segment)：堆栈段寄存器，栈的基础位置。</li><li>ES(Extra Segment)：附加段寄存器，内存中变量的其他基本位置。</li></ul><h4 id="代码段寄存器">代码段寄存器</h4><ul><li>CS</li></ul><h4 id="数据段寄存器">数据段寄存器</h4><ul><li>DS</li></ul><p>8086CPU不支持将数据直接送入段寄存器，需要先将数据送入一个一般的寄存器，如<code>BX</code>，再将<code>BX</code>中的内容送入<code>DS</code>。</p><h4 id="堆栈段寄存器">堆栈段寄存器</h4><ul><li>SS</li></ul><p>8086CPU中，有两个寄存器，堆栈段寄存器<code>SS</code>和栈指针寄存器<code>SP</code>，栈顶的段地址存放在<code>SS</code>中，偏移地址存放在<code>SP</code>中。</p><p>任意时刻，<code>SS:SP</code>指向栈顶元素。</p><p><code>push</code>指令和<code>pop</code>指令执行时，CPU从<code>SS</code>和<code>SP</code>中得到栈顶的地址。</p><h5 id="栈顶超界的问题">栈顶超界的问题</h5><p>当栈满的时候，使用<code>push</code>指令入栈，或栈空的时候使用<code>pop</code>指令出栈，都将发生栈顶超界的问题。</p><p>8086CPU不保证我们对栈的操作不会越界，8086CPU只知道栈顶在何处（由<code>SS:SP</code>指示），而不知道我们安排的栈空间有多大。</p><p>编程时要根据可能用到的最大栈空间，来安排栈的大小，防止入栈的数据太多而导致超界；执行出栈操作的时候也要注意，以防栈空的时候继续出栈而导致的超界。</p><h4 id="索引寄存器">索引寄存器</h4><p>索引寄存器主要包含段地址的偏移量，索引寄存器主要分为：</p><ul><li>BP(Base Pointer)：基础指针，它是栈寄存器上的偏移量，用来定位栈上变量。</li><li>SP(Stack Pointer)：栈指针，它是栈寄存器上的偏移量，用来定位栈顶。</li><li>SI(Source Index)：变址寄存器，用来拷贝源字符串。</li><li>DI(Destination Index)：目标变址寄存器，用来复制到目标字符串。</li></ul><h3 id="控制寄存器">控制寄存器</h3><ul><li>IP(Instruction Pointer)：指令指针寄存器，它是从 Code Segment 代码寄存器处的偏移来存储执行的下一条指令.</li><li>FLAG(EFLAGS Register)：标志寄存器用于存储当前进程的状态。</li></ul><h4 id="指令指针寄存器">指令指针寄存器</h4><p>指令指针寄存器（Instruction Pointer）</p><ul><li>IP</li></ul><p>在8086PC机中，任意时刻，设<code>CS</code>中的内容为<code>M</code>，<code>IP</code>中的内容为<code>N</code>，8086CPU将从内存<code>M*16+N</code>单元开始，读取一条指令并执行。</p><p>也可以这样表述：8086机中，任意时刻，CPU将<code>CS:IP</code>指向的内容当做指令执行。</p><p><code>mov</code>指令不能用于设置<code>CS</code>、<code>IP</code>寄存器的值，原因很简单，因为8086CPU没有提供这样的功能。</p><p>使用<code>jmp 段地址:偏移地址</code>指令可以同时修改<code>CS:IP</code>寄存器的值：</p><ul><li><code>jmp 2AE3:3</code>，执行后：<code>CS=2AE3H</code>， <code>IP=0003H</code>，CPU将从<code>2AE33H</code>处读取指令。</li><li><code>jmp 3:0B16</code>，执行后：<code>CS=0003H</code>， <code>IP=0B16H</code>，CPU将从<code>00B46H</code>处读取指令。</li></ul><p>若想仅修改<code>IP</code>寄存器的内容，可用<code>jmp 某一合法寄存器</code>的指令完成，如：</p><ul><li><code>jmp ax</code>，指令执行前，<code>ax=1000H</code>，<code>CS=2000H</code>，<code>IP=0003H</code> 指令执行后，<code>ax=1000H</code>，<code>CS=2000H</code>，<code>IP=1000H</code></li></ul><h4 id="标志寄存器">标志寄存器</h4><p>FLAG(EFLAGS Register)：标志寄存器用于存储当前进程的状态。</p><p>标志寄存器，又称程序状态寄存器（它的内容是Program Status Word，PSW）。</p><p>这是一个，控制标志和系统标志的寄存器。</p><p>标志寄存器EFLAGS中的系统标志和IOPL字段用于控制I/O访问、可屏蔽硬件中断、调试、任务切换以及虚拟8086模式。</p><p>FLAG : Flag 寄存器用于存储当前进程的状态，这些状态有：</p><ul><li><p>位置 (Direction)：用于数据块的传输方向，是向上传输还是向下传输</p></li><li><p>中断标志位 (Interrupt) ：1 - 允许；0 - 禁止</p></li><li><p>陷入位 (Trap) ：确定每条指令执行完成后，CPU 是否应该停止。1 - 开启，0 - 关闭</p></li><li><p>进位 (Carry) : 设置最后一个无符号算术运算是否带有进位</p></li><li><p>溢出 (Overflow) : 设置最后一个有符号运算是否溢出</p></li><li><p>符号 (Sign) : 如果最后一次算术运算为负，则设置 1 =负，0 =正</p></li><li><p>零位 (Zero) : 如果最后一次算术运算结果为零，1 = 零</p></li><li><p>辅助进位 (Aux Carry) ：用于第三位到第四位的进位</p></li><li><p>奇偶校验 (Parity) : 用于奇偶校验</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.jb51.net/article/230062.htm">图文详解通俗易懂的汇编语言寄存器</a></li><li><a href="https://www.toutiao.com/article/7039892076707807748">二进制分析实战：x86汇编快速入门</a></li><li><a href="https://baike.baidu.com/item/cs/19501238">硬件CPU中的代码段寄存器</a></li><li><a href="https://blog.csdn.net/weixin_42240667/article/details/104503184">8086cpu中的寄存器（cs、ds、es、ss、ip、sp、bp、si、di）</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>debug</category>
+      
+      <category>assembly</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -1622,6 +1622,39 @@
   
   
   <entry>
+    <title>README</title>
+    <link href="/debug/bpf/README/"/>
+    <url>/debug/bpf/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="bpf-learning">bpf-learning</h1><h2 id="安装教程">安装教程</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install bpfcc-tools linux-headers-$(<span class="hljs-built_in">uname</span> -r) bpftrace<br></code></pre></td></tr></table></figure><ul><li><a href="bcc.md">BPF Compiler Collection (BCC)</a></li><li><a href="bpftrace.md">bpftrace</a></li></ul><h2 id="动态追踪">动态追踪</h2><p>可以通过探针机制，来采集内核或者应用程序的运行信息。所谓动态，表示他可以不用修改内核和应用程序的代码，就获得丰富的信息。因为在以往的排查和调试性能问题过程中，我们往往会先给应用程序设置一系列的断点(gdb),然后以手动或者脚本(GDB的Python扩展)的方式，在断点处去分析程序状态，或者增加一系列的日志，在日志中寻找线索。相比以往的进程及追踪方法(ptrace)，动态追踪往往只需要消耗很小的性能消耗（5%甚至更少）。</p><p>根据类型不同，动态追踪所使用的事件源，可以分为静态探针，动态探针，硬件事件这三类。</p><h3 id="硬件事件">硬件事件</h3><p>其中硬件事件通常由性能监控计数器PMC(Performance Monitoring Counter)产生，他包括了各种硬件的性能指标，比如CPU的缓存，指令周期，分支预测等等。</p><h3 id="静态探针">静态探针</h3><p>静态探针，指事先在代码中定义好，并编译到应用程序和内核中的探针。这些探针只有在开启探测功能时，才会被执行到。未开启时，不会执行。常见的静态探针包括内核中的跟踪点(tracepoints)和USDT(Userland Statically Defined Tracing)探针：</p><ul><li><p>跟踪点(tracepoints) - 在源码中插入一些带控制条件的探测点，这些探测点允许事后添加处理函数，比如在内核中，最常见的静态追踪方法就是printk(),输出日志，Linux内核定义了大量的跟踪点，可以通过内核编译选项来开启和关闭。</p></li><li><p>USDT探针，全称是用户级静态定义跟踪，需要在源码中插入DTRACE_PROBE()代码，并编译到应用程序中。不过在很多应用程序内置了USDT探针，比如MySQL, PostgreSQL等。</p></li></ul><h3 id="动态探针">动态探针</h3><p>动态探针，是指没有实现在代码定义，但却可以在运行时动态添加的探针。比如函数的调用和返回等，动态探针支持按需在内核或者应用程序中添加探测点，具有更高的灵活性，常见的动态探针有两种，即用于内核态的kprobes以及用户态的uprobes:</p><ul><li><p>kprobes - 用来跟踪内核态的函数，包括用于函数调用的kprobe和用于函数返回的kretprobe。</p></li><li><p>uprobes - 用来跟踪用户态的函数，包括用于函数调用的uprobe以及用于函数返回的uretprobe。</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.toutiao.com/article/7077801491347833374">Linux动态追踪技术概念介绍</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>debug</category>
+      
+      <category>bpf</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>bpf</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>bcc</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>bcc</title>
     <link href="/debug/bpf/bcc/"/>
     <url>/debug/bpf/bcc/</url>
@@ -1659,11 +1692,11 @@
   
   
   <entry>
-    <title>README</title>
-    <link href="/debug/bpf/README/"/>
-    <url>/debug/bpf/README/</url>
+    <title>bpftrace</title>
+    <link href="/debug/bpf/bpftrace/"/>
+    <url>/debug/bpf/bpftrace/</url>
     
-    <content type="html"><![CDATA[<h1 id="bpf-learning">bpf-learning</h1><h2 id="安装教程">安装教程</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install bpfcc-tools linux-headers-$(<span class="hljs-built_in">uname</span> -r) bpftrace<br></code></pre></td></tr></table></figure><ul><li><a href="bcc.md">BPF Compiler Collection (BCC)</a></li><li><a href="bpftrace.md">bpftrace</a></li></ul><h2 id="动态追踪">动态追踪</h2><p>可以通过探针机制，来采集内核或者应用程序的运行信息。所谓动态，表示他可以不用修改内核和应用程序的代码，就获得丰富的信息。因为在以往的排查和调试性能问题过程中，我们往往会先给应用程序设置一系列的断点(gdb),然后以手动或者脚本(GDB的Python扩展)的方式，在断点处去分析程序状态，或者增加一系列的日志，在日志中寻找线索。相比以往的进程及追踪方法(ptrace)，动态追踪往往只需要消耗很小的性能消耗（5%甚至更少）。</p><p>根据类型不同，动态追踪所使用的事件源，可以分为静态探针，动态探针，硬件事件这三类。</p><h3 id="硬件事件">硬件事件</h3><p>其中硬件事件通常由性能监控计数器PMC(Performance Monitoring Counter)产生，他包括了各种硬件的性能指标，比如CPU的缓存，指令周期，分支预测等等。</p><h3 id="静态探针">静态探针</h3><p>静态探针，指事先在代码中定义好，并编译到应用程序和内核中的探针。这些探针只有在开启探测功能时，才会被执行到。未开启时，不会执行。常见的静态探针包括内核中的跟踪点(tracepoints)和USDT(Userland Statically Defined Tracing)探针：</p><ul><li><p>跟踪点(tracepoints) - 在源码中插入一些带控制条件的探测点，这些探测点允许事后添加处理函数，比如在内核中，最常见的静态追踪方法就是printk(),输出日志，Linux内核定义了大量的跟踪点，可以通过内核编译选项来开启和关闭。</p></li><li><p>USDT探针，全称是用户级静态定义跟踪，需要在源码中插入DTRACE_PROBE()代码，并编译到应用程序中。不过在很多应用程序内置了USDT探针，比如MySQL, PostgreSQL等。</p></li></ul><h3 id="动态探针">动态探针</h3><p>动态探针，是指没有实现在代码定义，但却可以在运行时动态添加的探针。比如函数的调用和返回等，动态探针支持按需在内核或者应用程序中添加探测点，具有更高的灵活性，常见的动态探针有两种，即用于内核态的kprobes以及用户态的uprobes:</p><ul><li><p>kprobes - 用来跟踪内核态的函数，包括用于函数调用的kprobe和用于函数返回的kretprobe。</p></li><li><p>uprobes - 用来跟踪用户态的函数，包括用于函数调用的uprobe以及用于函数返回的uretprobe。</p></li></ul><h2 id="more">More</h2><ul><li><a href="https://www.toutiao.com/article/7077801491347833374">Linux动态追踪技术概念介绍</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="bpftrace">bpftrace</h1><h2 id="source-install">source install</h2><p>git clone bpftrace:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/iovisor/bpftrace.git<br>git checkout -b v0.16.0<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure><h2 id="depends">depends</h2><p>查看宿主机已安装llvm版本：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg -l | grep libllvm<br></code></pre></td></tr></table></figure><p>结果输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">ii  libllvm11:amd64                               1:11.0.1-2                                 amd64        Modular compiler and toolchain technologies, runtime library<br></code></pre></td></tr></table></figure><p>下方安装llvm、clang时版本需要选定为11。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install -y \<br>bison \<br>cmake \<br>flex \<br>g++ \<br>git \<br>libelf-dev \<br>zlib1g-dev \<br>libfl-dev \<br>systemtap-sdt-dev \<br>binutils-dev \<br>libcereal-dev \<br>llvm-11-dev \<br>llvm-11-runtime \<br>libclang-11-dev \<br>clang-11 \<br>libpcap-dev \<br>libgtest-dev \<br>libgmock-dev \<br>asciidoctor<br></code></pre></td></tr></table></figure><h2 id="cmake-build-and-install">cmake build and install</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> bpftrace<br><span class="hljs-built_in">mkdir</span> build<br><span class="hljs-built_in">cd</span> build<br>../build-libs.sh<br>cmake -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release .. <span class="hljs-comment"># 此处关闭单元测试，是因为单元测试跑不过</span><br>make -j8<br>sudo make install<br></code></pre></td></tr></table></figure><h2 id="environment-variable-configuration">Environment variable configuration</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;export PATH=<span class="hljs-variable">$PATH</span>:/usr/local/share/bpftrace/tools&quot;</span> &gt;&gt; /etc/profile<br></code></pre></td></tr></table></figure><p>add /usr/local/share/bpftrace/tools to /etc/sudoers:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo visudo<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Defaults        secure_path=&quot;/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/bpftrace/tools&quot;<br></code></pre></td></tr></table></figure><h2 id="get-started">Get started</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo bpftrace -l<br>sudo execsnoop.bt<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://github.com/iovisor/bpftrace.git">https://github.com/iovisor/bpftrace.git</a></li><li><a href="https://github.com/iovisor/bpftrace/blob/master/INSTALL.md">bpftrace Install</a></li><li><a href="http://1.117.71.82/os/bpf%E4%B9%8B%E5%B7%85-%E6%B4%9E%E6%82%89linux%E7%B3%BB%E7%BB%9F%E5%92%8C%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD/">BPF之巅--洞悉Linux系统和应用性能</a></li><li><a href="https://blog.csdn.net/qq_31220203/article/details/118686482">BPF之巅--洞悉Linux系统和应用性能 Brendan Gregg</a></li><li><a href="https://pan.baidu.com/disk/pdfview?path=%2F%E6%88%91%E7%9A%84%E8%B5%84%E6%BA%90%2FBPF.Performance.Tools.2019.12.pdf&amp;fsid=947754417850329&amp;size=8414043">BPF.Performance.Tools.2019.12.pdf</a></li></ul>]]></content>
     
     
     <categories>
@@ -1679,11 +1712,11 @@
       
       <tag>Linux</tag>
       
+      <tag>git</tag>
+      
       <tag>bpf</tag>
       
       <tag>linux</tag>
-      
-      <tag>bcc</tag>
       
     </tags>
     
@@ -1719,39 +1752,6 @@
       <tag>HTML</tag>
       
       <tag>Java</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>bpftrace</title>
-    <link href="/debug/bpf/bpftrace/"/>
-    <url>/debug/bpf/bpftrace/</url>
-    
-    <content type="html"><![CDATA[<h1 id="bpftrace">bpftrace</h1><h2 id="source-install">source install</h2><p>git clone bpftrace:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/iovisor/bpftrace.git<br>git checkout -b v0.16.0<br>git submodule update --init --recursive<br></code></pre></td></tr></table></figure><h2 id="depends">depends</h2><p>查看宿主机已安装llvm版本：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg -l | grep libllvm<br></code></pre></td></tr></table></figure><p>结果输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">ii  libllvm11:amd64                               1:11.0.1-2                                 amd64        Modular compiler and toolchain technologies, runtime library<br></code></pre></td></tr></table></figure><p>下方安装llvm、clang时版本需要选定为11。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install -y \<br>bison \<br>cmake \<br>flex \<br>g++ \<br>git \<br>libelf-dev \<br>zlib1g-dev \<br>libfl-dev \<br>systemtap-sdt-dev \<br>binutils-dev \<br>libcereal-dev \<br>llvm-11-dev \<br>llvm-11-runtime \<br>libclang-11-dev \<br>clang-11 \<br>libpcap-dev \<br>libgtest-dev \<br>libgmock-dev \<br>asciidoctor<br></code></pre></td></tr></table></figure><h2 id="cmake-build-and-install">cmake build and install</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> bpftrace<br><span class="hljs-built_in">mkdir</span> build<br><span class="hljs-built_in">cd</span> build<br>../build-libs.sh<br>cmake -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release .. <span class="hljs-comment"># 此处关闭单元测试，是因为单元测试跑不过</span><br>make -j8<br>sudo make install<br></code></pre></td></tr></table></figure><h2 id="environment-variable-configuration">Environment variable configuration</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;export PATH=<span class="hljs-variable">$PATH</span>:/usr/local/share/bpftrace/tools&quot;</span> &gt;&gt; /etc/profile<br></code></pre></td></tr></table></figure><p>add /usr/local/share/bpftrace/tools to /etc/sudoers:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo visudo<br></code></pre></td></tr></table></figure><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Defaults        secure_path=&quot;/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/bpftrace/tools&quot;<br></code></pre></td></tr></table></figure><h2 id="get-started">Get started</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo bpftrace -l<br>sudo execsnoop.bt<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://github.com/iovisor/bpftrace.git">https://github.com/iovisor/bpftrace.git</a></li><li><a href="https://github.com/iovisor/bpftrace/blob/master/INSTALL.md">bpftrace Install</a></li><li><a href="http://1.117.71.82/os/bpf%E4%B9%8B%E5%B7%85-%E6%B4%9E%E6%82%89linux%E7%B3%BB%E7%BB%9F%E5%92%8C%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD/">BPF之巅--洞悉Linux系统和应用性能</a></li><li><a href="https://blog.csdn.net/qq_31220203/article/details/118686482">BPF之巅--洞悉Linux系统和应用性能 Brendan Gregg</a></li><li><a href="https://pan.baidu.com/disk/pdfview?path=%2F%E6%88%91%E7%9A%84%E8%B5%84%E6%BA%90%2FBPF.Performance.Tools.2019.12.pdf&amp;fsid=947754417850329&amp;size=8414043">BPF.Performance.Tools.2019.12.pdf</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>debug</category>
-      
-      <category>bpf</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>git</tag>
-      
-      <tag>bpf</tag>
-      
-      <tag>linux</tag>
       
     </tags>
     
@@ -2823,6 +2823,35 @@
   
   
   <entry>
+    <title>cmake编译链接参数</title>
+    <link href="/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/"/>
+    <url>/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/</url>
+    
+    <content type="html"><![CDATA[<h1 id="cmake编译链接参数">cmake编译链接参数</h1><h2 id="cmake编译链接参数-1">cmake编译链接参数</h2><ul><li><p><a href="https://blog.51cto.com/u_15064646/3462077">cmake编译选项</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/513148985">GCC编译选项参数</a></p></li><li><p><a href="https://blog.51cto.com/u_15064646/3462077">添加-O0 -g，生成gdb的调试信息和不进行代码优化</a></p></li><li><p><a href="https://elloop.github.io/tools/2016-04-10/learning-cmake-2-commands">【使用CMake组织C++工程】2：调试包不优化</a></p></li><li><p><a href="https://blog.csdn.net/sandalphon4869/article/details/102503224">CMake解决c++11的phread库问题：undefined reference to `pthread_create’</a></p></li><li><p><a href="https://www.jianshu.com/p/10bf5d27dcfc">cmake编译缺失pthread_create等thread库解决方案</a></p></li><li><p><a href="http://blog.chinaunix.net/uid-69906223-id-5817313.html">gcc -lpthread和gcc -pthread的区别</a></p></li><li><p><a href="https://www.5axxw.com/questions/content/ratnvg">CMake: link options</a></p></li><li><p><a href="https://www.dovov.com/cmakecmakelists-txtldflags.html">CMake：如何在CMakeLists.txt中设置LDFLAGS？</a></p></li><li><p><a href="https://blog.csdn.net/dongjideyu/article/details/79267683">CMAKE 中　add_definitions的用法．</a></p></li><li><p><a href="https://blog.csdn.net/10km/article/details/51731959">cmake:设置编译选项的讲究(add_compile_options和CMAKE_CXX_FLAGS的区别)</a></p></li><li><p><a href="https://blog.csdn.net/fb_941219/article/details/88638503">ubuntu16.04cmake、gcc/g++版本更换</a></p></li></ul><h2 id="dynamic-code-analysis">Dynamic code analysis</h2><ul><li><a href="https://www.cnblogs.com/gladiatorplus/p/14437059.html">cmake 内存泄露检查asan</a></li><li><a href="https://www.jetbrains.com/help/clion/profiling-tools.html">动态代码分析 Clion</a></li><li><a href="https://blog.csdn.net/register_k/article/details/120319834">libasan使用和遇到的问题</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>cmake</title>
     <link href="/cpp/cmake/"/>
     <url>/cpp/cmake/</url>
@@ -2846,35 +2875,6 @@
       <tag>git</tag>
       
       <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>cmake编译链接参数</title>
-    <link href="/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/"/>
-    <url>/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/</url>
-    
-    <content type="html"><![CDATA[<h1 id="cmake编译链接参数">cmake编译链接参数</h1><h2 id="cmake编译链接参数-1">cmake编译链接参数</h2><ul><li><p><a href="https://blog.51cto.com/u_15064646/3462077">cmake编译选项</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/513148985">GCC编译选项参数</a></p></li><li><p><a href="https://blog.51cto.com/u_15064646/3462077">添加-O0 -g，生成gdb的调试信息和不进行代码优化</a></p></li><li><p><a href="https://elloop.github.io/tools/2016-04-10/learning-cmake-2-commands">【使用CMake组织C++工程】2：调试包不优化</a></p></li><li><p><a href="https://blog.csdn.net/sandalphon4869/article/details/102503224">CMake解决c++11的phread库问题：undefined reference to `pthread_create’</a></p></li><li><p><a href="https://www.jianshu.com/p/10bf5d27dcfc">cmake编译缺失pthread_create等thread库解决方案</a></p></li><li><p><a href="http://blog.chinaunix.net/uid-69906223-id-5817313.html">gcc -lpthread和gcc -pthread的区别</a></p></li><li><p><a href="https://www.5axxw.com/questions/content/ratnvg">CMake: link options</a></p></li><li><p><a href="https://www.dovov.com/cmakecmakelists-txtldflags.html">CMake：如何在CMakeLists.txt中设置LDFLAGS？</a></p></li><li><p><a href="https://blog.csdn.net/dongjideyu/article/details/79267683">CMAKE 中　add_definitions的用法．</a></p></li><li><p><a href="https://blog.csdn.net/10km/article/details/51731959">cmake:设置编译选项的讲究(add_compile_options和CMAKE_CXX_FLAGS的区别)</a></p></li><li><p><a href="https://blog.csdn.net/fb_941219/article/details/88638503">ubuntu16.04cmake、gcc/g++版本更换</a></p></li></ul><h2 id="dynamic-code-analysis">Dynamic code analysis</h2><ul><li><a href="https://www.cnblogs.com/gladiatorplus/p/14437059.html">cmake 内存泄露检查asan</a></li><li><a href="https://www.jetbrains.com/help/clion/profiling-tools.html">动态代码分析 Clion</a></li><li><a href="https://blog.csdn.net/register_k/article/details/120319834">libasan使用和遇到的问题</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
       
       <tag>HTML</tag>
       
@@ -2947,25 +2947,6 @@
   
   
   <entry>
-    <title>makefile</title>
-    <link href="/cpp/makefile/"/>
-    <url>/cpp/makefile/</url>
-    
-    <content type="html"><![CDATA[<h1 id="makefile">MakeFile</h1><ul><li><a href="https://blog.codekissyoung.com/C%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1/Make%E6%9E%84%E5%BB%BA%E5%B7%A5%E5%85%B7"><font color=Red>GNU Make项目管理</font></a></li><li><a href="http://blog.hanschen.site/2016/08/17/makefile/">Makefile使用指南</a></li><li><a href="http://c.biancheng.net/makefile/"><font color=Red>Makefile教程：Makefile文件编写1天入门</font></a></li><li><a href="https://www.bookstack.cn/read/makefile-basic/16858cbb3e00b884.md"><font color=Red>Makefile 基础教程</font></a></li><li><a href="https://www.bookstack.cn/read/how-to-write-makefile/b473e56b6c52d350.md"><font color=Red>跟我一起写Makefile</font></a></li><li><a href="https://blog.csdn.net/zhaoyun_zzz/article/details/82466031">Makefile编译与链接选项及CFLAGS与LDFLAGS示例说明_zhaoyun_zzz的专栏-CSDN博客_ldflags</a></li><li><a href="https://blog.csdn.net/shenhuxi_yu/article/details/79788760">makefile中的CPPFLAGS LDFLAGS CFLAGS选项详解</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>tars</title>
     <link href="/cpp/tars/"/>
     <url>/cpp/tars/</url>
@@ -2993,6 +2974,25 @@
       <tag>HTML</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>makefile</title>
+    <link href="/cpp/makefile/"/>
+    <url>/cpp/makefile/</url>
+    
+    <content type="html"><![CDATA[<h1 id="makefile">MakeFile</h1><ul><li><a href="https://blog.codekissyoung.com/C%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1/Make%E6%9E%84%E5%BB%BA%E5%B7%A5%E5%85%B7"><font color=Red>GNU Make项目管理</font></a></li><li><a href="http://blog.hanschen.site/2016/08/17/makefile/">Makefile使用指南</a></li><li><a href="http://c.biancheng.net/makefile/"><font color=Red>Makefile教程：Makefile文件编写1天入门</font></a></li><li><a href="https://www.bookstack.cn/read/makefile-basic/16858cbb3e00b884.md"><font color=Red>Makefile 基础教程</font></a></li><li><a href="https://www.bookstack.cn/read/how-to-write-makefile/b473e56b6c52d350.md"><font color=Red>跟我一起写Makefile</font></a></li><li><a href="https://blog.csdn.net/zhaoyun_zzz/article/details/82466031">Makefile编译与链接选项及CFLAGS与LDFLAGS示例说明_zhaoyun_zzz的专栏-CSDN博客_ldflags</a></li><li><a href="https://blog.csdn.net/shenhuxi_yu/article/details/79788760">makefile中的CPPFLAGS LDFLAGS CFLAGS选项详解</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -3059,11 +3059,11 @@
   
   
   <entry>
-    <title>gerrit</title>
-    <link href="/git/gerrit/"/>
-    <url>/git/gerrit/</url>
+    <title>README</title>
+    <link href="/git/README/"/>
+    <url>/git/README/</url>
     
-    <content type="html"><![CDATA[<h1 id="gerrit">gerrit</h1><h2 id="提交模板">提交模板</h2><p>在 ~/ 目录下新建文件，并命名为.gitcommit_template 将以下内容写入文件当中：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs text">#commit type :fix（问题修复）、feat（功能开发）、style(风格修改)、refactor(重构)、docs（文档）、 chore（其他)、test(测试) + 简单描述. 默认fix,根据情况修改<br>fix: <br><br>#Describe you bug/feature,or other things<br>Description: <br><br># <br>Log: <br><br>#关联pms上的bug号，提交后，则会自动在pms对应bug信息页面添加备注，关联本次提交。若本次提交为修复bug相关，则请 取消注释<br>#Bug: <br><br>#尚不清楚干啥的 <br>#Issue: <br><br>#关联pms上的任务号，提交后，则会自动在pms对应任务信息页面添加备注，关联本次提交。若本次提交为任务相关，则请取消注释<br>#Task: <br></code></pre></td></tr></table></figure><p>在命令行执行:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global commit.template ~/.gitcommit_template<br></code></pre></td></tr></table></figure><h2 id="安装">安装</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install git-review<br></code></pre></td></tr></table></figure><h2 id="推送">推送</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review branch(当前分支) -r origin<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://wikidev.uniontech.com/Gerrit_%E6%8F%90%E4%BA%A4%E6%A8%A1%E6%9D%BF">Gerrit 提交模板</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="git-learning">git-learning</h1><h2 id="git全局设置用户名跟邮箱">git全局设置用户名跟邮箱</h2><p>git全局设置用户名跟邮箱，基本操作一次以后很少再变化。</p><p>设置全局用户名，xxx替换为用户名</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global user.name <span class="hljs-string">&quot;xxx&quot;</span><br></code></pre></td></tr></table></figure><p>设置全局用户邮箱，xxx替换为用户邮箱</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global user.email <span class="hljs-string">&quot;xxx&quot;</span><br></code></pre></td></tr></table></figure><ul><li><a href="https://segmentfault.com/a/1190000038802019">git全局设置用户名跟邮箱相关命令</a></li></ul><h2 id="修改git-默认编辑器为vim">修改git 默认编辑器为vim</h2><p>git默认编辑器为nano，不太常用。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global core.editor vim<br></code></pre></td></tr></table></figure><ul><li><a href="https://www.jianshu.com/p/86a7640705cd">修改Git默认编辑器</a></li></ul><h2 id="彻底替换https为ssh">彻底替换https为ssh</h2><p>设置git url https请求替换为ssh方式</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global url.<span class="hljs-string">&quot;git@github.com:&quot;</span>.insteadOf https://github.com/<br></code></pre></td></tr></table></figure><ul><li><a href="https://www.jianshu.com/p/affe1af6781c">github项目如何快速git clone https</a></li></ul><h2 id="git设置ssh代理">git设置ssh代理</h2><p>类 UNIX 系统配置更改起来比较简单. 编辑 ~/.ssh/config 加入如下内容:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">Host github.com *.github.com<br>  User git<br>  <span class="hljs-comment"># SOCKS代理</span><br>  ProxyCommand nc -v -x 127.0.0.1:7890 %h %p<br>  <span class="hljs-comment"># HTTPS代理</span><br>  ProxyCommand socat - PROXY:127.0.0.1:%h:%p,proxyport=7890<br></code></pre></td></tr></table></figure><ul><li><a href="https://www.donnadie.top/set-git-proxy">为 git 设置代理解决远程仓库无法连接问题</a></li></ul><h2 id="通过https-443端口建立ssh连接">通过HTTPS 443端口建立SSH连接</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh -T -p 443 git@ssh.github.com<br></code></pre></td></tr></table></figure><p>正常输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Hi realwujing! You&#x27;ve successfully authenticated, but GitHub does not provide shell access.<br></code></pre></td></tr></table></figure><p>说明可以通过HTTPS 443端口建立SSH连接。</p><p>编辑 ~/.ssh/config 加入如下内容:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">Host github.com *.github.com<br>  HostName ssh.github.com <br>  User git<br>  Port 443<br>  <span class="hljs-comment"># IdentityFile &quot;~\.ssh\id_rsa&quot;</span><br>  <span class="hljs-comment"># SOCKS代理</span><br>  <span class="hljs-comment"># ProxyCommand nc -v -x 127.0.0.1:7890 %h %p</span><br>  <span class="hljs-comment"># HTTPS代理</span><br>  <span class="hljs-comment"># ProxyCommand socat - PROXY:127.0.0.1:%h:%p,proxyport=7890</span><br></code></pre></td></tr></table></figure><p>正常输出如下：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">Hi realwujing! You<span class="hljs-string">&#x27;ve successfully authenticated, but GitHub does not provide shell access.</span><br></code></pre></td></tr></table></figure><p>如果输出异常，建议将上述<code>ProxyCommand</code>开头的内容取消注释，即使用代理且采用443端口，<code>github pull push</code>功能肯定能用。</p>]]></content>
     
     
     <categories>
@@ -3084,11 +3084,11 @@
   
   
   <entry>
-    <title>README</title>
-    <link href="/git/README/"/>
-    <url>/git/README/</url>
+    <title>gerrit</title>
+    <link href="/git/gerrit/"/>
+    <url>/git/gerrit/</url>
     
-    <content type="html"><![CDATA[<h1 id="git-learning">git-learning</h1><h2 id="git全局设置用户名跟邮箱">git全局设置用户名跟邮箱</h2><p>git全局设置用户名跟邮箱，基本操作一次以后很少再变化。</p><p>设置全局用户名，xxx替换为用户名</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global user.name <span class="hljs-string">&quot;xxx&quot;</span><br></code></pre></td></tr></table></figure><p>设置全局用户邮箱，xxx替换为用户邮箱</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global user.email <span class="hljs-string">&quot;xxx&quot;</span><br></code></pre></td></tr></table></figure><ul><li><a href="https://segmentfault.com/a/1190000038802019">git全局设置用户名跟邮箱相关命令</a></li></ul><h2 id="修改git-默认编辑器为vim">修改git 默认编辑器为vim</h2><p>git默认编辑器为nano，不太常用。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global core.editor vim<br></code></pre></td></tr></table></figure><ul><li><a href="https://www.jianshu.com/p/86a7640705cd">修改Git默认编辑器</a></li></ul><h2 id="彻底替换https为ssh">彻底替换https为ssh</h2><p>设置git url https请求替换为ssh方式</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global url.<span class="hljs-string">&quot;git@github.com:&quot;</span>.insteadOf https://github.com/<br></code></pre></td></tr></table></figure><ul><li><a href="https://www.jianshu.com/p/affe1af6781c">github项目如何快速git clone https</a></li></ul><h2 id="git设置ssh代理">git设置ssh代理</h2><p>类 UNIX 系统配置更改起来比较简单. 编辑 ~/.ssh/config 加入如下内容:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">Host github.com *.github.com<br>  User git<br>  <span class="hljs-comment"># SOCKS代理</span><br>  ProxyCommand nc -v -x 127.0.0.1:7890 %h %p<br>  <span class="hljs-comment"># HTTPS代理</span><br>  ProxyCommand socat - PROXY:127.0.0.1:%h:%p,proxyport=7890<br></code></pre></td></tr></table></figure><ul><li><a href="https://www.donnadie.top/set-git-proxy">为 git 设置代理解决远程仓库无法连接问题</a></li></ul><h2 id="通过https-443端口建立ssh连接">通过HTTPS 443端口建立SSH连接</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh -T -p 443 git@ssh.github.com<br></code></pre></td></tr></table></figure><p>正常输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Hi realwujing! You&#x27;ve successfully authenticated, but GitHub does not provide shell access.<br></code></pre></td></tr></table></figure><p>说明可以通过HTTPS 443端口建立SSH连接。</p><p>编辑 ~/.ssh/config 加入如下内容:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">Host github.com *.github.com<br>  HostName ssh.github.com <br>  User git<br>  Port 443<br>  <span class="hljs-comment"># IdentityFile &quot;~\.ssh\id_rsa&quot;</span><br>  <span class="hljs-comment"># SOCKS代理</span><br>  <span class="hljs-comment"># ProxyCommand nc -v -x 127.0.0.1:7890 %h %p</span><br>  <span class="hljs-comment"># HTTPS代理</span><br>  <span class="hljs-comment"># ProxyCommand socat - PROXY:127.0.0.1:%h:%p,proxyport=7890</span><br></code></pre></td></tr></table></figure><p>正常输出如下：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">Hi realwujing! You<span class="hljs-string">&#x27;ve successfully authenticated, but GitHub does not provide shell access.</span><br></code></pre></td></tr></table></figure><p>如果输出异常，建议将上述<code>ProxyCommand</code>开头的内容取消注释，即使用代理且采用443端口，<code>github pull push</code>功能肯定能用。</p>]]></content>
+    <content type="html"><![CDATA[<h1 id="gerrit">gerrit</h1><h2 id="提交模板">提交模板</h2><p>在 ~/ 目录下新建文件，并命名为.gitcommit_template 将以下内容写入文件当中：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs text">#commit type :fix（问题修复）、feat（功能开发）、style(风格修改)、refactor(重构)、docs（文档）、 chore（其他)、test(测试) + 简单描述. 默认fix,根据情况修改<br>fix: <br><br>#Describe you bug/feature,or other things<br>Description: <br><br># <br>Log: <br><br>#关联pms上的bug号，提交后，则会自动在pms对应bug信息页面添加备注，关联本次提交。若本次提交为修复bug相关，则请 取消注释<br>#Bug: <br><br>#尚不清楚干啥的 <br>#Issue: <br><br>#关联pms上的任务号，提交后，则会自动在pms对应任务信息页面添加备注，关联本次提交。若本次提交为任务相关，则请取消注释<br>#Task: <br></code></pre></td></tr></table></figure><p>在命令行执行:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global commit.template ~/.gitcommit_template<br></code></pre></td></tr></table></figure><h2 id="安装">安装</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install git-review<br></code></pre></td></tr></table></figure><h2 id="推送">推送</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review branch(当前分支) -r origin<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://wikidev.uniontech.com/Gerrit_%E6%8F%90%E4%BA%A4%E6%A8%A1%E6%9D%BF">Gerrit 提交模板</a></li></ul>]]></content>
     
     
     <categories>
@@ -3346,9 +3346,9 @@
       
       <tag>HTML</tag>
       
-      <tag>Golang</tag>
-      
       <tag>namespace</tag>
+      
+      <tag>Golang</tag>
       
     </tags>
     
@@ -3641,31 +3641,6 @@
   
   <entry>
     <title>README</title>
-    <link href="/cpp/qt-learning/dbus/struct/README/"/>
-    <url>/cpp/qt-learning/dbus/struct/README/</url>
-    
-    <content type="html"><![CDATA[<h2 id="deepin下qt-qdebug输出到终端">deepin下qt qDebug()输出到终端</h2><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs routeros"><span class="hljs-built_in">export</span> <span class="hljs-attribute">QT_LOGGING_RULES</span>=<span class="hljs-string">&quot;*.debug=true&quot;</span><br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>qt-learning</category>
-      
-      <category>dbus</category>
-      
-      <category>struct</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
     <link href="/cpp/qt-learning/dbus/proxy/README/"/>
     <url>/cpp/qt-learning/dbus/proxy/README/</url>
     
@@ -3681,6 +3656,31 @@
       <category>dbus</category>
       
       <category>proxy</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/cpp/qt-learning/dbus/struct/README/"/>
+    <url>/cpp/qt-learning/dbus/struct/README/</url>
+    
+    <content type="html"><![CDATA[<h2 id="deepin下qt-qdebug输出到终端">deepin下qt qDebug()输出到终端</h2><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs routeros"><span class="hljs-built_in">export</span> <span class="hljs-attribute">QT_LOGGING_RULES</span>=<span class="hljs-string">&quot;*.debug=true&quot;</span><br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>qt-learning</category>
+      
+      <category>dbus</category>
+      
+      <category>struct</category>
       
     </categories>
     
@@ -3787,31 +3787,6 @@
   
   
   <entry>
-    <title>uml</title>
-    <link href="/markdown/uml/"/>
-    <url>/markdown/uml/</url>
-    
-    <content type="html"><![CDATA[<h1 id="uml">uml</h1><ul><li><a href="https://blog.csdn.net/fly_zxy/article/details/80911942#commentBox">UML时序图(Sequence Diagram)学习笔记</a></li><li><a href="http://www.woshipm.com/ucd/607593.html">快速学习时序图：时序图简介、画法及实例</a></li><li><a href="https://www.cnblogs.com/54chensongxia/p/13236965.html">程序员必备画图技能之——时序图</a></li></ul><h2 id="plantuml">PlantUML</h2><ul><li><a href="https://mp.weixin.qq.com/s/zhj5txc3W7svWtg0JNTDMQ">用代码画时序图！YYDS</a></li><li><a href="https://www.jianshu.com/p/4f86146e0811">PlantUML画类图、流程图、时序图使用详解</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>markdown</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>nano</title>
     <link href="/markdown/nano/"/>
     <url>/markdown/nano/</url>
@@ -3831,6 +3806,31 @@
       <tag>Linux</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>uml</title>
+    <link href="/markdown/uml/"/>
+    <url>/markdown/uml/</url>
+    
+    <content type="html"><![CDATA[<h1 id="uml">uml</h1><ul><li><a href="https://blog.csdn.net/fly_zxy/article/details/80911942#commentBox">UML时序图(Sequence Diagram)学习笔记</a></li><li><a href="http://www.woshipm.com/ucd/607593.html">快速学习时序图：时序图简介、画法及实例</a></li><li><a href="https://www.cnblogs.com/54chensongxia/p/13236965.html">程序员必备画图技能之——时序图</a></li></ul><h2 id="plantuml">PlantUML</h2><ul><li><a href="https://mp.weixin.qq.com/s/zhj5txc3W7svWtg0JNTDMQ">用代码画时序图！YYDS</a></li><li><a href="https://www.jianshu.com/p/4f86146e0811">PlantUML画类图、流程图、时序图使用详解</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>markdown</category>
+      
+    </categories>
+    
+    
+    <tags>
       
       <tag>HTML</tag>
       
@@ -4344,7 +4344,7 @@
     <link href="/linux/package/%E5%8C%85%E7%AE%A1%E7%90%86/"/>
     <url>/linux/package/%E5%8C%85%E7%AE%A1%E7%90%86/</url>
     
-    <content type="html"><![CDATA[<h1 id="包管理">包管理</h1><h2 id="apt-dpkg-yum-rpm-brew">apt dpkg yum rpm brew</h2><ul><li><a href="https://mp.weixin.qq.com/s/4XXl-dcbH0eUqYcHwZYKxg"><font color=Red>五种常见 Linux 系统安装包管理工具中文使用指南</font></a></li><li><a href="https://mp.weixin.qq.com/s/c826iDRMNx2XLuT7qMKpyA">Linux基础-包管理工具yum和apt对比</a></li><li><a href="https://linux.cn/article-8782-1.html">Linux 包管理基础：apt、yum、dnf 和 pkg</a></li></ul><h2 id="debian">debian</h2><ul><li><a href="https://www.debian.org/doc/manuals/debian-reference/ch02.zh-cn.html#_basic_package_management_operations_with_the_commandline">第 2 章 Debian 软件包管理</a></li></ul><h3 id="iso">iso</h3><ul><li><a href="https://get.debian.org/images/">Debian images: installer images, live images, cloud images</a></li><li><a href="https://cloud.debian.org/cdimage/archive/">Debian CDs/DVDs archive</a></li></ul><h3 id="deb仓库源">deb仓库源</h3><ul><li><p><a href="http://mirrors.ustc.edu.cn/"><font color=Red>中国科学技术大学开源软件镜像</font></a></p></li><li><p><a href="http://mirrors.ustc.edu.cn/help/">USTC Mirror Help—USTC Mirror Help文档</a></p><p>debian10 中科大源：</p><p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs text">deb https://mirrors.ustc.edu.cn/debian/ buster main contrib non-free<br>deb-src https://mirrors.ustc.edu.cn/debian/ buster main contrib non-free<br><br>deb https://mirrors.ustc.edu.cn/debian/ buster-updates main contrib non-free<br>deb-src https://mirrors.ustc.edu.cn/debian/ buster-updates main contrib non-free<br><br>deb https://mirrors.ustc.edu.cn/debian/ buster-backports main contrib non-free<br>deb-src https://mirrors.ustc.edu.cn/debian/ buster-backports main contrib non-free<br><br>deb https://mirrors.ustc.edu.cn/debian-security/ buster/updates main contrib non-free<br>deb-src https://mirrors.ustc.edu.cn/debian-security/ buster/updates main contrib non-free<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://developer.aliyun.com/mirror/?spm=a2c6h.12873639.J_5404914170.29.2feb6235F6x30d">阿里云官方镜像站</a></p></li><li><p><a href="https://mirrors.tuna.tsinghua.edu.cn/help/debian/">Debian 镜像使用帮助-清华大学开源软件镜像站</a></p></li><li><p><a href="https://www.debian.org/mirror/list"><font color=Red>Debian 全球镜像站</font></a></p></li><li><p><a href="https://packages.debian.org/bullseye/netselect-apt">netselect-apt 用于选择快速 Debian 镜像的速度测试器</a></p></li></ul><h4 id="debian-搜索软件包">Debian 搜索软件包</h4><ul><li><a href="https://packages.debian.org/zh-cn/"><font color=Red>Debian 搜索软件包</font></a></li></ul><h4 id="sources.list">sources.list</h4><ul><li><a href="https://www.cnblogs.com/kelamoyujuzhen/p/9728260.html">/etc/apt/sources.list 和 /etc/apt/sources.list.d</a></li><li><a href="https://zhuanlan.zhihu.com/p/608493042">修复 Ubuntu 中的 “Key is stored in legacy trusted.gpg keyring” 问题 | Linux 中国</a></li></ul><h5 id="固件源">固件源</h5><ul><li><a href="https://packages.debian.org/bullseye/firmware-iwlwifi">软件包：firmware-iwlwifi（20210315-3） [non-free]</a></li><li><a href="https://linuxconfig.org/how-to-install-the-latest-amd-drivers-on-debian-10-buster">How to Install the Latest AMD Drivers on Debian 10 Buster</a></li></ul><h3 id="dpkg">dpkg</h3><ul><li><p><a href="https://www.toutiao.com/article/7209575948562334247">dpkg常用命令总结</a></p></li><li><p><a href="https://blog.csdn.net/linuxvfast/article/details/117701825">Ubuntu系统下deb包的解压、打包、安装、卸载及常用命令</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1579495"><font color=Red>Debian软件包常用管理命令整理</font></a></p></li><li><p><a href="https://www.runoob.com/linux/linux-comm-apt.html">Linux apt命令</a></p></li><li><p><a href="https://blog.csdn.net/weixin_44596606/article/details/87654398"><font color=Red>apt dpkg常用命令汇总</font></a></p></li><li><p><a href="https://www.jianshu.com/p/6432015c52a6">Linux软件安装管理之——dpkg与apt-*详解</a></p></li></ul><h3 id="apt">apt</h3><ul><li><a href="https://blog.csdn.net/weixin_51867896/article/details/121883910">列出ubuntu软件管理工具apt的一些用法(自由总结)</a></li></ul><h4 id="卸载">卸载</h4><ul><li><a href="https://blog.csdn.net/get_set/article/details/51276609">Ubuntu apt-get彻底卸载软件包_刘康的专栏-CSDN博客_apt 卸载</a></li><li><a href="https://www.toutiao.com/article/7190217952308757053/">apt remove和apt purge:有什么区别？</a></li></ul><h4 id="升级">升级</h4><ul><li><a href="https://www.cnblogs.com/thespace/p/12445252.html">apt update，apt upgrade和apt dist-upgrade的区别</a></li><li><a href="https://www.learndiary.com/2021/04/debian-deepin-upgrade/">sudo apt full-upgrade（也可以用 sudo apt dist-upgrade ，据我所知，它们效果是一样的）</a></li><li><a href="https://askubuntu.com/questions/81585/what-is-dist-upgrade-and-why-does-it-upgrade-more-than-upgrade">What is "dist-upgrade" and why does it upgrade more than "upgrade"?</a></li></ul><h4 id="查找">查找</h4><ul><li><a href="https://blog.csdn.net/rookie_wei/article/details/122409853"><font color=Red>apt-cache madison与apt-cache search</font></a></li><li><a href="https://www.uc23.net/command/256.html">apt-cache (搜索软件包和软件包名称)</a></li><li><a href="https://www.cnblogs.com/EasonJim/p/7144017.html">Ubuntu通过apt-get安装指定版本和查询指定软件有多少个版本</a></li></ul><h5 id="apt-file">apt-file</h5><ul><li><a href="https://www.jianshu.com/p/9fd19418cf83">Ubuntu使用apt-file解决库或者文件缺失依赖</a></li></ul><h4 id="解压">解压</h4><p>将名为 lshw_02.18.85-0.1_arm64.deb 的 .deb 文件解压到名为 lshw 的目录中，并且保留其中的目录结构:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg-deb -R lshw_02.18.85-0.1_arm64.deb lshw<br></code></pre></td></tr></table></figure><p>具体来说，它会将 lshw_02.18.85-0.1_arm64.deb 文件中的所有内容解压到 lshw 目录中，包括 DEBIAN 目录（其中包含软件包的控制信息）以及其他可能的目录和文件。解压后的目录结构将与原始 .deb 文件中的结构完全相同。</p><h4 id="依赖">依赖</h4><ul><li><a href="https://linux.cn/article-12987-1.html">如何在基于 Ubuntu 或 Debian 的 Linux 发行版中查看一个软件包的依赖</a></li></ul><h4 id="apt_pkg">apt_pkg</h4><ul><li><a href="https://www.jianshu.com/p/a205f7a44b45">ubuntu No module named 'apt_pkg' - 简书 (jianshu.com)</a></li><li><a href="https://www.cnblogs.com/presleyren/p/11011129.html">Ubuntu Error: No module named 'apt_pkg' 怎么办？ - ￣□￣ - 博客园 (cnblogs.com)</a></li></ul><h3 id="deb打包">deb打包</h3><ul><li><p><a href="https://docs.deepin.org/info/%E5%BC%80%E5%8F%91%E8%BF%9B%E9%98%B6/%E9%80%82%E9%85%8D%E8%AE%A4%E8%AF%81/%E8%AE%A4%E8%AF%81%E6%8A%80%E6%9C%AF%E9%97%AE%E9%A2%98/%E8%AE%A4%E8%AF%81%E6%8A%80%E6%9C%AF%E9%97%AE%E9%A2%98/%E6%BA%90%E7%A0%81%E6%89%93%E5%8C%85%E4%B8%BAdeb">源码打包为deb</a></p></li><li><p><a href="https://www.debian.org/doc/manuals/debmake-doc/">Debian 维护者指南</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39759247/article/details/125923234">deb编包笔记</a></p></li><li><p><a href="https://blog.csdn.net/dztaopao/article/details/9239399">deb包制作中control文件说明</a></p></li><li><p><a href="https://blog.csdn.net/yingyingququ/article/details/108848019">deb包安装/卸载/升级时，preinst, postinst, prerm, postrm的执行顺序</a></p></li><li><p><a href="https://www.ubuntukylin.com/news/1713-cn.html">干货分享 - Debian包的潜规则（脚本篇）</a></p></li><li><p><a href="https://github.com/realwujing/linux-learning/blob/master/deb/pbuilder%E6%95%99%E7%A8%8B.md"><font color=Red>pbuilder教程</font></a></p></li><li><p><a href="https://codeantenna.com/a/ZW9Zd5bFYi"><font color=Red>pbuilder编译构建工具分析</font></a></p></li><li><p><a href="https://www.cnblogs.com/zszmhd/p/3628446.html">pbuilder编译构建工具分析</a></p></li><li><p><a href="https://www.aftermath.cn//2022/03/06/debian-pbuilder/">debian pbuilder使用</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">dh_make --createorig -sy <br>dpkg-source -b . <br>sudo pbuilder --build  --logfile log.txt --basetgz /var/cache/pbuilder/base.tgz --allow-untrusted --hookdir /var/cache/pbuilder/hooks   --debbuildopts -sa --use-network <span class="hljs-built_in">yes</span> --aptcache <span class="hljs-string">&quot;&quot;</span> --buildresult . *.dsc <br></code></pre></td></tr></table></figure></p></li></ul><h4 id="rules">rules</h4><ul><li><a href="https://www.debian.org/doc/manuals/maint-guide/dreq.zh-cn.html">debian/rules build 运行了 dh build</a></li></ul><h4 id="已有debian目录的源码打包为deb">已有debian目录的源码打包为deb</h4><p>以 plymouth 为例，先下载plymouth源码：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt <span class="hljs-built_in">source</span> plymouth<br></code></pre></td></tr></table></figure><p>进入 plymouth 源码目录：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> plymouth-0.9.4.2<br></code></pre></td></tr></table></figure><p>打包：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg-buildpackage -b -nc -uc -us -j16<br></code></pre></td></tr></table></figure><p>这是一个用于构建 Debian 软件包的命令，具体参数含义如下：</p><ul><li>-b：构建软件包。</li><li>-nc：不清理（不执行 clean 操作），即不删除之前的构建临时文件。</li><li>-uc：不对软件包的源代码进行签名。</li><li>-us：不对软件包的修改进行签名。</li><li>-j16：并行编译的线程数，这里是指定使用 16 个线程来加速编译过程。</li></ul><p>综合起来，该命令的作用是使用当前目录下的源代码构建 Debian 软件包，不清理之前的构建临时文件，不对软件包进行签名，并且使用 16 个线程并行编译以加快构建过程。</p><h4 id="二进制软件包打包为deb">二进制软件包打包为deb</h4><ul><li><a href="https://docs.deepin.org/info/%E5%BC%80%E5%8F%91%E8%BF%9B%E9%98%B6/%E9%80%82%E9%85%8D%E8%AE%A4%E8%AF%81/%E8%AE%A4%E8%AF%81%E6%8A%80%E6%9C%AF%E9%97%AE%E9%A2%98/%E8%AE%A4%E8%AF%81%E6%8A%80%E6%9C%AF%E9%97%AE%E9%A2%98/%E4%BA%8C%E8%BF%9B%E5%88%B6%E8%BD%AF%E4%BB%B6%E5%8C%85%E6%89%93%E5%8C%85%E4%B8%BAdeb">二进制软件包打包为deb</a></li></ul><h4 id="desktop-文件">desktop 文件</h4><ul><li><a href="https://linux.cn/article-9199-1.html">为你的 Linux 应用创建 .desktop 文件</a></li><li><a href="https://blog.csdn.net/hebbely/article/details/102459754">Linux下 创建启动器（.Desktop文件)</a></li></ul><h3 id="apt-代理">apt 代理</h3><ul><li><p><a href="https://zhuanlan.zhihu.com/p/629584549">如何为 APT 命令设置代理 | Linux 中国</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo -s<br><span class="hljs-built_in">cat</span> &lt;&lt; <span class="hljs-string">EOF &gt; /etc/apt/apt.conf.d/proxy.conf</span><br><span class="hljs-string">Acquire::http::Proxy &quot;http://127.0.0.1:7890&quot;;</span><br><span class="hljs-string">Acquire::https::Proxy &quot;http://127.0.0.1:7890&quot;;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure></p></li></ul><h3 id="gpg-error">GPG error</h3><ul><li><p><a href="https://faq.fydeos.com/recipes/solve-apt-get-gpg-error/">Linux（测试版）刷新软件包列表遇到 GPG 错误的解决方法</a></p></li><li><p><a href="http://www.cppblog.com/zhangyq/archive/2021/03/13/217627.html">debian更新清华源 GPG 错误：由于没有公钥，无法验证下列签名</a></p></li><li><p><a href="https://www.freesion.com/article/4440566650/">UBUNTU配置APT国内源</a></p></li><li><p><a href="https://www.cnblogs.com/saysmy/p/10390277.html">apt-get软件包管理命令 和 apt-key命令</a></p></li><li><p><a href="https://blog.csdn.net/e891377/article/details/108032882"><font color=Red>查看Deepin版本与Debian版本</font></a></p></li><li><p><a href="https://blog.csdn.net/longma666666/article/details/81701802">dpkg-deb (子进程)：解压缩归档成员：lzma 错误：压缩数据已损坏</a></p></li></ul><h3 id="构建iso镜像">构建iso镜像</h3><ul><li><a href="https://github.com/realwujing/isobuilder">https://github.com/realwujing/isobuilder</a></li></ul><h2 id="centos">centos</h2><ul><li><p><a href="https://www.iplayio.cn/post/33066">CentOS8的DNF软件管理包教程：dnf如何安装/更新/删除软件包和软件包组</a></p></li><li><p><a href="https://blog.csdn.net/peng2hui1314/article/details/123930942">Centos 8 使用 yum 报错 Error: Cannot prepare internal mirrorlist: No URLs in mirrorlist</a></p></li><li><p><a href="https://blog.csdn.net/wykqh/article/details/123004620"><font color=Red>CentOS Linux 8 - AppStream 错误：为仓库 ‘appstream‘ 下载元数据失败 : Cannot prepare internal mirrorlist: No URLs</font></a></p></li><li><p><a href="https://www.myfreax.com/how-to-check-your-centos-version/">如何检查CentOS 版本</a></p></li><li><p><a href="https://linux.cn/article-12161-1.html">DNF 和 Yum 的区别，为什么 Yum 会被 DNF 取代？</a></p></li><li><p>使用 yum 查询特定二进制文件所属的软件包:</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">yum provides /usr/bin/mysqldump<br></code></pre></td></tr></table></figure></p></li></ul><h3 id="rpm仓库源">rpm仓库源</h3><ul><li><a href="https://pkgs.org/">https://pkgs.org/</a></li></ul><h3 id="rpm打包">rpm打包</h3><ul><li><a href="https://www.cnblogs.com/yipianchuyun/p/15442896.html">RPM打包原理、示例、详解及备查</a></li><li><a href="https://bbs.huaweicloud.com/blogs/308524">在 CentOS / RedHat 上从源代码构建 RPM 包的 7 个步骤</a></li><li><a href="https://yanyixing.github.io/2018/09/25/rpm-mock/">通过mock来构建rpm包</a></li><li><a href="https://blog.csdn.net/OnlyLove_/article/details/124527338">从零开始构建 RPM 包</a></li></ul><h4 id="内核包">内核包</h4><ul><li><a href="https://winddoing.github.io/post/cb2d9d77.html">Centos7 内核编译及 RPM 包的制作</a></li></ul><h2 id="macos">macos</h2><ul><li><a href="https://mirrors.tuna.tsinghua.edu.cn/help/homebrew/">Homebrew / Linuxbrew镜像使用帮助</a></li><li><a href="https://blog.csdn.net/tzjvon/article/details/79648825">brew更换国内镜像源_tzjvon的博客-CSDN博客_brew更换镜像</a></li><li><a href="https://www.it1352.com/2270246.html">为什么brew安装需要sudo访问?</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="包管理">包管理</h1><h2 id="apt-dpkg-yum-rpm-brew">apt dpkg yum rpm brew</h2><ul><li><a href="https://mp.weixin.qq.com/s/4XXl-dcbH0eUqYcHwZYKxg"><font color=Red>五种常见 Linux 系统安装包管理工具中文使用指南</font></a></li><li><a href="https://mp.weixin.qq.com/s/c826iDRMNx2XLuT7qMKpyA">Linux基础-包管理工具yum和apt对比</a></li><li><a href="https://linux.cn/article-8782-1.html">Linux 包管理基础：apt、yum、dnf 和 pkg</a></li></ul><h2 id="debian">debian</h2><ul><li><a href="https://www.debian.org/doc/manuals/debian-reference/ch02.zh-cn.html#_basic_package_management_operations_with_the_commandline">第 2 章 Debian 软件包管理</a></li></ul><h3 id="iso">iso</h3><ul><li><a href="https://get.debian.org/images/">Debian images: installer images, live images, cloud images</a></li><li><a href="https://cloud.debian.org/cdimage/archive/">Debian CDs/DVDs archive</a></li></ul><h3 id="deb仓库源">deb仓库源</h3><ul><li><p><a href="http://mirrors.ustc.edu.cn/"><font color=Red>中国科学技术大学开源软件镜像</font></a></p></li><li><p><a href="http://mirrors.ustc.edu.cn/help/">USTC Mirror Help—USTC Mirror Help文档</a></p><p>debian10 中科大源：</p><p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs text">deb https://mirrors.ustc.edu.cn/debian/ buster main contrib non-free<br>deb-src https://mirrors.ustc.edu.cn/debian/ buster main contrib non-free<br><br>deb https://mirrors.ustc.edu.cn/debian/ buster-updates main contrib non-free<br>deb-src https://mirrors.ustc.edu.cn/debian/ buster-updates main contrib non-free<br><br>deb https://mirrors.ustc.edu.cn/debian/ buster-backports main contrib non-free<br>deb-src https://mirrors.ustc.edu.cn/debian/ buster-backports main contrib non-free<br><br>deb https://mirrors.ustc.edu.cn/debian-security/ buster/updates main contrib non-free<br>deb-src https://mirrors.ustc.edu.cn/debian-security/ buster/updates main contrib non-free<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://developer.aliyun.com/mirror/?spm=a2c6h.12873639.J_5404914170.29.2feb6235F6x30d">阿里云官方镜像站</a></p></li><li><p><a href="https://mirrors.tuna.tsinghua.edu.cn/help/debian/">Debian 镜像使用帮助-清华大学开源软件镜像站</a></p></li><li><p><a href="https://www.debian.org/mirror/list"><font color=Red>Debian 全球镜像站</font></a></p></li><li><p><a href="https://packages.debian.org/bullseye/netselect-apt">netselect-apt 用于选择快速 Debian 镜像的速度测试器</a></p></li></ul><h4 id="debian-搜索软件包">Debian 搜索软件包</h4><ul><li><a href="https://packages.debian.org/zh-cn/"><font color=Red>Debian 搜索软件包</font></a></li></ul><h4 id="sources.list">sources.list</h4><ul><li><a href="https://www.cnblogs.com/kelamoyujuzhen/p/9728260.html">/etc/apt/sources.list 和 /etc/apt/sources.list.d</a></li><li><a href="https://zhuanlan.zhihu.com/p/608493042">修复 Ubuntu 中的 “Key is stored in legacy trusted.gpg keyring” 问题 | Linux 中国</a></li></ul><h5 id="固件源">固件源</h5><ul><li><a href="https://packages.debian.org/bullseye/firmware-iwlwifi">软件包：firmware-iwlwifi（20210315-3） [non-free]</a></li><li><a href="https://linuxconfig.org/how-to-install-the-latest-amd-drivers-on-debian-10-buster">How to Install the Latest AMD Drivers on Debian 10 Buster</a></li></ul><h3 id="dpkg">dpkg</h3><ul><li><p><a href="https://www.toutiao.com/article/7209575948562334247">dpkg常用命令总结</a></p></li><li><p><a href="https://blog.csdn.net/linuxvfast/article/details/117701825">Ubuntu系统下deb包的解压、打包、安装、卸载及常用命令</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1579495"><font color=Red>Debian软件包常用管理命令整理</font></a></p></li><li><p><a href="https://www.runoob.com/linux/linux-comm-apt.html">Linux apt命令</a></p></li><li><p><a href="https://blog.csdn.net/weixin_44596606/article/details/87654398"><font color=Red>apt dpkg常用命令汇总</font></a></p></li><li><p><a href="https://www.jianshu.com/p/6432015c52a6">Linux软件安装管理之——dpkg与apt-*详解</a></p></li></ul><h3 id="apt">apt</h3><ul><li><a href="https://blog.csdn.net/weixin_51867896/article/details/121883910">列出ubuntu软件管理工具apt的一些用法(自由总结)</a></li></ul><h4 id="卸载">卸载</h4><ul><li><a href="https://blog.csdn.net/get_set/article/details/51276609">Ubuntu apt-get彻底卸载软件包_刘康的专栏-CSDN博客_apt 卸载</a></li><li><a href="https://www.toutiao.com/article/7190217952308757053/">apt remove和apt purge:有什么区别？</a></li></ul><h4 id="升级">升级</h4><ul><li><a href="https://www.cnblogs.com/thespace/p/12445252.html">apt update，apt upgrade和apt dist-upgrade的区别</a></li><li><a href="https://www.learndiary.com/2021/04/debian-deepin-upgrade/">sudo apt full-upgrade（也可以用 sudo apt dist-upgrade ，据我所知，它们效果是一样的）</a></li><li><a href="https://askubuntu.com/questions/81585/what-is-dist-upgrade-and-why-does-it-upgrade-more-than-upgrade">What is "dist-upgrade" and why does it upgrade more than "upgrade"?</a></li></ul><h4 id="查找">查找</h4><ul><li><a href="https://blog.csdn.net/rookie_wei/article/details/122409853"><font color=Red>apt-cache madison与apt-cache search</font></a></li><li><a href="https://www.uc23.net/command/256.html">apt-cache (搜索软件包和软件包名称)</a></li><li><a href="https://www.cnblogs.com/EasonJim/p/7144017.html">Ubuntu通过apt-get安装指定版本和查询指定软件有多少个版本</a></li></ul><h5 id="apt-file">apt-file</h5><ul><li><a href="https://www.jianshu.com/p/9fd19418cf83">Ubuntu使用apt-file解决库或者文件缺失依赖</a></li></ul><h4 id="解压">解压</h4><p>将名为 lshw_02.18.85-0.1_arm64.deb 的 .deb 文件解压到名为 lshw 的目录中，并且保留其中的目录结构:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg-deb -R lshw_02.18.85-0.1_arm64.deb lshw<br></code></pre></td></tr></table></figure><p>具体来说，它会将 lshw_02.18.85-0.1_arm64.deb 文件中的所有内容解压到 lshw 目录中，包括 DEBIAN 目录（其中包含软件包的控制信息）以及其他可能的目录和文件。解压后的目录结构将与原始 .deb 文件中的结构完全相同。</p><h4 id="依赖">依赖</h4><ul><li><a href="https://linux.cn/article-12987-1.html">如何在基于 Ubuntu 或 Debian 的 Linux 发行版中查看一个软件包的依赖</a></li></ul><h4 id="apt_pkg">apt_pkg</h4><ul><li><a href="https://www.jianshu.com/p/a205f7a44b45">ubuntu No module named 'apt_pkg' - 简书 (jianshu.com)</a></li><li><a href="https://www.cnblogs.com/presleyren/p/11011129.html">Ubuntu Error: No module named 'apt_pkg' 怎么办？ - ￣□￣ - 博客园 (cnblogs.com)</a></li></ul><h3 id="deb打包">deb打包</h3><ul><li><p><a href="https://docs.deepin.org/info/%E5%BC%80%E5%8F%91%E8%BF%9B%E9%98%B6/%E9%80%82%E9%85%8D%E8%AE%A4%E8%AF%81/%E8%AE%A4%E8%AF%81%E6%8A%80%E6%9C%AF%E9%97%AE%E9%A2%98/%E8%AE%A4%E8%AF%81%E6%8A%80%E6%9C%AF%E9%97%AE%E9%A2%98/%E6%BA%90%E7%A0%81%E6%89%93%E5%8C%85%E4%B8%BAdeb">源码打包为deb</a></p></li><li><p><a href="https://www.debian.org/doc/manuals/debmake-doc/">Debian 维护者指南</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39759247/article/details/125923234">deb编包笔记</a></p></li><li><p><a href="https://blog.csdn.net/dztaopao/article/details/9239399">deb包制作中control文件说明</a></p></li><li><p><a href="https://blog.csdn.net/yingyingququ/article/details/108848019">deb包安装/卸载/升级时，preinst, postinst, prerm, postrm的执行顺序</a></p></li><li><p><a href="https://www.ubuntukylin.com/news/1713-cn.html">干货分享 - Debian包的潜规则（脚本篇）</a></p></li><li><p><a href="https://github.com/realwujing/linux-learning/blob/master/deb/pbuilder%E6%95%99%E7%A8%8B.md"><font color=Red>pbuilder教程</font></a></p></li><li><p><a href="https://codeantenna.com/a/ZW9Zd5bFYi"><font color=Red>pbuilder编译构建工具分析</font></a></p></li><li><p><a href="https://www.cnblogs.com/zszmhd/p/3628446.html">pbuilder编译构建工具分析</a></p></li><li><p><a href="https://www.aftermath.cn//2022/03/06/debian-pbuilder/">debian pbuilder使用</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">dh_make --createorig -sy <br>dpkg-source -b . <br>sudo pbuilder --build  --logfile log.txt --basetgz /var/cache/pbuilder/base.tgz --allow-untrusted --hookdir /var/cache/pbuilder/hooks   --debbuildopts -sa --use-network <span class="hljs-built_in">yes</span> --aptcache <span class="hljs-string">&quot;&quot;</span> --buildresult . *.dsc <br></code></pre></td></tr></table></figure></p></li></ul><h4 id="rules">rules</h4><ul><li><a href="https://www.debian.org/doc/manuals/maint-guide/dreq.zh-cn.html">debian/rules build 运行了 dh build</a></li></ul><h4 id="已有debian目录的源码打包为deb">已有debian目录的源码打包为deb</h4><p>以 plymouth 为例，先下载plymouth源码：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt <span class="hljs-built_in">source</span> plymouth<br></code></pre></td></tr></table></figure><p>进入 plymouth 源码目录：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> plymouth-0.9.4.2<br></code></pre></td></tr></table></figure><p>打包：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dpkg-buildpackage -b -nc -uc -us -j16<br></code></pre></td></tr></table></figure><p>这是一个用于构建 Debian 软件包的命令，具体参数含义如下：</p><ul><li>-b：构建软件包。</li><li>-nc：不清理（不执行 clean 操作），即不删除之前的构建临时文件。</li><li>-uc：不对软件包的源代码进行签名。</li><li>-us：不对软件包的修改进行签名。</li><li>-j16：并行编译的线程数，这里是指定使用 16 个线程来加速编译过程。</li></ul><p>综合起来，该命令的作用是使用当前目录下的源代码构建 Debian 软件包，不清理之前的构建临时文件，不对软件包进行签名，并且使用 16 个线程并行编译以加快构建过程。</p><h4 id="二进制软件包打包为deb">二进制软件包打包为deb</h4><ul><li><a href="https://docs.deepin.org/info/%E5%BC%80%E5%8F%91%E8%BF%9B%E9%98%B6/%E9%80%82%E9%85%8D%E8%AE%A4%E8%AF%81/%E8%AE%A4%E8%AF%81%E6%8A%80%E6%9C%AF%E9%97%AE%E9%A2%98/%E8%AE%A4%E8%AF%81%E6%8A%80%E6%9C%AF%E9%97%AE%E9%A2%98/%E4%BA%8C%E8%BF%9B%E5%88%B6%E8%BD%AF%E4%BB%B6%E5%8C%85%E6%89%93%E5%8C%85%E4%B8%BAdeb">二进制软件包打包为deb</a></li></ul><h4 id="desktop-文件">desktop 文件</h4><ul><li><a href="https://linux.cn/article-9199-1.html">为你的 Linux 应用创建 .desktop 文件</a></li><li><a href="https://blog.csdn.net/hebbely/article/details/102459754">Linux下 创建启动器（.Desktop文件)</a></li></ul><h3 id="apt-代理">apt 代理</h3><ul><li><p><a href="https://zhuanlan.zhihu.com/p/629584549">如何为 APT 命令设置代理 | Linux 中国</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo -s<br><span class="hljs-built_in">cat</span> &lt;&lt; <span class="hljs-string">EOF &gt; /etc/apt/apt.conf.d/proxy.conf</span><br><span class="hljs-string">Acquire::http::Proxy &quot;http://127.0.0.1:7890&quot;;</span><br><span class="hljs-string">Acquire::https::Proxy &quot;http://127.0.0.1:7890&quot;;</span><br><span class="hljs-string">EOF</span><br></code></pre></td></tr></table></figure></p></li></ul><h3 id="gpg-error">GPG error</h3><ul><li><p><a href="https://faq.fydeos.com/recipes/solve-apt-get-gpg-error/">Linux（测试版）刷新软件包列表遇到 GPG 错误的解决方法</a></p></li><li><p><a href="http://www.cppblog.com/zhangyq/archive/2021/03/13/217627.html">debian更新清华源 GPG 错误：由于没有公钥，无法验证下列签名</a></p></li><li><p><a href="https://www.freesion.com/article/4440566650/">UBUNTU配置APT国内源</a></p></li><li><p><a href="https://www.cnblogs.com/saysmy/p/10390277.html">apt-get软件包管理命令 和 apt-key命令</a></p></li><li><p><a href="https://blog.csdn.net/e891377/article/details/108032882"><font color=Red>查看Deepin版本与Debian版本</font></a></p></li><li><p><a href="https://blog.csdn.net/longma666666/article/details/81701802">dpkg-deb (子进程)：解压缩归档成员：lzma 错误：压缩数据已损坏</a></p></li></ul><h3 id="构建iso镜像">构建iso镜像</h3><ul><li><a href="https://github.com/realwujing/isobuilder">https://github.com/realwujing/isobuilder</a></li></ul><h2 id="centos">centos</h2><ul><li><p><a href="https://www.iplayio.cn/post/33066">CentOS8的DNF软件管理包教程：dnf如何安装/更新/删除软件包和软件包组</a></p></li><li><p><a href="https://blog.csdn.net/peng2hui1314/article/details/123930942">Centos 8 使用 yum 报错 Error: Cannot prepare internal mirrorlist: No URLs in mirrorlist</a></p></li><li><p><a href="https://blog.csdn.net/wykqh/article/details/123004620"><font color=Red>CentOS Linux 8 - AppStream 错误：为仓库 ‘appstream‘ 下载元数据失败 : Cannot prepare internal mirrorlist: No URLs</font></a></p></li><li><p><a href="https://www.myfreax.com/how-to-check-your-centos-version/">如何检查CentOS 版本</a></p></li><li><p><a href="https://linux.cn/article-12161-1.html">DNF 和 Yum 的区别，为什么 Yum 会被 DNF 取代？</a></p></li><li><p>使用 yum 查询特定二进制文件所属的软件包:</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">yum provides /usr/bin/mysqldump<br></code></pre></td></tr></table></figure></p></li></ul><h3 id="almalinux">almalinux</h3><ul><li><a href="https://cn.linux-console.net/?p=10691">如何在AlmaLinux上安装GUI</a></li></ul><h3 id="rpm仓库源">rpm仓库源</h3><ul><li><a href="https://pkgs.org/">https://pkgs.org/</a></li></ul><h3 id="rpm打包">rpm打包</h3><ul><li><a href="https://www.cnblogs.com/yipianchuyun/p/15442896.html">RPM打包原理、示例、详解及备查</a></li><li><a href="https://bbs.huaweicloud.com/blogs/308524">在 CentOS / RedHat 上从源代码构建 RPM 包的 7 个步骤</a></li><li><a href="https://yanyixing.github.io/2018/09/25/rpm-mock/">通过mock来构建rpm包</a></li><li><a href="https://blog.csdn.net/OnlyLove_/article/details/124527338">从零开始构建 RPM 包</a></li></ul><h4 id="内核包">内核包</h4><ul><li><a href="https://winddoing.github.io/post/cb2d9d77.html">Centos7 内核编译及 RPM 包的制作</a></li></ul><h2 id="macos">macos</h2><ul><li><a href="https://mirrors.tuna.tsinghua.edu.cn/help/homebrew/">Homebrew / Linuxbrew镜像使用帮助</a></li><li><a href="https://blog.csdn.net/tzjvon/article/details/79648825">brew更换国内镜像源_tzjvon的博客-CSDN博客_brew更换镜像</a></li><li><a href="https://www.it1352.com/2270246.html">为什么brew安装需要sudo访问?</a></li></ul>]]></content>
     
     
     <categories>
@@ -5032,6 +5032,43 @@
   
   
   <entry>
+    <title>helloworld-initramfs</title>
+    <link href="/linux/kernel/qemu/helloworld-initramfs/"/>
+    <url>/linux/kernel/qemu/helloworld-initramfs/</url>
+    
+    <content type="html"><![CDATA[<h1 id="helloworld-initramfs">helloworld initramfs</h1><h2 id="helloworld.c源码">helloworld.c源码</h2><p>做一个最简单的Hello World initramfs，来直观地理解initramfs。</p><p>Hello World的C程序如下，与普通的Hello World相比，加了一行while(1)。</p><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;stdio.h&gt;</span></span><br><br><span class="hljs-type">void</span> <span class="hljs-title function_">main</span><span class="hljs-params">()</span><br>&#123;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;Hello World!\n&quot;</span>);<br>    fflush(<span class="hljs-built_in">stdout</span>);<br>    <span class="hljs-comment">/* 让程序打印完后继续维持在用户态 */</span><br>    <span class="hljs-keyword">while</span>(<span class="hljs-number">1</span>);<br>&#125;<br></code></pre></td></tr></table></figure><h2 id="编译helloworld.c程序">编译helloworld.c程序</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> helloworld<br>gcc -static helloworld.c -o init<br></code></pre></td></tr></table></figure><ul><li><p>-static: On systems that support dynamic linking, this prevents linking with the shared libraries. //不让gcc动态链接shared libraries</p></li><li><p>-o init 当 GRUB 载入 kernel 和 initramfs 后，kernel 会把 initramfs 在内存中展开，然后执行其根目录下的 init ，也就是上面的脚本。以上的脚本会执行 mount 工作，准备好目录结构，然后执行 /sbin/init 转换入 ubuntu 的初始化过程（system-v init ，upstart ， systemd，用 udev 自动创建设备文件等）。</p></li></ul><h2 id="打包initramfs文件">打包initramfs文件</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">mkdir</span> tmp<br><span class="hljs-built_in">cp</span> init tmp<br><span class="hljs-built_in">cd</span> tmp<br>find . | cpio -o -H newc | gzip &gt; ../helloworld-initramfs.cpio.gz<br></code></pre></td></tr></table></figure><h2 id="在qemu中启动编译好的内核把helloworld-initramfs.cpio.gz指定为initrd">在qemu中启动编译好的内核，把helloworld-initramfs.cpio.gz指定为initrd</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 -kernel ~/code/linux/arch/x86/boot/bzImage -initrd ~/code/linux-learning/debug/helloworld/helloworld-initramfs.cpio.gz -append <span class="hljs-string">&quot;console=ttyS0&quot;</span> -nographic<br></code></pre></td></tr></table></figure><p>系统能成功启动到输出"Hello World!"，并且在用户态停住。结合前文“在qemu环境中用gdb调试Linux内核”，可以看到qemu虚机中运行的Linux系统已经成功挂载了initramfs, 在console日志中也能看到“Unpacking initramfs...”。</p><!-- ![helloworld](images/helloworld.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/helloworld.png" alt="" /><figcaption>helloworld</figcaption></figure><ul><li><a href="https://www.cnblogs.com/wipan/p/9269505.html">Initramfs 原理和实践</a></li><li><a href="https://blog.csdn.net/u010444107/article/details/79427542">initramfs的使用方法</a></li><li><a href="https://blog.csdn.net/greatyoulv/article/details/117175103">initramfs的制作和使用</a></li><li><a href="https://blog.csdn.net/u010444107/article/details/79427542">initramfs的使用方法</a></li><li><a href="https://www.cnblogs.com/fengyc/p/6114648.html">基于 debootstrap 和 busybox 构建 mini ubuntu</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>qemu</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>qemu</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+      <tag>initramfs</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>linux内核调试</title>
     <link href="/linux/kernel/qemu/linux%E5%86%85%E6%A0%B8%E8%B0%83%E8%AF%95/"/>
     <url>/linux/kernel/qemu/linux%E5%86%85%E6%A0%B8%E8%B0%83%E8%AF%95/</url>
@@ -5094,43 +5131,6 @@
       <tag>qemu</tag>
       
       <tag>linux</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>helloworld-initramfs</title>
-    <link href="/linux/kernel/qemu/helloworld-initramfs/"/>
-    <url>/linux/kernel/qemu/helloworld-initramfs/</url>
-    
-    <content type="html"><![CDATA[<h1 id="helloworld-initramfs">helloworld initramfs</h1><h2 id="helloworld.c源码">helloworld.c源码</h2><p>做一个最简单的Hello World initramfs，来直观地理解initramfs。</p><p>Hello World的C程序如下，与普通的Hello World相比，加了一行while(1)。</p><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;stdio.h&gt;</span></span><br><br><span class="hljs-type">void</span> <span class="hljs-title function_">main</span><span class="hljs-params">()</span><br>&#123;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;Hello World!\n&quot;</span>);<br>    fflush(<span class="hljs-built_in">stdout</span>);<br>    <span class="hljs-comment">/* 让程序打印完后继续维持在用户态 */</span><br>    <span class="hljs-keyword">while</span>(<span class="hljs-number">1</span>);<br>&#125;<br></code></pre></td></tr></table></figure><h2 id="编译helloworld.c程序">编译helloworld.c程序</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> helloworld<br>gcc -static helloworld.c -o init<br></code></pre></td></tr></table></figure><ul><li><p>-static: On systems that support dynamic linking, this prevents linking with the shared libraries. //不让gcc动态链接shared libraries</p></li><li><p>-o init 当 GRUB 载入 kernel 和 initramfs 后，kernel 会把 initramfs 在内存中展开，然后执行其根目录下的 init ，也就是上面的脚本。以上的脚本会执行 mount 工作，准备好目录结构，然后执行 /sbin/init 转换入 ubuntu 的初始化过程（system-v init ，upstart ， systemd，用 udev 自动创建设备文件等）。</p></li></ul><h2 id="打包initramfs文件">打包initramfs文件</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">mkdir</span> tmp<br><span class="hljs-built_in">cp</span> init tmp<br><span class="hljs-built_in">cd</span> tmp<br>find . | cpio -o -H newc | gzip &gt; ../helloworld-initramfs.cpio.gz<br></code></pre></td></tr></table></figure><h2 id="在qemu中启动编译好的内核把helloworld-initramfs.cpio.gz指定为initrd">在qemu中启动编译好的内核，把helloworld-initramfs.cpio.gz指定为initrd</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 -kernel ~/code/linux/arch/x86/boot/bzImage -initrd ~/code/linux-learning/debug/helloworld/helloworld-initramfs.cpio.gz -append <span class="hljs-string">&quot;console=ttyS0&quot;</span> -nographic<br></code></pre></td></tr></table></figure><p>系统能成功启动到输出"Hello World!"，并且在用户态停住。结合前文“在qemu环境中用gdb调试Linux内核”，可以看到qemu虚机中运行的Linux系统已经成功挂载了initramfs, 在console日志中也能看到“Unpacking initramfs...”。</p><!-- ![helloworld](images/helloworld.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/helloworld.png" alt="" /><figcaption>helloworld</figcaption></figure><ul><li><a href="https://www.cnblogs.com/wipan/p/9269505.html">Initramfs 原理和实践</a></li><li><a href="https://blog.csdn.net/u010444107/article/details/79427542">initramfs的使用方法</a></li><li><a href="https://blog.csdn.net/greatyoulv/article/details/117175103">initramfs的制作和使用</a></li><li><a href="https://blog.csdn.net/u010444107/article/details/79427542">initramfs的使用方法</a></li><li><a href="https://www.cnblogs.com/fengyc/p/6114648.html">基于 debootstrap 和 busybox 构建 mini ubuntu</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>qemu</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>qemu</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-      <tag>initramfs</tag>
       
     </tags>
     
