@@ -327,6 +327,24 @@ dpkg-buildpackage -b -nc -uc -us -j16
 - [（转载）ubuntu 安装 dbgsym (debug-info)](https://cloud.tencent.com/developer/article/1637887)
 - [dpkg-buildpackage error](https://github.com/Mellanox/nv_peer_memory/issues/77)
 
+### 编译内核rmp包
+
+- [编译内核rpm包](https://blog.csdn.net/qq_40983405/article/details/123875955)
+
+    本教程基于 openEuler 20.03
+
+    使用 yum-builddep 安装 Linux 内核的构建依赖项：
+
+    ```bash
+    sudo yum-builddep kernel
+    ```
+
+    编译内核rpm包：
+
+    ```bash
+    make binrpm-pkg -j8 2> make_error.log
+    ```
+
 ## 内核模块
 
 - [<font color=Red>1. Linux内核模块</font>](https://doc.embedfire.com/linux/imx6/driver/zh/latest/linux_driver/module.html)
