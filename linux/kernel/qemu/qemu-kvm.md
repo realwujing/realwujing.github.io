@@ -276,3 +276,35 @@ sudo mount -a
 - [UTM - Virtual machines for iOS and macOS](https://github.com/utmapp/UTM)
 - [Parallels Desktop 19.2.1 54832 破解教程（pd19永久授权）](https://www.luoxx.top/archives/pd-18-active?cid=162)
 - [如何轻松扩展Parallel Desktop下的Ubuntu虚拟机磁盘空间](https://blog.coderluny.com/archives/53)
+
+### vmware
+
+- [安装 Open VM Tools](https://docs.vmware.com/cn/VMware-Tools/12.4.0/com.vmware.vsphere.vmwaretools.doc/GUID-C48E1F14-240D-4DD1-8D4C-25B6EBE4BB0F.html)
+
+Ubuntu、Debian 及相关操作系统
+
+如果虚拟机具有 GUI（X11 等），请安装或升级 open-vm-tools-desktop：
+
+```bash
+sudo apt-get install open-vm-tools-desktop
+```
+
+否则，请使用以下命令安装 open-vm-tools：
+
+```bash
+sudo apt-get install open-vm-tools
+```
+
+RHEL、Fedora 和 CentOS
+
+如果虚拟机具有 GUI（X11 等），请安装或升级 open-vm-tools-desktop：
+
+```bash
+sudo yum install open-vm-tools-desktop
+```
+
+否则，请安装 open-vm-tools：
+
+```bash
+sudo yum install open-vm-tools
+```
