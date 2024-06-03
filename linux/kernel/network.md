@@ -146,3 +146,33 @@
 ## dns
 
 - [Github Pages 绑定域名遇到的坑](https://blog.csdn.net/i_do_not_know_you/article/details/105594269)
+
+## proxy
+
+macOS Monterey 12.7.5在系统偏好设置-网络-WiFi-代理中修改配置无法保存，clashx中设置为系统代理也无法取消，详情参见下图：
+
+![代理](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240603234753.png)
+
+查看内核版本：
+
+  ```bash
+  uname -a
+  Darwin MacBook-Pro.local 21.6.0 Darwin Kernel Version 21.6.0: Wed Apr 24 06:02:02 PDT 2024; root:xnu-8020.240.18.708.4~1/RELEASE_X86_64 x86_64
+  ```
+
+查看系统系统发型版本：
+
+```bash
+sw_vers 
+ProductName:    macOS
+ProductVersion: 12.7.5
+BuildVersion:   21H1222
+```
+
+在Finder中查看/Library/Preferences/SystemConfiguration/preferences.plist文件，发现图标左下角有把锁，打开简介，显示已锁定。
+
+移除文件锁定：取消对 preferences.plist 文件的用户不可更改（uchg）标志，使其可被修改：
+
+  ```bash
+  sudo chflags nouchg /Library/Preferences/SystemConfiguration/preferences.plist
+  ```
