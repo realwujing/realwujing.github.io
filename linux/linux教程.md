@@ -602,6 +602,7 @@ UUID=cc5da720-dbfb-4bc2-8f35-f566d1603508       /media/wujing/data      ext4    
 - [你还不会 Jumpserver 堡垒机(保护服务器)搭建部署?](https://mp.weixin.qq.com/s/o-F_VLQF-lqu3N1_R1mNDg)
 
 - [首页>向日葵> Linux及国产化系统> Linux个人版（命令行版本）使用手册](https://service.oray.com/question/11017.html)
+- [记录vscode连接Linux主机错误](https://blog.csdn.net/m0_49029335/article/details/137024530)
 
 ### termux
 
