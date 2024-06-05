@@ -37,6 +37,27 @@
 
 ### LKML
 
+Linux 内核相关网站的出现顺序:
+
+1. **LKML.org**
+   - **简介**：LKML（Linux Kernel Mailing List）是 Linux 内核开发者的主要讨论平台。邮件列表自 1991 年 Linux 内核项目开始时就存在，但 LKML.org 作为便于访问和搜索的网页形式出现时间稍晚，具体时间不详。
+   - **网址**：[https://lkml.org/](https://lkml.org/)
+
+2. **LWN.net**
+   - **成立时间**：1998 年
+   - **简介**：LWN.net 是一个提供 Linux 和开源软件相关新闻和文章的网站。它涵盖了广泛的技术主题，并提供深入的分析。
+   - **网址**：[https://lwn.net/](https://lwn.net/)
+
+3. **Patchwork**
+   - **成立时间**：2000 年代初
+   - **简介**：Patchwork 由 OzLabs 创建，用于管理邮件列表中的补丁。它帮助开发者跟踪和处理提交的补丁。
+   - **网址**：[https://patchwork.ozlabs.org/](https://patchwork.ozlabs.org/)
+
+4. **lore.kernel.org**
+   - **成立时间**：2018 年
+   - **简介**：lore.kernel.org 是一个托管和搜索 Linux 内核相关邮件列表的平台，提供强大的搜索和索引功能，使开发者更容易找到相关讨论和补丁。
+   - **网址**：[https://lore.kernel.org/](https://lore.kernel.org/)
+
 - [从 LKML 优雅的摘取补丁](https://blog.xzr.moe/archives/293/)
 - [正确使用邮件列表参与开源社区的协作](https://tinylab.org/mailing-list-intro/)
 
