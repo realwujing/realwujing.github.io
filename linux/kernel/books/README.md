@@ -51,3 +51,7 @@
 ## 软件调试（第2版）卷1：硬件基础
 
 - [软件调试（第2版）卷1：硬件基础](http://download.eeworld.com.cn/eewsearcher?s=3&kw=%E8%BD%AF%E4%BB%B6%E8%B0%83%E8%AF%95%EF%BC%88%E7%AC%AC2%E7%89%88%EF%BC%89%E5%8D%B71%EF%BC%9A%E7%A1%AC%E4%BB%B6%E5%9F%BA%E7%A1%80)
+
+## Linux开源网络全栈详解：从DPDK到OpenFlow
+
+- [Linux开源网络全栈详解：从DPDK到OpenFlow](https://www.aliyunpub.com/quark/2024-05/31655/)
