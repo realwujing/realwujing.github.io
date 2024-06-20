@@ -51,10 +51,51 @@
 
 ### virsh
 
+- [virsh命令来创建虚拟机](https://www.cnblogs.com/klb561/p/8724487.html)
+- [<font color=Red>虚拟化部署和管理指南</font>](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/virtualization_deployment_and_administration_guide/index)
+- [15.5 更改引导选项](https://documentation.suse.com/zh-cn/sles/15-SP2/html/SLES-all/cha-libvirt-config-virsh.html#sec-libvirt-config-boot-menu-virsh)
+- [libvirt-使用iso镜像创建主机&修改启动盘&启动](https://blog.csdn.net/qq_25730711/article/details/72835565)
+- [Libvirt: how to pass qemu command line args?](https://unix.stackexchange.com/questions/235414/libvirt-how-to-pass-qemu-command-line-args)
+
+#### virt-install
+
+- [CentOS 7 virt-install 命令行方式（非图形界面）安装KVM虚拟机](https://blog.csdn.net/mshxuyi/article/details/99852820)
+
+创建一个名为 yql-ctyunos 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出:
+
+```bash
+virt-install \
+  --name yql-ctyunos \
+  --ram 32768 \
+  --vcpus 64 \
+  --disk path=/inf/yql/yql-ctyunos.qcow2,size=200 \
+  --location /inf/yql/ctyunos-22.09-240618-x86_64-dvd.iso \
+  --os-type generic \
+  --network default \
+  --graphics none \
+  --console pty,target_type=serial \
+  -x 'console=ttyS0,115200n8 console=tty0' \
+  --extra-args 'console=ttyS0,115200n8'
+```
+
+参数说明:
+
+- `--name yql-ctyunos`：设置虚拟机的名称为 `yql-ctyunos`。
+- `--ram 32768`：分配 32GB 内存给虚拟机（单位为 MB）。
+- `--vcpus 64`：分配 64 个虚拟 CPU 给虚拟机。
+- `--disk path=/inf/yql/yql-ctyunos.qcow2,size=200`：指定虚拟机的磁盘文件路径和大小为 200GB。
+- `--location /inf/yql/ctyunos-22.09-240618-x86_64-dvd.iso`：指定用于安装的 ISO 文件的位置。
+- `--os-type generic`：指定操作系统类型为通用类型。
+- `--network default`：指定虚拟机的网络接口为默认网络。
+- `--graphics none`：禁用图形界面。
+- `--console pty,target_type=serial`：设置虚拟机的控制台类型为串口控制台。
+- `-x 'console=ttyS0,115200n8 console=tty0'`：启动参数，设置串口控制台和控制台输出。
+- `--extra-args 'console=ttyS0,115200n8'`：额外的启动参数，设置串口控制台输出。
+
 #### 克隆一个虚拟机
 
 ```bash
-virt-clone --original my_zjnorg --name wujing --file wujing.qcow2
+virt-clone --original yql --name wujing --file wujing.qcow2
 ```
 
 #### 启动虚拟机
@@ -79,11 +120,19 @@ nproc
 
 #### 删除虚拟机
 
+- [KVM 报错以及处理](https://www.cnblogs.com/loudyten/articles/10233268.html)
+
+使用 `virsh` 命令中取消定义一个带有 NVRAM 的虚拟机:
+
 ```bash
 virsh undefine wujing --nvram
 ```
 
-- [KVM 报错以及处理](https://www.cnblogs.com/loudyten/articles/10233268.html)
+参数说明:
+
+- `undefine` 表示取消定义（即删除）一个虚拟机。
+- `--nvram` 选项用于指示虚拟机具有 NVRAM（非易失性随机存储器），需要一并删除。
+- `wujing` 是要删除的虚拟机的名称或定义文件的路径。
 
 ### 共享剪切板
 
