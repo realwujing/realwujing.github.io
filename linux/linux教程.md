@@ -54,21 +54,40 @@
 
 ## 上传下载文件
 
-- [Linux上传下载文件的几种方式 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/141860859#:~:text=Linux%E4%B8%8A%E4%BC%A0%E4%B8%8B%E8%BD%BD%E6%96%87%E4%BB%B6%E7%9A%84%E5%87%A0%E7%A7%8D%E6%96%B9%E5%BC%8F%201%20scp%202%20rcp%203%20wget%204,account%20required%20%2Flib64%2Fsecurity%2Fpam_unix.so%20session%20required%20%2Flib64%2Fsecurity%2Fpam_unix.so%209%20SecureCRT)
+- [Linux上传下载文件的几种方式 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/141860859)
 - [Linux中使用sftp的常用命令](https://blog.csdn.net/jerrygaoling/article/details/115325671)
 
-## rsync
+### scp
 
-rsync 指定端口:
+使用 scp 命令时，如果需要指定端口，可以使用 -P 选项:
+
+```bash
+scp -P 2222 example.txt user@example.com:~
+```
+
+### rsync
+
+- [rsync 用法教程](https://www.ruanyifeng.com/blog/2020/08/rsync.html)
+- [rsync(一):基础命令和用法(精)](https://www.cnblogs.com/f-ck-need-u/p/7220009.html#auto_id_0)
+- [<font color=Red>rsync断点续传</font>](https://blog.51cto.com/u_12922638/2678436)
+- [rsync断点续传方式进行本地或远程文件拷贝](https://blog.csdn.net/sunny05296/article/details/103881588)
+- [rsync+inotify数据实时同步介绍](https://mp.weixin.qq.com/s/8r0lYjGvARzJt6OdCiwe1Q)
+
+`rsync` 使用 `-e` 选项来指定通过 SSH 使用特定的端口:
 
 ```bash
 rsync -avzP -e 'ssh -p 10000' linux-y.tar.gz root@10.63.8.158:/inf/yql/code
 ```
 
-- [rsync(一):基础命令和用法(精)](https://www.cnblogs.com/f-ck-need-u/p/7220009.html#auto_id_0)
-- [<font color=Red>rsync断点续传</font>](https://blog.51cto.com/u_12922638/2678436)
-- [rsync断点续传方式进行本地或远程文件拷贝](https://blog.csdn.net/sunny05296/article/details/103881588)
-- [rsync+inotify数据实时同步介绍](https://mp.weixin.qq.com/s/8r0lYjGvARzJt6OdCiwe1Q)
+参数说明:
+
+- `-a`：归档模式，表示递归传输并保持文件属性。
+- `-v`：详细模式，显示传输过程中的详细信息。
+- `-z`：压缩传输文件，以减少传输的数据量。
+- `-P`：显示传输进度，并在传输中断后能够继续传输。
+- `-e 'ssh -p 10000'`：使用指定的 SSH 命令和端口（这里是 10000）。
+- `linux-y.tar.gz`：要传输的本地文件。
+- `root@10.63.8.158:/inf/yql/code`：远程服务器的目标路径。
 
 ## 忽略大小写
 
