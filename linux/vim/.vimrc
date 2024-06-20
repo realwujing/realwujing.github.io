@@ -20,7 +20,7 @@ set novisualbell    " 不要闪烁(不明白)
 set statusline=%F%m%r%h%w\ [FORMAT=%{&ff}]\ [TYPE=%Y]\ [POS=%l,%v][%p%%]\ %{strftime(\"%d/%m/%y\ -\ %H:%M\")}   "状态行显示的内容    
 set laststatus=1    " 启动显示状态行(1),总是显示状态行(2)    
 set foldenable      " 允许折叠    
-set foldmethod=manual   " 手动折叠    
+set foldmethod=indent   " 缩进折叠    
 "set background=dark "背景使用黑色   
 set nocompatible  "去掉讨厌的有关vi一致性模式，避免以前版本的一些bug和局限    
   
