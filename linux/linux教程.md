@@ -59,6 +59,12 @@
 
 ## rsync
 
+rsync 指定端口:
+
+```bash
+rsync -avzP -e 'ssh -p 10000' linux-y.tar.gz root@10.63.8.158:/inf/yql/code
+```
+
 - [rsync(一):基础命令和用法(精)](https://www.cnblogs.com/f-ck-need-u/p/7220009.html#auto_id_0)
 - [<font color=Red>rsync断点续传</font>](https://blog.51cto.com/u_12922638/2678436)
 - [rsync断点续传方式进行本地或远程文件拷贝](https://blog.csdn.net/sunny05296/article/details/103881588)
