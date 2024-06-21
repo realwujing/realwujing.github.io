@@ -94,8 +94,6 @@
    virt-df -a /var/lib/libvirt/images/mydisk.qcow2
    ```
 
-   这将显示虚拟磁盘镜像中各个分区的使用情况。
-
 #### virt-install
 
 - [CentOS 7 virt-install 命令行方式（非图形界面）安装KVM虚拟机](https://blog.csdn.net/mshxuyi/article/details/99852820)
