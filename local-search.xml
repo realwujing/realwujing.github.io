@@ -8,7 +8,7 @@
     <link href="/linux/kernel/qemu/Using%20virsh%20to%20start%20VM%20and%20debug%20with%20gdb%20is%20simpler%20than%20using%20qemu%20directly./"/>
     <url>/linux/kernel/qemu/Using%20virsh%20to%20start%20VM%20and%20debug%20with%20gdb%20is%20simpler%20than%20using%20qemu%20directly./</url>
     
-    <content type="html"><![CDATA[<h1 id="using-virsh-to-start-vm-and-debug-with-gdb-is-simpler-than-using-qemu-directly">Using virsh to start VM and debug with gdb is simpler than using qemu directly</h1><h2 id="virt-install安装镜像">virt-install安装镜像</h2><p>创建一个名为 yql-ctyunos 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出从而安装虚拟机:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash">virt-install \<br>  --name yql-ctyunos \<br>  --ram 32768 \<br>  --vcpus 64 \<br>  --disk path=/inf/yql/yql-ctyunos.qcow2,size=200 \<br>  --location /inf/yql/ctyunos-22.09-240618-x86_64-dvd.iso \<br>  --os-type generic \<br>  --network default \<br>  --graphics none \<br>  --console pty,target_type=serial \<br>  -x <span class="hljs-string">&#x27;console=ttyS0,115200n8 console=tty0&#x27;</span> \<br>  --extra-args <span class="hljs-string">&#x27;console=ttyS0,115200n8&#x27;</span><br></code></pre></td></tr></table></figure><p>参数说明:</p><ul><li><code>--name yql-ctyunos</code>：设置虚拟机的名称为 <code>yql-ctyunos</code>。</li><li><code>--ram 32768</code>：分配 32GB 内存给虚拟机（单位为 MB）。</li><li><code>--vcpus 64</code>：分配 64 个虚拟 CPU 给虚拟机。</li><li><code>--disk path=/inf/yql/yql-ctyunos.qcow2,size=200</code>：指定虚拟机的磁盘文件路径和大小为 200GB。</li><li><code>--location /inf/yql/ctyunos-22.09-240618-x86_64-dvd.iso</code>：指定用于安装的 ISO 文件的位置。</li><li><code>--os-type generic</code>：指定操作系统类型为通用类型。</li><li><code>--network default</code>：指定虚拟机的网络接口为默认网络。</li><li><code>--graphics none</code>：禁用图形界面。</li><li><code>--console pty,target_type=serial</code>：设置虚拟机的控制台类型为串口控制台。</li><li><code>-x 'console=ttyS0,115200n8 console=tty0'</code>：启动参数，设置串口控制台和控制台输出。</li><li><code>--extra-args 'console=ttyS0,115200n8'</code>：额外的启动参数，设置串口控制台输出。</li></ul><h2 id="拷贝虚拟机的vmlinuxinitramfs">拷贝虚拟机的vmlinux、initramfs</h2><p>将虚拟机上的vmlinux、initramfs复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">rsync -avzP -e <span class="hljs-string">&#x27;ssh -p 10000&#x27;</span> /boot/initramfs-4.19.0-amd64-desktop.img /boot/vmlinuz-4.19.0-amd64-desktop root@10.63.8.158:/inf/yql/code/rpm<br></code></pre></td></tr></table></figure><h2 id="virsh-dumpxml">virsh dumpxml</h2><p>将虚拟机的xml文件复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh dumpxml yql-ctyunos &gt; yql-ctyunos.xml<br></code></pre></td></tr></table></figure><p>将自定义虚拟机启动vmlinux、initramfs、启动参数nokaslr且让虚拟机支持调试后的yql-ctyunos 的xml文件也复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh dumpxml yql-ctyunos &gt; yql-ctyunos2.xml<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">diff yql-ctyunos.xml yql-ctyunos2.xml<br>1c1<br>&lt; &lt;domain <span class="hljs-built_in">type</span>=<span class="hljs-string">&#x27;kvm&#x27;</span>&gt;<br>---<br>&gt; &lt;domain <span class="hljs-built_in">type</span>=<span class="hljs-string">&#x27;kvm&#x27;</span> xmlns:qemu=<span class="hljs-string">&#x27;http://libvirt.org/schemas/domain/qemu/1.0&#x27;</span>&gt;<br>11a12,14<br>&gt;     &lt;kernel&gt;/inf/yql/code/rpm/vmlinuz-4.19.0-amd64-desktop&lt;/kernel&gt;<br>&gt;     &lt;initrd&gt;/inf/yql/code/rpm/initramfs-4.19.0-amd64-desktop.img&lt;/initrd&gt;<br>&gt;     &lt;cmdline&gt;root=/dev/mapper/ctyunos-root rw console=ttyS0 nokaslr&lt;/cmdline&gt;<br>---<br>130a134,136<br>&gt;   &lt;qemu:commandline&gt;<br>&gt;     &lt;qemu:arg value=<span class="hljs-string">&#x27;-s&#x27;</span>/&gt;<br>&gt;   &lt;/qemu:commandline&gt;<br></code></pre></td></tr></table></figure><p>主要改动点说明：</p><h3 id="更改-domain-类型">1. 更改 Domain 类型</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs diff">1c1<br>&lt; &lt;domain type=&#x27;kvm&#x27;&gt;<br><span class="hljs-comment">---</span><br>&gt; &lt;domain type=&#x27;kvm&#x27; xmlns:qemu=&#x27;http://libvirt.org/schemas/domain/qemu/1.0&#x27;&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li>增加了 <code>xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'</code>。这意味着你可以在 XML 文件中使用一些特定于 QEMU 的扩展和命名空间。</li></ul><h3 id="添加内核initrd-和命令行参数">2. 添加内核、initrd 和命令行参数</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs diff">11a12,14<br>&gt;     &lt;kernel&gt;/inf/yql/code/rpm/vmlinuz-4.19.0-amd64-desktop&lt;/kernel&gt;<br>&gt;     &lt;initrd&gt;/inf/yql/code/rpm/initramfs-4.19.0-amd64-desktop.img&lt;/initrd&gt;<br>&gt;     &lt;cmdline&gt;root=/dev/mapper/ctyunos-root rw console=ttyS0 nokaslr&lt;/cmdline&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li><code>&lt;kernel&gt;</code>: 指定了内核映像的路径。</li><li><code>&lt;initrd&gt;</code>: 指定了初始内存盘（initramfs）的路径。</li><li><code>&lt;cmdline&gt;</code>: 指定了内核命令行参数，包括：<ul><li><code>root=/dev/mapper/ctyunos-root</code>：指定根文件系统所在的设备。</li><li><code>rw</code>：使根文件系统以读写模式挂载。</li><li><code>console=ttyS0</code>：指定控制台输出到串口 <code>ttyS0</code>。</li><li><code>nokaslr</code>：禁用内核地址空间布局随机化（KASLR）。</li></ul></li></ul><h3 id="添加-qemu-命令行参数">3. 添加 QEMU 命令行参数</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs diff">130a134,136<br>&gt;   &lt;qemu:commandline&gt;<br>&gt;     &lt;qemu:arg value=&#x27;-s&#x27;/&gt;<br>&gt;   &lt;/qemu:commandline&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li><code>&lt;qemu:commandline&gt;</code> 和 <code>&lt;qemu:arg&gt;</code>：允许你直接向 QEMU 传递命令行参数。</li><li><code>-s</code>：这是一个 QEMU 调试选项，启动 GDB 服务器监听在 TCP 端口 1234，允许你在虚拟机启动时通过 GDB 进行调试。</li></ul><h3 id="综合解释">综合解释</h3><p>这些改动主要有以下几个目的：</p><ol type="1"><li><strong>指定内核和 initrd</strong>：直接从指定的内核和 initrd 文件启动虚拟机，而不是使用默认的引导加载程序。这在需要使用自定义内核或 initrd 时特别有用。</li><li><strong>内核命令行参数</strong>：设置内核启动时的参数，确保系统能够找到正确的根文件系统，并且将输出发送到串口（对于调试非常有用）。</li><li><strong>QEMU 调试选项</strong>：通过 QEMU 的命令行选项启动 GDB 服务器，这对内核开发和调试非常有帮助。</li></ol><p>通过这些改动，你可以更好地控制虚拟机的启动过程，并且能够在需要时进行调试。</p><h2 id="virsh-start-启动虚拟机">virsh start 启动虚拟机</h2><p>在宿主机上启动虚拟机：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh start yql-ctyunos<br></code></pre></td></tr></table></figure><h2 id="gdb-vmlinux">gdb vmlinux</h2><p>在宿主机上有linux源码目录下执行<code>gdb vmlinux</code>:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">gdb vmlinux<br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194930.png" alt="" /><figcaption>virsh start yql-ctyunos gdb vmlinux target remote :1234</figcaption></figure><h2 id="virsh-domifaddr-查看虚拟机网卡地址">virsh domifaddr 查看虚拟机网卡地址</h2><p>在宿主机上查看虚拟机网卡地址：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh domifaddr yql-ctyunos<br></code></pre></td></tr></table></figure><h2 id="ssh-虚拟机">ssh 虚拟机</h2><p>在宿主机上ssh到虚拟机:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh wujing@192.168.122.46<br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194807.png" alt="" /><figcaption>virsh domifaddr yql-ctyunos ssh wujing@192.168.122.46</figcaption></figure>]]></content>
+    <content type="html"><![CDATA[<h1 id="using-virsh-to-start-vm-and-debug-with-gdb-is-simpler-than-using-qemu-directly">Using virsh to start VM and debug with gdb is simpler than using qemu directly</h1><h2 id="virt-install安装镜像">virt-install安装镜像</h2><p>创建一个名为 yql-ctyunos 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出从而在非图形化界面上正确安装虚拟机:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash">virt-install \<br>  --name yql-ctyunos \<br>  --ram 32768 \<br>  --vcpus 64 \<br>  --disk path=/inf/yql/yql-ctyunos.qcow2,size=200 \<br>  --location /inf/yql/ctyunos-22.09-240618-x86_64-dvd.iso \<br>  --os-type generic \<br>  --network default \<br>  --graphics none \<br>  --console pty,target_type=serial \<br>  -x <span class="hljs-string">&#x27;console=ttyS0,115200n8 console=tty0&#x27;</span> \<br>  --extra-args <span class="hljs-string">&#x27;console=ttyS0,115200n8&#x27;</span><br></code></pre></td></tr></table></figure><p>参数说明:</p><ul><li><code>--name yql-ctyunos</code>：设置虚拟机的名称为 <code>yql-ctyunos</code>。</li><li><code>--ram 32768</code>：分配 32GB 内存给虚拟机（单位为 MB）。</li><li><code>--vcpus 64</code>：分配 64 个虚拟 CPU 给虚拟机。</li><li><code>--disk path=/inf/yql/yql-ctyunos.qcow2,size=200</code>：指定虚拟机的磁盘文件路径和大小为 200GB。</li><li><code>--location /inf/yql/ctyunos-22.09-240618-x86_64-dvd.iso</code>：指定用于安装的 ISO 文件的位置。</li><li><code>--os-type generic</code>：指定操作系统类型为通用类型。</li><li><code>--network default</code>：指定虚拟机的网络接口为默认网络。</li><li><code>--graphics none</code>：禁用图形界面。</li><li><code>--console pty,target_type=serial</code>：设置虚拟机的控制台类型为串口控制台。</li><li><code>-x 'console=ttyS0,115200n8 console=tty0'</code>：启动参数，设置串口控制台和控制台输出。</li><li><code>--extra-args 'console=ttyS0,115200n8'</code>：额外的启动参数，设置串口控制台输出。</li></ul><h2 id="拷贝虚拟机的vmlinuxinitramfs">拷贝虚拟机的vmlinux、initramfs</h2><p>将虚拟机上的vmlinux、initramfs复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">rsync -avzP -e <span class="hljs-string">&#x27;ssh -p 10000&#x27;</span> /boot/initramfs-4.19.0-amd64-desktop.img /boot/vmlinuz-4.19.0-amd64-desktop root@10.63.8.158:/inf/yql/code/rpm<br></code></pre></td></tr></table></figure><h2 id="virsh-dumpxml">virsh dumpxml</h2><p>将虚拟机的xml文件复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh dumpxml yql-ctyunos &gt; yql-ctyunos.xml<br></code></pre></td></tr></table></figure><p>将自定义虚拟机启动vmlinux、initramfs、启动参数nokaslr且让虚拟机支持调试后的yql-ctyunos 的xml文件也复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh dumpxml yql-ctyunos &gt; yql-ctyunos2.xml<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">diff yql-ctyunos.xml yql-ctyunos2.xml<br>1c1<br>&lt; &lt;domain <span class="hljs-built_in">type</span>=<span class="hljs-string">&#x27;kvm&#x27;</span>&gt;<br>---<br>&gt; &lt;domain <span class="hljs-built_in">type</span>=<span class="hljs-string">&#x27;kvm&#x27;</span> xmlns:qemu=<span class="hljs-string">&#x27;http://libvirt.org/schemas/domain/qemu/1.0&#x27;</span>&gt;<br>11a12,14<br>&gt;     &lt;kernel&gt;/inf/yql/code/rpm/vmlinuz-4.19.0-amd64-desktop&lt;/kernel&gt;<br>&gt;     &lt;initrd&gt;/inf/yql/code/rpm/initramfs-4.19.0-amd64-desktop.img&lt;/initrd&gt;<br>&gt;     &lt;cmdline&gt;root=/dev/mapper/ctyunos-root rw console=ttyS0 nokaslr&lt;/cmdline&gt;<br>---<br>130a134,136<br>&gt;   &lt;qemu:commandline&gt;<br>&gt;     &lt;qemu:arg value=<span class="hljs-string">&#x27;-s&#x27;</span>/&gt;<br>&gt;   &lt;/qemu:commandline&gt;<br></code></pre></td></tr></table></figure><p>主要改动点说明：</p><h3 id="更改-domain-类型">1. 更改 Domain 类型</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs diff">1c1<br>&lt; &lt;domain type=&#x27;kvm&#x27;&gt;<br><span class="hljs-comment">---</span><br>&gt; &lt;domain type=&#x27;kvm&#x27; xmlns:qemu=&#x27;http://libvirt.org/schemas/domain/qemu/1.0&#x27;&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li>增加了 <code>xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'</code>。这意味着你可以在 XML 文件中使用一些特定于 QEMU 的扩展和命名空间。</li></ul><h3 id="添加内核initrd-和命令行参数">2. 添加内核、initrd 和命令行参数</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs diff">11a12,14<br>&gt;     &lt;kernel&gt;/inf/yql/code/rpm/vmlinuz-4.19.0-amd64-desktop&lt;/kernel&gt;<br>&gt;     &lt;initrd&gt;/inf/yql/code/rpm/initramfs-4.19.0-amd64-desktop.img&lt;/initrd&gt;<br>&gt;     &lt;cmdline&gt;root=/dev/mapper/ctyunos-root rw console=ttyS0 nokaslr&lt;/cmdline&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li><code>&lt;kernel&gt;</code>: 指定了内核映像的路径。</li><li><code>&lt;initrd&gt;</code>: 指定了初始内存盘（initramfs）的路径。</li><li><code>&lt;cmdline&gt;</code>: 指定了内核命令行参数，包括：<ul><li><code>root=/dev/mapper/ctyunos-root</code>：指定根文件系统所在的设备。</li><li><code>rw</code>：使根文件系统以读写模式挂载。</li><li><code>console=ttyS0</code>：指定控制台输出到串口 <code>ttyS0</code>。</li><li><code>nokaslr</code>：禁用内核地址空间布局随机化（KASLR）。</li></ul></li></ul><h3 id="添加-qemu-命令行参数">3. 添加 QEMU 命令行参数</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs diff">130a134,136<br>&gt;   &lt;qemu:commandline&gt;<br>&gt;     &lt;qemu:arg value=&#x27;-s&#x27;/&gt;<br>&gt;   &lt;/qemu:commandline&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li><code>&lt;qemu:commandline&gt;</code> 和 <code>&lt;qemu:arg&gt;</code>：允许你直接向 QEMU 传递命令行参数。</li><li><code>-s</code>：这是一个 QEMU 调试选项，启动 GDB 服务器监听在 TCP 端口 1234，允许你在虚拟机启动时通过 GDB 进行调试。</li></ul><h3 id="综合解释">综合解释</h3><p>这些改动主要有以下几个目的：</p><ol type="1"><li><strong>指定内核和 initrd</strong>：直接从指定的内核和 initrd 文件启动虚拟机，而不是使用默认的引导加载程序。这在需要使用自定义内核或 initrd 时特别有用。</li><li><strong>内核命令行参数</strong>：设置内核启动时的参数，确保系统能够找到正确的根文件系统，并且将输出发送到串口（对于调试非常有用）。</li><li><strong>QEMU 调试选项</strong>：通过 QEMU 的命令行选项启动 GDB 服务器，这对内核开发和调试非常有帮助。</li></ol><p>通过这些改动，你可以更好地控制虚拟机的启动过程，并且能够在需要时进行调试。</p><h2 id="virsh-start-启动虚拟机">virsh start 启动虚拟机</h2><p>在宿主机上启动虚拟机：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh start yql-ctyunos<br></code></pre></td></tr></table></figure><h2 id="gdb-vmlinux">gdb vmlinux</h2><p>在宿主机上有linux源码目录下执行<code>gdb vmlinux</code>:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">gdb vmlinux<br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194930.png" alt="" /><figcaption>virsh start yql-ctyunos gdb vmlinux target remote :1234</figcaption></figure><h2 id="virsh-domifaddr-查看虚拟机网卡地址">virsh domifaddr 查看虚拟机网卡地址</h2><p>在宿主机上查看虚拟机网卡地址：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh domifaddr yql-ctyunos<br></code></pre></td></tr></table></figure><h2 id="ssh-虚拟机">ssh 虚拟机</h2><p>在宿主机上ssh到虚拟机:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh wujing@192.168.122.46<br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194807.png" alt="" /><figcaption>virsh domifaddr yql-ctyunos ssh wujing@192.168.122.46</figcaption></figure>]]></content>
     
     
     <categories>
@@ -69,9 +69,9 @@
       
       <tag>linux</tag>
       
-      <tag>architect</tag>
-      
       <tag>HTML</tag>
+      
+      <tag>architect</tag>
       
       <tag>strings</tag>
       
@@ -865,31 +865,6 @@
   
   
   <entry>
-    <title>hda_codec</title>
-    <link href="/linux/kernel/drivers/sound/hda_codec/"/>
-    <url>/linux/kernel/drivers/sound/hda_codec/</url>
-    
-    <content type="html"><![CDATA[<p>mv /usr/bin/pulseaudio /usr/bin/pulseaudio_bak mv /sbin/alsactl /sbin/alsactl_bak</p><p>ps aux | grep -i alsactl ps aux | grep -i pulseaudio</p><p>killall alsactl pulseaudio</p><p>cd /sys/class/sound/hwC0D0</p><p>echo 1 &gt; reconfig</p><p>snd_hda_gen_parse_auto_config+0x1 [kernel] snd_hda_parse_generic_codec+0xa3 [kernel] hda_codec_driver_probe+0x74 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>snd_pcm_new+0x1 [kernel] snd_hda_attach_pcm_stream+0x8e [kernel] snd_hda_codec_build_pcms+0x102 [kernel] hda_codec_driver_probe+0x82 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>./sound/pci/hda/hda_sysfs.c:436:int snd_hda_get_bool_hint(struct hda_codec <em>codec, const char </em>key) ./sound/pci/hda/hda_sysfs.c:420:const char <em>snd_hda_get_hint(struct hda_codec </em>codec, const char <em>key) ./sound/pci/hda/hda_sysfs.c:281:static struct hda_hint </em>get_hint(struct hda_codec <em>codec, const char </em>key)</p><p>./sound/pci/hda/hda_auto_parser.c:176:int snd_hda_parse_pin_defcfg(struct hda_codec <em>codec, struct auto_pin_cfg </em>cfg, const hda_nid_t <em>ignore_nids, unsigned int cond_flags) ./sound/pci/hda/hda_codec.c:unsigned int snd_hda_codec_get_pincfg(struct hda_codec </em>codec, hda_nid_t nid)</p><p>sound/pci/hda/hda_codec.c:560:init_pins</p><p>./sound/pci/hda/hda_codec.c:445:static int read_pin_defaults(struct hda_codec *codec)</p><p>混音器 pcm 转换器 codec 端 card</p>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>drivers</category>
-      
-      <category>sound</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>ALC885_1-1</title>
     <link href="/linux/kernel/drivers/sound/ALC885_1-1/"/>
     <url>/linux/kernel/drivers/sound/ALC885_1-1/</url>
@@ -915,6 +890,31 @@
       <tag>git</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>hda_codec</title>
+    <link href="/linux/kernel/drivers/sound/hda_codec/"/>
+    <url>/linux/kernel/drivers/sound/hda_codec/</url>
+    
+    <content type="html"><![CDATA[<p>mv /usr/bin/pulseaudio /usr/bin/pulseaudio_bak mv /sbin/alsactl /sbin/alsactl_bak</p><p>ps aux | grep -i alsactl ps aux | grep -i pulseaudio</p><p>killall alsactl pulseaudio</p><p>cd /sys/class/sound/hwC0D0</p><p>echo 1 &gt; reconfig</p><p>snd_hda_gen_parse_auto_config+0x1 [kernel] snd_hda_parse_generic_codec+0xa3 [kernel] hda_codec_driver_probe+0x74 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>snd_pcm_new+0x1 [kernel] snd_hda_attach_pcm_stream+0x8e [kernel] snd_hda_codec_build_pcms+0x102 [kernel] hda_codec_driver_probe+0x82 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>./sound/pci/hda/hda_sysfs.c:436:int snd_hda_get_bool_hint(struct hda_codec <em>codec, const char </em>key) ./sound/pci/hda/hda_sysfs.c:420:const char <em>snd_hda_get_hint(struct hda_codec </em>codec, const char <em>key) ./sound/pci/hda/hda_sysfs.c:281:static struct hda_hint </em>get_hint(struct hda_codec <em>codec, const char </em>key)</p><p>./sound/pci/hda/hda_auto_parser.c:176:int snd_hda_parse_pin_defcfg(struct hda_codec <em>codec, struct auto_pin_cfg </em>cfg, const hda_nid_t <em>ignore_nids, unsigned int cond_flags) ./sound/pci/hda/hda_codec.c:unsigned int snd_hda_codec_get_pincfg(struct hda_codec </em>codec, hda_nid_t nid)</p><p>sound/pci/hda/hda_codec.c:560:init_pins</p><p>./sound/pci/hda/hda_codec.c:445:static int read_pin_defaults(struct hda_codec *codec)</p><p>混音器 pcm 转换器 codec 端 card</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>drivers</category>
+      
+      <category>sound</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -1516,9 +1516,9 @@
       
       <tag>linux</tag>
       
-      <tag>architect</tag>
-      
       <tag>HTML</tag>
+      
+      <tag>architect</tag>
       
       <tag>initramfs</tag>
       
@@ -1736,6 +1736,27 @@
   
   <entry>
     <title>README</title>
+    <link href="/debug/binary-analysis/README/"/>
+    <url>/debug/binary-analysis/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>debug</category>
+      
+      <category>binary-analysis</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/debug/bpf/README/"/>
     <url>/debug/bpf/README/</url>
     
@@ -1799,27 +1820,6 @@
       <tag>bcc</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/debug/binary-analysis/README/"/>
-    <url>/debug/binary-analysis/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>debug</category>
-      
-      <category>binary-analysis</category>
-      
-    </categories>
-    
     
   </entry>
   
@@ -2600,9 +2600,9 @@
       
       <tag>git</tag>
       
-      <tag>architect</tag>
-      
       <tag>HTML</tag>
+      
+      <tag>architect</tag>
       
     </tags>
     
@@ -2957,35 +2957,6 @@
   
   
   <entry>
-    <title>cmake编译链接参数</title>
-    <link href="/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/"/>
-    <url>/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/</url>
-    
-    <content type="html"><![CDATA[<h1 id="cmake编译链接参数">cmake编译链接参数</h1><h2 id="cmake编译链接参数-1">cmake编译链接参数</h2><ul><li><p><a href="https://blog.51cto.com/u_15064646/3462077">cmake编译选项</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/513148985">GCC编译选项参数</a></p></li><li><p><a href="https://blog.51cto.com/u_15064646/3462077">添加-O0 -g，生成gdb的调试信息和不进行代码优化</a></p></li><li><p><a href="https://elloop.github.io/tools/2016-04-10/learning-cmake-2-commands">【使用CMake组织C++工程】2：调试包不优化</a></p></li><li><p><a href="https://blog.csdn.net/sandalphon4869/article/details/102503224">CMake解决c++11的phread库问题：undefined reference to `pthread_create’</a></p></li><li><p><a href="https://www.jianshu.com/p/10bf5d27dcfc">cmake编译缺失pthread_create等thread库解决方案</a></p></li><li><p><a href="http://blog.chinaunix.net/uid-69906223-id-5817313.html">gcc -lpthread和gcc -pthread的区别</a></p></li><li><p><a href="https://www.5axxw.com/questions/content/ratnvg">CMake: link options</a></p></li><li><p><a href="https://www.dovov.com/cmakecmakelists-txtldflags.html">CMake：如何在CMakeLists.txt中设置LDFLAGS？</a></p></li><li><p><a href="https://blog.csdn.net/dongjideyu/article/details/79267683">CMAKE 中　add_definitions的用法．</a></p></li><li><p><a href="https://blog.csdn.net/10km/article/details/51731959">cmake:设置编译选项的讲究(add_compile_options和CMAKE_CXX_FLAGS的区别)</a></p></li><li><p><a href="https://blog.csdn.net/fb_941219/article/details/88638503">ubuntu16.04cmake、gcc/g++版本更换</a></p></li></ul><h2 id="dynamic-code-analysis">Dynamic code analysis</h2><ul><li><a href="https://www.cnblogs.com/gladiatorplus/p/14437059.html">cmake 内存泄露检查asan</a></li><li><a href="https://www.jetbrains.com/help/clion/profiling-tools.html">动态代码分析 Clion</a></li><li><a href="https://blog.csdn.net/register_k/article/details/120319834">libasan使用和遇到的问题</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>cmake</title>
     <link href="/cpp/cmake/"/>
     <url>/cpp/cmake/</url>
@@ -3009,6 +2980,35 @@
       <tag>git</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>cmake编译链接参数</title>
+    <link href="/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/"/>
+    <url>/cpp/cmake%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5%E5%8F%82%E6%95%B0/</url>
+    
+    <content type="html"><![CDATA[<h1 id="cmake编译链接参数">cmake编译链接参数</h1><h2 id="cmake编译链接参数-1">cmake编译链接参数</h2><ul><li><p><a href="https://blog.51cto.com/u_15064646/3462077">cmake编译选项</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/513148985">GCC编译选项参数</a></p></li><li><p><a href="https://blog.51cto.com/u_15064646/3462077">添加-O0 -g，生成gdb的调试信息和不进行代码优化</a></p></li><li><p><a href="https://elloop.github.io/tools/2016-04-10/learning-cmake-2-commands">【使用CMake组织C++工程】2：调试包不优化</a></p></li><li><p><a href="https://blog.csdn.net/sandalphon4869/article/details/102503224">CMake解决c++11的phread库问题：undefined reference to `pthread_create’</a></p></li><li><p><a href="https://www.jianshu.com/p/10bf5d27dcfc">cmake编译缺失pthread_create等thread库解决方案</a></p></li><li><p><a href="http://blog.chinaunix.net/uid-69906223-id-5817313.html">gcc -lpthread和gcc -pthread的区别</a></p></li><li><p><a href="https://www.5axxw.com/questions/content/ratnvg">CMake: link options</a></p></li><li><p><a href="https://www.dovov.com/cmakecmakelists-txtldflags.html">CMake：如何在CMakeLists.txt中设置LDFLAGS？</a></p></li><li><p><a href="https://blog.csdn.net/dongjideyu/article/details/79267683">CMAKE 中　add_definitions的用法．</a></p></li><li><p><a href="https://blog.csdn.net/10km/article/details/51731959">cmake:设置编译选项的讲究(add_compile_options和CMAKE_CXX_FLAGS的区别)</a></p></li><li><p><a href="https://blog.csdn.net/fb_941219/article/details/88638503">ubuntu16.04cmake、gcc/g++版本更换</a></p></li></ul><h2 id="dynamic-code-analysis">Dynamic code analysis</h2><ul><li><a href="https://www.cnblogs.com/gladiatorplus/p/14437059.html">cmake 内存泄露检查asan</a></li><li><a href="https://www.jetbrains.com/help/clion/profiling-tools.html">动态代码分析 Clion</a></li><li><a href="https://blog.csdn.net/register_k/article/details/120319834">libasan使用和遇到的问题</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
       
       <tag>HTML</tag>
       
@@ -3513,9 +3513,9 @@
       
       <tag>linux</tag>
       
-      <tag>architect</tag>
-      
       <tag>HTML</tag>
+      
+      <tag>architect</tag>
       
       <tag>namespace</tag>
       
@@ -3679,29 +3679,6 @@
   
   <entry>
     <title>README</title>
-    <link href="/cpp/qt-learning/dbus/README/"/>
-    <url>/cpp/qt-learning/dbus/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="service实现">service实现</h1><h2 id="方式一创建服务并注册对象建立到session-bus的连接">方式一、创建服务并注册对象，建立到session bus的连接</h2><p>启动程序后，在命令行打开qdbusviewer，查看session bus。 双击Method方法会调用该方法。</p><p>代码位于目录service下。</p><h2 id="方式二使用adapter注册object推荐方式">方式二、使用Adapter注册Object（推荐方式）</h2><p>可以直接把test类注册为消息总线上的一个Object，但QT4不推荐。QT4推荐使用Adapter来注册Object。 大多数情况下，可能只需要把自定义的类里的方法有选择的发布到消息总线上，使用Adapter可以很方便的实现选择性发布。 生成Adapter类的流程如下： 使用工具 qdbuscpp2xml从test.h生成XML文件</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbuscpp2xml -M test<span class="hljs-selector-class">.h</span> -o com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span>.xml<br></code></pre></td></tr></table></figure><p>编辑com.scorpio.test.xml，选择需要发布的method，不需要发布的删除。 使用工具qdbusxml2cpp从XML文件生成继承自QDBusInterface的类</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbusxml2cpp com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span><span class="hljs-selector-class">.xml</span> -<span class="hljs-selector-tag">i</span> test<span class="hljs-selector-class">.h</span> -<span class="hljs-selector-tag">a</span> valueAdaptor<br></code></pre></td></tr></table></figure><p>生成两个文件：valueAdaptor.cpp和valueAdaptor.h</p><p>代码位于目录adaptor下，建议先阅读该目录下的README.md。</p><h1 id="控制台访问service实现">控制台访问service实现</h1><h2 id="方式一通过qdbusmessage访问service">方式一、通过QDBusMessage访问Service</h2><h2 id="方式二通过qdbusinterface-访问service">方式二、通过QDBusInterface 访问Service</h2><h2 id="方式三从d-bus-xml自动生成proxy类调用proxy类访问service">方式三、从D-Bus XML自动生成Proxy类，调用Proxy类访问Service</h2><p>代码位于目录proxy下，建议先阅读该目录下的README.md。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">/data/opt/Qt5.6.3/5.6.3/gcc_64/lib/cmake/Qt5DBus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/src/dbus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/tests/auto/cmake/test_dbus_module/CMakeLists.txt:22:qt5_generate_dbus_interface(<br>    <br>/data/opt/Qt5.6.3/5.6.3/Src/qtdoc/doc/src/development/cmake-manual.qdoc:249:    row li qt5_generate_dbus_interface( header [interfacename] OPTIONS ...)<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>qt-learning</category>
-      
-      <category>dbus</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
     <link href="/cpp/protobuf/protobuf_example/README/"/>
     <url>/cpp/protobuf/protobuf_example/README/</url>
     
@@ -3765,6 +3742,29 @@
       <category>cpp</category>
       
       <category>thread</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/cpp/qt-learning/dbus/README/"/>
+    <url>/cpp/qt-learning/dbus/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="service实现">service实现</h1><h2 id="方式一创建服务并注册对象建立到session-bus的连接">方式一、创建服务并注册对象，建立到session bus的连接</h2><p>启动程序后，在命令行打开qdbusviewer，查看session bus。 双击Method方法会调用该方法。</p><p>代码位于目录service下。</p><h2 id="方式二使用adapter注册object推荐方式">方式二、使用Adapter注册Object（推荐方式）</h2><p>可以直接把test类注册为消息总线上的一个Object，但QT4不推荐。QT4推荐使用Adapter来注册Object。 大多数情况下，可能只需要把自定义的类里的方法有选择的发布到消息总线上，使用Adapter可以很方便的实现选择性发布。 生成Adapter类的流程如下： 使用工具 qdbuscpp2xml从test.h生成XML文件</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbuscpp2xml -M test<span class="hljs-selector-class">.h</span> -o com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span>.xml<br></code></pre></td></tr></table></figure><p>编辑com.scorpio.test.xml，选择需要发布的method，不需要发布的删除。 使用工具qdbusxml2cpp从XML文件生成继承自QDBusInterface的类</p><figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs stylus">qdbusxml2cpp com<span class="hljs-selector-class">.scorpio</span><span class="hljs-selector-class">.test</span><span class="hljs-selector-class">.xml</span> -<span class="hljs-selector-tag">i</span> test<span class="hljs-selector-class">.h</span> -<span class="hljs-selector-tag">a</span> valueAdaptor<br></code></pre></td></tr></table></figure><p>生成两个文件：valueAdaptor.cpp和valueAdaptor.h</p><p>代码位于目录adaptor下，建议先阅读该目录下的README.md。</p><h1 id="控制台访问service实现">控制台访问service实现</h1><h2 id="方式一通过qdbusmessage访问service">方式一、通过QDBusMessage访问Service</h2><h2 id="方式二通过qdbusinterface-访问service">方式二、通过QDBusInterface 访问Service</h2><h2 id="方式三从d-bus-xml自动生成proxy类调用proxy类访问service">方式三、从D-Bus XML自动生成Proxy类，调用Proxy类访问Service</h2><p>代码位于目录proxy下，建议先阅读该目录下的README.md。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">/data/opt/Qt5.6.3/5.6.3/gcc_64/lib/cmake/Qt5DBus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/src/dbus/Qt5DBusMacros.cmake:87:function(QT5_GENERATE_DBUS_INTERFACE _header) # _customName OPTIONS -some -options )<br><br>/data/opt/Qt5.6.3/5.6.3/Src/qtbase/tests/auto/cmake/test_dbus_module/CMakeLists.txt:22:qt5_generate_dbus_interface(<br>    <br>/data/opt/Qt5.6.3/5.6.3/Src/qtdoc/doc/src/development/cmake-manual.qdoc:249:    row li qt5_generate_dbus_interface( header [interfacename] OPTIONS ...)<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>qt-learning</category>
+      
+      <category>dbus</category>
       
     </categories>
     
@@ -4533,9 +4533,9 @@
       
       <tag>linux</tag>
       
-      <tag>architect</tag>
-      
       <tag>HTML</tag>
+      
+      <tag>architect</tag>
       
     </tags>
     
@@ -4982,9 +4982,9 @@
       
       <tag>linux</tag>
       
-      <tag>architect</tag>
-      
       <tag>HTML</tag>
+      
+      <tag>architect</tag>
       
       <tag>initramfs</tag>
       
