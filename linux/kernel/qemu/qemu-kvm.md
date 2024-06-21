@@ -57,6 +57,45 @@
 - [libvirt-使用iso镜像创建主机&修改启动盘&启动](https://blog.csdn.net/qq_25730711/article/details/72835565)
 - [Libvirt: how to pass qemu command line args?](https://unix.stackexchange.com/questions/235414/libvirt-how-to-pass-qemu-command-line-args)
 
+#### virt-format
+
+如果你已经有一个存在的 `qcow2` 格式的虚拟磁盘镜像，但希望对其进行格式化（即清空数据，重置为初始状态）。
+
+1. **安装 `libguestfs-tools` 包**：
+
+   首先确保你已经安装了 `libguestfs-tools` 包，这个包中包含了 `virt-format` 工具。
+
+   ```bash
+   sudo apt-get install libguestfs-tools   # 对于基于 Debian/Ubuntu 的系统
+   ```
+
+   或者
+
+   ```bash
+   sudo yum install libguestfs-tools       # 对于基于 CentOS/RHEL 的系统
+   ```
+
+2. **使用 `virt-format` 命令格式化 `qcow2` 虚拟磁盘镜像**：
+
+   假设你要格式化的虚拟磁盘镜像是 `/var/lib/libvirt/images/mydisk.qcow2`，可以通过以下命令来执行格式化：
+
+   ```bash
+   virt-format --format=qcow2 -a /var/lib/libvirt/images/mydisk.qcow2
+   ```
+
+   - `--format=qcow2`：指定要格式化为 `qcow2` 格式。
+   - `-a /var/lib/libvirt/images/mydisk.qcow2`：指定要操作的虚拟磁盘镜像文件路径。
+
+3. **确认格式化结果**：
+
+   格式化完成后，你可以使用 `virt-df` 命令来查看虚拟磁盘镜像的分区和使用情况，确认数据已经被清空并且恢复到初始状态。
+
+   ```sh
+   virt-df -a /var/lib/libvirt/images/mydisk.qcow2
+   ```
+
+   这将显示虚拟磁盘镜像中各个分区的使用情况。
+
 #### virt-install
 
 - [CentOS 7 virt-install 命令行方式（非图形界面）安装KVM虚拟机](https://blog.csdn.net/mshxuyi/article/details/99852820)
