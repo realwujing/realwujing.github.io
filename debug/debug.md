@@ -119,6 +119,23 @@
 - [<font color=Red>跳至下一个断点_GDB断点调试详解</font>](https://blog.csdn.net/weixin_39880632/article/details/112621585)
 - [<font color=Red>linux gdb 跳出函数,gdb调试程序时跳进函数和跳出函数</font>](https://blog.csdn.net/weixin_35197990/article/details/116710685)
 
+#### ptype
+
+查看某个结构体或变量的类型定义:
+
+```bash
+ptype filep
+```
+
+查看某个结构体或变量的类型定义且包含偏移量信息:
+
+```bash
+ptype /o struct file
+```
+
+- [GDB调试之查看变量类型信息(十三)](https://www.cnblogs.com/TechNomad/p/17965838)
+- [用gdb的ptype命令查看结构体成员偏移量](https://blog.csdn.net/zqwone/article/details/123769845)
+
 #### print
 
 - [<font color=Red>GDB print命令高级用法</font>](http://c.biancheng.net/view/8252.html)
