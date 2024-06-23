@@ -421,6 +421,7 @@ dpkg-buildpackage -b -nc -uc -us -j16
 - [linux内核中6个经典C语言函数代码赏析](https://www.toutiao.com/article/7222172647486964258)
 - [Linux内核中常用的C语言技巧](https://mp.weixin.qq.com/s/tim50z93e-E-Jbl08rDY2A)
 - [弱符号__attribute__((weak))](https://mp.weixin.qq.com/s/EyIx5BkOxPGAjWxDNMXVyg)
+- [linux kernel中__setup()函数介绍](https://blog.csdn.net/weixin_42135087/article/details/107958446)
 
 ### likely和unlikely
 
