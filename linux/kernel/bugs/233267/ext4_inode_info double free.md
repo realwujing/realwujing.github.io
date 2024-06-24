@@ -732,7 +732,7 @@ crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M
 
 ### ext4 journal
 
-可以到天翼云系统底层的宿主机上执行一下ps aux | grep -i qemu，我想看看ext4文件系统对应的磁盘是通过virtio or vfio 挂载上去的？
+可以到系统底层的宿主机上执行一下ps aux | grep -i qemu，我想看看ext4文件系统对应的磁盘是通过virtio or vfio 挂载上去的？
 
 ext4_inode_info是ext4文件系统挂载的时候生成的，不掉盘的话ext4_inode_info对应的kmem_cache不可能指向null。
 

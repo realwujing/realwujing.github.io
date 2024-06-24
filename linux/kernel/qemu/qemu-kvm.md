@@ -98,15 +98,15 @@
 
 - [CentOS 7 virt-install 命令行方式（非图形界面）安装KVM虚拟机](https://blog.csdn.net/mshxuyi/article/details/99852820)
 
-创建一个名为 yql-ctyunos 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出:
+创建一个名为 yql-openeuler 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出:
 
 ```bash
 virt-install \
-  --name yql-ctyunos \
+  --name yql-openeuler \
   --ram 32768 \
   --vcpus 64 \
-  --disk path=/inf/yql/yql-ctyunos.qcow2,size=200 \
-  --location /inf/yql/ctyunos-22.09-240618-x86_64-dvd.iso \
+  --disk path=/inf/yql/yql-openeuler.qcow2,size=200 \
+  --location /inf/yql/openeuler-22.09-240618-x86_64-dvd.iso \
   --os-type generic \
   --network default \
   --graphics none \
@@ -117,11 +117,11 @@ virt-install \
 
 参数说明:
 
-- `--name yql-ctyunos`：设置虚拟机的名称为 `yql-ctyunos`。
+- `--name yql-openeuler`：设置虚拟机的名称为 `yql-openeuler`。
 - `--ram 32768`：分配 32GB 内存给虚拟机（单位为 MB）。
 - `--vcpus 64`：分配 64 个虚拟 CPU 给虚拟机。
-- `--disk path=/inf/yql/yql-ctyunos.qcow2,size=200`：指定虚拟机的磁盘文件路径和大小为 200GB。
-- `--location /inf/yql/ctyunos-22.09-240618-x86_64-dvd.iso`：指定用于安装的 ISO 文件的位置。
+- `--disk path=/inf/yql/yql-openeuler.qcow2,size=200`：指定虚拟机的磁盘文件路径和大小为 200GB。
+- `--location /inf/yql/openeuler-22.09-240618-x86_64-dvd.iso`：指定用于安装的 ISO 文件的位置。
 - `--os-type generic`：指定操作系统类型为通用类型。
 - `--network default`：指定虚拟机的网络接口为默认网络。
 - `--graphics none`：禁用图形界面。

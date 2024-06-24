@@ -2,15 +2,15 @@
 
 ## virt-install安装镜像
 
-创建一个名为 yql-ctyunos 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出从而在非图形化界面上正确安装虚拟机:
+创建一个名为 yql-openeuler 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出从而在非图形化界面上正确安装虚拟机:
 
 ```bash
 virt-install \
-  --name yql-ctyunos \
+  --name yql-openeuler \
   --ram 32768 \
   --vcpus 64 \
-  --disk path=/inf/yql/yql-ctyunos.qcow2,size=200 \
-  --location /inf/yql/ctyunos-22.09-240618-x86_64-dvd.iso \
+  --disk path=/inf/yql/yql-openeuler.qcow2,size=200 \
+  --location /inf/yql/openeuler-22.09-240618-x86_64-dvd.iso \
   --os-type generic \
   --network default \
   --graphics none \
@@ -21,11 +21,11 @@ virt-install \
 
 参数说明:
 
-- `--name yql-ctyunos`：设置虚拟机的名称为 `yql-ctyunos`。
+- `--name yql-openeuler`：设置虚拟机的名称为 `yql-openeuler`。
 - `--ram 32768`：分配 32GB 内存给虚拟机（单位为 MB）。
 - `--vcpus 64`：分配 64 个虚拟 CPU 给虚拟机。
-- `--disk path=/inf/yql/yql-ctyunos.qcow2,size=200`：指定虚拟机的磁盘文件路径和大小为 200GB。
-- `--location /inf/yql/ctyunos-22.09-240618-x86_64-dvd.iso`：指定用于安装的 ISO 文件的位置。
+- `--disk path=/inf/yql/yql-openeuler.qcow2,size=200`：指定虚拟机的磁盘文件路径和大小为 200GB。
+- `--location /inf/yql/openeuler-22.09-240618-x86_64-dvd.iso`：指定用于安装的 ISO 文件的位置。
 - `--os-type generic`：指定操作系统类型为通用类型。
 - `--network default`：指定虚拟机的网络接口为默认网络。
 - `--graphics none`：禁用图形界面。
@@ -46,17 +46,17 @@ rsync -avzP -e 'ssh -p 10000' /boot/initramfs-4.19.0-amd64-desktop.img /boot/vml
 将虚拟机的xml文件复制到宿主机上:
 
 ```bash
-virsh dumpxml yql-ctyunos > yql-ctyunos.xml
+virsh dumpxml yql-openeuler > yql-openeuler.xml
 ```
 
-将自定义虚拟机启动vmlinux、initramfs、启动参数nokaslr且让虚拟机支持调试后的yql-ctyunos 的xml文件也复制到宿主机上:
+将自定义虚拟机启动vmlinux、initramfs、启动参数nokaslr且让虚拟机支持调试后的yql-openeuler 的xml文件也复制到宿主机上:
 
 ```bash
-virsh dumpxml yql-ctyunos > yql-ctyunos3.xml
+virsh dumpxml yql-openeuler > yql-openeuler3.xml
 ```
 
 ```bash
-diff yql-ctyunos.xml yql-ctyunos3.xml
+diff yql-openeuler.xml yql-openeuler3.xml
 1c1
 < <domain type='kvm'>
 ---
@@ -64,7 +64,7 @@ diff yql-ctyunos.xml yql-ctyunos3.xml
 11a12,14
 >     <kernel>/inf/yql/code/rpm/vmlinuz-4.19.0-amd64-desktop</kernel>
 >     <initrd>/inf/yql/code/rpm/initramfs-4.19.0-amd64-desktop.img</initrd>
->     <cmdline>root=/dev/mapper/ctyunos-root rw console=ttyS0 nokaslr</cmdline>
+>     <cmdline>root=/dev/mapper/openeuler-root rw console=ttyS0 nokaslr</cmdline>
 ---
 130a134,136
 >   <qemu:commandline>
@@ -94,7 +94,7 @@ diff yql-ctyunos.xml yql-ctyunos3.xml
 11a12,14
 >     <kernel>/inf/yql/code/rpm/vmlinuz-4.19.0-amd64-desktop</kernel>
 >     <initrd>/inf/yql/code/rpm/initramfs-4.19.0-amd64-desktop.img</initrd>
->     <cmdline>root=/dev/mapper/ctyunos-root rw console=ttyS0 nokaslr</cmdline>
+>     <cmdline>root=/dev/mapper/openeuler-root rw console=ttyS0 nokaslr</cmdline>
 ```
 
 **解释**:
@@ -102,7 +102,7 @@ diff yql-ctyunos.xml yql-ctyunos3.xml
 - `<kernel>`: 指定了内核映像的路径。
 - `<initrd>`: 指定了初始内存盘（initramfs）的路径。
 - `<cmdline>`: 指定了内核命令行参数，包括：
-  - `root=/dev/mapper/ctyunos-root`：指定根文件系统所在的设备。
+  - `root=/dev/mapper/openeuler-root`：指定根文件系统所在的设备。
   - `rw`：使根文件系统以读写模式挂载。
   - `console=ttyS0`：指定控制台输出到串口 `ttyS0`。
   - `nokaslr`：禁用内核地址空间布局随机化（KASLR）。
@@ -138,7 +138,7 @@ diff yql-ctyunos.xml yql-ctyunos3.xml
 在宿主机上启动虚拟机：
 
 ```bash
-virsh start yql-ctyunos
+virsh start yql-openeuler
 ```
 
 ## gdb vmlinux
@@ -149,14 +149,14 @@ virsh start yql-ctyunos
 gdb vmlinux
 ```
 
-![virsh start yql-ctyunos gdb vmlinux target remote :1234](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194930.png)
+![virsh start yql-openeuler gdb vmlinux target remote :1234](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194930.png)
 
 ## virsh domifaddr 查看虚拟机网卡地址
 
 在宿主机上查看虚拟机网卡地址：
 
 ```bash
-virsh domifaddr yql-ctyunos
+virsh domifaddr yql-openeuler
 ```
 
 ## ssh 虚拟机
@@ -167,16 +167,16 @@ virsh domifaddr yql-ctyunos
 ssh wujing@192.168.122.46
 ```
 
-![virsh domifaddr yql-ctyunos ssh wujing@192.168.122.46](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194807.png)
+![virsh domifaddr yql-openeuler ssh wujing@192.168.122.46](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194807.png)
 
 ## virsh console 打开虚拟机控制台
 
 在宿主机上打开虚拟机控制台：
 
 ```bash
-virsh console yql-ctyunos
+virsh console yql-openeuler
 ```
 
-![gdb vmlinux target remote :1234 virsh console yql-ctyunos](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240622092900.png)
+![gdb vmlinux target remote :1234 virsh console yql-openeuler](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240622092900.png)
 
 既可以通过ssh到虚拟机，也可以通过virsh console打开虚拟机控制台。
