@@ -29,7 +29,7 @@
     <link href="/linux/kernel/qemu/virsh/Using%20virsh%20to%20start%20VM%20and%20debug%20with%20gdb%20is%20simpler%20than%20using%20qemu%20directly./"/>
     <url>/linux/kernel/qemu/virsh/Using%20virsh%20to%20start%20VM%20and%20debug%20with%20gdb%20is%20simpler%20than%20using%20qemu%20directly./</url>
     
-    <content type="html"><![CDATA[<h1 id="using-virsh-to-start-vm-and-debug-with-gdb-is-simpler-than-using-qemu-directly">Using virsh to start VM and debug with gdb is simpler than using qemu directly</h1><h2 id="virt-install安装镜像">virt-install安装镜像</h2><p>创建一个名为 yql-openeuler 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出从而在非图形化界面上正确安装虚拟机:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash">virt-install \<br>  --name yql-openeuler \<br>  --ram 32768 \<br>  --vcpus 64 \<br>  --disk path=/inf/yql/yql-openeuler.qcow2,size=200 \<br>  --location /inf/yql/openeuler-22.09-240618-x86_64-dvd.iso \<br>  --os-type generic \<br>  --network default \<br>  --graphics none \<br>  --console pty,target_type=serial \<br>  -x <span class="hljs-string">&#x27;console=ttyS0,115200n8 console=tty0&#x27;</span> \<br>  --extra-args <span class="hljs-string">&#x27;console=ttyS0,115200n8&#x27;</span><br></code></pre></td></tr></table></figure><p>参数说明:</p><ul><li><code>--name yql-openeuler</code>：设置虚拟机的名称为 <code>yql-openeuler</code>。</li><li><code>--ram 32768</code>：分配 32GB 内存给虚拟机（单位为 MB）。</li><li><code>--vcpus 64</code>：分配 64 个虚拟 CPU 给虚拟机。</li><li><code>--disk path=/inf/yql/yql-openeuler.qcow2,size=200</code>：指定虚拟机的磁盘文件路径和大小为 200GB。</li><li><code>--location /inf/yql/openeuler-22.09-240618-x86_64-dvd.iso</code>：指定用于安装的 ISO 文件的位置。</li><li><code>--os-type generic</code>：指定操作系统类型为通用类型。</li><li><code>--network default</code>：指定虚拟机的网络接口为默认网络。</li><li><code>--graphics none</code>：禁用图形界面。</li><li><code>--console pty,target_type=serial</code>：设置虚拟机的控制台类型为串口控制台。</li><li><code>-x 'console=ttyS0,115200n8 console=tty0'</code>：启动参数，设置串口控制台和控制台输出。</li><li><code>--extra-args 'console=ttyS0,115200n8'</code>：额外的启动参数，设置串口控制台输出。</li></ul><h2 id="拷贝虚拟机的vmlinuxinitramfs">拷贝虚拟机的vmlinux、initramfs</h2><p>将虚拟机上的vmlinux、initramfs复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">rsync -avzP -e <span class="hljs-string">&#x27;ssh -p 10000&#x27;</span> /boot/initramfs-4.19.0-amd64-desktop.img /boot/vmlinuz-4.19.0-amd64-desktop root@10.63.8.158:/inf/yql/code/rpm<br></code></pre></td></tr></table></figure><h2 id="virsh-dumpxml">virsh dumpxml</h2><p>将虚拟机的xml文件复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh dumpxml yql-openeuler &gt; yql-openeuler.xml<br></code></pre></td></tr></table></figure><p>将自定义虚拟机启动vmlinux、initramfs、启动参数nokaslr且让虚拟机支持调试后的yql-openeuler 的xml文件也复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh dumpxml yql-openeuler &gt; yql-openeuler3.xml<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs bash">diff yql-openeuler.xml yql-openeuler3.xml<br>1c1<br>&lt; &lt;domain <span class="hljs-built_in">type</span>=<span class="hljs-string">&#x27;kvm&#x27;</span>&gt;<br>---<br>&gt; &lt;domain <span class="hljs-built_in">type</span>=<span class="hljs-string">&#x27;kvm&#x27;</span> xmlns:qemu=<span class="hljs-string">&#x27;http://libvirt.org/schemas/domain/qemu/1.0&#x27;</span>&gt;<br>11a12,14<br>&gt;     &lt;kernel&gt;/inf/yql/code/rpm/vmlinuz-4.19.0-amd64-desktop&lt;/kernel&gt;<br>&gt;     &lt;initrd&gt;/inf/yql/code/rpm/initramfs-4.19.0-amd64-desktop.img&lt;/initrd&gt;<br>&gt;     &lt;cmdline&gt;root=/dev/mapper/openeuler-root rw console=ttyS0 nokaslr&lt;/cmdline&gt;<br>---<br>130a134,136<br>&gt;   &lt;qemu:commandline&gt;<br>&gt;     &lt;qemu:arg value=<span class="hljs-string">&#x27;-S&#x27;</span>/&gt;<br>&gt;     &lt;qemu:arg value=<span class="hljs-string">&#x27;-s&#x27;</span>/&gt;<br>&gt;   &lt;/qemu:commandline&gt;<br></code></pre></td></tr></table></figure><p>主要改动点说明：</p><h3 id="更改-domain-类型">1. 更改 Domain 类型</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs diff">1c1<br>&lt; &lt;domain type=&#x27;kvm&#x27;&gt;<br><span class="hljs-comment">---</span><br>&gt; &lt;domain type=&#x27;kvm&#x27; xmlns:qemu=&#x27;http://libvirt.org/schemas/domain/qemu/1.0&#x27;&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li>增加了 <code>xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'</code>。这意味着你可以在 XML 文件中使用一些特定于 QEMU 的扩展和命名空间。</li></ul><h3 id="添加内核initrd-和命令行参数">2. 添加内核、initrd 和命令行参数</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs diff">11a12,14<br>&gt;     &lt;kernel&gt;/inf/yql/code/rpm/vmlinuz-4.19.0-amd64-desktop&lt;/kernel&gt;<br>&gt;     &lt;initrd&gt;/inf/yql/code/rpm/initramfs-4.19.0-amd64-desktop.img&lt;/initrd&gt;<br>&gt;     &lt;cmdline&gt;root=/dev/mapper/openeuler-root rw console=ttyS0 nokaslr&lt;/cmdline&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li><code>&lt;kernel&gt;</code>: 指定了内核映像的路径。</li><li><code>&lt;initrd&gt;</code>: 指定了初始内存盘（initramfs）的路径。</li><li><code>&lt;cmdline&gt;</code>: 指定了内核命令行参数，包括：<ul><li><code>root=/dev/mapper/openeuler-root</code>：指定根文件系统所在的设备。</li><li><code>rw</code>：使根文件系统以读写模式挂载。</li><li><code>console=ttyS0</code>：指定控制台输出到串口 <code>ttyS0</code>。</li><li><code>nokaslr</code>：禁用内核地址空间布局随机化（KASLR）。</li></ul></li></ul><h3 id="添加-qemu-命令行参数">3. 添加 QEMU 命令行参数</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs diff">130a134,136<br>&gt;   &lt;qemu:commandline&gt;<br>&gt;     &lt;qemu:arg value=&#x27;-S&#x27;/&gt;<br>&gt;     &lt;qemu:arg value=&#x27;-s&#x27;/&gt;<br>&gt;   &lt;/qemu:commandline&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li><code>&lt;qemu:commandline&gt;</code> 和 <code>&lt;qemu:arg&gt;</code>：允许你直接向 QEMU 传递命令行参数。</li><li><code>-S</code>：启动时暂停 CPU 执行，等待调试器连接和指令。</li><li><code>-s</code>：这是一个 QEMU 调试选项，启动 GDB 服务器监听在 TCP 端口 1234，允许你在虚拟机启动时通过 GDB 进行调试。</li></ul><h3 id="综合解释">综合解释</h3><p>这些改动主要有以下几个目的：</p><ol type="1"><li><strong>指定内核和 initrd</strong>：直接从指定的内核和 initrd 文件启动虚拟机，而不是使用默认的引导加载程序。这在需要使用自定义内核或 initrd 时特别有用。</li><li><strong>内核命令行参数</strong>：设置内核启动时的参数，确保系统能够找到正确的根文件系统，并且将输出发送到串口（对于调试非常有用）。</li><li><strong>QEMU 调试选项</strong>：通过 QEMU 的命令行选项启动 GDB 服务器，这对内核开发和调试非常有帮助。</li></ol><p>通过这些改动，你可以更好地控制虚拟机的启动过程，并且能够在需要时进行调试。</p><h2 id="virsh-start-启动虚拟机">virsh start 启动虚拟机</h2><p>在宿主机上启动虚拟机：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh start yql-openeuler<br></code></pre></td></tr></table></figure><h2 id="gdb-vmlinux">gdb vmlinux</h2><p>在宿主机上有linux源码目录下执行<code>gdb vmlinux</code>:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">gdb vmlinux<br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194930.png" alt="" /><figcaption>virsh start yql-openeuler gdb vmlinux target remote :1234</figcaption></figure><h2 id="virsh-domifaddr-查看虚拟机网卡地址">virsh domifaddr 查看虚拟机网卡地址</h2><p>在宿主机上查看虚拟机网卡地址：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh domifaddr yql-openeuler<br></code></pre></td></tr></table></figure><h2 id="ssh-虚拟机">ssh 虚拟机</h2><p>在宿主机上ssh到虚拟机:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh wujing@192.168.122.46<br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194807.png" alt="" /><figcaption>virsh domifaddr yql-openeuler ssh wujing@192.168.122.46</figcaption></figure><h2 id="virsh-console-打开虚拟机控制台">virsh console 打开虚拟机控制台</h2><p>在宿主机上打开虚拟机控制台：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh console yql-openeuler<br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240622092900.png" alt="" /><figcaption>gdb vmlinux target remote :1234 virsh console yql-openeuler</figcaption></figure><p>既可以通过ssh到虚拟机，也可以通过virsh console打开虚拟机控制台。</p>]]></content>
+    <content type="html"><![CDATA[<h1 id="using-virsh-to-start-vm-and-debug-with-gdb-is-simpler-than-using-qemu-directly">Using virsh to start VM and debug with gdb is simpler than using qemu directly</h1><h2 id="virt-install安装镜像">virt-install安装镜像</h2><p>创建一个名为 yql-openeuler 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出从而在非图形化界面上正确安装虚拟机:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash">virt-install \<br>  --name yql-openeuler \<br>  --ram 32768 \<br>  --vcpus 64 \<br>  --disk path=/inf/yql/yql-openeuler.qcow2,size=200 \<br>  --location /inf/yql/openeuler-22.09-240618-x86_64-dvd.iso \<br>  --os-type generic \<br>  --network default \<br>  --graphics none \<br>  --console pty,target_type=serial \<br>  -x <span class="hljs-string">&#x27;console=ttyS0,115200n8 console=tty0&#x27;</span> \<br>  --extra-args <span class="hljs-string">&#x27;console=ttyS0,115200n8&#x27;</span><br></code></pre></td></tr></table></figure><p>参数说明:</p><ul><li><code>--name yql-openeuler</code>：设置虚拟机的名称为 <code>yql-openeuler</code>。</li><li><code>--ram 32768</code>：分配 32GB 内存给虚拟机（单位为 MB）。</li><li><code>--vcpus 64</code>：分配 64 个虚拟 CPU 给虚拟机。</li><li><code>--disk path=/inf/yql/yql-openeuler.qcow2,size=200</code>：指定虚拟机的磁盘文件路径和大小为 200GB。</li><li><code>--location /inf/yql/openeuler-22.09-240618-x86_64-dvd.iso</code>：指定用于安装的 ISO 文件的位置。</li><li><code>--os-type generic</code>：指定操作系统类型为通用类型。</li><li><code>--network default</code>：指定虚拟机的网络接口为默认网络。</li><li><code>--graphics none</code>：禁用图形界面。</li><li><code>--console pty,target_type=serial</code>：设置虚拟机的控制台类型为串口控制台。</li><li><code>-x 'console=ttyS0,115200n8 console=tty0'</code>：启动参数，设置串口控制台和控制台输出。</li><li><code>--extra-args 'console=ttyS0,115200n8'</code>：额外的启动参数，设置串口控制台输出。</li></ul><p>arm上需要将ttyS0替换成ttyAMA0:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash">virt-install \<br>  --name yql \<br>  --ram 32768 \<br>  --vcpus 64 \<br>  --disk path=/data/yql/yql.qcow2,size=200 \<br>  --location /data/yql/openeuler-22.09-240618-aarch64-dvd.iso \<br>  --os-type generic \<br>  --network default \<br>  --graphics none \<br>  --console pty,target_type=serial \<br>  -x <span class="hljs-string">&#x27;console=ttyAMA0,115200n8 console=tty0&#x27;</span> \<br>  --extra-args <span class="hljs-string">&#x27;console=ttyAMA0,115200n8&#x27;</span><br></code></pre></td></tr></table></figure><h2 id="拷贝虚拟机的vmlinuxinitramfs">拷贝虚拟机的vmlinux、initramfs</h2><p>将虚拟机上的vmlinux、initramfs复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">rsync -avzP -e <span class="hljs-string">&#x27;ssh -p 10000&#x27;</span> /boot/initramfs-4.19.0-amd64-desktop.img /boot/vmlinuz-4.19.0-amd64-desktop root@10.63.8.158:/inf/yql/code/rpm<br></code></pre></td></tr></table></figure><h2 id="virsh-dumpxml">virsh dumpxml</h2><p>将虚拟机的xml文件复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh dumpxml yql-openeuler &gt; yql-openeuler.xml<br></code></pre></td></tr></table></figure><p>将自定义虚拟机启动vmlinux、initramfs、启动参数nokaslr且让虚拟机支持调试后的yql-openeuler 的xml文件也复制到宿主机上:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh dumpxml yql-openeuler &gt; yql-openeuler3.xml<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs bash">diff yql-openeuler.xml yql-openeuler3.xml<br>1c1<br>&lt; &lt;domain <span class="hljs-built_in">type</span>=<span class="hljs-string">&#x27;kvm&#x27;</span>&gt;<br>---<br>&gt; &lt;domain <span class="hljs-built_in">type</span>=<span class="hljs-string">&#x27;kvm&#x27;</span> xmlns:qemu=<span class="hljs-string">&#x27;http://libvirt.org/schemas/domain/qemu/1.0&#x27;</span>&gt;<br>11a12,14<br>&gt;     &lt;kernel&gt;/inf/yql/code/rpm/vmlinuz-4.19.0-amd64-desktop&lt;/kernel&gt;<br>&gt;     &lt;initrd&gt;/inf/yql/code/rpm/initramfs-4.19.0-amd64-desktop.img&lt;/initrd&gt;<br>&gt;     &lt;cmdline&gt;root=/dev/mapper/openeuler-root rw console=ttyS0 nokaslr&lt;/cmdline&gt;<br>---<br>130a134,136<br>&gt;   &lt;qemu:commandline&gt;<br>&gt;     &lt;qemu:arg value=<span class="hljs-string">&#x27;-S&#x27;</span>/&gt;<br>&gt;     &lt;qemu:arg value=<span class="hljs-string">&#x27;-s&#x27;</span>/&gt;<br>&gt;   &lt;/qemu:commandline&gt;<br></code></pre></td></tr></table></figure><p>主要改动点说明：</p><h3 id="更改-domain-类型">1. 更改 Domain 类型</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs diff">1c1<br>&lt; &lt;domain type=&#x27;kvm&#x27;&gt;<br><span class="hljs-comment">---</span><br>&gt; &lt;domain type=&#x27;kvm&#x27; xmlns:qemu=&#x27;http://libvirt.org/schemas/domain/qemu/1.0&#x27;&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li>增加了 <code>xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'</code>。这意味着你可以在 XML 文件中使用一些特定于 QEMU 的扩展和命名空间。</li></ul><h3 id="添加内核initrd-和命令行参数">2. 添加内核、initrd 和命令行参数</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs diff">11a12,14<br>&gt;     &lt;kernel&gt;/inf/yql/code/rpm/vmlinuz-4.19.0-amd64-desktop&lt;/kernel&gt;<br>&gt;     &lt;initrd&gt;/inf/yql/code/rpm/initramfs-4.19.0-amd64-desktop.img&lt;/initrd&gt;<br>&gt;     &lt;cmdline&gt;root=/dev/mapper/openeuler-root rw console=ttyS0 nokaslr&lt;/cmdline&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li><code>&lt;kernel&gt;</code>: 指定了内核映像的路径。</li><li><code>&lt;initrd&gt;</code>: 指定了初始内存盘（initramfs）的路径。</li><li><code>&lt;cmdline&gt;</code>: 指定了内核命令行参数，包括：<ul><li><code>root=/dev/mapper/openeuler-root</code>：指定根文件系统所在的设备。</li><li><code>rw</code>：使根文件系统以读写模式挂载。</li><li><code>console=ttyS0</code>：指定控制台输出到串口 <code>ttyS0</code>。</li><li><code>nokaslr</code>：禁用内核地址空间布局随机化（KASLR）。</li></ul></li></ul><h3 id="添加-qemu-命令行参数">3. 添加 QEMU 命令行参数</h3><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs diff">130a134,136<br>&gt;   &lt;qemu:commandline&gt;<br>&gt;     &lt;qemu:arg value=&#x27;-S&#x27;/&gt;<br>&gt;     &lt;qemu:arg value=&#x27;-s&#x27;/&gt;<br>&gt;   &lt;/qemu:commandline&gt;<br></code></pre></td></tr></table></figure><p><strong>解释</strong>:</p><ul><li><code>&lt;qemu:commandline&gt;</code> 和 <code>&lt;qemu:arg&gt;</code>：允许你直接向 QEMU 传递命令行参数。</li><li><code>-S</code>：启动时暂停 CPU 执行，等待调试器连接和指令。</li><li><code>-s</code>：这是一个 QEMU 调试选项，启动 GDB 服务器监听在 TCP 端口 1234，允许你在虚拟机启动时通过 GDB 进行调试。</li></ul><h3 id="综合解释">综合解释</h3><p>这些改动主要有以下几个目的：</p><ol type="1"><li><strong>指定内核和 initrd</strong>：直接从指定的内核和 initrd 文件启动虚拟机，而不是使用默认的引导加载程序。这在需要使用自定义内核或 initrd 时特别有用。</li><li><strong>内核命令行参数</strong>：设置内核启动时的参数，确保系统能够找到正确的根文件系统，并且将输出发送到串口（对于调试非常有用）。</li><li><strong>QEMU 调试选项</strong>：通过 QEMU 的命令行选项启动 GDB 服务器，这对内核开发和调试非常有帮助。</li></ol><p>通过这些改动，你可以更好地控制虚拟机的启动过程，并且能够在需要时进行调试。</p><h2 id="virsh-start-启动虚拟机">virsh start 启动虚拟机</h2><p>在宿主机上启动虚拟机：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh start yql-openeuler<br></code></pre></td></tr></table></figure><h2 id="gdb-vmlinux">gdb vmlinux</h2><p>在宿主机上有linux源码目录下执行<code>gdb vmlinux</code>:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">gdb vmlinux<br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194930.png" alt="" /><figcaption>virsh start yql-openeuler gdb vmlinux target remote :1234</figcaption></figure><h2 id="virsh-domifaddr-查看虚拟机网卡地址">virsh domifaddr 查看虚拟机网卡地址</h2><p>在宿主机上查看虚拟机网卡地址：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh domifaddr yql-openeuler<br></code></pre></td></tr></table></figure><h2 id="ssh-虚拟机">ssh 虚拟机</h2><p>在宿主机上ssh到虚拟机:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh wujing@192.168.122.46<br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240621194807.png" alt="" /><figcaption>virsh domifaddr yql-openeuler ssh wujing@192.168.122.46</figcaption></figure><h2 id="virsh-console-打开虚拟机控制台">virsh console 打开虚拟机控制台</h2><p>在宿主机上打开虚拟机控制台：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh console yql-openeuler<br></code></pre></td></tr></table></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240622092900.png" alt="" /><figcaption>gdb vmlinux target remote :1234 virsh console yql-openeuler</figcaption></figure><p>既可以通过ssh到虚拟机，也可以通过virsh console打开虚拟机控制台。</p>]]></content>
     
     
     <categories>
@@ -888,31 +888,6 @@
   
   
   <entry>
-    <title>hda_codec</title>
-    <link href="/linux/kernel/drivers/sound/hda_codec/"/>
-    <url>/linux/kernel/drivers/sound/hda_codec/</url>
-    
-    <content type="html"><![CDATA[<p>mv /usr/bin/pulseaudio /usr/bin/pulseaudio_bak mv /sbin/alsactl /sbin/alsactl_bak</p><p>ps aux | grep -i alsactl ps aux | grep -i pulseaudio</p><p>killall alsactl pulseaudio</p><p>cd /sys/class/sound/hwC0D0</p><p>echo 1 &gt; reconfig</p><p>snd_hda_gen_parse_auto_config+0x1 [kernel] snd_hda_parse_generic_codec+0xa3 [kernel] hda_codec_driver_probe+0x74 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>snd_pcm_new+0x1 [kernel] snd_hda_attach_pcm_stream+0x8e [kernel] snd_hda_codec_build_pcms+0x102 [kernel] hda_codec_driver_probe+0x82 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>./sound/pci/hda/hda_sysfs.c:436:int snd_hda_get_bool_hint(struct hda_codec <em>codec, const char </em>key) ./sound/pci/hda/hda_sysfs.c:420:const char <em>snd_hda_get_hint(struct hda_codec </em>codec, const char <em>key) ./sound/pci/hda/hda_sysfs.c:281:static struct hda_hint </em>get_hint(struct hda_codec <em>codec, const char </em>key)</p><p>./sound/pci/hda/hda_auto_parser.c:176:int snd_hda_parse_pin_defcfg(struct hda_codec <em>codec, struct auto_pin_cfg </em>cfg, const hda_nid_t <em>ignore_nids, unsigned int cond_flags) ./sound/pci/hda/hda_codec.c:unsigned int snd_hda_codec_get_pincfg(struct hda_codec </em>codec, hda_nid_t nid)</p><p>sound/pci/hda/hda_codec.c:560:init_pins</p><p>./sound/pci/hda/hda_codec.c:445:static int read_pin_defaults(struct hda_codec *codec)</p><p>混音器 pcm 转换器 codec 端 card</p>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>drivers</category>
-      
-      <category>sound</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>ALC885_1-1</title>
     <link href="/linux/kernel/drivers/sound/ALC885_1-1/"/>
     <url>/linux/kernel/drivers/sound/ALC885_1-1/</url>
@@ -938,6 +913,31 @@
       <tag>git</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>hda_codec</title>
+    <link href="/linux/kernel/drivers/sound/hda_codec/"/>
+    <url>/linux/kernel/drivers/sound/hda_codec/</url>
+    
+    <content type="html"><![CDATA[<p>mv /usr/bin/pulseaudio /usr/bin/pulseaudio_bak mv /sbin/alsactl /sbin/alsactl_bak</p><p>ps aux | grep -i alsactl ps aux | grep -i pulseaudio</p><p>killall alsactl pulseaudio</p><p>cd /sys/class/sound/hwC0D0</p><p>echo 1 &gt; reconfig</p><p>snd_hda_gen_parse_auto_config+0x1 [kernel] snd_hda_parse_generic_codec+0xa3 [kernel] hda_codec_driver_probe+0x74 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>snd_pcm_new+0x1 [kernel] snd_hda_attach_pcm_stream+0x8e [kernel] snd_hda_codec_build_pcms+0x102 [kernel] hda_codec_driver_probe+0x82 [kernel] really_probe+0x24b [kernel] driver_probe_device+0xb3 [kernel] bus_for_each_drv+0x76 [kernel] __device_attach+0xe5 [kernel] snd_hda_codec_configure+0xe6 [kernel] azx_codec_configure+0x2f [kernel] azx_probe_continue+0x9d0 [kernel] process_one_work+0x1a7 [kernel] worker_thread+0x30 [kernel] kthread+0x112 [kernel] ret_from_fork+0x35 [kernel]</p><p>./sound/pci/hda/hda_sysfs.c:436:int snd_hda_get_bool_hint(struct hda_codec <em>codec, const char </em>key) ./sound/pci/hda/hda_sysfs.c:420:const char <em>snd_hda_get_hint(struct hda_codec </em>codec, const char <em>key) ./sound/pci/hda/hda_sysfs.c:281:static struct hda_hint </em>get_hint(struct hda_codec <em>codec, const char </em>key)</p><p>./sound/pci/hda/hda_auto_parser.c:176:int snd_hda_parse_pin_defcfg(struct hda_codec <em>codec, struct auto_pin_cfg </em>cfg, const hda_nid_t <em>ignore_nids, unsigned int cond_flags) ./sound/pci/hda/hda_codec.c:unsigned int snd_hda_codec_get_pincfg(struct hda_codec </em>codec, hda_nid_t nid)</p><p>sound/pci/hda/hda_codec.c:560:init_pins</p><p>./sound/pci/hda/hda_codec.c:445:static int read_pin_defaults(struct hda_codec *codec)</p><p>混音器 pcm 转换器 codec 端 card</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>drivers</category>
+      
+      <category>sound</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -1395,9 +1395,9 @@
       
       <tag>architect</tag>
       
-      <tag>strings</tag>
-      
       <tag>Java</tag>
+      
+      <tag>strings</tag>
       
     </tags>
     
@@ -1552,6 +1552,45 @@
   
   
   <entry>
+    <title>amd64下基于qemu用户网络、debootstrap调试amd64内核、根文件系统</title>
+    <link href="/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E7%94%A8%E6%88%B7%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/"/>
+    <url>/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E7%94%A8%E6%88%B7%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/</url>
+    
+    <content type="html"><![CDATA[<h1 id="amd64下基于qemu用户网络debootstrap调试amd64内核根文件系统">amd64下基于qemu用户网络、debootstrap调试amd64内核、根文件系统</h1><h2 id="编译调试版linux内核">1. 编译调试版linux内核</h2><h3 id="下载源码">下载源码</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/torvalds/linux.git<br></code></pre></td></tr></table></figure><h3 id="安装编译依赖">安装编译依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install build-essential libncurses-dev bison flex libssl-dev libelf-dev<br></code></pre></td></tr></table></figure><h3 id="内核编译选项配置">内核编译选项配置</h3><p>进入源码目录，配置编译选项：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br>git checkout -b v5.10-rc7 v5.10-rc7<br>make menuconfig<br></code></pre></td></tr></table></figure><p>比较重要的配置项有：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Kernel hacking  ---&gt;<br>    [*] Kernel debugging<br>    Compile-time checks and compiler options  ---&gt;<br>        [*] Compile the kernel with debug info<br>        [*]   Provide GDB scripts for kernel debugging<br></code></pre></td></tr></table></figure><p>一定要打开。 还有下面的选项会导致打断点失败，一定要关闭：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">Processor type and features ----&gt;<br>    [] Randomize the address of the kernel image (KASLR)<br></code></pre></td></tr></table></figure><p>保存并退出 menuconfig，开始编译之旅：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make -j`<span class="hljs-built_in">expr</span> $(<span class="hljs-built_in">nproc</span>) / 2`<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/eydwyz/article/details/114019532">使用 VSCode + qemu 搭建 Linux 内核调试环境</a></li></ul><h2 id="debootstrap制作根文件系统">2. debootstrap制作根文件系统</h2><h3 id="安装依赖">安装依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install qemu qemu-user-static binfmt-support debootstrap debian-archive-keyring<br></code></pre></td></tr></table></figure><h3 id="制作文件系统">制作文件系统</h3><p>使用也十分简单，命令格式为：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --<span class="hljs-built_in">arch</span> [平台] [发行版本代号] [构建目录] [镜像地址]<br></code></pre></td></tr></table></figure><p>以在Deepin 20.7 amd64上构建ubuntu18(bionic) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --<span class="hljs-built_in">arch</span>=amd64 --include=ifupdown bionic linux-rootfs http://mirrors.aliyun.com/ubuntu/<br></code></pre></td></tr></table></figure><p>arm64下交叉编译构建amd64需要执行下方命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> -a /usr/bin/qemu-x86_64-static linux-rootfs/usr/bin/qemu-x86_64-static<br></code></pre></td></tr></table></figure><h3 id="进入文件系统">进入文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://raw.githubusercontent.com/ywhs/linux-software/master/ch-mount.sh<br><span class="hljs-built_in">chmod</span> 777 ch-mount.sh<br><span class="hljs-comment"># 执行脚本后，没有报错会进入文件系统，交叉编译时显示 I have no name ，这是因为还没有初始化。</span><br>./ch-mount.sh -m linux-rootfs/<br><br>debootstrap/debootstrap --second-stage <span class="hljs-comment"># 交叉编译时执行，初始化文件系统，会把一个系统的基础包初始化</span><br><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs/<br>./ch-mount.sh -m linux-rootfs/<br><span class="hljs-comment"># 再次进入时，执行如下命令即可</span><br><span class="hljs-comment"># sudo chroot linux-rootfs</span><br></code></pre></td></tr></table></figure><h3 id="定制文件系统">定制文件系统</h3><h4 id="配置网络">配置网络</h4><p>要确保进入文件系统后有网络，可以将 /etc/resolv.conf 文件拷贝到 linux-rootfs/etc/resolv.conf。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> /etc/resolv.conf linux-rootfs/etc/resolv.conf<br></code></pre></td></tr></table></figure><h4 id="更换国内镜像源">更换国内镜像源</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 若是遇到没法拉取 https 源的状况，请先使用 http 源并安装</span><br>apt install apt-transport-https<br><span class="hljs-built_in">cp</span> /etc/apt/sources.list /etc/apt/sources.list.bak<br><span class="hljs-comment"># 把文件内容所有替换为对应阿里源，参见：https://developer.aliyun.com/mirror/?spm=a2c6h.12873639.J_5404914170.29.2feb6235F6x30d</span><br>vim /etc/apt/source.list<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ bionic main restricted universe multiverse&quot;</span> &gt;&gt; /etc/apt/sources.list<br></code></pre></td></tr></table></figure><h4 id="配置-root-用户密码">配置 root 用户密码</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">passwd<br></code></pre></td></tr></table></figure><h4 id="建立一个普通用户">建立一个普通用户</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 这两个环境变量能够自行修改</span><br>USER=wujing<br>HOST=wujing<br>useradd -G sudo -m -s /bin/bash <span class="hljs-variable">$USER</span><br>passwd <span class="hljs-variable">$USER</span><br></code></pre></td></tr></table></figure><h4 id="设置主机名和以太网">设置主机名和以太网</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-variable">$HOST</span> &gt; /etc/hostname<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;127.0.0.1 localhost.localdomain localhost&quot;</span> &gt; /etc/hosts<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;127.0.0.1 <span class="hljs-variable">$HOST</span>&quot;</span> &gt;&gt; /etc/hosts<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;auto enp0s3&quot;</span> &gt;&gt; /etc/network/interfaces<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;iface enp0s3 inet dhcp&quot;</span> &gt;&gt; /etc/network/interfaces<br></code></pre></td></tr></table></figure><h3 id="退出文件系统">退出文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs<br></code></pre></td></tr></table></figure><h3 id="制作文件系统镜像initrd">制作文件系统镜像(initrd)</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">dd</span> <span class="hljs-keyword">if</span>=/dev/zero of=bionic.img bs=1M seek=2047 count=1<br>sudo mkfs.ext4 -F bionic.img<br>sudo <span class="hljs-built_in">mkdir</span> -p /mnt/bionic<br>sudo mount -o loop bionic.img /mnt/bionic<br>sudo <span class="hljs-built_in">cp</span> -a linux-rootfs/. /mnt/bionic/.<br>sudo umount /mnt/bionic<br>sudo <span class="hljs-built_in">chmod</span> 666 bionic.img<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/weixin_49393427/article/details/126435589">内核调试环境：buildroot/debootstrap制作文件系统、编译内核、QEMU模拟</a></li><li><a href="https://www.cnblogs.com/huaibovip/p/debootstrap-fs.html">debootstrap 制作根文件系统</a></li><li><a href="https://blog.51cto.com/u_13731941/5399257">使用 debootstrap 制作 ARM64 rootfs.cpio</a></li></ul><h2 id="启动内核并调试">3. 启动内核并调试</h2><h3 id="依赖安装">依赖安装</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install qemu qemu-system qemu-kvm<br></code></pre></td></tr></table></figure><h3 id="qemu启动内核并挂载文件系统调试">qemu启动内核并挂载文件系统调试</h3><p>下方两个命令都行，第一个报warning，第二个file=后面要使用绝对路径。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -hda ~/code/tmp/bionic.img -append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> -nographic<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -drive format=raw,file=/home/wujing/code/tmp/bionic.img -append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> -nographic<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609">Linux aarch64 编译 &amp; qemu 搭建实验平台 initrd initramfs</a></li></ul><h3 id="加载内核调试工具">加载内核调试工具</h3><p>然后切换到内核源码目录，启动 gdb，不过在启动之前，请向 ~/code/linux/.gdbinit 添加如下内容：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;add-auto-load-safe-path ./scripts/gdb/vmlinux-gdb.py&quot;</span> &gt;&gt; .gdbinit<br></code></pre></td></tr></table></figure><p>加载内核调试工具，然后执行：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">gdb vmlinux<br>target remote :1234<br>c<br></code></pre></td></tr></table></figure><p>来连接到虚拟机上的 gdb 服务。</p><p>到这里，你就可以像调试普通程序一样调试 Linux 内核了。Linux 的内核入口函数是位于 init/main.c 中的 start_kernel ，在这里完成各种内核数据结构的初始化。</p><h2 id="网络修复">4. 网络修复</h2><p>输入root密码登录后，查看IP地址：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ip addr<br></code></pre></td></tr></table></figure><p>假设网卡名为enp0s3。</p><p>假设上方设置主机名和以太网中网卡名为eth0。</p><p>执行如下命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sed -i <span class="hljs-string">&quot;s/eth0/enp0s3/g&quot;</span> /etc/network/interfaces<br>ifup enp0s3<br></code></pre></td></tr></table></figure><p>现在可以使用apt安装依赖：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt update<br></code></pre></td></tr></table></figure><p>qemu默认使用的用户模式网络非常适合允许访问网络资源，包括 Internet。 特别是，它允许从guest到主机的 ssh流量。 但是，默认情况下，它充当防火墙，不允许任何传入流量。 它也不支持 TCP 和 UDP 以外的协议 - 例如，ping 和其他 ICMP 程序将不起作用。</p><ul><li><a href="https://blog.csdn.net/m0_43406494/article/details/124827927">QEMU--用户模式网络</a></li><li><a href="https://tomwei7.com/2021/10/09/qemu-network-config/">QEMU 网络配置</a></li><li><a href="https://blog.csdn.net/OnlyLove_/article/details/124536607">Linux 内核调试 七：qemu网络配置</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>qemu</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>qemu</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+      <tag>initramfs</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>amd64下基于qemu tap(NAT网络)、debootstrap调试amd64内核、根文件系统</title>
     <link href="/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%20tap(NAT%E7%BD%91%E7%BB%9C)%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/"/>
     <url>/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%20tap(NAT%E7%BD%91%E7%BB%9C)%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/</url>
@@ -1577,45 +1616,6 @@
       <tag>qemu</tag>
       
       <tag>C++</tag>
-      
-      <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-      <tag>initramfs</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>amd64下基于qemu用户网络、debootstrap调试amd64内核、根文件系统</title>
-    <link href="/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E7%94%A8%E6%88%B7%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/"/>
-    <url>/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E7%94%A8%E6%88%B7%E7%BD%91%E7%BB%9C%E3%80%81debootstrap%E8%B0%83%E8%AF%95amd64%E5%86%85%E6%A0%B8%E3%80%81%E6%A0%B9%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/</url>
-    
-    <content type="html"><![CDATA[<h1 id="amd64下基于qemu用户网络debootstrap调试amd64内核根文件系统">amd64下基于qemu用户网络、debootstrap调试amd64内核、根文件系统</h1><h2 id="编译调试版linux内核">1. 编译调试版linux内核</h2><h3 id="下载源码">下载源码</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/torvalds/linux.git<br></code></pre></td></tr></table></figure><h3 id="安装编译依赖">安装编译依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install build-essential libncurses-dev bison flex libssl-dev libelf-dev<br></code></pre></td></tr></table></figure><h3 id="内核编译选项配置">内核编译选项配置</h3><p>进入源码目录，配置编译选项：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br>git checkout -b v5.10-rc7 v5.10-rc7<br>make menuconfig<br></code></pre></td></tr></table></figure><p>比较重要的配置项有：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Kernel hacking  ---&gt;<br>    [*] Kernel debugging<br>    Compile-time checks and compiler options  ---&gt;<br>        [*] Compile the kernel with debug info<br>        [*]   Provide GDB scripts for kernel debugging<br></code></pre></td></tr></table></figure><p>一定要打开。 还有下面的选项会导致打断点失败，一定要关闭：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">Processor type and features ----&gt;<br>    [] Randomize the address of the kernel image (KASLR)<br></code></pre></td></tr></table></figure><p>保存并退出 menuconfig，开始编译之旅：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make -j`<span class="hljs-built_in">expr</span> $(<span class="hljs-built_in">nproc</span>) / 2`<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/eydwyz/article/details/114019532">使用 VSCode + qemu 搭建 Linux 内核调试环境</a></li></ul><h2 id="debootstrap制作根文件系统">2. debootstrap制作根文件系统</h2><h3 id="安装依赖">安装依赖</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install qemu qemu-user-static binfmt-support debootstrap debian-archive-keyring<br></code></pre></td></tr></table></figure><h3 id="制作文件系统">制作文件系统</h3><p>使用也十分简单，命令格式为：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --<span class="hljs-built_in">arch</span> [平台] [发行版本代号] [构建目录] [镜像地址]<br></code></pre></td></tr></table></figure><p>以在Deepin 20.7 amd64上构建ubuntu18(bionic) amd64为例，预装ifupdown是因为下方配置网络的时候需要用到：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo debootstrap --<span class="hljs-built_in">arch</span>=amd64 --include=ifupdown bionic linux-rootfs http://mirrors.aliyun.com/ubuntu/<br></code></pre></td></tr></table></figure><p>arm64下交叉编译构建amd64需要执行下方命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> -a /usr/bin/qemu-x86_64-static linux-rootfs/usr/bin/qemu-x86_64-static<br></code></pre></td></tr></table></figure><h3 id="进入文件系统">进入文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://raw.githubusercontent.com/ywhs/linux-software/master/ch-mount.sh<br><span class="hljs-built_in">chmod</span> 777 ch-mount.sh<br><span class="hljs-comment"># 执行脚本后，没有报错会进入文件系统，交叉编译时显示 I have no name ，这是因为还没有初始化。</span><br>./ch-mount.sh -m linux-rootfs/<br><br>debootstrap/debootstrap --second-stage <span class="hljs-comment"># 交叉编译时执行，初始化文件系统，会把一个系统的基础包初始化</span><br><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs/<br>./ch-mount.sh -m linux-rootfs/<br><span class="hljs-comment"># 再次进入时，执行如下命令即可</span><br><span class="hljs-comment"># sudo chroot linux-rootfs</span><br></code></pre></td></tr></table></figure><h3 id="定制文件系统">定制文件系统</h3><h4 id="配置网络">配置网络</h4><p>要确保进入文件系统后有网络，可以将 /etc/resolv.conf 文件拷贝到 linux-rootfs/etc/resolv.conf。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo <span class="hljs-built_in">cp</span> /etc/resolv.conf linux-rootfs/etc/resolv.conf<br></code></pre></td></tr></table></figure><h4 id="更换国内镜像源">更换国内镜像源</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 若是遇到没法拉取 https 源的状况，请先使用 http 源并安装</span><br>apt install apt-transport-https<br><span class="hljs-built_in">cp</span> /etc/apt/sources.list /etc/apt/sources.list.bak<br><span class="hljs-comment"># 把文件内容所有替换为对应阿里源，参见：https://developer.aliyun.com/mirror/?spm=a2c6h.12873639.J_5404914170.29.2feb6235F6x30d</span><br>vim /etc/apt/source.list<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ bionic main restricted universe multiverse&quot;</span> &gt;&gt; /etc/apt/sources.list<br></code></pre></td></tr></table></figure><h4 id="配置-root-用户密码">配置 root 用户密码</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">passwd<br></code></pre></td></tr></table></figure><h4 id="建立一个普通用户">建立一个普通用户</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 这两个环境变量能够自行修改</span><br>USER=wujing<br>HOST=wujing<br>useradd -G sudo -m -s /bin/bash <span class="hljs-variable">$USER</span><br>passwd <span class="hljs-variable">$USER</span><br></code></pre></td></tr></table></figure><h4 id="设置主机名和以太网">设置主机名和以太网</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> <span class="hljs-variable">$HOST</span> &gt; /etc/hostname<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;127.0.0.1 localhost.localdomain localhost&quot;</span> &gt; /etc/hosts<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;127.0.0.1 <span class="hljs-variable">$HOST</span>&quot;</span> &gt;&gt; /etc/hosts<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;auto enp0s3&quot;</span> &gt;&gt; /etc/network/interfaces<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;iface enp0s3 inet dhcp&quot;</span> &gt;&gt; /etc/network/interfaces<br></code></pre></td></tr></table></figure><h3 id="退出文件系统">退出文件系统</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">exit</span><br>./ch-mount.sh -u linux-rootfs<br></code></pre></td></tr></table></figure><h3 id="制作文件系统镜像initrd">制作文件系统镜像(initrd)</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">dd</span> <span class="hljs-keyword">if</span>=/dev/zero of=bionic.img bs=1M seek=2047 count=1<br>sudo mkfs.ext4 -F bionic.img<br>sudo <span class="hljs-built_in">mkdir</span> -p /mnt/bionic<br>sudo mount -o loop bionic.img /mnt/bionic<br>sudo <span class="hljs-built_in">cp</span> -a linux-rootfs/. /mnt/bionic/.<br>sudo umount /mnt/bionic<br>sudo <span class="hljs-built_in">chmod</span> 666 bionic.img<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/weixin_49393427/article/details/126435589">内核调试环境：buildroot/debootstrap制作文件系统、编译内核、QEMU模拟</a></li><li><a href="https://www.cnblogs.com/huaibovip/p/debootstrap-fs.html">debootstrap 制作根文件系统</a></li><li><a href="https://blog.51cto.com/u_13731941/5399257">使用 debootstrap 制作 ARM64 rootfs.cpio</a></li></ul><h2 id="启动内核并调试">3. 启动内核并调试</h2><h3 id="依赖安装">依赖安装</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install qemu qemu-system qemu-kvm<br></code></pre></td></tr></table></figure><h3 id="qemu启动内核并挂载文件系统调试">qemu启动内核并挂载文件系统调试</h3><p>下方两个命令都行，第一个报warning，第二个file=后面要使用绝对路径。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -hda ~/code/tmp/bionic.img -append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> -nographic<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 -s -S -m 2048 -kernel ~/code/linux/arch/x86/boot/bzImage -drive format=raw,file=/home/wujing/code/tmp/bionic.img -append <span class="hljs-string">&quot;root=/dev/sda rootfstype=ext4 rw console=ttyS0 nokaslr&quot;</span> -nographic<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/FJDJFKDJFKDJFKD/article/details/100021609">Linux aarch64 编译 &amp; qemu 搭建实验平台 initrd initramfs</a></li></ul><h3 id="加载内核调试工具">加载内核调试工具</h3><p>然后切换到内核源码目录，启动 gdb，不过在启动之前，请向 ~/code/linux/.gdbinit 添加如下内容：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> linux<br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;add-auto-load-safe-path ./scripts/gdb/vmlinux-gdb.py&quot;</span> &gt;&gt; .gdbinit<br></code></pre></td></tr></table></figure><p>加载内核调试工具，然后执行：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">gdb vmlinux<br>target remote :1234<br>c<br></code></pre></td></tr></table></figure><p>来连接到虚拟机上的 gdb 服务。</p><p>到这里，你就可以像调试普通程序一样调试 Linux 内核了。Linux 的内核入口函数是位于 init/main.c 中的 start_kernel ，在这里完成各种内核数据结构的初始化。</p><h2 id="网络修复">4. 网络修复</h2><p>输入root密码登录后，查看IP地址：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ip addr<br></code></pre></td></tr></table></figure><p>假设网卡名为enp0s3。</p><p>假设上方设置主机名和以太网中网卡名为eth0。</p><p>执行如下命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sed -i <span class="hljs-string">&quot;s/eth0/enp0s3/g&quot;</span> /etc/network/interfaces<br>ifup enp0s3<br></code></pre></td></tr></table></figure><p>现在可以使用apt安装依赖：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">apt update<br></code></pre></td></tr></table></figure><p>qemu默认使用的用户模式网络非常适合允许访问网络资源，包括 Internet。 特别是，它允许从guest到主机的 ssh流量。 但是，默认情况下，它充当防火墙，不允许任何传入流量。 它也不支持 TCP 和 UDP 以外的协议 - 例如，ping 和其他 ICMP 程序将不起作用。</p><ul><li><a href="https://blog.csdn.net/m0_43406494/article/details/124827927">QEMU--用户模式网络</a></li><li><a href="https://tomwei7.com/2021/10/09/qemu-network-config/">QEMU 网络配置</a></li><li><a href="https://blog.csdn.net/OnlyLove_/article/details/124536607">Linux 内核调试 七：qemu网络配置</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>qemu</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>qemu</tag>
       
       <tag>git</tag>
       
@@ -1723,27 +1723,6 @@
   
   
   <entry>
-    <title>README</title>
-    <link href="/debug/binary-analysis/README/"/>
-    <url>/debug/binary-analysis/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>debug</category>
-      
-      <category>binary-analysis</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>assembly</title>
     <link href="/debug/assembly/assembly/"/>
     <url>/debug/assembly/assembly/</url>
@@ -1773,6 +1752,27 @@
       <tag>HTML</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/debug/binary-analysis/README/"/>
+    <url>/debug/binary-analysis/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="binaryanalysis">binaryanalysis</h1><ul><li><a href="https://nostarch.com/binaryanalysis">https://nostarch.com/binaryanalysis</a></li><li><a href="https://practicalbinaryanalysis.com/">Download code samples and virtual machine.</a></li><li><a href="https://practicalbinaryanalysis.com/file/pba-code.tar.gz">You can also download just the example code.</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>debug</category>
+      
+      <category>binary-analysis</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -2690,25 +2690,6 @@
   
   
   <entry>
-    <title>考试介绍及备考攻略</title>
-    <link href="/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/"/>
-    <url>/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/</url>
-    
-    <content type="html"><![CDATA[<h1 id="考试介绍及备考攻略">考试介绍及备考攻略</h1><ul><li>核心<ul><li>软件工程</li><li>软件架构设计</li><li>操作系统</li></ul></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>architect</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>数据库系统</title>
     <link href="/architect/%E6%95%B0%E6%8D%AE%E5%BA%93%E7%B3%BB%E7%BB%9F/"/>
     <url>/architect/%E6%95%B0%E6%8D%AE%E5%BA%93%E7%B3%BB%E7%BB%9F/</url>
@@ -2730,6 +2711,25 @@
       <tag>HTML</tag>
       
     </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>考试介绍及备考攻略</title>
+    <link href="/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/"/>
+    <url>/architect/%E8%80%83%E8%AF%95%E4%BB%8B%E7%BB%8D%E5%8F%8A%E5%A4%87%E8%80%83%E6%94%BB%E7%95%A5/</url>
+    
+    <content type="html"><![CDATA[<h1 id="考试介绍及备考攻略">考试介绍及备考攻略</h1><ul><li>核心<ul><li>软件工程</li><li>软件架构设计</li><li>操作系统</li></ul></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>architect</category>
+      
+    </categories>
+    
     
   </entry>
   
@@ -2928,31 +2928,6 @@
   
   
   <entry>
-    <title>automake</title>
-    <link href="/cpp/automake/"/>
-    <url>/cpp/automake/</url>
-    
-    <content type="html"><![CDATA[<h1 id="automake">automake</h1><ul><li><a href="https://www.cnblogs.com/seaspring/p/13905757.html">首先要了解为什么要有autoconf，automake这类工具</a></li><li><a href="https://blog.csdn.net/cnsword/article/details/7542696#commentBox">cmake与autoconf+automake的对比</a></li><li><a href="https://www.jianshu.com/p/17e777868d6b">Automake的使用</a></li><li><a href="https://www.jianshu.com/p/3f69197f9055">解剖automake和autoconf(autoreconf)</a></li><li><a href="https://www.cnblogs.com/silvermagic/p/7665868.html">Automake使用说明</a></li><li><a href="https://www.jianshu.com/p/2f5e586c3402">Makefile.am 规则和实例详解</a></li><li><a href="https://blog.csdn.net/vevenlcf/article/details/48134313">Makefile.am 语法_梦想专栏-CSDN博客_makefile.am</a></li><li><a href="https://blog.csdn.net/weixin_38503885/article/details/110931206">makefile.am_make与makefile的区别_makefile编写_weixin_38503885的博客-CSDN博客_makefile.am</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>README</title>
     <link href="/cpp/README/"/>
     <url>/cpp/README/</url>
@@ -2972,6 +2947,31 @@
       <tag>C++</tag>
       
       <tag>git</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>automake</title>
+    <link href="/cpp/automake/"/>
+    <url>/cpp/automake/</url>
+    
+    <content type="html"><![CDATA[<h1 id="automake">automake</h1><ul><li><a href="https://www.cnblogs.com/seaspring/p/13905757.html">首先要了解为什么要有autoconf，automake这类工具</a></li><li><a href="https://blog.csdn.net/cnsword/article/details/7542696#commentBox">cmake与autoconf+automake的对比</a></li><li><a href="https://www.jianshu.com/p/17e777868d6b">Automake的使用</a></li><li><a href="https://www.jianshu.com/p/3f69197f9055">解剖automake和autoconf(autoreconf)</a></li><li><a href="https://www.cnblogs.com/silvermagic/p/7665868.html">Automake使用说明</a></li><li><a href="https://www.jianshu.com/p/2f5e586c3402">Makefile.am 规则和实例详解</a></li><li><a href="https://blog.csdn.net/vevenlcf/article/details/48134313">Makefile.am 语法_梦想专栏-CSDN博客_makefile.am</a></li><li><a href="https://blog.csdn.net/weixin_38503885/article/details/110931206">makefile.am_make与makefile的区别_makefile编写_weixin_38503885的博客-CSDN博客_makefile.am</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -3123,6 +3123,35 @@
   
   
   <entry>
+    <title>vscode-cmake</title>
+    <link href="/cpp/vscode-cmake/"/>
+    <url>/cpp/vscode-cmake/</url>
+    
+    <content type="html"><![CDATA[<h1 id="vscode-cmake">vscode-cmake</h1><ul><li><p><a href="https://blog.csdn.net/u013894860/article/details/97555901">VS code 调试Cmake 工程：</a></p></li><li><p><a href="https://code.visualstudio.com/docs/cpp/faq-cpp" class="uri">https://code.visualstudio.com/docs/cpp/faq-cpp</a></p></li><li><p><a href="https://github.com/MaskRay/ccls/wiki/Build" class="uri">https://github.com/MaskRay/ccls/wiki/Build</a></p></li><li><p><a href="https://blog.csdn.net/hb69222/article/details/117034317">VS Code中C/C++ 无法跳转到定义的解决办法</a></p></li><li><p><a href="https://www.cnblogs.com/cong-wang/p/15026530.html">vscode使用compile_commands.json</a></p></li><li><p><a href="https://edward852.github.io/post/%E7%94%9F%E6%88%90compile_commands.json%E6%96%87%E4%BB%B6/">生成compile_commands.json文件</a></p></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>C++</tag>
+      
+      <tag>git</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>tars</title>
     <link href="/cpp/tars/"/>
     <url>/cpp/tars/</url>
@@ -3146,35 +3175,6 @@
       <tag>git</tag>
       
       <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>vscode-cmake</title>
-    <link href="/cpp/vscode-cmake/"/>
-    <url>/cpp/vscode-cmake/</url>
-    
-    <content type="html"><![CDATA[<h1 id="vscode-cmake">vscode-cmake</h1><ul><li><p><a href="https://blog.csdn.net/u013894860/article/details/97555901">VS code 调试Cmake 工程：</a></p></li><li><p><a href="https://code.visualstudio.com/docs/cpp/faq-cpp" class="uri">https://code.visualstudio.com/docs/cpp/faq-cpp</a></p></li><li><p><a href="https://github.com/MaskRay/ccls/wiki/Build" class="uri">https://github.com/MaskRay/ccls/wiki/Build</a></p></li><li><p><a href="https://blog.csdn.net/hb69222/article/details/117034317">VS Code中C/C++ 无法跳转到定义的解决办法</a></p></li><li><p><a href="https://www.cnblogs.com/cong-wang/p/15026530.html">vscode使用compile_commands.json</a></p></li><li><p><a href="https://edward852.github.io/post/%E7%94%9F%E6%88%90compile_commands.json%E6%96%87%E4%BB%B6/">生成compile_commands.json文件</a></p></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>C++</tag>
-      
-      <tag>git</tag>
       
       <tag>HTML</tag>
       
@@ -3241,31 +3241,6 @@
   
   
   <entry>
-    <title>gerrit</title>
-    <link href="/git/gerrit/"/>
-    <url>/git/gerrit/</url>
-    
-    <content type="html"><![CDATA[<h1 id="gerrit">gerrit</h1><h2 id="提交模板">提交模板</h2><p>在 ~/ 目录下新建文件，并命名为.gitcommit_template 将以下内容写入文件当中：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs text">#commit type :fix（问题修复）、feat（功能开发）、style(风格修改)、refactor(重构)、docs（文档）、 chore（其他)、test(测试) + 简单描述. 默认fix,根据情况修改<br>fix: <br><br>#Describe you bug/feature,or other things<br>Description: <br><br># <br>Log: <br><br>#关联pms上的bug号，提交后，则会自动在pms对应bug信息页面添加备注，关联本次提交。若本次提交为修复bug相关，则请 取消注释<br>#Bug: <br><br>#尚不清楚干啥的 <br>#Issue: <br><br>#关联pms上的任务号，提交后，则会自动在pms对应任务信息页面添加备注，关联本次提交。若本次提交为任务相关，则请取消注释<br>#Task: <br></code></pre></td></tr></table></figure><p>在命令行执行:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global commit.template ~/.gitcommit_template<br></code></pre></td></tr></table></figure><h2 id="安装">安装</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install git-review<br></code></pre></td></tr></table></figure><h2 id="推送">推送</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review branch(当前分支) -r origin<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://wikidev.uniontech.com/Gerrit_%E6%8F%90%E4%BA%A4%E6%A8%A1%E6%9D%BF">Gerrit 提交模板</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>git</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>git</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>github-pages</title>
     <link href="/git/github-pages/"/>
     <url>/git/github-pages/</url>
@@ -3293,11 +3268,11 @@
   
   
   <entry>
-    <title>git教程</title>
-    <link href="/git/git%E6%95%99%E7%A8%8B/"/>
-    <url>/git/git%E6%95%99%E7%A8%8B/</url>
+    <title>gerrit</title>
+    <link href="/git/gerrit/"/>
+    <url>/git/gerrit/</url>
     
-    <content type="html"><![CDATA[<h1 id="git教程">git教程</h1><h2 id="github.token">Github.token</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">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<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/purplego/article/details/78657521"><font color=Red>git client 配置以及连接GitHub、Bitbucket_purplego的博客-CSDN博客</font></a></li><li><a href="https://www.wdssmq.com/post/20201216004.html">【VSCode 笔记】Git： Host key verification failed</a></li><li><a href="https://www.jianshu.com/p/0503722f69af">[ github ] github clone private repo克隆私有项目详细-简书(jianshu.com)</a></li><li><a href="https://blog.csdn.net/purplego/article/details/78657521">git client 配置以及连接GitHub、Bitbucket</a></li><li><a href="https://www.jianshu.com/p/affe1af6781c">github项目如何快速git clone https</a></li></ul><h2 id="密码">密码</h2><ul><li><p><a href="https://www.cnblogs.com/qdlhj/p/13215158.html">GitLab使用手册配置Git永久记住密码，免去重复输入的烦恼 - 心向阳 - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_42050406/article/details/115251109">向gitlab提交代码时记住用户名和密码_胡桃夹夹子的博客-CSDN博客_gitlab记住密码</a></p></li><li><p><a href="https://www.donnadie.top/set-git-proxy"><font color=Red>为git设置代理解决远程仓库无法连接问题</font></a></p></li><li><p><a href="https://blog.csdn.net/yuzhiqiang_1993/article/details/127032178">github配置了公钥依旧提示git@github.com‘s password: Permission denied, please try again.的解决办法</a></p></li><li><p><a href="https://blog.csdn.net/syzdev/article/details/126921031">Git报错：git@github.com: Permission denied (publickey)</a></p></li></ul><h2 id="config">config</h2><ul><li><a href="https://www.maixj.net/ict/git-config-unset-21515">git config的删除命令 | 云上小悟 (maixj.net)</a></li></ul><h2 id="命令">命令</h2><ul><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzU3NTgyODQ1Nw==&amp;mid=2247522045&amp;idx=2&amp;sn=f97685dcac7470d9b8fc1990aba7a7a8&amp;chksm=fd1fee7bca68676db0e438c67294cf0975958f9c1fbf04caeb25d3cafd5b64ac18f4d1003b7a&amp;mpshare=1&amp;scene=1&amp;srcid=0319RvIZ2fucLHLShthVdegk&amp;sharer_sharetime=1648042404990&amp;sharer_shareid=2dfdf936388dba04865b3e883d5a3225&amp;version=3.1.12.6001&amp;platform=win#rd"><font color=Red>Git 不要只会 pull 和 push，试试这 5 条提高效率的命令</font></a></p></li><li><p><a href="https://juejin.cn/post/6844903746166587405">如何在大型项目中使用Git子模块开发</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/0g1RDnKaSw7WYPfcp_gmKw">Git 各指令的本质，真是通俗易懂啊 (qq.com)</a></p></li><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzAxODQxMDM0Mw==&amp;mid=2247485544&amp;idx=1&amp;sn=afc9d9f72d811ec847fa64108d5c7412&amp;scene=21#wechat_redirect"><font color=Red>我用四个命令，总结了 Git 的所有套路</font></a></p></li><li><p><a href="https://blog.csdn.net/weixin_46087056/article/details/124741158"><font color=Red>git常用命令 1.分支开发 2.代码冲突处理</font></a></p></li></ul><h2 id="reset">reset</h2><ul><li><a href="https://www.runoob.com/git/git-reset.html">git reset 命令</a></li></ul><h2 id="commit">commit</h2><ul><li><a href="https://blog.csdn.net/keeplook/article/details/39324971"><font color=Red>Git怎样合并最近两次commit</font></a></li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git rebase -i HEAD~2<br></code></pre></td></tr></table></figure><p>根据提示，把第二个“pick”改成“squash”，这样就可以把第二个commit合并到到第一个里。</p><ul><li><p><a href="https://www.jianshu.com/p/7d40838883af">对之前的commit 提交进行修改</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1730774"><font color=Red>Git 修改已提交 commit 的信息</font></a></p></li><li><p><a href="https://www.cnblogs.com/boshen-hzb/p/9764835.html"><font color=Red>git只合并某一个分支的某个commit</font></a></p></li><li><p><a href="https://blog.csdn.net/ybdesire/article/details/42145597"><font color=Red>Git合并特定commits 到另一个分支</font></a></p></li><li><p><a href="https://blog.csdn.net/qq_32077121/article/details/111150662">git如何恢复本地删除的文件夹</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39580031/article/details/123826439"><font color=Red>git 回退一个文件的版本</font></a></p></li></ul><h3 id="查看某个补丁在内核哪些版本中有">查看某个补丁在内核哪些版本中有</h3><p>在Linux kernel stable tree mirror中查找某个提交：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git remote -v<br>origin  https://github.com/gregkh/linux.git (fetch)<br>origin  https://github.com/gregkh/linux.git (push)<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">log</span> --oneline | grep <span class="hljs-string">&quot;arm64: implement ftrace with regs&quot;</span><br>3b23e4991fb6 arm64: implement ftrace with regs<br></code></pre></td></tr></table></figure><p>在Linux kernel source tree中查找这个提交：</p><p><a href="https://github.com/torvalds/linux/commit/3b23e4991fb6" class="uri">https://github.com/torvalds/linux/commit/3b23e4991fb6</a></p><p>将<code>3b23e4991fb6</code>替换成要查找的commit:</p><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240418101723.png" alt="" /><figcaption>3b23e4991fb6最早出现在linux-v5.5-rc1上</figcaption></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240418101819.png" alt="" /><figcaption>3b23e4991fb6最早出现在linux-v5.5-rc1上</figcaption></figure><h2 id="head">head</h2><ul><li><a href="https://blog.csdn.net/raoxiaoya/article/details/110862360">git深入理解(二)：HEAD是什么</a></li><li><a href="https://geek-docs.com/git/git-cmds/git-head.html">Git – Head</a></li></ul><h2 id="statsh">statsh</h2><ul><li><a href="https://www.cnblogs.com/shoshana-kong/p/11194256.html">git stash详解</a></li></ul><h2 id="rebase-merge">rebase merge</h2><ul><li><p><a href="https://docs.github.com/cn/get-started/using-git/resolving-merge-conflicts-after-a-git-rebase">解决 Git 变基后的合并冲突</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull origin master rebase<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.jianshu.com/p/025aaa1a2c34">GIT使用 rebase 和 merge 的正确姿势（转）</a></p></li><li><p><a href="https://blog.csdn.net/textdemo123/article/details/107867211">Linux :关于git：您尚未完成合并(MERGE_HEAD存在)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/462530860">使用交互式 git rebase 工具压缩 Git 提交</a></p></li><li><p><a href="http://quibbler.cn/?thread-232.htm&amp;user=1"><font color=Red>git rebase调整commit之间顺序</font></a></p></li><li><p><a href="https://www.jianshu.com/p/f247827d60bb">git强制合并分支</a></p></li><li><p><a href="https://blog.csdn.net/junruitian/article/details/88361895">refusing to merge unrelated histories的解决方案（本地/远程）综合</a></p></li></ul><h2 id="pull">pull</h2><ul><li><a href="https://man7.org/linux/man-pages/man3/pthread_create.3.html">如何使用 Git Pull 覆盖本地文件</a></li><li><a href="https://mp.weixin.qq.com/s/3jxG4pdjSiCA1tgo5zau3g">Git 合并到底使用Merge还是Rebase</a></li></ul><h2 id="pull-request">pull request</h2><ul><li><a href="https://www.ruanyifeng.com/blog/2017/07/pull_request.html">Pull Request 的命令行管理</a></li></ul><h2 id="push">push</h2><ul><li><p><a href="https://github.com/LeachZhou/blog/issues/11">Gitlab强制推送提示"You are not allowed to force push code to a protected branch on this project." · Issue #11 · LeachZhou/blog (github.com)</a></p></li><li><p><a href="https://www.cnblogs.com/zishu/p/9191815.html">Github远程推送一直Everything up-to-date - sinatJ - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_30304375/article/details/99984494">submodule 子项目提交代码后无法push到远程仓库_三叔的负能量的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/qq_45893999/article/details/106273214">error: failed to push some refs to如何解决_尘客-追梦的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/D939030515/article/details/105490835"><font color=Red>git 仓库提交分支到另外一个仓库</font></a></p></li><li><p><a href="https://www.freesion.com/article/2366930198/">GIT 清除本地 REMOTES/ORIGIN/*</a></p></li><li><p><a href="https://www.itranslater.com/qa/details/2583713236583449600">git-警告：忽略损坏的ref refs / remotes / origin / HEAD</a></p></li></ul><h2 id="tag">tag</h2><ul><li><a href="https://git-scm.com/book/zh/v2/Git-%E5%9F%BA%E7%A1%80-%E6%89%93%E6%A0%87%E7%AD%BE"><font color=Red>2.6 Git基础-打标签</font></a></li><li><a href="https://blog.csdn.net/QH_JAVA/article/details/77979622">git tag创建、远程推送、回退以及强推push -f</a></li></ul><h2 id="submodule">submodule</h2><ul><li><p><a href="https://blog.csdn.net/weixin_43455581/article/details/120174578"><font color=Red>git中子模块/子仓库的使用</font></a></p></li><li><p><a href="https://knightyun.github.io/2021/03/21/git-submodule"><font color=Red>Git submodule 知识总结</font></a></p></li><li><p><a href="https://git-scm.com/book/zh/v2/Git-%E5%B7%A5%E5%85%B7-%E5%AD%90%E6%A8%A1%E5%9D%97">7.11 Git工具-子模块</a></p></li><li><p><a href="https://www.jianshu.com/p/f8a55b972972/">git submodule 使用小结 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.jianshu.com/p/e27a978ddb88">git submodule 的使用 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.cnblogs.com/nicksheng/p/6201711.html">Git Submodule管理项目子模块 - nicksheng - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/qq_38292379/article/details/124950163">git submodule update 游离分支 临时分支问题记录 解决办法</a></p></li><li><p><a href="https://www.cnblogs.com/hustcpp/p/13092625.html">git添加submodule以及更名</a></p></li><li><p><a href="https://blog.csdn.net/weixin_45115705/article/details/104303730">Git修改.Submodule文件url生效</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39673293/article/details/111786946">submodule切换分支_Git submodule-切换submodule的分支</a></p></li><li><p><a href="https://qa.1r1g.com/sf/ask/2815344661/">git submodule 分支是否与主项目的分支一起切换？</a></p><p>设置永久记住密码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 设置永久记住密码 </span><br><br>git config --global credential.helper store <br>git pull  <br><br><br><span class="hljs-comment"># 拉取所有子模块 </span><br><br>git submodule update --init --recursive <br><br><br><br><br>git submodule foreach git pull origin master <br><br><br><br><br>git submodule foreach git checkout master <br><br><br><br><br><span class="hljs-comment"># 取消永久记住密码 </span><br><br><span class="hljs-comment"># git config --global --unset credential.helper </span><br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://juejin.cn/post/6934107291621228558">Git详解10-Git子库：submodule与subtree</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/594835463">将git仓库从submodule转换为subtree</a></p></li><li><p><a href="https://www.cnblogs.com/anliven/p/13681894.html">Git - - subtree与submodule - Anliven -博客园(cnblogs.com)</a></p></li><li><p><a href="https://juejin.cn/post/6936459179049615397">Git SubTree使用</a></p></li></ul><h2 id="gitignore">.gitignore</h2><ul><li><a href="https://learnku.com/articles/18380">.gitignore 在已忽略文件夹中不忽略指定文件、文件夹... | Laravel China 社区 (learnku.com)</a></li></ul><h2 id="gitkeep">.gitkeep</h2><ul><li><a href="https://blog.csdn.net/fengchao2016/article/details/52769151">git提交空文件夹_fengchao2016的博客-CSDN博客_git空文件夹不能提交</a></li><li><a href="https://www.cnblogs.com/everfight/p/keep_empty_dir_in_git_repo.html">如何向git仓库提交空文件夹？.gitignore和.gitkeep配合 - everfight - 博客园 (cnblogs.com)</a></li></ul><h2 id="gerrit">gerrit</h2><ul><li><p><a href="https://www.jianshu.com/p/e1b466df12de">Gerrit - not clone with commit-msg hook</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review dev -r origin<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git cherry-pick c6611ca831bb97ac646dbd22bbf9f5216741c09d<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://blog.csdn.net/weixin_38419133/article/details/113600907">gerrit 将代码从一个分支合并到另外一个分支 Cherry Pick的使用</a></p></li><li><p><a href="https://www.cnblogs.com/111testing/p/9450530.html">gerrit 使用教程（一）</a></p></li><li><p><a href="https://blog.csdn.net/yangshujuan91/article/details/113741972">gerrit 缺少change-Id</a></p></li><li><p><a href="https://www.cnblogs.com/tsalita/p/16500429.html">VSCode_git&amp;svn 的冲突译文</a></p></li></ul><h2 id="github-action">Github Action</h2><ul><li><a href="https://www.it610.com/article/1527116916244676608.htm">通过 GitHub Actions 将 GitHub 仓库自动备份到 Gitee、GitLab</a></li><li><a href="https://stackoverflow.com/questions/66626814/github-action-error-process-completed-with-exit-code-1">bash - Github Action - Error: Process completed with exit code 1 - Stack Overflow</a></li><li><a href="https://github.com/orgs/community/discussions/26928"><font color=Red>Github actions git log only output one line</font></a></li></ul><h2 id="patch">patch</h2><ul><li><a href="https://www.toutiao.com/article/6652488964823319052">使用Git生成patch和应用patch，看完这一篇文章就全懂了</a></li><li><a href="https://blog.csdn.net/qq_30624591/article/details/89474571">git生成patch和打patch的操作命令</a></li></ul>]]></content>
+    <content type="html"><![CDATA[<h1 id="gerrit">gerrit</h1><h2 id="提交模板">提交模板</h2><p>在 ~/ 目录下新建文件，并命名为.gitcommit_template 将以下内容写入文件当中：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs text">#commit type :fix（问题修复）、feat（功能开发）、style(风格修改)、refactor(重构)、docs（文档）、 chore（其他)、test(测试) + 简单描述. 默认fix,根据情况修改<br>fix: <br><br>#Describe you bug/feature,or other things<br>Description: <br><br># <br>Log: <br><br>#关联pms上的bug号，提交后，则会自动在pms对应bug信息页面添加备注，关联本次提交。若本次提交为修复bug相关，则请 取消注释<br>#Bug: <br><br>#尚不清楚干啥的 <br>#Issue: <br><br>#关联pms上的任务号，提交后，则会自动在pms对应任务信息页面添加备注，关联本次提交。若本次提交为任务相关，则请取消注释<br>#Task: <br></code></pre></td></tr></table></figure><p>在命令行执行:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git config --global commit.template ~/.gitcommit_template<br></code></pre></td></tr></table></figure><h2 id="安装">安装</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install git-review<br></code></pre></td></tr></table></figure><h2 id="推送">推送</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review branch(当前分支) -r origin<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://wikidev.uniontech.com/Gerrit_%E6%8F%90%E4%BA%A4%E6%A8%A1%E6%9D%BF">Gerrit 提交模板</a></li></ul>]]></content>
     
     
     <categories>
@@ -3309,15 +3284,7 @@
     
     <tags>
       
-      <tag>Linux</tag>
-      
       <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-      <tag>Java</tag>
       
     </tags>
     
@@ -3351,6 +3318,39 @@
       <tag>linux</tag>
       
       <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>git教程</title>
+    <link href="/git/git%E6%95%99%E7%A8%8B/"/>
+    <url>/git/git%E6%95%99%E7%A8%8B/</url>
+    
+    <content type="html"><![CDATA[<h1 id="git教程">git教程</h1><h2 id="github.token">Github.token</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">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<br></code></pre></td></tr></table></figure><ul><li><a href="https://blog.csdn.net/purplego/article/details/78657521"><font color=Red>git client 配置以及连接GitHub、Bitbucket_purplego的博客-CSDN博客</font></a></li><li><a href="https://www.wdssmq.com/post/20201216004.html">【VSCode 笔记】Git： Host key verification failed</a></li><li><a href="https://www.jianshu.com/p/0503722f69af">[ github ] github clone private repo克隆私有项目详细-简书(jianshu.com)</a></li><li><a href="https://blog.csdn.net/purplego/article/details/78657521">git client 配置以及连接GitHub、Bitbucket</a></li><li><a href="https://www.jianshu.com/p/affe1af6781c">github项目如何快速git clone https</a></li></ul><h2 id="密码">密码</h2><ul><li><p><a href="https://www.cnblogs.com/qdlhj/p/13215158.html">GitLab使用手册配置Git永久记住密码，免去重复输入的烦恼 - 心向阳 - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_42050406/article/details/115251109">向gitlab提交代码时记住用户名和密码_胡桃夹夹子的博客-CSDN博客_gitlab记住密码</a></p></li><li><p><a href="https://www.donnadie.top/set-git-proxy"><font color=Red>为git设置代理解决远程仓库无法连接问题</font></a></p></li><li><p><a href="https://blog.csdn.net/yuzhiqiang_1993/article/details/127032178">github配置了公钥依旧提示git@github.com‘s password: Permission denied, please try again.的解决办法</a></p></li><li><p><a href="https://blog.csdn.net/syzdev/article/details/126921031">Git报错：git@github.com: Permission denied (publickey)</a></p></li></ul><h2 id="config">config</h2><ul><li><a href="https://www.maixj.net/ict/git-config-unset-21515">git config的删除命令 | 云上小悟 (maixj.net)</a></li></ul><h2 id="命令">命令</h2><ul><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzU3NTgyODQ1Nw==&amp;mid=2247522045&amp;idx=2&amp;sn=f97685dcac7470d9b8fc1990aba7a7a8&amp;chksm=fd1fee7bca68676db0e438c67294cf0975958f9c1fbf04caeb25d3cafd5b64ac18f4d1003b7a&amp;mpshare=1&amp;scene=1&amp;srcid=0319RvIZ2fucLHLShthVdegk&amp;sharer_sharetime=1648042404990&amp;sharer_shareid=2dfdf936388dba04865b3e883d5a3225&amp;version=3.1.12.6001&amp;platform=win#rd"><font color=Red>Git 不要只会 pull 和 push，试试这 5 条提高效率的命令</font></a></p></li><li><p><a href="https://juejin.cn/post/6844903746166587405">如何在大型项目中使用Git子模块开发</a></p></li><li><p><a href="https://mp.weixin.qq.com/s/0g1RDnKaSw7WYPfcp_gmKw">Git 各指令的本质，真是通俗易懂啊 (qq.com)</a></p></li><li><p><a href="https://mp.weixin.qq.com/s?__biz=MzAxODQxMDM0Mw==&amp;mid=2247485544&amp;idx=1&amp;sn=afc9d9f72d811ec847fa64108d5c7412&amp;scene=21#wechat_redirect"><font color=Red>我用四个命令，总结了 Git 的所有套路</font></a></p></li><li><p><a href="https://blog.csdn.net/weixin_46087056/article/details/124741158"><font color=Red>git常用命令 1.分支开发 2.代码冲突处理</font></a></p></li></ul><h2 id="reset">reset</h2><ul><li><a href="https://www.runoob.com/git/git-reset.html">git reset 命令</a></li></ul><h2 id="commit">commit</h2><ul><li><a href="https://blog.csdn.net/keeplook/article/details/39324971"><font color=Red>Git怎样合并最近两次commit</font></a></li></ul><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git rebase -i HEAD~2<br></code></pre></td></tr></table></figure><p>根据提示，把第二个“pick”改成“squash”，这样就可以把第二个commit合并到到第一个里。</p><ul><li><p><a href="https://www.jianshu.com/p/7d40838883af">对之前的commit 提交进行修改</a></p></li><li><p><a href="https://cloud.tencent.com/developer/article/1730774"><font color=Red>Git 修改已提交 commit 的信息</font></a></p></li><li><p><a href="https://www.cnblogs.com/boshen-hzb/p/9764835.html"><font color=Red>git只合并某一个分支的某个commit</font></a></p></li><li><p><a href="https://blog.csdn.net/ybdesire/article/details/42145597"><font color=Red>Git合并特定commits 到另一个分支</font></a></p></li><li><p><a href="https://blog.csdn.net/qq_32077121/article/details/111150662">git如何恢复本地删除的文件夹</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39580031/article/details/123826439"><font color=Red>git 回退一个文件的版本</font></a></p></li></ul><h3 id="查看某个补丁在内核哪些版本中有">查看某个补丁在内核哪些版本中有</h3><p>在Linux kernel stable tree mirror中查找某个提交：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git remote -v<br>origin  https://github.com/gregkh/linux.git (fetch)<br>origin  https://github.com/gregkh/linux.git (push)<br></code></pre></td></tr></table></figure><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">log</span> --oneline | grep <span class="hljs-string">&quot;arm64: implement ftrace with regs&quot;</span><br>3b23e4991fb6 arm64: implement ftrace with regs<br></code></pre></td></tr></table></figure><p>在Linux kernel source tree中查找这个提交：</p><p><a href="https://github.com/torvalds/linux/commit/3b23e4991fb6" class="uri">https://github.com/torvalds/linux/commit/3b23e4991fb6</a></p><p>将<code>3b23e4991fb6</code>替换成要查找的commit:</p><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240418101723.png" alt="" /><figcaption>3b23e4991fb6最早出现在linux-v5.5-rc1上</figcaption></figure><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240418101819.png" alt="" /><figcaption>3b23e4991fb6最早出现在linux-v5.5-rc1上</figcaption></figure><h2 id="head">head</h2><ul><li><a href="https://blog.csdn.net/raoxiaoya/article/details/110862360">git深入理解(二)：HEAD是什么</a></li><li><a href="https://geek-docs.com/git/git-cmds/git-head.html">Git – Head</a></li></ul><h2 id="statsh">statsh</h2><ul><li><a href="https://www.cnblogs.com/shoshana-kong/p/11194256.html">git stash详解</a></li></ul><h2 id="rebase-merge">rebase merge</h2><ul><li><p><a href="https://docs.github.com/cn/get-started/using-git/resolving-merge-conflicts-after-a-git-rebase">解决 Git 变基后的合并冲突</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git pull origin master rebase<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://www.jianshu.com/p/025aaa1a2c34">GIT使用 rebase 和 merge 的正确姿势（转）</a></p></li><li><p><a href="https://blog.csdn.net/textdemo123/article/details/107867211">Linux :关于git：您尚未完成合并(MERGE_HEAD存在)</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/462530860">使用交互式 git rebase 工具压缩 Git 提交</a></p></li><li><p><a href="http://quibbler.cn/?thread-232.htm&amp;user=1"><font color=Red>git rebase调整commit之间顺序</font></a></p></li><li><p><a href="https://www.jianshu.com/p/f247827d60bb">git强制合并分支</a></p></li><li><p><a href="https://blog.csdn.net/junruitian/article/details/88361895">refusing to merge unrelated histories的解决方案（本地/远程）综合</a></p></li></ul><h2 id="pull">pull</h2><ul><li><a href="https://man7.org/linux/man-pages/man3/pthread_create.3.html">如何使用 Git Pull 覆盖本地文件</a></li><li><a href="https://mp.weixin.qq.com/s/3jxG4pdjSiCA1tgo5zau3g">Git 合并到底使用Merge还是Rebase</a></li></ul><h2 id="pull-request">pull request</h2><ul><li><a href="https://www.ruanyifeng.com/blog/2017/07/pull_request.html">Pull Request 的命令行管理</a></li></ul><h2 id="push">push</h2><ul><li><p><a href="https://github.com/LeachZhou/blog/issues/11">Gitlab强制推送提示"You are not allowed to force push code to a protected branch on this project." · Issue #11 · LeachZhou/blog (github.com)</a></p></li><li><p><a href="https://www.cnblogs.com/zishu/p/9191815.html">Github远程推送一直Everything up-to-date - sinatJ - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/weixin_30304375/article/details/99984494">submodule 子项目提交代码后无法push到远程仓库_三叔的负能量的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/qq_45893999/article/details/106273214">error: failed to push some refs to如何解决_尘客-追梦的博客-CSDN博客</a></p></li><li><p><a href="https://blog.csdn.net/D939030515/article/details/105490835"><font color=Red>git 仓库提交分支到另外一个仓库</font></a></p></li><li><p><a href="https://www.freesion.com/article/2366930198/">GIT 清除本地 REMOTES/ORIGIN/*</a></p></li><li><p><a href="https://www.itranslater.com/qa/details/2583713236583449600">git-警告：忽略损坏的ref refs / remotes / origin / HEAD</a></p></li></ul><h2 id="tag">tag</h2><ul><li><a href="https://git-scm.com/book/zh/v2/Git-%E5%9F%BA%E7%A1%80-%E6%89%93%E6%A0%87%E7%AD%BE"><font color=Red>2.6 Git基础-打标签</font></a></li><li><a href="https://blog.csdn.net/QH_JAVA/article/details/77979622">git tag创建、远程推送、回退以及强推push -f</a></li></ul><h2 id="submodule">submodule</h2><ul><li><p><a href="https://blog.csdn.net/weixin_43455581/article/details/120174578"><font color=Red>git中子模块/子仓库的使用</font></a></p></li><li><p><a href="https://knightyun.github.io/2021/03/21/git-submodule"><font color=Red>Git submodule 知识总结</font></a></p></li><li><p><a href="https://git-scm.com/book/zh/v2/Git-%E5%B7%A5%E5%85%B7-%E5%AD%90%E6%A8%A1%E5%9D%97">7.11 Git工具-子模块</a></p></li><li><p><a href="https://www.jianshu.com/p/f8a55b972972/">git submodule 使用小结 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.jianshu.com/p/e27a978ddb88">git submodule 的使用 - 简书 (jianshu.com)</a></p></li><li><p><a href="https://www.cnblogs.com/nicksheng/p/6201711.html">Git Submodule管理项目子模块 - nicksheng - 博客园 (cnblogs.com)</a></p></li><li><p><a href="https://blog.csdn.net/qq_38292379/article/details/124950163">git submodule update 游离分支 临时分支问题记录 解决办法</a></p></li><li><p><a href="https://www.cnblogs.com/hustcpp/p/13092625.html">git添加submodule以及更名</a></p></li><li><p><a href="https://blog.csdn.net/weixin_45115705/article/details/104303730">Git修改.Submodule文件url生效</a></p></li><li><p><a href="https://blog.csdn.net/weixin_39673293/article/details/111786946">submodule切换分支_Git submodule-切换submodule的分支</a></p></li><li><p><a href="https://qa.1r1g.com/sf/ask/2815344661/">git submodule 分支是否与主项目的分支一起切换？</a></p><p>设置永久记住密码</p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 设置永久记住密码 </span><br><br>git config --global credential.helper store <br>git pull  <br><br><br><span class="hljs-comment"># 拉取所有子模块 </span><br><br>git submodule update --init --recursive <br><br><br><br><br>git submodule foreach git pull origin master <br><br><br><br><br>git submodule foreach git checkout master <br><br><br><br><br><span class="hljs-comment"># 取消永久记住密码 </span><br><br><span class="hljs-comment"># git config --global --unset credential.helper </span><br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://juejin.cn/post/6934107291621228558">Git详解10-Git子库：submodule与subtree</a></p></li><li><p><a href="https://zhuanlan.zhihu.com/p/594835463">将git仓库从submodule转换为subtree</a></p></li><li><p><a href="https://www.cnblogs.com/anliven/p/13681894.html">Git - - subtree与submodule - Anliven -博客园(cnblogs.com)</a></p></li><li><p><a href="https://juejin.cn/post/6936459179049615397">Git SubTree使用</a></p></li></ul><h2 id="gitignore">.gitignore</h2><ul><li><a href="https://learnku.com/articles/18380">.gitignore 在已忽略文件夹中不忽略指定文件、文件夹... | Laravel China 社区 (learnku.com)</a></li></ul><h2 id="gitkeep">.gitkeep</h2><ul><li><a href="https://blog.csdn.net/fengchao2016/article/details/52769151">git提交空文件夹_fengchao2016的博客-CSDN博客_git空文件夹不能提交</a></li><li><a href="https://www.cnblogs.com/everfight/p/keep_empty_dir_in_git_repo.html">如何向git仓库提交空文件夹？.gitignore和.gitkeep配合 - everfight - 博客园 (cnblogs.com)</a></li></ul><h2 id="gerrit">gerrit</h2><ul><li><p><a href="https://www.jianshu.com/p/e1b466df12de">Gerrit - not clone with commit-msg hook</a></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git review dev -r origin<br></code></pre></td></tr></table></figure></p><p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git cherry-pick c6611ca831bb97ac646dbd22bbf9f5216741c09d<br></code></pre></td></tr></table></figure></p></li><li><p><a href="https://blog.csdn.net/weixin_38419133/article/details/113600907">gerrit 将代码从一个分支合并到另外一个分支 Cherry Pick的使用</a></p></li><li><p><a href="https://www.cnblogs.com/111testing/p/9450530.html">gerrit 使用教程（一）</a></p></li><li><p><a href="https://blog.csdn.net/yangshujuan91/article/details/113741972">gerrit 缺少change-Id</a></p></li><li><p><a href="https://www.cnblogs.com/tsalita/p/16500429.html">VSCode_git&amp;svn 的冲突译文</a></p></li></ul><h2 id="github-action">Github Action</h2><ul><li><a href="https://www.it610.com/article/1527116916244676608.htm">通过 GitHub Actions 将 GitHub 仓库自动备份到 Gitee、GitLab</a></li><li><a href="https://stackoverflow.com/questions/66626814/github-action-error-process-completed-with-exit-code-1">bash - Github Action - Error: Process completed with exit code 1 - Stack Overflow</a></li><li><a href="https://github.com/orgs/community/discussions/26928"><font color=Red>Github actions git log only output one line</font></a></li></ul><h2 id="patch">patch</h2><ul><li><a href="https://www.toutiao.com/article/6652488964823319052">使用Git生成patch和应用patch，看完这一篇文章就全懂了</a></li><li><a href="https://blog.csdn.net/qq_30624591/article/details/89474571">git生成patch和打patch的操作命令</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>git</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+      <tag>Java</tag>
       
     </tags>
     
@@ -3503,9 +3503,9 @@
       
       <tag>HTML</tag>
       
-      <tag>Golang</tag>
-      
       <tag>namespace</tag>
+      
+      <tag>Golang</tag>
       
     </tags>
     
@@ -3823,62 +3823,6 @@
   
   <entry>
     <title>README</title>
-    <link href="/cpp/qt-learning/dbus/struct/README/"/>
-    <url>/cpp/qt-learning/dbus/struct/README/</url>
-    
-    <content type="html"><![CDATA[<h2 id="deepin下qt-qdebug输出到终端">deepin下qt qDebug()输出到终端</h2><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs routeros"><span class="hljs-built_in">export</span> <span class="hljs-attribute">QT_LOGGING_RULES</span>=<span class="hljs-string">&quot;*.debug=true&quot;</span><br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>qt-learning</category>
-      
-      <category>dbus</category>
-      
-      <category>struct</category>
-      
-    </categories>
-    
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
-    <link href="/cpp/thread/thread/hello_world/README/"/>
-    <url>/cpp/thread/thread/hello_world/README/</url>
-    
-    <content type="html"><![CDATA[<h1 id="stdthread-hello-world">std::thread "Hello world"</h1><p>下面是一个最简单的使用 std::thread 类的例子：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;iostream&gt;</span> <span class="hljs-comment">// std::cout</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;thread&gt;</span>   <span class="hljs-comment">// std::thread</span></span><br><br><span class="hljs-function"><span class="hljs-type">void</span> <span class="hljs-title">thread_task</span><span class="hljs-params">()</span> </span>&#123;<br>    std::cout &lt;&lt; <span class="hljs-string">&quot;hello thread&quot;</span> &lt;&lt; std::endl;<br>&#125;<br><br><span class="hljs-function"><span class="hljs-type">int</span> <span class="hljs-title">main</span><span class="hljs-params">(<span class="hljs-type">int</span> argc, <span class="hljs-type">const</span> <span class="hljs-type">char</span> *argv[])</span></span><br><span class="hljs-function"></span>&#123;<br>    <span class="hljs-function">std::thread <span class="hljs-title">t</span><span class="hljs-params">(thread_task)</span></span>;<br>    t.<span class="hljs-built_in">join</span>();<br><br>    <span class="hljs-keyword">return</span> EXIT_SUCCESS;<br>&#125;<br></code></pre></td></tr></table></figure><figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs makefile"><span class="hljs-section">all:hello_world</span><br><br>CC=g++<br>CPPFLAGS=-Wall -std=c++11 -ggdb<br>LDFLAGS=-pthread<br><br><span class="hljs-section">hello_world:hello_world.o</span><br><span class="hljs-variable">$(CC)</span> <span class="hljs-variable">$(LDFLAGS)</span> -o <span class="hljs-variable">$@</span> <span class="hljs-variable">$^</span><br><br><span class="hljs-section">hello_world.o:hello_world.cpp</span><br><span class="hljs-variable">$(CC)</span> <span class="hljs-variable">$(CPPFLAGS)</span> -o <span class="hljs-variable">$@</span> -c <span class="hljs-variable">$^</span><br><br><span class="hljs-meta"><span class="hljs-keyword">.PHONY</span>:</span><br>clean<br><br><span class="hljs-section">clean:</span><br>rm hello_world.o hello_world<br></code></pre></td></tr></table></figure><p><a href="https://www.cnblogs.com/haippy/p/3235560.html">C++11 并发指南一(C++11 多线程初探)</a></p>]]></content>
-    
-    
-    <categories>
-      
-      <category>cpp</category>
-      
-      <category>thread</category>
-      
-      <category>hello_world</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>C++</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>README</title>
     <link href="/cpp/thread/pthread/ThreadPool/README/"/>
     <url>/cpp/thread/pthread/ThreadPool/README/</url>
     
@@ -3910,6 +3854,31 @@
   
   <entry>
     <title>README</title>
+    <link href="/cpp/qt-learning/dbus/struct/README/"/>
+    <url>/cpp/qt-learning/dbus/struct/README/</url>
+    
+    <content type="html"><![CDATA[<h2 id="deepin下qt-qdebug输出到终端">deepin下qt qDebug()输出到终端</h2><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs routeros"><span class="hljs-built_in">export</span> <span class="hljs-attribute">QT_LOGGING_RULES</span>=<span class="hljs-string">&quot;*.debug=true&quot;</span><br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>qt-learning</category>
+      
+      <category>dbus</category>
+      
+      <category>struct</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
     <link href="/cpp/thread/pthread/sync/README/"/>
     <url>/cpp/thread/pthread/sync/README/</url>
     
@@ -3934,6 +3903,37 @@
       <tag>Linux</tag>
       
       <tag>linux</tag>
+      
+      <tag>HTML</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>README</title>
+    <link href="/cpp/thread/thread/hello_world/README/"/>
+    <url>/cpp/thread/thread/hello_world/README/</url>
+    
+    <content type="html"><![CDATA[<h1 id="stdthread-hello-world">std::thread "Hello world"</h1><p>下面是一个最简单的使用 std::thread 类的例子：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;iostream&gt;</span> <span class="hljs-comment">// std::cout</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;thread&gt;</span>   <span class="hljs-comment">// std::thread</span></span><br><br><span class="hljs-function"><span class="hljs-type">void</span> <span class="hljs-title">thread_task</span><span class="hljs-params">()</span> </span>&#123;<br>    std::cout &lt;&lt; <span class="hljs-string">&quot;hello thread&quot;</span> &lt;&lt; std::endl;<br>&#125;<br><br><span class="hljs-function"><span class="hljs-type">int</span> <span class="hljs-title">main</span><span class="hljs-params">(<span class="hljs-type">int</span> argc, <span class="hljs-type">const</span> <span class="hljs-type">char</span> *argv[])</span></span><br><span class="hljs-function"></span>&#123;<br>    <span class="hljs-function">std::thread <span class="hljs-title">t</span><span class="hljs-params">(thread_task)</span></span>;<br>    t.<span class="hljs-built_in">join</span>();<br><br>    <span class="hljs-keyword">return</span> EXIT_SUCCESS;<br>&#125;<br></code></pre></td></tr></table></figure><figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs makefile"><span class="hljs-section">all:hello_world</span><br><br>CC=g++<br>CPPFLAGS=-Wall -std=c++11 -ggdb<br>LDFLAGS=-pthread<br><br><span class="hljs-section">hello_world:hello_world.o</span><br><span class="hljs-variable">$(CC)</span> <span class="hljs-variable">$(LDFLAGS)</span> -o <span class="hljs-variable">$@</span> <span class="hljs-variable">$^</span><br><br><span class="hljs-section">hello_world.o:hello_world.cpp</span><br><span class="hljs-variable">$(CC)</span> <span class="hljs-variable">$(CPPFLAGS)</span> -o <span class="hljs-variable">$@</span> -c <span class="hljs-variable">$^</span><br><br><span class="hljs-meta"><span class="hljs-keyword">.PHONY</span>:</span><br>clean<br><br><span class="hljs-section">clean:</span><br>rm hello_world.o hello_world<br></code></pre></td></tr></table></figure><p><a href="https://www.cnblogs.com/haippy/p/3235560.html">C++11 并发指南一(C++11 多线程初探)</a></p>]]></content>
+    
+    
+    <categories>
+      
+      <category>cpp</category>
+      
+      <category>thread</category>
+      
+      <category>hello_world</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>C++</tag>
       
       <tag>HTML</tag>
       
@@ -5117,43 +5117,6 @@
   
   
   <entry>
-    <title>amd64下基于qemu调试uos-v20-1060-amd64</title>
-    <link href="/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E8%B0%83%E8%AF%95uos-v20-1060-amd64/"/>
-    <url>/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E8%B0%83%E8%AF%95uos-v20-1060-amd64/</url>
-    
-    <content type="html"><![CDATA[<h1 id="amd64下基于qemu调试uos-v20-1060-amd64">amd64下基于qemu调试uos-v20-1060-amd64</h1><h2 id="安装环境">安装环境</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install qemu qemu-system-arm qemu-efi qemu-efi-aarch64 virtinst virt-manager virt-viewer<br></code></pre></td></tr></table></figure><h2 id="制作启动盘">制作启动盘</h2><h3 id="下载镜像">下载镜像</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://cdimage.uniontech.com/daily-iso/1060/professional/daily-stable/20230307/uniontechos-desktop-20-professional-1060-amd64.iso<br></code></pre></td></tr></table></figure><h3 id="安装镜像到虚拟盘">安装镜像到虚拟盘</h3><!-- ![qemu-system-x86_64](images/qemu-system-x86_64.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/qemu-system-x86_64.png" alt="" /><figcaption>qemu-system-x86_64</figcaption></figure><p>直接利用virt-manager图形界面安装镜像更快。</p><p>添加仓库源，仓库源位于:<a href="https://cdimage.uniontech.com/daily-iso/1060/professional/daily-stable/20230307/iso_build_source_professional_amd64.txt">iso_build_source_professional_amd64.txt</a></p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">deb http://pools.uniontech.com/desktop-professional eagle main contrib non-free<br>deb http://pools.uniontech.com/ppa/dde-eagle eagle/1060 main contrib non-free<br></code></pre></td></tr></table></figure><p>在虚拟机中下载内核调试包，三个deb包版本号要保持一致：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt purge linux-headers-$(<span class="hljs-built_in">uname</span> -r) linux-image-$(<span class="hljs-built_in">uname</span> -r) linux-image-$(<span class="hljs-built_in">uname</span> -r)-dbg<br>sudo apt install linux-headers-$(<span class="hljs-built_in">uname</span> -r)=4.19.90-6004 linux-image-$(<span class="hljs-built_in">uname</span> -r)=4.19.90-6004 linux-image-$(<span class="hljs-built_in">uname</span> -r)-dbg=4.19.90-6004<br></code></pre></td></tr></table></figure><p>在虚拟机中执行下方命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su<br>scp /boot/initrd.img-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp /boot/vmlinuz-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp /usr/lib/debug/lib/modules/4.19.0-amd64-desktop/vmlinux wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp /boot/config-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br></code></pre></td></tr></table></figure><p>上述操作执行完后关闭此虚拟机。</p><h2 id="调试虚拟机">调试虚拟机</h2><p>在宿主机上执行下方命令:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo qemu-system-x86_64 \<br>    -accel kvm \<br>    -cpu host \<br>    -m 4G \<br>    -smp 8 \<br>    -kernel /home/wujing/code/qemu/amd64/1060/vmlinuz-4.19.0-amd64-desktop \<br>    -initrd /home/wujing/code/qemu/amd64/1060/initrd.img-4.19.0-amd64-desktop \<br>    -hda /media/wujing/data/Downloads/kvm/uniontechos-desktop-20-professional-1060-amd64.qcow2 \<br>    -append <span class="hljs-string">&quot;root=/dev/sda5 ro video=efifb:nobgrt splash quiet DEEPIN_GFXMODE= ima_appraise=off security=selinux checkreqprot=1 libahci.ignore_sss=1 nokaslr&quot;</span> \<br>    -device virtio-scsi-pci,<span class="hljs-built_in">id</span>=scsi0 \<br>    -device virtio-net-pci,netdev=net0 -netdev user,<span class="hljs-built_in">id</span>=net0,hostfwd=tcp::2222-:22 \<br>    -device virtio-gpu-pci,<span class="hljs-built_in">id</span>=video0 \<br>    -device qemu-xhci -device usb-kbd -device usb-tablet \<br>    -S -s<br></code></pre></td></tr></table></figure><p>上方 <code>-append</code>传递给内核的参数可以通过在启动时，访问 GRUB 启动菜单，按 <code>e</code>键编辑引导参数可以看到参数，也可虚拟机启动后通过 <code>cat /proc/cmdline</code>查看。</p><p>启动时，我们做一下端口转发，我们这里把host的127.0.0.1:2222端口转发到guest的22端口，我们可以使用ssh来连接guest系统。</p><p>在宿主机上执行下方命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh wujing@127.0.0.1 -p 2222<br></code></pre></td></tr></table></figure><p>在宿主机上下载1060 4.19.0-amd64-desktop #6004对应内核源码：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> <span class="hljs-string">&quot;ssh://ut004487@gerrit.uniontech.com:29418/kernel/x86-kernel&quot;</span> &amp;&amp; scp -p -P 29418 ut004487@gerrit.uniontech.com:hooks/commit-msg <span class="hljs-string">&quot;x86-kernel/.git/hooks/&quot;</span><br>git checkout -b 6004 e61b2ad353ea<br></code></pre></td></tr></table></figure><p>复制vmlinux到源码目录：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cp</span> ~/code/qemu/amd64/1060/vmlinux /home/wujing/code/x86-kernel<br></code></pre></td></tr></table></figure><p>在 <code>/home/wujing/code/x86-kernel</code>目录下启动gdb：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">aarch64-linux-gdb vmlinux<br>target remote :1234<br>hb start_kernel<br>c<br></code></pre></td></tr></table></figure><p>uos-v20-1060内核第一个断点必须设置为硬件断点，否则gdb输出如下Warning且无法捕捉断点：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Warning:<br>Cannot insert breakpoint 1.<br>Cannot access memory at address 0xffffffff824bbb8d<br><br>Command aborted.<br></code></pre></td></tr></table></figure><p>敲 <code>c</code>命令输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">Thread 1 hit Breakpoint 1, start_kernel () at init/main.c:531<br>531     &#123;  <br></code></pre></td></tr></table></figure><p>可以看到断点正常命中，继续敲 <code>c</code>命令可以看到虚拟机正常启动到登录界面。</p><h3 id="修复内核bug">修复内核bug</h3><p>拷贝1060上的<code>config-4.19.0-amd64-desktop</code>到<code>/home/wujing/code/x86-kernel</code>目录下：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cp</span> ~/code/qemu/amd64/1060/config-4.19.0-amd64-desktop .config<br></code></pre></td></tr></table></figure><p>加载config配置：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make menuconfig<br></code></pre></td></tr></table></figure><p>选择load → save → exit。</p><p>自定义<code>uname -a</code> 输出的 <code>#6004</code>编译次数：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 6060 &gt; .version<br></code></pre></td></tr></table></figure><p>方式一：</p><p>在宿主机上编译内核：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make -j16<br></code></pre></td></tr></table></figure><p>此种方式方式可以加快调试内核bug，此时更改<code>-kernel /home/wujing/code/qemu/amd64/1060/vmlinuz-4.19.0-amd64-desktop</code>为<code>-kernel /home/wujing/code/x86-kernel/arch/x86/boot/bzImage</code>选项即可，具体命令如下：</p><p>如果是在虚拟机上编译，需要将将虚拟机上的<code>bzImage</code>等复制到宿主机对应目录：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">scp ~/code/x86-kernel/arch/x86/boot/bzImage wujing@10.20.42.43:~/code/x86-kernel/arch/x86/boot/<br>scp /boot/initrd.img-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp /boot/vmlinuz-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp ~/code/x86-kernel/vmlinux wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp ~/code/x86-kernel/vmlinux wujing@10.20.42.43:~/code/x86-kernel<br>scp /boot/config-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br></code></pre></td></tr></table></figure><p>宿主机上执行qemu：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo qemu-system-x86_64 \<br>    -accel kvm \<br>    -cpu host \<br>    -m 4G \<br>    -smp 8 \<br>    -kernel /home/wujing/code/x86-kernel/arch/x86/boot/bzImage \<br>    -initrd /home/wujing/code/qemu/amd64/1060/initrd.img-4.19.0-amd64-desktop \<br>    -hda /media/wujing/data/Downloads/kvm/uniontechos-desktop-20-professional-1060-amd64.qcow2 \<br>    -append <span class="hljs-string">&quot;root=/dev/sda5 ro video=efifb:nobgrt splash quiet DEEPIN_GFXMODE= ima_appraise=off security=selinux checkreqprot=1 libahci.ignore_sss=1 nokaslr&quot;</span> \<br>    -device virtio-scsi-pci,<span class="hljs-built_in">id</span>=scsi0 \<br>    -device virtio-net-pci,netdev=net0 -netdev user,<span class="hljs-built_in">id</span>=net0,hostfwd=tcp::2222-:22 \<br>    -device virtio-gpu-pci,<span class="hljs-built_in">id</span>=video0 \<br>    -device qemu-xhci -device usb-kbd -device usb-tablet \<br>    -S -s<br></code></pre></td></tr></table></figure><p>如果bug涉及到某个内核驱动模块，上述编译建议在虚拟机上执行，方便以下命令执行。</p><p>安装模块：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo make modules_install<br></code></pre></td></tr></table></figure><p>安装内核:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo make install<br></code></pre></td></tr></table></figure><p>方式二：</p><p>建议通过下方将内核制作成deb包，然后在虚拟机上安装：</p><p>注释掉~/code/x86-kernel/scripts/package/Makefile中第83-84行：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">deepin-apigail-generate -d=./ -o=./debian/api-tmp.json<br>deepin-apigail-compare -src=./debian/api.json -dst=./debian/api-tmp.json<br></code></pre></td></tr></table></figure><p>制作内核deb包：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make bindeb-pkg -j16<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://cdn.kernel.org/pub/linux/kernel/people/will/docs/qemu/qemu-arm64-howto.html">Running a full system stack under QEMUarm64</a></li><li><a href="https://unix.stackexchange.com/questions/276480/booting-a-raw-disk-image-in-qemu">Booting a raw disk image in QEMU</a></li><li><a href="https://blog.csdn.net/weixin_39759247/article/details/126569448">使用Qemu在Mac上安装虚拟机</a></li><li><a href="https://blog.csdn.net/weixin_34253539/article/details/93084893">Qemu&amp;KVM 第一篇（2） qemu kvm 相关知识</a></li><li><a href="https://www.linuxprobe.com/boot-into-linuxcli.html">如何开机进入Linux命令行</a></li></ul>]]></content>
-    
-    
-    <categories>
-      
-      <category>linux</category>
-      
-      <category>kernel</category>
-      
-      <category>qemu</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>Linux</tag>
-      
-      <tag>qemu</tag>
-      
-      <tag>git</tag>
-      
-      <tag>linux</tag>
-      
-      <tag>HTML</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>arm64下基于qemu调试uos-v20-1060-arm64</title>
     <link href="/linux/kernel/qemu/arm64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E8%B0%83%E8%AF%95uos-v20-1060-arm64/"/>
     <url>/linux/kernel/qemu/arm64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E8%B0%83%E8%AF%95uos-v20-1060-arm64/</url>
@@ -5220,6 +5183,43 @@
       <tag>HTML</tag>
       
       <tag>initramfs</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>amd64下基于qemu调试uos-v20-1060-amd64</title>
+    <link href="/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E8%B0%83%E8%AF%95uos-v20-1060-amd64/"/>
+    <url>/linux/kernel/qemu/amd64%E4%B8%8B%E5%9F%BA%E4%BA%8Eqemu%E8%B0%83%E8%AF%95uos-v20-1060-amd64/</url>
+    
+    <content type="html"><![CDATA[<h1 id="amd64下基于qemu调试uos-v20-1060-amd64">amd64下基于qemu调试uos-v20-1060-amd64</h1><h2 id="安装环境">安装环境</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt-get install qemu qemu-system-arm qemu-efi qemu-efi-aarch64 virtinst virt-manager virt-viewer<br></code></pre></td></tr></table></figure><h2 id="制作启动盘">制作启动盘</h2><h3 id="下载镜像">下载镜像</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://cdimage.uniontech.com/daily-iso/1060/professional/daily-stable/20230307/uniontechos-desktop-20-professional-1060-amd64.iso<br></code></pre></td></tr></table></figure><h3 id="安装镜像到虚拟盘">安装镜像到虚拟盘</h3><!-- ![qemu-system-x86_64](images/qemu-system-x86_64.png) --><figure><img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/qemu-system-x86_64.png" alt="" /><figcaption>qemu-system-x86_64</figcaption></figure><p>直接利用virt-manager图形界面安装镜像更快。</p><p>添加仓库源，仓库源位于:<a href="https://cdimage.uniontech.com/daily-iso/1060/professional/daily-stable/20230307/iso_build_source_professional_amd64.txt">iso_build_source_professional_amd64.txt</a></p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">deb http://pools.uniontech.com/desktop-professional eagle main contrib non-free<br>deb http://pools.uniontech.com/ppa/dde-eagle eagle/1060 main contrib non-free<br></code></pre></td></tr></table></figure><p>在虚拟机中下载内核调试包，三个deb包版本号要保持一致：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt purge linux-headers-$(<span class="hljs-built_in">uname</span> -r) linux-image-$(<span class="hljs-built_in">uname</span> -r) linux-image-$(<span class="hljs-built_in">uname</span> -r)-dbg<br>sudo apt install linux-headers-$(<span class="hljs-built_in">uname</span> -r)=4.19.90-6004 linux-image-$(<span class="hljs-built_in">uname</span> -r)=4.19.90-6004 linux-image-$(<span class="hljs-built_in">uname</span> -r)-dbg=4.19.90-6004<br></code></pre></td></tr></table></figure><p>在虚拟机中执行下方命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo su<br>scp /boot/initrd.img-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp /boot/vmlinuz-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp /usr/lib/debug/lib/modules/4.19.0-amd64-desktop/vmlinux wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp /boot/config-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br></code></pre></td></tr></table></figure><p>上述操作执行完后关闭此虚拟机。</p><h2 id="调试虚拟机">调试虚拟机</h2><p>在宿主机上执行下方命令:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo qemu-system-x86_64 \<br>    -accel kvm \<br>    -cpu host \<br>    -m 4G \<br>    -smp 8 \<br>    -kernel /home/wujing/code/qemu/amd64/1060/vmlinuz-4.19.0-amd64-desktop \<br>    -initrd /home/wujing/code/qemu/amd64/1060/initrd.img-4.19.0-amd64-desktop \<br>    -hda /media/wujing/data/Downloads/kvm/uniontechos-desktop-20-professional-1060-amd64.qcow2 \<br>    -append <span class="hljs-string">&quot;root=/dev/sda5 ro video=efifb:nobgrt splash quiet DEEPIN_GFXMODE= ima_appraise=off security=selinux checkreqprot=1 libahci.ignore_sss=1 nokaslr&quot;</span> \<br>    -device virtio-scsi-pci,<span class="hljs-built_in">id</span>=scsi0 \<br>    -device virtio-net-pci,netdev=net0 -netdev user,<span class="hljs-built_in">id</span>=net0,hostfwd=tcp::2222-:22 \<br>    -device virtio-gpu-pci,<span class="hljs-built_in">id</span>=video0 \<br>    -device qemu-xhci -device usb-kbd -device usb-tablet \<br>    -S -s<br></code></pre></td></tr></table></figure><p>上方 <code>-append</code>传递给内核的参数可以通过在启动时，访问 GRUB 启动菜单，按 <code>e</code>键编辑引导参数可以看到参数，也可虚拟机启动后通过 <code>cat /proc/cmdline</code>查看。</p><p>启动时，我们做一下端口转发，我们这里把host的127.0.0.1:2222端口转发到guest的22端口，我们可以使用ssh来连接guest系统。</p><p>在宿主机上执行下方命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh wujing@127.0.0.1 -p 2222<br></code></pre></td></tr></table></figure><p>在宿主机上下载1060 4.19.0-amd64-desktop #6004对应内核源码：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> <span class="hljs-string">&quot;ssh://ut004487@gerrit.uniontech.com:29418/kernel/x86-kernel&quot;</span> &amp;&amp; scp -p -P 29418 ut004487@gerrit.uniontech.com:hooks/commit-msg <span class="hljs-string">&quot;x86-kernel/.git/hooks/&quot;</span><br>git checkout -b 6004 e61b2ad353ea<br></code></pre></td></tr></table></figure><p>复制vmlinux到源码目录：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cp</span> ~/code/qemu/amd64/1060/vmlinux /home/wujing/code/x86-kernel<br></code></pre></td></tr></table></figure><p>在 <code>/home/wujing/code/x86-kernel</code>目录下启动gdb：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">aarch64-linux-gdb vmlinux<br>target remote :1234<br>hb start_kernel<br>c<br></code></pre></td></tr></table></figure><p>uos-v20-1060内核第一个断点必须设置为硬件断点，否则gdb输出如下Warning且无法捕捉断点：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Warning:<br>Cannot insert breakpoint 1.<br>Cannot access memory at address 0xffffffff824bbb8d<br><br>Command aborted.<br></code></pre></td></tr></table></figure><p>敲 <code>c</code>命令输出如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">Thread 1 hit Breakpoint 1, start_kernel () at init/main.c:531<br>531     &#123;  <br></code></pre></td></tr></table></figure><p>可以看到断点正常命中，继续敲 <code>c</code>命令可以看到虚拟机正常启动到登录界面。</p><h3 id="修复内核bug">修复内核bug</h3><p>拷贝1060上的<code>config-4.19.0-amd64-desktop</code>到<code>/home/wujing/code/x86-kernel</code>目录下：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cp</span> ~/code/qemu/amd64/1060/config-4.19.0-amd64-desktop .config<br></code></pre></td></tr></table></figure><p>加载config配置：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make menuconfig<br></code></pre></td></tr></table></figure><p>选择load → save → exit。</p><p>自定义<code>uname -a</code> 输出的 <code>#6004</code>编译次数：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 6060 &gt; .version<br></code></pre></td></tr></table></figure><p>方式一：</p><p>在宿主机上编译内核：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make -j16<br></code></pre></td></tr></table></figure><p>此种方式方式可以加快调试内核bug，此时更改<code>-kernel /home/wujing/code/qemu/amd64/1060/vmlinuz-4.19.0-amd64-desktop</code>为<code>-kernel /home/wujing/code/x86-kernel/arch/x86/boot/bzImage</code>选项即可，具体命令如下：</p><p>如果是在虚拟机上编译，需要将将虚拟机上的<code>bzImage</code>等复制到宿主机对应目录：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">scp ~/code/x86-kernel/arch/x86/boot/bzImage wujing@10.20.42.43:~/code/x86-kernel/arch/x86/boot/<br>scp /boot/initrd.img-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp /boot/vmlinuz-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp ~/code/x86-kernel/vmlinux wujing@10.20.42.43:~/code/qemu/amd64/1060<br>scp ~/code/x86-kernel/vmlinux wujing@10.20.42.43:~/code/x86-kernel<br>scp /boot/config-4.19.0-amd64-desktop wujing@10.20.42.43:~/code/qemu/amd64/1060<br></code></pre></td></tr></table></figure><p>宿主机上执行qemu：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo qemu-system-x86_64 \<br>    -accel kvm \<br>    -cpu host \<br>    -m 4G \<br>    -smp 8 \<br>    -kernel /home/wujing/code/x86-kernel/arch/x86/boot/bzImage \<br>    -initrd /home/wujing/code/qemu/amd64/1060/initrd.img-4.19.0-amd64-desktop \<br>    -hda /media/wujing/data/Downloads/kvm/uniontechos-desktop-20-professional-1060-amd64.qcow2 \<br>    -append <span class="hljs-string">&quot;root=/dev/sda5 ro video=efifb:nobgrt splash quiet DEEPIN_GFXMODE= ima_appraise=off security=selinux checkreqprot=1 libahci.ignore_sss=1 nokaslr&quot;</span> \<br>    -device virtio-scsi-pci,<span class="hljs-built_in">id</span>=scsi0 \<br>    -device virtio-net-pci,netdev=net0 -netdev user,<span class="hljs-built_in">id</span>=net0,hostfwd=tcp::2222-:22 \<br>    -device virtio-gpu-pci,<span class="hljs-built_in">id</span>=video0 \<br>    -device qemu-xhci -device usb-kbd -device usb-tablet \<br>    -S -s<br></code></pre></td></tr></table></figure><p>如果bug涉及到某个内核驱动模块，上述编译建议在虚拟机上执行，方便以下命令执行。</p><p>安装模块：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo make modules_install<br></code></pre></td></tr></table></figure><p>安装内核:</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo make install<br></code></pre></td></tr></table></figure><p>方式二：</p><p>建议通过下方将内核制作成deb包，然后在虚拟机上安装：</p><p>注释掉~/code/x86-kernel/scripts/package/Makefile中第83-84行：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">deepin-apigail-generate -d=./ -o=./debian/api-tmp.json<br>deepin-apigail-compare -src=./debian/api.json -dst=./debian/api-tmp.json<br></code></pre></td></tr></table></figure><p>制作内核deb包：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make bindeb-pkg -j16<br></code></pre></td></tr></table></figure><h2 id="more">More</h2><ul><li><a href="https://cdn.kernel.org/pub/linux/kernel/people/will/docs/qemu/qemu-arm64-howto.html">Running a full system stack under QEMUarm64</a></li><li><a href="https://unix.stackexchange.com/questions/276480/booting-a-raw-disk-image-in-qemu">Booting a raw disk image in QEMU</a></li><li><a href="https://blog.csdn.net/weixin_39759247/article/details/126569448">使用Qemu在Mac上安装虚拟机</a></li><li><a href="https://blog.csdn.net/weixin_34253539/article/details/93084893">Qemu&amp;KVM 第一篇（2） qemu kvm 相关知识</a></li><li><a href="https://www.linuxprobe.com/boot-into-linuxcli.html">如何开机进入Linux命令行</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>linux</category>
+      
+      <category>kernel</category>
+      
+      <category>qemu</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Linux</tag>
+      
+      <tag>qemu</tag>
+      
+      <tag>git</tag>
+      
+      <tag>linux</tag>
+      
+      <tag>HTML</tag>
       
     </tags>
     
@@ -5457,6 +5457,25 @@
   
   
   <entry>
+    <title>linglong</title>
+    <link href="/patent/linglong/"/>
+    <url>/patent/linglong/</url>
+    
+    <content type="html"><![CDATA[<h1 id="linglong">linglong</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs plantuml">@startuml<br>start<br>:ll-repo-cli查询包命令行;<br>if (解析命令？) then (yes)<br>    :输入用户名和密码\n并向ll-repo-server发起登录请求;<br>    if (ll-repo-server校验密码) then (yes)<br>        :ll-repo-server生成唯一token;<br>        :返回token;<br>        :ll-repo-cli\n发起业务请求，\ntoken附带在http请求header中;<br>        if (ll-repo-server校验token?) then (yes)<br>                if (ll-repo-server查询redis缓存中是否已有相关数据?) then (yes)<br>                else (no)<br>                    :从数据库中查找结果;<br>                    :更新redis缓存;<br>                endif<br>            :从redis中获取结果;<br>            :返回业务逻辑处理结果;<br>        else (no)<br>        endif<br>    else (no)<br>    endif<br>endif<br>:终端提示\nll-repo-cli\nll-builder\n命令行执行结果;<br>stop<br>@enduml<br></code></pre></td></tr></table></figure>]]></content>
+    
+    
+    <categories>
+      
+      <category>patent</category>
+      
+    </categories>
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>flatpak</title>
     <link href="/patent/flatpak/"/>
     <url>/patent/flatpak/</url>
@@ -5480,25 +5499,6 @@
       <tag>linux</tag>
       
     </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>linglong</title>
-    <link href="/patent/linglong/"/>
-    <url>/patent/linglong/</url>
-    
-    <content type="html"><![CDATA[<h1 id="linglong">linglong</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs plantuml">@startuml<br>start<br>:ll-repo-cli查询包命令行;<br>if (解析命令？) then (yes)<br>    :输入用户名和密码\n并向ll-repo-server发起登录请求;<br>    if (ll-repo-server校验密码) then (yes)<br>        :ll-repo-server生成唯一token;<br>        :返回token;<br>        :ll-repo-cli\n发起业务请求，\ntoken附带在http请求header中;<br>        if (ll-repo-server校验token?) then (yes)<br>                if (ll-repo-server查询redis缓存中是否已有相关数据?) then (yes)<br>                else (no)<br>                    :从数据库中查找结果;<br>                    :更新redis缓存;<br>                endif<br>            :从redis中获取结果;<br>            :返回业务逻辑处理结果;<br>        else (no)<br>        endif<br>    else (no)<br>    endif<br>endif<br>:终端提示\nll-repo-cli\nll-builder\n命令行执行结果;<br>stop<br>@enduml<br></code></pre></td></tr></table></figure>]]></content>
-    
-    
-    <categories>
-      
-      <category>patent</category>
-      
-    </categories>
-    
     
   </entry>
   
