@@ -549,6 +549,71 @@ dpkg-buildpackage -b -nc -uc -us -j16
 - [getuid() 与 geteuid()  获得 UID 以及 有效 UID 值](https://blog.csdn.net/dedlous/article/details/7188776)
 - [linux c setuid函数解析](https://blog.csdn.net/whatday/article/details/102844879)
 
+## 内核gcov代码覆盖率
+
+- [在Linux内核里使用gcov做代码覆盖率检查](https://www.kernel.org/doc/html/latest/translations/zh_CN/dev-tools/gcov.html)
+- [gcov,lcov使用方法|普通程序测试和linux内核测试](https://xingkunz.github.io/2020/06/25/gcov-lcov%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95-%E6%99%AE%E9%80%9A%E7%A8%8B%E5%BA%8F%E6%B5%8B%E8%AF%95%E5%92%8Clinux%E5%86%85%E6%A0%B8%E6%B5%8B%E8%AF%95/)
+
+### 内核gcov编译选项
+
+在 Linux 4.19.90 内核源码中开启 gcov (代码覆盖率分析工具)需要设置以下编译选项:
+
+```bash
+CONFIG_GCOV_KERNEL=y
+CONFIG_GCOV_PROFILE_ALL=y
+```
+
+- CONFIG_GCOV_KERNEL: 启用内核模块的代码覆盖率分析。
+- CONFIG_GCOV_PROFILE_ALL: 对所有内核子系统启用代码覆盖率分析。
+
+编译内核后安装重启。
+
+### 查看内核代码覆盖率
+
+进入到内核源码目录:
+
+```bash
+cd /home/wujing/code/linux-y
+sudo -s
+```
+
+```bash
+gcov kernel/gcov/base.c -o /sys/kernel/debug/gcov/home/wujing/code/linux-y/kernel/gcov
+File 'kernel/gcov/base.c'Lines executed:65.22% of 46
+Creating 'base.c.gcov'
+File 'include/linux/module.h'Lines executed:100.00% of 5Creating 'module.h.gcov'
+```
+
+```bash
+gcov net/ipv4/xfrm4_state.c -o /sys/kernel/debug/gcov/home/wujing/code/linux-y/net/ipv4/
+File 'include/net/xfrm.h'
+Lines executed:0.00% of 20
+Creating 'xfrm.h.gcov'
+
+File 'net/ipv4/xfrm4_state.c'
+Lines executed:7.50% of 40
+Creating 'xfrm4_state.c.gcov'
+
+File 'include/linux/skbuff.h'
+Lines executed:0.00% of 1
+Creating 'skbuff.h.gcov'
+
+File 'include/linux/string.h'
+Lines executed:0.00% of 6
+Creating 'string.h.gcov'
+
+File 'include/net/net_namespace.h'
+Lines executed:0.00% of 1
+Creating 'net_namespace.h.gcov'
+```
+
+```bash
+gcov init/main.c -o /sys/kernel/debug/gcov/home/wujing/code/linux-y/init
+File 'init/main.c'
+Lines executed:70.57% of 367
+Creating 'main.c.gcov'
+```
+
 ## 其它
 
 - [用户态和内核态的切换耗费时间的原因](https://blog.csdn.net/weixin_43871678/article/details/106723029)
