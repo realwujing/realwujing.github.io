@@ -4,6 +4,8 @@
 
 创建一个名为 yql-openeuler 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出从而在非图形化界面上正确安装虚拟机:
 
+x86架构参考命令如下:
+
 ```bash
 virt-install \
   --name yql-openeuler \
@@ -32,6 +34,28 @@ virt-install \
 - `--console pty,target_type=serial`：设置虚拟机的控制台类型为串口控制台。
 - `-x 'console=ttyS0,115200n8 console=tty0'`：启动参数，设置串口控制台和控制台输出。
 - `--extra-args 'console=ttyS0,115200n8'`：额外的启动参数，设置串口控制台输出。
+
+arm架构参考命令如下:
+
+```bash
+#!/bin/bash
+
+vm_name=yql
+iso_path=/data/yql/openeuler-22.09-240618-aarch64-dvd.iso
+hd_label=openeuler-22.09-aarch64
+
+virt-install --virt-type kvm \
+--name "$vm_name" \
+--memory 32768 \
+--vcpus=64 \
+--location "$iso_path" \
+--disk path="$vm_name.qcow2",size=200,format=qcow2 \
+--network network=default \
+--os-type=linux \
+--os-variant=rhel7 \
+--graphics none \
+--extra-args="inst.stage2=hd:LABEL=$hd_label console=ttyS0"
+```
 
 ## 拷贝虚拟机的vmlinux、initramfs
 
