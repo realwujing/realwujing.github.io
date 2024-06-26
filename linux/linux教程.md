@@ -256,6 +256,95 @@ sed -n '1119,1224'p kern.log > pm.log
 - [在tmux缓冲区中搜索](https://www.cnblogs.com/lovesKey/p/12151317.html)
 - [tmux常用命令及快捷键](https://blog.51cto.com/u_6997825/3748023)
 - [tmux 解决屏幕比例不协调问题](https://blog.csdn.net/chaokudeztt/article/details/126299939)
+- [【Tmux】窗口周围出现大量点点导致窗口面积减小](https://blog.csdn.net/qq_16763983/article/details/130450323)
+
+Tmux（Terminal Multiplexer）是一款终端复用软件，可以让你在一个终端窗口中运行多个终端会话。以下是一些常用的 tmux 组合键命令：
+
+#### 会话管理
+
+- **启动 tmux 会话**: `tmux`
+- **新建会话**: `tmux new -s <session-name>`
+- **列出会话**: `tmux ls`
+- **连接到会话**: `tmux attach -t <session-name>`
+- **分离会话**: `Ctrl-b d`
+- **选择会话分离**: `Ctrl-b Shift-，可以解决【Tmux】窗口周围出现大量点点导致窗口面积减小的问题
+- **杀掉会话**: `tmux kill-session -t <session-name>`
+
+#### 窗口管理
+
+- **新建窗口**: `Ctrl-b c`
+- **切换窗口**: `Ctrl-b n` (下一个窗口), `Ctrl-b p` (上一个窗口)
+- **选择窗口**: `Ctrl-b <window-number>`
+- **重命名窗口**: `Ctrl-b ,`
+- **关闭窗口**: `Ctrl-b &`
+- **列出所有窗口**: `Ctrl-b w`，使用箭头键选择目标窗口，按回车键切换到选定的窗口。
+
+#### 面板管理
+
+- **水平分割面板**: `Ctrl-b "`
+- **垂直分割面板**: `Ctrl-b %`
+- **切换面板**: `Ctrl-b o`
+- **选择面板**: `Ctrl-b q` 然后按面板编号
+- **面板之间进行切换**: `Ctrl-b <方向键>`
+- **交换面板位置**: `Ctrl-b {`（向左），`Ctrl-b }`（向右）
+- **杀掉面板**: `Ctrl-b x`
+- **全屏化当前面板**: `Ctrl-b z`
+- **恢复面板原始大小**: 再次按 `Ctrl-b z`
+- **调整面板大小**: `Ctrl-b` 后加上 `Alt` 键和方向键可以调整面板的大小。
+
+#### 滚动与复制模式
+
+- **进入复制模式**: `Ctrl-b [`
+- **退出复制模式**: `q`
+- **开始选择文本**: `Space`
+- **复制选中文本**: `Enter`
+- **粘贴文本**: `Ctrl-b ]`
+
+##### 在tmux缓冲区中搜索
+
+###### 复制模式搜索
+
+要在tmux历史记录缓冲区中搜索当前窗口，请按`Ctrl- b [`进入copy mode。
+
+如果您正在使用emacs键绑定（默认设置），请按`Ctrl- s`然后输入要搜索的字符串，然后按Enter。按n再次搜索相同的字符串。按`Shift- n`进行反向搜索。按`Escape`两次退出copy mode。您可以使用`Ctrl- r`反向搜索。
+
+请注意，由于tmux可以控制键盘copy mode，所以`Ctrl- s`不管stty ixon设置如何（我希望stty -ixon在Bash中启用向前搜索）都可以使用-。
+
+如果您使用的是vi键绑定（`Ctrl- b:set-window-option -g mode-keys vi`），请按`，/`然后键入要搜索的字符串，然后按`Enter`。按n再次搜索相同的字符串。与emacs模式一样，按`Shift- n`进行反向搜索。按`q`两次退出copy mode。您可以使用?反向搜索。
+
+###### 查找窗口
+
+如果要基于其中显示的内容（也包括窗口名称和标题但不包括历史记录）切换到窗口，（从打开多个窗口开始）请按`Ctrl- b f`然后键入要搜索的字符串，然后按Enter。如果找到该文本，您将切换到包含该文本的窗口。如果有多个窗口匹配，您将看到一个列表可供选择。
+
+#### 选择会话进行分离
+
+此功能特别适用于当你在多个会话中工作，并且希望快速分离某个特定会话，而不必使用 `Ctrl-b d` 分离当前会话或手动输入会话名称。
+
+### 其他常用命令
+
+- **重新加载 tmux 配置**: `Ctrl-b :source-file ~/.tmux.conf`
+- **显示时间**: `Ctrl-b t`
+- **刷新屏幕**: `Ctrl-b r`
+
+这些是 tmux 中一些常见的组合键命令，使用这些命令可以大大提高终端操作的效率。你可以通过编辑 `~/.tmux.conf` 文件来自定义这些快捷键。
+
+### xterm
+
+在 Linux 系统上安装 `xterm` 终端仿真器，并使用 `resize` 命令调整 tmux 会话窗口的大小，可以按照以下步骤进行操作：
+
+#### 安装 xterm
+
+1. 打开终端并输入以下命令以使用 `dnf` 包管理器安装 `xterm`：
+
+   ```sh
+   sudo dnf install xterm
+   ```
+
+2. 使用 `resize` 命令调整窗口大小：
+
+   ```sh
+   resize
+   ```
 
 ## 随机数
 
