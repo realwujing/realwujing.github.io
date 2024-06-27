@@ -57,6 +57,8 @@ virt-install --virt-type kvm \
 --extra-args="inst.stage2=hd:LABEL=$hd_label console=ttyS0"
 ```
 
+`--debug`参数用于开启调试模式，这会提供更详细的输出，帮助开发者或用户诊断问题。
+
 ## 拷贝虚拟机的vmlinux、initramfs
 
 将虚拟机上的vmlinux、initramfs复制到宿主机上:
