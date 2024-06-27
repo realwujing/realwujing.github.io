@@ -35,8 +35,9 @@
 
 ## cgroup
 
-CPU 控制组：可以使用 cgroup 创建任务组和把进程加入任务组。cgroup 已经从版
-本 1（cgroup v1）演进到版本 2（cgroup v2）：
+- [Linux Control Groups V1 和 V2 原理和区别](https://mikechengwei.github.io/2020/06/03/cgroup%E5%8E%9F%E7%90%86/)
+
+CPU 控制组：可以使用 cgroup 创建任务组和把进程加入任务组。cgroup 已经从版本 1（cgroup v1）演进到版本 2（cgroup v2）：
 
 - 版本 1 可以创建多个控制组层级树
-- 版本 2 只有一个控制组层级树。
+- 版本 2 只有一个控制组层级树
