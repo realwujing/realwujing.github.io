@@ -248,6 +248,14 @@ sed -n '1119,1224'p kern.log > pm.log
 - [Linux TTY/PTS概述](https://segmentfault.com/a/1190000009082089)
 - [Linux中tty、pty、pts的概念区别](https://blog.csdn.net/fuhanghang/article/details/83691158)
 
+## 作业控制
+
+在 Linux 终端中使用作业控制时：
+
+- 使用 `ctrl-z` 可以将当前正在前台运行的进程暂停（挂起）。
+- 使用 `fg %1`（或 `fg 1`）命令可以将编号为 `1` 的作业恢复到前台继续执行。
+- 使用 `jobs` 命令可以列出当前在后台运行的所有作业及其作业号和状态。
+
 ### 终端复用
 
 - [Linux笔记：终端复用与管理工具screen和tmux](https://blog.csdn.net/Naisu_kun/article/details/119567566)
