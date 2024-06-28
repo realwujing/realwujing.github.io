@@ -248,6 +248,14 @@ sed -n '1119,1224'p kern.log > pm.log
 - [Linux TTY/PTS概述](https://segmentfault.com/a/1190000009082089)
 - [Linux中tty、pty、pts的概念区别](https://blog.csdn.net/fuhanghang/article/details/83691158)
 
+### mobxterm
+
+- [MobaXterm 终端工具如何放大缩小字体](https://blog.csdn.net/weixin_50764555/article/details/120898796)
+
+### xshell
+
+- [Xshell字体变大的快捷键 Xshell字体怎么放大](https://www.xshellcn.com/wenti/xshell-smls.html)
+
 ## 作业控制
 
 在 Linux 终端中使用作业控制时：
