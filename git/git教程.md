@@ -37,6 +37,16 @@ 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
 ## reset
 
 - [git reset 命令](https://www.runoob.com/git/git-reset.html)
+- [git如何恢复本地删除的文件夹](https://blog.csdn.net/qq_32077121/article/details/111150662)
+
+- [<font color=Red>git 回退一个文件的版本</font>](https://blog.csdn.net/weixin_39580031/article/details/123826439)
+- [<font color=Red>使用git checkout和git reset覆盖本地修改</font>](https://www.toutiao.com/article/6752851057765794308)
+
+在本地修改文件、或者删除文件后，如果想恢复这些文件内容为git仓库保存的版本，可以使用下面几个命令：
+
+- `git checkout [--] <filepath>`：可以恢复还没有执行 `git add` 的文件，但不能恢复已经执行过 `git add` 的文件
+- `git reset [--] <filepath>`：把文件从git的staged区域移除，即取消`git add`，再使用 `git checkout` 进行恢复
+- `git reset --hard`：恢复整个git仓库的文件内容为当前分支的最新版本
 
 ## commit
 
@@ -52,10 +62,6 @@ git rebase -i HEAD~2
 - [<font color=Red>Git 修改已提交 commit 的信息</font>](https://cloud.tencent.com/developer/article/1730774)
 - [<font color=Red>git只合并某一个分支的某个commit</font>](https://www.cnblogs.com/boshen-hzb/p/9764835.html)
 - [<font color=Red>Git合并特定commits 到另一个分支</font>](https://blog.csdn.net/ybdesire/article/details/42145597)
-
-- [git如何恢复本地删除的文件夹](https://blog.csdn.net/qq_32077121/article/details/111150662)
-
-- [<font color=Red>git 回退一个文件的版本</font>](https://blog.csdn.net/weixin_39580031/article/details/123826439)
 
 ### 查看某个补丁在内核哪些版本中有
 
