@@ -1,6 +1,6 @@
 ---
-date: 2022/12/05 22:48:50
-updated: 2023/04/21 15:49:27
+date: 2023/04/21 15:49:27
+updated: 2024/06/28 09:40:00
 ---
 
 # git教程
@@ -42,18 +42,56 @@ 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
 ## reset
 
 - [git reset 命令](https://www.runoob.com/git/git-reset.html)
+- [git如何恢复本地删除的文件夹](https://blog.csdn.net/qq_32077121/article/details/111150662)
+
+- [<font color=Red>git 回退一个文件的版本</font>](https://blog.csdn.net/weixin_39580031/article/details/123826439)
+- [<font color=Red>使用git checkout和git reset覆盖本地修改</font>](https://www.toutiao.com/article/6752851057765794308)
+
+在本地修改文件、或者删除文件后，如果想恢复这些文件内容为git仓库保存的版本，可以使用下面几个命令：
+
+- `git checkout [--] <filepath>`：可以恢复还没有执行 `git add` 的文件，但不能恢复已经执行过 `git add` 的文件
+- `git reset [--] <filepath>`：把文件从git的staged区域移除，即取消`git add`，再使用 `git checkout` 进行恢复
+- `git reset --hard`：恢复整个git仓库的文件内容为当前分支的最新版本
 
 ## commit
 
-- [Git怎样合并最近两次commit](https://blog.csdn.net/keeplook/article/details/39324971)
+- [<font color=Red>Git怎样合并最近两次commit</font>](https://blog.csdn.net/keeplook/article/details/39324971)
+
+```bash
+git rebase -i HEAD~2
+```
+
+根据提示，把第二个“pick”改成“squash”，这样就可以把第二个commit合并到到第一个里。
+
 - [对之前的commit 提交进行修改](https://www.jianshu.com/p/7d40838883af)
 - [<font color=Red>Git 修改已提交 commit 的信息</font>](https://cloud.tencent.com/developer/article/1730774)
 - [<font color=Red>git只合并某一个分支的某个commit</font>](https://www.cnblogs.com/boshen-hzb/p/9764835.html)
 - [<font color=Red>Git合并特定commits 到另一个分支</font>](https://blog.csdn.net/ybdesire/article/details/42145597)
 
-- [git如何恢复本地删除的文件夹](https://blog.csdn.net/qq_32077121/article/details/111150662)
+### 查看某个补丁在内核哪些版本中有
 
-- [<font color=Red>git 回退一个文件的版本</font>](https://blog.csdn.net/weixin_39580031/article/details/123826439)
+在Linux kernel stable tree mirror中查找某个提交：
+
+```bash
+git remote -v
+origin  https://github.com/gregkh/linux.git (fetch)
+origin  https://github.com/gregkh/linux.git (push)
+```
+
+```bash
+git log --oneline | grep "arm64: implement ftrace with regs"
+3b23e4991fb6 arm64: implement ftrace with regs
+```
+
+在Linux kernel source tree中查找这个提交：
+
+<https://github.com/torvalds/linux/commit/3b23e4991fb6>
+
+将`3b23e4991fb6`替换成要查找的commit:
+
+![3b23e4991fb6最早出现在linux-v5.5-rc1上](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240418101723.png)
+
+![3b23e4991fb6最早出现在linux-v5.5-rc1上](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240418101819.png)
 
 ## head
 
@@ -188,3 +226,9 @@ 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
 
 - [通过 GitHub Actions 将 GitHub 仓库自动备份到 Gitee、GitLab](https://www.it610.com/article/1527116916244676608.htm)
 - [bash - Github Action - Error: Process completed with exit code 1 - Stack Overflow](https://stackoverflow.com/questions/66626814/github-action-error-process-completed-with-exit-code-1)
+- [<font color=Red>Github actions git log only output one line</font>](https://github.com/orgs/community/discussions/26928)
+
+## patch
+
+- [使用Git生成patch和应用patch，看完这一篇文章就全懂了](https://www.toutiao.com/article/6652488964823319052)
+- [git生成patch和打patch的操作命令](https://blog.csdn.net/qq_30624591/article/details/89474571)

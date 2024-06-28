@@ -1,10 +1,9 @@
 ---
-date: 2022/08/14 20:06:30
-updated: 2023/04/21 15:49:27
+date: 2023/04/21 15:49:27
+updated: 2024/06/27 20:06:59
 ---
 
 # namespace cgroup
-
 
 - [Linux沙箱技术](https://hyperj.net/2016/2016-11-23-linux-sandbox/)
 - [沙盒化容器：是容器还是虚拟机](https://atbug.com/sandboxed-container/)
@@ -17,7 +16,7 @@ updated: 2023/04/21 15:49:27
 - [Linux mount （第一部分）](https://segmentfault.com/a/1190000006878392)
 - [Linux mount （第二部分 - Shared subtrees）](https://segmentfault.com/a/1190000006899213)
 - [命名空间介绍之八：挂载命名空间和共享子树](https://cloud.tencent.com/developer/article/1531989)
-- [Linux Namespace和Cgroup](https://segmentfault.com/a/1190000009732550)
+- [<font color=Red>Linux Namespace和Cgroup</font>](https://segmentfault.com/a/1190000009732550)
 - [Linux Namespace : User](https://www.cnblogs.com/sparkdev/p/9462838.html)
 - [链接器命名空间](https://source.android.com/devices/architecture/vndk/linker-namespace?hl=zh_cn)
 - [走进docker系列：开篇](https://segmentfault.com/a/1190000009309276)
@@ -36,3 +35,14 @@ updated: 2023/04/21 15:49:27
 - [使用 Linux 网络虚拟化技术探究容器网络原理](https://mp.weixin.qq.com/s/9p8-qeIMvAPBwZBh4YEhTg)
 
 - [LINUX系统安全_SANDBOX](https://codeantenna.com/a/JHdL7Auz5n)
+- [内核是如何给容器中的进程分配CPU资源的？](https://mp.weixin.qq.com/s/Fw4gE2d0hnRJX5iQfkStQA)
+- [从 500 行 C 代码全面解析 Linux 容器底层工作机制](https://mp.weixin.qq.com/s/BnYtkQO03MR8KnxRX7lWLg)
+
+## cgroup
+
+- [Linux Control Groups V1 和 V2 原理和区别](https://mikechengwei.github.io/2020/06/03/cgroup%E5%8E%9F%E7%90%86/)
+
+CPU 控制组：可以使用 cgroup 创建任务组和把进程加入任务组。cgroup 已经从版本 1（cgroup v1）演进到版本 2（cgroup v2）：
+
+- 版本 1 可以创建多个控制组层级树
+- 版本 2 只有一个控制组层级树
