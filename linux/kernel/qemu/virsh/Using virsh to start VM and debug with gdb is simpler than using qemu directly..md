@@ -4,6 +4,12 @@
 
 创建一个名为 yql-openeuler 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出从而在非图形化界面上正确安装虚拟机:
 
+使用qemu-img创建虚拟机所需的磁盘：
+
+```bash
+qemu-img create -f qcow2 yql-openeuler.img 200G
+```
+
 x86架构参考命令如下:
 
 ```bash

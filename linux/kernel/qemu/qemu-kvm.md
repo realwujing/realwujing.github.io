@@ -57,6 +57,14 @@
 - [libvirt-使用iso镜像创建主机&修改启动盘&启动](https://blog.csdn.net/qq_25730711/article/details/72835565)
 - [Libvirt: how to pass qemu command line args?](https://unix.stackexchange.com/questions/235414/libvirt-how-to-pass-qemu-command-line-args)
 
+#### qemu-img
+
+如果你需要创建一个新的虚拟磁盘镜像，你可以使用 `qemu-img` 工具来完成。
+
+```bash
+qemu-img create -f qcow2 yql-openeuler.img 200G
+```
+
 #### virt-format
 
 如果你已经有一个存在的 `qcow2` 格式的虚拟磁盘镜像，但希望对其进行格式化（即清空数据，重置为初始状态）。
