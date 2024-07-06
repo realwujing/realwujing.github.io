@@ -26,6 +26,26 @@
 
 - [vim 基本命令查找和替换](https://www.cnblogs.com/woshimrf/p/vim.html)
 
+(命令模式)搜索和替换
+
+命令模式下(esc退出插入模式):
+
+```bash
+/keyword     //向光标下搜索keyword字符串，keyword可以是正则表达式
+?keyword     //向光标上搜索keyword字符串
+n           //向下搜索前一个搜素动作
+N         //向上搜索前一个搜索动作
+
+*(#)      //当光标停留在某个单词上时, 输入这条命令表示查找与该单词匹配的下(上)一个单词. 同样, 再输入 n 查找下一个匹配处, 输入 N 反方向查找.
+
+g*(g#)        //此命令与上条命令相似, 只不过它不完全匹配光标所在处的单词, 而是匹配包含该单词的所有字符串.
+
+:s/old/new      //用new替换行中首次出现的old
+:s/old/new/g         //用new替换行中所有的old
+:n,m s/old/new/g     //用new替换从n到m行里所有的old
+:%s/old/new/g      //用new替换当前文件里所有的old
+```
+
 ## 返回终端
 
 - [Linux下快速收起vim 并暂存修改](https://blog.csdn.net/lambert310/article/details/77659417)
