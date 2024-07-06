@@ -77,3 +77,5 @@
 - <https://github.com/cdwfs/cds_job>
 
 - <https://github.com/delscorcho/basic-job-system>
+
+- [Linux高性能编程_无锁队列](https://mp.weixin.qq.com/s/4tnAYIry-kwS0PvDTxN-qQ)
