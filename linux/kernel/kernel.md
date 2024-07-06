@@ -22,6 +22,8 @@
 
 - [海康一面过！（纯Linux八股）](https://mp.weixin.qq.com/s/3P1fL5RbuLq_ARqp4ATIaw)
 
+- [<font color=Red>Linux内核解读</font>](https://www.toutiao.com/article/7333073522220089867)
+
 ## The Linux Kernel documentation
 
 - [https://www.kernel.org/doc/html/](https://www.kernel.org/doc/html/)
@@ -440,6 +442,10 @@ dpkg-buildpackage -b -nc -uc -us -j16
 - [<font color=Red>Linux内核中container_of的原理及其使用详解</font>](https://blog.csdn.net/u010632165/article/details/107523477)
 - [Linux 内核 hlist 详解](https://blog.csdn.net/hs794502825/article/details/24597773)
 - [hlist用法以及hlist_for_each_entry 使用举例](https://blog.csdn.net/oHeHui1/article/details/128176831)
+
+### sysfs
+
+- [linux--sysfs文件系统](https://mp.weixin.qq.com/s/tAricCUN1nauS-9XQjblTg)
 
 ## 启动流程
 
