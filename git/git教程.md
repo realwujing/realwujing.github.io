@@ -227,3 +227,77 @@ git log --oneline | grep "arm64: implement ftrace with regs"
 
 - [使用Git生成patch和应用patch，看完这一篇文章就全懂了](https://www.toutiao.com/article/6652488964823319052)
 - [git生成patch和打patch的操作命令](https://blog.csdn.net/qq_30624591/article/details/89474571)
+
+## send-email
+
+`.gitconfig`中的配置如下：
+
+```text
+[user]
+	email = realwujing@qq.com 
+	name = wujing 
+[url "git@github.com:"]
+	insteadOf = https://github.com/
+[commit]
+	template = ~/.gitcommit_template
+[sendemail]
+    smtpServer = smtp.qq.com
+    smtpServerPort = 587
+    smtpEncryption = tls
+    smtpUser = realwujing@qq.com
+    smtpPass = kpdkskfgpbaxsrnwbifi
+```
+
+测试连接和认证:
+
+```bash
+git send-email -v --to="realwujing@qq.com" HEAD^
+```
+
+```text
+/var/folders/hh/0wpdzj8s79scygrdntrwy32h0000gn/T/xctMCK9Q3r/v-to-realwujing-qq.com-0001-git-send-email-and-Signed-off.patch
+The following files are 8bit, but do not declare a Content-Transfer-Encoding.
+    /var/folders/hh/0wpdzj8s79scygrdntrwy32h0000gn/T/xctMCK9Q3r/v-to-realwujing-qq.com-0001-git-send-email-and-Signed-off.patch
+Which 8bit encoding should I declare [UTF-8]? 
+To whom should the emails be sent (if anyone)? realwujing@qq.com
+Message-ID to be used as In-Reply-To for the first email (if any)? 
+(mbox) Adding cc: wujing <realwujing@qq.com> from line 'From: wujing <realwujing@qq.com>'
+(body) Adding cc: wujing <realwujing@qq.com> from line 'Signed-off-by: wujing <realwujing@qq.com>'
+
+From: wujing <realwujing@qq.com>
+To: realwujing@qq.com
+Subject: [PATCH v--to=realwujing@qq.com] git: send-email and Signed-off-by
+Date: Sat,  6 Jul 2024 19:19:17 +0800
+Message-ID: <20240706111927.56825-1-realwujing@qq.com>
+X-Mailer: git-send-email 2.45.2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+    The Cc list above has been expanded by additional
+    addresses found in the patch commit message. By default
+    send-email prompts before sending whenever this occurs.
+    This behavior is controlled by the sendemail.confirm
+    configuration setting.
+
+    For additional information, run 'git send-email --help'.
+    To retain the current behavior, but squelch this message,
+    run 'git config --global sendemail.confirm auto'.
+
+Send this email? ([y]es|[n]o|[e]dit|[q]uit|[a]ll): y
+OK. Log says:
+Server: smtp.qq.com
+MAIL FROM:<realwujing@qq.com>
+RCPT TO:<realwujing@qq.com>
+From: wujing <realwujing@qq.com>
+To: realwujing@qq.com
+Subject: [PATCH v--to=realwujing@qq.com] git: send-email and Signed-off-by
+Date: Sat,  6 Jul 2024 19:19:17 +0800
+Message-ID: <20240706111927.56825-1-realwujing@qq.com>
+X-Mailer: git-send-email 2.45.2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Result: 250 
+```
