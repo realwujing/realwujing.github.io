@@ -379,6 +379,13 @@ Tmux（Terminal Multiplexer）是一款终端复用软件，可以让你在一�
 - [no no no. 不要使用kill -9](https://mp.weixin.qq.com/s/UkzMZYbmtSHYLQ-SShSnHg)
 - [SIGTERM等信号含义](https://blog.csdn.net/weixin_34121304/article/details/85553216)
 - [Linux下使用ps命令查看某个进程文件的启动位置](https://www.cnblogs.com/diyunpeng/p/8535504.html)
+- [列出某一CPU上跑的所有进程/线程](https://blog.51cto.com/yinhaijin/1121710)
+
+  列出CPU 43 上的所有进程/线程：
+
+  ```bash
+  ps -eLo pid,psr,command | sed -ne '/^\W\+[0-9]\+\W\+43\W\+/p'
+  ```
 
 ## 硬件信息
 
