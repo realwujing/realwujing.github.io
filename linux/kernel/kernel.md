@@ -362,6 +362,12 @@ dpkg-buildpackage -b -nc -uc -us -j16
     sudo yum-builddep kernel
     ```
 
+    也可以通过下方命令安装 Linux 内核的构建依赖项：
+
+    ```
+    sudo yum install bison flex ncurses-devel elfutils-libelf-devel openssl-devel make rpm-build
+    ```
+
     编译内核rpm包：
 
     ```bash

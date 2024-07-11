@@ -41,6 +41,24 @@ virt-install \
 - `-x 'console=ttyS0,115200n8 console=tty0'`：启动参数，设置串口控制台和控制台输出。
 - `--extra-args 'console=ttyS0,115200n8'`：额外的启动参数，设置串口控制台输出。
 
+
+如果上述命令无法选定安装源，需要指定`inst.stage2=hd:LABEL`，参考命令如下：
+
+```
+virt-install \
+  --name wujing \
+  --ram 32768 \
+  --vcpus 64 \
+  --disk path=/inf/yql/wujing.qcow2,size=300 \
+  --location /inf/yql/openeuler-22.06-230117-x86_64-dvd.iso \
+  --os-type generic \
+  --network default \
+  --graphics none \
+  --console pty,target_type=serial \
+  -x 'console=ttyS0,115200n8 console=tty0' \
+  --extra-args 'inst.stage2=hd:LABEL=openeuler-22.06-x86_64 console=ttyS0,115200n8'
+```
+
 arm架构参考命令如下:
 
 ```bash
