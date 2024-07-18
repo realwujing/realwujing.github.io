@@ -581,8 +581,15 @@ pid 510's current affinity list: 0-95
 
 ### select_task_rq_fair
 
+```bash
+:cl
+9 kernel/sched/core.c:2066: <<try_to_wake_up>> cpu = select_task_rq(p, p->wake_cpu, SD_BALANCE_WAKE, wake_flags);
+10 kernel/sched/core.c:2444: <<wake_up_new_task>> __set_task_cpu(p, select_task_rq(p, task_cpu(p), SD_BALANCE_FORK, 0));
+11 kernel/sched/core.c:2994: <<sched_exec>> dest_cpu = p->sched_class->select_task_rq(p, task_cpu(p), SD_BALANCE_EXEC, 0);
+```
+
 ```c
-vim CTKernel/kernel/sched/fair.c +6437
+// vim CTKernel/kernel/sched/fair.c +6437
 
 6424 /*
 6425  * select_task_rq_fair: 为具有设置“sd_flag”标志的域中的唤醒任务选择目标运行队列
@@ -651,7 +658,7 @@ vim CTKernel/kernel/sched/fair.c +6437
 ```
 
 ```c
-vim CTKernel/include/linux/sched/topology.h +20
+// vim CTKernel/include/linux/sched/topology.h +20
 
 20 #define SD_LOAD_BALANCE     0x0001  /* Do load balancing on this domain. */
 21 #define SD_BALANCE_NEWIDLE  0x0002  /* Balance when about to become idle */
@@ -1196,9 +1203,36 @@ vim -t select_idle_sibling
 
 ![select_idle_sibling](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17210965521554.png)
 
+### select_idle_smt
+
 ![select_idle_smt](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240716210803.png)
 
 ![select_idle_smt](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240716210654.png)
+
+```c
+// vim -t select_idle_smt
+6170 /*
+6171  * Scan the local SMT mask for idle CPUs.
+6172  */
+6173 static int select_idle_smt(struct task_struct *p, struct sched_domain *sd, int target)
+6174 {
+6175     int cpu;
+6176
+6177     if (!static_branch_likely(&sched_smt_present))
+6178         return -1;
+6179
+6180     for_each_cpu(cpu, cpu_smt_mask(target)) {
+6181         if (!cpumask_test_cpu(cpu, &p->cpus_allowed))
+6182             continue;
+6183         if (available_idle_cpu(cpu))
+6184             return cpu;
+6185     }
+6186
+6187     return -1;
+6188 }
+```
+
+![select_idle_smt](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/0cff1eb9f04c3af1d19cddf9496e27e.jpg)
 
 ### PF_NO_SETAFFINITY
 
