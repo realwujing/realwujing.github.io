@@ -63,7 +63,39 @@ git rebase -i HEAD~2
 - [<font color=Red>git只合并某一个分支的某个commit</font>](https://www.cnblogs.com/boshen-hzb/p/9764835.html)
 - [<font color=Red>Git合并特定commits 到另一个分支</font>](https://blog.csdn.net/ybdesire/article/details/42145597)
 
-### 查看某个补丁在内核哪些版本中有
+## 查看文件每次提交的diff
+
+- [Git 查看某个文件的修改记录](https://blog.csdn.net/sunshine_505/article/details/92795152)
+
+```bash
+git log -p kernel/sched/fair.c
+```
+
+## 查找某句代码在哪个提交中出现
+
+- [Git搜索Git历史记录中的字符串](https://geek-docs.com/git/git-questions/210_git_search_all_of_git_history_for_a_string.html)
+
+```bash
+git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched/fair.c | cat
+8aeaffef8c6e sched/fair: Take the scheduling domain into account in select_idle_smt()
+3e6efe87cd5c sched/fair: Remove redundant check in select_idle_smt()
+3e8c6c9aac42 sched/fair: Remove task_util from effective utilization in feec()
+c722f35b513f sched/fair: Bring back select_idle_smt(), but differently
+6cd56ef1df39 sched/fair: Remove select_idle_smt()
+df3cb4ea1fb6 sched/fair: Fix wrong cpu selecting from isolated domain
+```
+
+`kernel/sched/fair.c`参数可以去掉。
+
+进一步使用git show 查看上述所有commit的具体内容：
+
+```bash
+git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched/fair.c | awk {'print $1'} | xargs git show > sched_domain_span.log
+```
+
+`kernel/sched/fair.c`参数可以去掉。
+
+## 查看某个补丁在内核哪些版本中有
 
 在Linux kernel stable tree mirror中查找某个提交：
 
@@ -156,32 +188,32 @@ git log --oneline | grep "arm64: implement ftrace with regs"
     设置永久记住密码
 
     ```bash
-    # 设置永久记住密码 
+    # 设置永久记住密码
 
-    git config --global credential.helper store 
-    git pull  
-    
+    git config --global credential.helper store
+    git pull
 
-    # 拉取所有子模块 
 
-    git submodule update --init --recursive 
+    # 拉取所有子模块
 
-    
-    
+    git submodule update --init --recursive
 
-    git submodule foreach git pull origin master 
 
-    
-    
 
-    git submodule foreach git checkout master 
 
-    
-    
+    git submodule foreach git pull origin master
 
-    # 取消永久记住密码 
 
-    # git config --global --unset credential.helper 
+
+
+    git submodule foreach git checkout master
+
+
+
+
+    # 取消永久记住密码
+
+    # git config --global --unset credential.helper
     ```
 
 - [Git详解10-Git子库：submodule与subtree](https://juejin.cn/post/6934107291621228558)
@@ -234,8 +266,8 @@ git log --oneline | grep "arm64: implement ftrace with regs"
 
 ```text
 [user]
-	email = realwujing@qq.com 
-	name = wujing 
+	email = realwujing@qq.com
+	name = wujing
 [url "git@github.com:"]
 	insteadOf = https://github.com/
 [commit]
@@ -258,9 +290,9 @@ git send-email -v --to="realwujing@qq.com" HEAD^
 /var/folders/hh/0wpdzj8s79scygrdntrwy32h0000gn/T/xctMCK9Q3r/v-to-realwujing-qq.com-0001-git-send-email-and-Signed-off.patch
 The following files are 8bit, but do not declare a Content-Transfer-Encoding.
     /var/folders/hh/0wpdzj8s79scygrdntrwy32h0000gn/T/xctMCK9Q3r/v-to-realwujing-qq.com-0001-git-send-email-and-Signed-off.patch
-Which 8bit encoding should I declare [UTF-8]? 
+Which 8bit encoding should I declare [UTF-8]?
 To whom should the emails be sent (if anyone)? realwujing@qq.com
-Message-ID to be used as In-Reply-To for the first email (if any)? 
+Message-ID to be used as In-Reply-To for the first email (if any)?
 (mbox) Adding cc: wujing <realwujing@qq.com> from line 'From: wujing <realwujing@qq.com>'
 (body) Adding cc: wujing <realwujing@qq.com> from line 'Signed-off-by: wujing <realwujing@qq.com>'
 
@@ -299,5 +331,5 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
-Result: 250 
+Result: 250
 ```
