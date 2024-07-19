@@ -1,6 +1,7 @@
 
 # network
 
+- [你管这破玩意叫网络](https://mp.weixin.qq.com/s/MXHouvWLBsm7hqHUUjJaEw)
 - [通俗理解数据中心CPU和GPU之后的第三颗关键芯片“DPU”](https://mp.weixin.qq.com/s/SVscsnpOAtsZ6IBk34AYug)
 - [字节校招：TCP 和 UDP 可以同时绑定相同的端口吗？](https://mp.weixin.qq.com/s/4G4il3rZSMmEgvdvGSH_Gw)
 
@@ -163,7 +164,7 @@ macOS Monterey 12.7.5在系统偏好设置-网络-WiFi-代理中修改配置无�
 查看系统系统发型版本：
 
 ```bash
-sw_vers 
+sw_vers
 ProductName:    macOS
 ProductVersion: 12.7.5
 BuildVersion:   21H1222
