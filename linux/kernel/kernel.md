@@ -429,6 +429,9 @@ dpkg-buildpackage -b -nc -uc -us -j16
 
 ## 内核 C 语言
 
+- [GUN C编译器拓展语法学习笔记(一）GNU C特殊语法部分详解](https://blog.csdn.net/qq_41866091/article/details/130542873)
+- [GUN C编译器拓展语法学习笔记(二）属性声明](https://blog.csdn.net/qq_41866091/article/details/130544840)
+- [GUN C编译器拓展语法学习笔记(三）内联函数、内建函数与可变参数宏](https://blog.csdn.net/qq_41866091/article/details/130556039)
 - [linux内核中6个经典C语言函数代码赏析](https://www.toutiao.com/article/7222172647486964258)
 - [Linux内核中常用的C语言技巧](https://mp.weixin.qq.com/s/tim50z93e-E-Jbl08rDY2A)
 - [弱符号__attribute__((weak))](https://mp.weixin.qq.com/s/EyIx5BkOxPGAjWxDNMXVyg)
