@@ -33,6 +33,7 @@
 - [https://www.kernel.org/](https://www.kernel.org/)
 
 - [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
+- [git获取指定版本的linux内核源码](https://blog.csdn.net/weixin_40837318/article/details/95546377)
 - [Linux kernel source tree](https://github.com/torvalds/linux)
 - [Linux kernel stable tree mirror](https://github.com/gregkh/linux)
 - [OpenCloudOS kernel](https://gitee.com/OpenCloudOS/OpenCloudOS-Kernel/tree/master)
@@ -62,6 +63,8 @@ Linux 内核相关网站的出现顺序:
 
 - [从 LKML 优雅的摘取补丁](https://blog.xzr.moe/archives/293/)
 - [正确使用邮件列表参与开源社区的协作](https://tinylab.org/mailing-list-intro/)
+- [提交内核补丁到Linux社区的步骤](https://www.cnblogs.com/gmpy/p/12200609.html)
+- [Git邮件向Linux社区提交内核补丁教程](https://blog.csdn.net/Guet_Kite/article/details/117997036)
 
 ### DebianKernel
 
@@ -385,10 +388,10 @@ dpkg-buildpackage -b -nc -uc -us -j16
     KVERS = $(shell uname -r)
     # Kernel modules
     obj-m += hello.o
-    # Specify flags for the module compilation. 
-    #EXTRA_CFLAGS=-g -O0 
+    # Specify flags for the module compilation.
+    #EXTRA_CFLAGS=-g -O0
     build: kernel_modules
-    kernel_modules: 
+    kernel_modules:
     	make -C /lib/modules/$(KVERS)/build M=$(CURDIR) modules
     clean:
     	make -C /lib/modules/$(KVERS)/build M=$(CURDIR) clean

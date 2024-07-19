@@ -262,6 +262,9 @@ git log --oneline | grep "arm64: implement ftrace with regs"
 
 ## send-email
 
+- [提交内核补丁到Linux社区的步骤](https://www.cnblogs.com/gmpy/p/12200609.html)
+- [Git邮件向Linux社区提交内核补丁教程](https://blog.csdn.net/Guet_Kite/article/details/117997036)
+
 `.gitconfig`中的配置如下：
 
 ```text
