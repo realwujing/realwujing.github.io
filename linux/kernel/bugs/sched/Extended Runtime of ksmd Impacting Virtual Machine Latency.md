@@ -1300,3 +1300,11 @@ taskset -pc 0-63 510
 ## More
 
 - [调度器24—CFS任务选核](https://www.cnblogs.com/hellokitty2/p/15750931.html)
+- [为什么会出现cpu使用率偶数核比奇数核高](https://cloud.tencent.com/developer/article/2411277)
+- [Linux多核系统的负载均衡策略](https://www.jianshu.com/p/2c4cb7ac6546)
+- [Linux 内核调度器源码分析 - 初始化](https://www.cnblogs.com/tencent-cloud-native/p/14767478.html)
+- [干货｜CPU可运行进程队列的负载均衡](https://www.toutiao.com/article/7078965304440816135)
+- [图解Linux内核调度系统](https://www.toutiao.com/article/7297075872626917926)
+- [带你认识CPU缓存](https://www.toutiao.com/article/7312702483451789859)
+- [CPU中的L1，L2和L3缓存之间的区别：缓存是如何工作的？](https://www.toutiao.com/article/6865188405366653454)
+- [多线程时如何使用CPU缓存？](https://mp.weixin.qq.com/s/vnbbnc-jHJRJvoZVCKSgGQ)
