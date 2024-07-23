@@ -27,6 +27,7 @@
 - [<font color=Red>Linux fd 系列 — socket fd 是什么？</font>](https://os.51cto.com/article/682138.html)
 - [Linux内核 | socket底层的来龙去脉](https://mp.weixin.qq.com/s/6fxS9GDdKOIkKASiz0e07Q)
 - [如何学习 Linux 内核网络协议栈](https://mp.weixin.qq.com/s/0eomyTaKWVeJbryIEdo1ug)
+- [socket中write和send有什么区别？——拆解大厂面试题(校招)](https://mp.weixin.qq.com/s/Wq0Ns-5oWcMH7QKhmxwtHg)
 
 ### Netlink
 
