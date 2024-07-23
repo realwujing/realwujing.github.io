@@ -1,6 +1,7 @@
 # assembly
 
 - [第2期 | x86指令集和ARM指令集的区别——从底层原理的角度来理解](https://mp.weixin.qq.com/s/qqjvXXKG-3TtUFeccQ7ZGQ)
+- [汇编：函数以及函数参数传递](https://mp.weixin.qq.com/s/ntctTSDp9FigAbblK6LvgA)
 
 ## 汇编语言
 
