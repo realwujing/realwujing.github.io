@@ -7,8 +7,10 @@
 使用qemu-img创建虚拟机所需的磁盘：
 
 ```bash
-qemu-img create -f qcow2 yql-openeuler.img 200G
+qemu-img create -f qcow2 yql-openeuler.qcow2 200G
 ```
+
+### x86架构
 
 x86架构参考命令如下:
 
@@ -41,10 +43,9 @@ virt-install \
 - `-x 'console=ttyS0,115200n8 console=tty0'`：启动参数，设置串口控制台和控制台输出。
 - `--extra-args 'console=ttyS0,115200n8'`：额外的启动参数，设置串口控制台输出。
 
-
 如果上述命令无法选定安装源，需要指定`inst.stage2=hd:LABEL`，参考命令如下：
 
-```
+```bash
 virt-install \
   --name wujing \
   --ram 32768 \
@@ -58,6 +59,8 @@ virt-install \
   -x 'console=ttyS0,115200n8 console=tty0' \
   --extra-args 'inst.stage2=hd:LABEL=openeuler-22.06-x86_64 console=ttyS0,115200n8'
 ```
+
+### arm架构
 
 arm架构参考命令如下:
 
@@ -82,6 +85,34 @@ virt-install --virt-type kvm \
 ```
 
 `--debug`参数用于开启调试模式，这会提供更详细的输出，帮助开发者或用户诊断问题。
+
+#### cnetos7 arm
+
+```bash
+qemu-img create -f qcow2 centos.qcow2 128G
+```
+
+```bash
+virt-install --virt-type kvm \
+--name centos \
+--memory 32768 \
+--vcpus=64 \
+--location /root/inf-test/CentOS-7-aarch64-Everything-1810.iso \
+--disk path=/root/inf-test/centos.qcow2,size=128 \
+--network network=default \
+--os-type=linux \
+--os-variant=rhel7 \
+--graphics none \
+--extra-args="console=ttyS0"
+```
+
+```bash
+root
+F7!r9Bn2@kP
+```
+
+- [内核源码编译 安装](https://www.cnblogs.com/gefish/p/12029847.html)
+- [https://vault.centos.org/7.6.1810/os/Source/SPackages/](https://vault.centos.org/7.6.1810/os/Source/SPackages/)
 
 ## 拷贝虚拟机的vmlinux、initramfs
 

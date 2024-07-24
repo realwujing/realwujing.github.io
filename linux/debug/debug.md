@@ -464,7 +464,7 @@ ptype /o struct file
     sysctl -w kernel.panic_on_oops=1
     ```
 
-    内核编译选项：CONFIG_MAGIC_SYSRQ=y
+    内核编译选项：PANIC_ON_OOPS=y
 
 - kernel.hung_task_panic
 

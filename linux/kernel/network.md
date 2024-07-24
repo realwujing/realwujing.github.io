@@ -5,6 +5,7 @@
 - [通俗理解数据中心CPU和GPU之后的第三颗关键芯片“DPU”](https://mp.weixin.qq.com/s/SVscsnpOAtsZ6IBk34AYug)
 - [字节校招：TCP 和 UDP 可以同时绑定相同的端口吗？](https://mp.weixin.qq.com/s/4G4il3rZSMmEgvdvGSH_Gw)
 - [59页PPT，全面了解"无线通信原理"](https://mp.weixin.qq.com/s/TEJYQJkT4FToeEoxI_9Tmg)
+- [【Linux】如何查看网卡驱动](https://blog.csdn.net/imliuqun123/article/details/139596951)
 
 ## 计算机网络
 
