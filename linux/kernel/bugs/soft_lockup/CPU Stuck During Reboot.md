@@ -1,6 +1,8 @@
 # CPU Stuck During Reboot
 
-机型：Atlas 800I弹性裸金属
+- 机型：Atlas 800I弹性裸金属
+
+- os：CentOS-7-x86_64-Everything-1810.iso
 
 ## bug 现场
 
@@ -95,7 +97,9 @@ initcall_debug no_console_suspend ignore_loglevel
 
 ![panic_on_soft_lockup](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17206693863448.png)
 
-## 搭建环境
+## 搭建虚拟机环境
+
+搭建一套虚拟机环境，跟物理机使用同一个iso，方便编译调试。
 
 ### iso下载
 
@@ -103,6 +107,7 @@ initcall_debug no_console_suspend ignore_loglevel
 - [https://vault.centos.org/altarch/7.6.1810/isos/aarch64/](https://vault.centos.org/altarch/7.6.1810/isos/aarch64/)
 - [https://mirrors.aliyun.com/centos-vault/centos/7.6.1810/isos/x86_64/CentOS-7-x86_64-Everything-1810.iso](https://vault.centos.org/altarch/7.6.1810/isos/aarch64/)
 - [安装CentOS Vault系统踩过的坑](https://www.cnblogs.com/yeziwinone/p/17916626.html)
+- <https://mirrors.tuna.tsinghua.edu.cn/centos-vault/7.6.1810/os/>
 
 ```bash
 wget https://vault.centos.org/altarch/7.6.1810/isos/aarch64/CentOS-7-aarch64-Everything-1810.iso
@@ -128,6 +133,13 @@ virt-install --virt-type kvm \
 --os-variant=rhel7 \
 --graphics none \
 --extra-args="console=ttyS0"
+```
+
+### 安装编译工具
+
+```bash
+yum groupinstall –y “Development Tools”
+yum install -y ncurses-devel make gcc bc bison flex elfutils-libelf-devel openssl-devel rpm-build redhat-rpm-config -y
 ```
 
 ### 内核源码src.rpm下载
@@ -172,80 +184,7 @@ yum install -y rpm-build git
 rpmbuild -bp --nodeps ~/rpmbuild/SPECS/kernel-alt.spec
 ```
 
-执行上述命令后，进入内核源码路径：
-
-```bash
-cd ~/rpmbuild/BUILD/kernel-alt-4.14.0-115.el7a/linux-4.14.0-115.el7.0.1.aarch64
-```
-
-#### 编译内核rpm包
-
-这一步，编译内核，并且打包成rpm安装包，这样就可以把安装包拷贝到目标机器上执行安装了。
-
-安装编译工具:
-
-```bash
-yum groupinstall –y “Development Tools”
-yum install -y ncurses-devel make gcc bc bison flex elfutils-libelf-devel openssl-devel rpm-build redhat-rpm-config -y
-```
-
-配合config. 主要是对内核编译选项进行设置。先把当前用来启动系统的config拷贝过来是最保险的。注意是.config
-
-```bash
-cp /boot/config-4.14.0-115.el7a.0.1.aarch64 ./.config
-```
-
-修改.config中的CONFIG_SYSTEM_TRUSTED_KEYS=“certs/centos.pem”为空。
-
-```bash
-CONFIG_SYSTEM_TRUSTED_KEYS=""
-```
-
-##### 使用build-kernel-natively.sh脚本编译
-
-执行编译, 下载编译脚本：
-
-```bash
-wget https://raw.githubusercontent.com/xin3liang/home-bin/master/build-kernel-natively.sh
-```
-
-`build-kernel-natively.sh`内容如下：
-
-```bash
-#!/bin/bash
-set -x
-
-## params
-version_prefix="rhel8.1-sas-5.1-update"
-
-if [ $# -ge 1 ]; then
-	version_prefix=$1
-fi
-
-COFNIG_FILE="~/config-`uname -r`"
-export LOCALVERSION="-${version_prefix}-`date +%F`"
-cpunum=$(getconf _NPROCESSORS_ONLN)
-#cpunum=1
-
-# targets: bindeb-pkg binrpm-pkg INSTALL_MOD_STRIP=1 Image modules INSTALL_MOD_PATH=${OUT} modules_install"
-BUILD_TARGETS="rpm-pkg INSTALL_MOD_STRIP=1"
-
-## kernel .config compile
-# cp /boot/conf-xx kernel_source_dir/.config
-# CONFIG: oldconfig defconfig estuary_defconfig
-CONFIG="oldconfig"
-
-make ${CONFIG}
-make ${BUILD_TARGETS} -j$cpunum
-
-set +x
-```
-
-在源码目录执行:
-
-```bash
-./build-kernel-natively.sh
-```
+#### 源码打rpm包
 
 ##### 直接make binrpm-pkg编译
 
@@ -253,7 +192,174 @@ set +x
 time make binrpm-pkg -j64 2> make_error.log
 ```
 
+产物如下：
+
+```bash
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-headers-4.14.0-115.el7.0.1.aarch64.rpm
+```
+
+相较于`rpmbuild -ba ~/rpmbuild/SPECS/kernel-alt.spec`方式产物少了`kernel-devel`、`kernel-debuginfo`等开发调试包，不利于调试，建议使用下方命令。
+
+##### rpmbuild -ba ~/rpmbuild/SPECS/kernel-alt.spec
+
+也可直接使用rpmbuild编译出二进制的 RPM 包和对应的源代码 RPM 包：
+
+```bash
+rpmbuild -ba ~/rpmbuild/SPECS/kernel-alt.spec
+```
+
+使用`rpmbuild -ba ~/rpmbuild/SPECS/kernel-alt.spec`可以不执行上方的`rpmbuild -bp --nodeps ~/rpmbuild/SPECS/kernel-alt.spec`。
+
+`rpmbuild -ba ~/rpmbuild/SPECS/kernel-alt.spec`编译产物如下：
+
+```bash
+Wrote: /root/rpmbuild/SRPMS/kernel-alt-4.14.0-115.el7.0.1.src.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-headers-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debuginfo-common-aarch64-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/perf-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/perf-debuginfo-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/python-perf-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/python-perf-debuginfo-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-libs-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-libs-devel-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-debuginfo-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-devel-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debuginfo-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debug-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debug-devel-4.14.0-115.el7.0.1.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debug-debuginfo-4.14.0-115.el7.0.1.aarch64.rpm
+```
+
+##### 开启内核编译选项panic on soft_lockup
+
+```bash
+cp -r ~/rpmbuild/SOURCES ~/rpmbuild/SOURCES.bak
+```
+
+```bash
+cd ~/rpmbuild/SOURCES
+
+sed -i 's/^# CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC is not set/CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=y/g' *.config
+sed -i 's/^CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC_VALUE=0/CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC_VALUE=1/g' *.config
+```
+
+这里直接用sed替换，貌似也不太好，但是确实能将开启内核编译选项panic on soft_lockup。
+
+此流程建议通过patch的方式进行。
+
+##### 自定义rpm包名
+
+```bash
+[root@centos SPECS]# diff kernel-alt.spec kernel-alt.spec.bak
+22c22
+< %define specrelease 115%{?dist}.0.1.ctyun.panic.soft_lockup
+---
+> %define specrelease 115%{?dist}.0.1
+```
+
+![diff kernel-alt.spec kernel-alt.spec.bak](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240725211511.png)
+
+```bash
+rpmbuild -ba ~/rpmbuild/SPECS/kernel-alt.spec
+```
+
+`rpmbuild -ba ~/rpmbuild/SPECS/kernel-alt.spec`编译产物如下：
+
+```bash
+Wrote: /root/rpmbuild/SRPMS/kernel-alt-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.src.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-headers-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debuginfo-common-aarch64-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/perf-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/perf-debuginfo-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/python-perf-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/python-perf-debuginfo-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-libs-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-libs-devel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-debuginfo-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-devel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debuginfo-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debug-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debug-devel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debug-debuginfo-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+```
+
+##### 更改内核源码后编译
+
+查看内核源码位置：
+
+```bash
+[root@centos SOURCES]# readlink -f linux-4.14.0-115.el7a.tar.xz
+/root/rpmbuild/SOURCES/linux-4.14.0-115.el7a.tar.xz
+```
+
+复制linux-4.14.0-115.el7a.tar.xz到家目录：
+
+```bash
+cp /root/rpmbuild/SOURCES/linux-4.14.0-115.el7a.tar.xz ~
+```
+
+解压：
+
+```bash
+cd
+tar -xf linux-4.14.0-115.el7a.tar.xz
+```
+
+修改文件，以init/main.c为例:
+
+```bash
+cd linux-4.14.0-115.el7a
+
+vim init/main.c
+```
+
+重新压缩：
+
+```bash
+tar -cvf linux-4.14.0-115.el7a.tar.xz linux-4.14.0-115.el7a
+```
+
+将新的linux-4.14.0-115.el7a.tar.xz复制到/root/rpmbuild/SOURCES/下，记得先备份：
+
+```bash
+cp /root/rpmbuild/SOURCES/linux-4.14.0-115.el7a.tar.xz /root/rpmbuild/SOURCES/linux-4.14.0-115.el7a.bak.tar.xz
+mv ~/linux-4.14.0-115.el7a.tar.xz /root/rpmbuild/SOURCES/linux-4.14.0-115.el7a.tar.xz
+```
+
+后续还是走`rpmbuild -ba ~/rpmbuild/SPECS/kernel-alt.spec`编译流程。
+
+此流程建议通过patch的方式进行。
+
 ## initramfs无法加载根文件系统
+
+将相关内核rpm包复制到物理机上：
+
+```bash
+rsync -avzP kernel*-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64*.rpm kmod-megaraid_sas-*.rpm root@11.96.0.42:~
+```
+
+kernel-headers 是 Linux 内核的头文件，它包含了 Linux 内核的 C 函数和数据结构定义。而 kernel-devel 则是 Linux 内核开发所需的一些工具和文件，包括内核源码、内核配置文件、内核模块等。简单来说，kernel-headers 是为了编译第三方软件使用的，而 kernel-devel 则是为了内核开发人员使用的。
+
+- [kernel-header与kernel-devel的区别？](https://blog.csdn.net/weixin_42601134/article/details/129552893)
+
+升级kernel-headers包，会卸载老的kernel-headers包：
+
+```bash
+rpm -Uvh kernel-headers-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+```
+
+安装内核包、内核调试包等：
+
+```bash
+rpm -ivh kernel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm kernel-devel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm kernel-debuginfo-common-aarch64-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm kernel-debuginfo-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+```
+
+在物理机安装`/root/rpmbuild/RPMS/aarch64/kernel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm`包后发现initramfs无法挂载根文件系统。
 
 在物理机上安装新内核后出现了新的故障，在initramfs无法加载根文件系统。
 
@@ -266,6 +372,177 @@ time make binrpm-pkg -j64 2> make_error.log
 ```
 
 ![Warning:/devdisk/by-uuid/c38d268?-f12-469a-913f-549d23c6ba12 does not exist](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/915735adf44b509b57fb8c1d3ed60d3.png)
+
+![20240724232711](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724232711.png)
+
+![20240724233312](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724233312.png)
+
+![20240724233909](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724233909.png)
+
+### 使用镜像自带内核进入系统查看磁盘信息
+
+```bash
+[root@chuji-11-96-0-41 ~]# lsblk
+NAME               MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+sda                  8:0    0 446.6G  0 disk
+├─sda4               8:4    0 443.5G  0 part
+│ ├─system-lv_swap 253:1    0    16G  0 lvm
+│ └─system-lv_root 253:0    0    60G  0 lvm  /
+├─sda2               8:2    0     1G  0 part /boot/efi
+├─sda3               8:3    0     2G  0 part /boot
+└─sda1               8:1    0   128M  0 part
+```
+
+```bash
+[root@chuji-11-96-0-41 ~]# blkid
+/dev/sda2: UUID="2450-2B50" TYPE="vfat" PARTLABEL="primary" PARTUUID="c7b2ae54-ca21-4ffc-b189-02c6aa03ca55"
+/dev/sda3: UUID="7fd6bb97-b549-46e5-8fb2-415cc890ad50" TYPE="ext2" PARTLABEL="primary" PARTUUID="845bc094-af23-4e72-bfc6-a3f09cc55cde"
+/dev/sda4: UUID="FlTv0Q-aeqn-ISav-dhNW-68Zj-4yGb-T04MF8" TYPE="LVM2_member" PARTLABEL="primary" PARTUUID="f664bac5-8672-430c-b2f0-247d58a51701"
+/dev/mapper/system-lv_root: UUID="75336c23-e87e-4c30-949c-e272fc1dbcd7" TYPE="xfs"
+/dev/mapper/system-lv_swap: UUID="cf0fe2e5-426e-4917-bf9c-4c352aa0521a" TYPE="swap"
+/dev/sda1: PARTLABEL="primary" PARTUUID="c49b8dff-bf03-4702-a7d4-df04bad1732b"
+```
+
+![20240724235654](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724235654.png)
+
+![20240725001618](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240725001618.png)
+
+```bash
+[root@chuji-11-96-0-41 ~]# udevadm info -a -p $(udevadm info -q path -n /dev/sda) | grep -i drivers -C3
+  looking at parent device '/devices/pci0000:00/0000:00:12.0/0000:05:00.0/host9/target9:3:111/9:3:111:0':
+    KERNELS=="9:3:111:0"
+    SUBSYSTEMS=="scsi"
+    DRIVERS=="sd"
+    ATTRS{evt_soft_threshold_reached}=="0"
+    ATTRS{evt_mode_parameter_change_reported}=="0"
+    ATTRS{inquiry}==""
+--
+  looking at parent device '/devices/pci0000:00/0000:00:12.0/0000:05:00.0/host9/target9:3:111':
+    KERNELS=="target9:3:111"
+    SUBSYSTEMS=="scsi"
+    DRIVERS==""
+
+  looking at parent device '/devices/pci0000:00/0000:00:12.0/0000:05:00.0/host9':
+    KERNELS=="host9"
+    SUBSYSTEMS=="scsi"
+    DRIVERS==""
+
+  looking at parent device '/devices/pci0000:00/0000:00:12.0/0000:05:00.0':
+    KERNELS=="0000:05:00.0"
+    SUBSYSTEMS=="pci"
+    DRIVERS=="megaraid_sas"
+    ATTRS{subsystem_device}=="0x4010"
+    ATTRS{max_link_speed}=="16 GT/s"
+    ATTRS{vendor}=="0x1000"
+--
+  looking at parent device '/devices/pci0000:00/0000:00:12.0':
+    KERNELS=="0000:00:12.0"
+    SUBSYSTEMS=="pci"
+    DRIVERS=="pcieport"
+    ATTRS{subsystem_device}=="0x371e"
+    ATTRS{max_link_speed}=="16 GT/s"
+    ATTRS{vendor}=="0x19e5"
+--
+  looking at parent device '/devices/pci0000:00':
+    KERNELS=="pci0000:00"
+    SUBSYSTEMS==""
+    DRIVERS==""
+```
+
+```bash
+[root@chuji-11-96-0-41 ~]# udevadm info -a -p $(udevadm info -q path -n /dev/sda1) | grep -i drivers
+    DRIVERS==""
+    DRIVERS=="sd"
+    DRIVERS==""
+    DRIVERS==""
+    DRIVERS=="megaraid_sas"
+    DRIVERS=="pcieport"
+    DRIVERS==""
+[root@chuji-11-96-0-41 ~]# udevadm info -a -p $(udevadm info -q path -n /dev/sda2) | grep -i drivers
+    DRIVERS==""
+    DRIVERS=="sd"
+    DRIVERS==""
+    DRIVERS==""
+    DRIVERS=="megaraid_sas"
+    DRIVERS=="pcieport"
+    DRIVERS==""
+[root@chuji-11-96-0-41 ~]# udevadm info -a -p $(udevadm info -q path -n /dev/sda3) | grep -i drivers
+    DRIVERS==""
+    DRIVERS=="sd"
+    DRIVERS==""
+    DRIVERS==""
+    DRIVERS=="megaraid_sas"
+    DRIVERS=="pcieport"
+    DRIVERS==""
+[root@chuji-11-96-0-41 ~]# udevadm info -a -p $(udevadm info -q path -n /dev/sda4) | grep -i drivers
+    DRIVERS==""
+    DRIVERS=="sd"
+    DRIVERS==""
+    DRIVERS==""
+    DRIVERS=="megaraid_sas"
+    DRIVERS=="pcieport"
+    DRIVERS==""
+```
+
+```bash
+[root@chuji-11-96-0-41 ~]# udevadm info -a -p $(udevadm info -q path -n /dev/mapper/system-lv_root)
+
+Udevadm info starts with the device specified by the devpath and then
+walks up the chain of parent devices. It prints for every device
+found, all possible attributes in the udev rules key format.
+A rule to match, can be composed by the attributes of the device
+and the attributes from one single parent device.
+
+  looking at device '/devices/virtual/block/dm-0':
+    KERNEL=="dm-0"
+    SUBSYSTEM=="block"
+    DRIVER==""
+    ATTR{range}=="1"
+    ATTR{capability}=="10"
+    ATTR{inflight}=="       0        0"
+    ATTR{ext_range}=="1"
+    ATTR{ro}=="0"
+    ATTR{stat}=="    5777        0   477585     1200     1535        0    47944      100        0      760     1300"
+    ATTR{removable}=="0"
+    ATTR{size}=="125829120"
+    ATTR{alignment_offset}=="0"
+    ATTR{discard_alignment}=="0"
+```
+
+```bash
+[root@chuji-11-96-0-41 ~]# udevadm info -a -p $(udevadm info -q path -n /dev/mapper/system-lv_swap)
+
+Udevadm info starts with the device specified by the devpath and then
+walks up the chain of parent devices. It prints for every device
+found, all possible attributes in the udev rules key format.
+A rule to match, can be composed by the attributes of the device
+and the attributes from one single parent device.
+
+  looking at device '/devices/virtual/block/dm-1':
+    KERNEL=="dm-1"
+    SUBSYSTEM=="block"
+    DRIVER==""
+    ATTR{range}=="1"
+    ATTR{capability}=="10"
+    ATTR{inflight}=="       0        0"
+    ATTR{ext_range}=="1"
+    ATTR{ro}=="0"
+    ATTR{stat}=="     100        0    15616       30        0        0        0        0        0       30       30"
+    ATTR{removable}=="0"
+    ATTR{size}=="33554432"
+    ATTR{alignment_offset}=="0"
+    ATTR{discard_alignment}=="0"
+```
+
+```bash
+[root@chuji-11-96-0-41 ~]# lsinitrd /boot/initramfs-4.14.0.img | grep megaraid_sas
+-rw-r--r--   1 root     root      2237671 Jul 24 22:55 usr/lib/modules/4.14.0/kernel/drivers/scsi/megaraid/megaraid_sas.ko
+```
+
+```bash
+[root@chuji-11-96-0-41 ~]# lsinitrd /boot/initramfs-4.14.0-115.el7a.0.1.aarch64.img | grep megaraid_sas
+-rw-r--r--   1 root     root        67020 Jul 19 17:22 usr/lib/modules/4.14.0-115.el7a.0.1.aarch64/extra/megaraid_sas.ko.xz
+```
 
 ### 使用 dracut 重新生成initramfs
 
@@ -302,6 +579,9 @@ dracut -f initramfs-4.14.0.img 4.14.0
 
 ```bash
 dracut -f --add-drivers crypto initramfs-`uname -r`.img `uname -r`
+
+dracut -f --add-drivers crypto initramfs-4.14.0.img 4.14.0
+
 dracut -f --add-drivers /usr/lib/modules/4.14.0/kernel/drivers/scsi/scsi_transport_sas initramfs-`uname -r`.img `uname -r`
 ```
 
@@ -309,34 +589,311 @@ dracut -f --add-drivers /usr/lib/modules/4.14.0/kernel/drivers/scsi/scsi_transpo
 
 ```bash
 dracut -f -i /usr/lib/modules/4.14.0/kernel/drivers/scsi /usr/lib/modules/4.14.0/kernel/drivers/scsi initramfs-`uname -r`.img `uname -r`
+
+dracut -f -i /usr/lib/modules/4.14.0/kernel/drivers/scsi /usr/lib/modules/4.14.0/kernel/drivers/scsi initramfs-4.14.0.img 4.14.0
 ```
 
 ```bash
 dracut -f -i /usr/lib/modules/4.14.0/kernel/drivers/md /usr/lib/modules/4.14.0/kernel/drivers/md initramfs-`uname -r`.img `uname -r`
+
+dracut -f -i /usr/lib/modules/4.14.0/kernel/drivers/md /usr/lib/modules/4.14.0/kernel/drivers/md initramfs-4.14.0.img 4.14.0
 ```
 
 ```bash
 dracut -f -i /usr/lib/modules/4.14.0/kernel/lib/raid6 /usr/lib/modules/4.14.0/kernel/lib/raid6 initramfs-`uname -r`.img `uname -r`
+
+dracut -f -i /usr/lib/modules/4.14.0/kernel/lib/raid6 /usr/lib/modules/4.14.0/kernel/lib/raid6 initramfs-4.14.0.img 4.14.0
 ```
 
-后续排查故障过程更新了mlx网卡驱动`MLNX_OFED_LINUX-5.8-4.1.5.0-rhel7.6alternate-aarch64.tgz`，安装时报错如下：
+将上述模块都添加到initramfs中后，还是卡在无法挂载根文件系统。
 
-![Failed to query 45:00.0 device, error: No such file or directory. MFE NO FLASH DETECTED](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724153818.png)
+### 编译安装新版本megaraid_sas驱动
 
-由于不知道具体的网络驱动是啥，将net目录整体加入到initramfs中：
+从<https://www.broadcom.com/products/storage/raid-controllers/megaraid-9560-8i>下载`kmod-megaraid_sas-07.729.00.00-1.src.rpm`包。
 
 ```bash
-dracut -f -v -i /lib/modules/4.14.0-115.el7a.0.1.aarch64/extra/mlnx-ofa_kernel/drivers/net initramfs-`uname -r`.img `uname -r`
+wget https://docs.broadcom.com/docs-and-downloads/07.729.00.00-1_MR7.29_Linux_driver.zip
 ```
 
-reboot后又卡cpu stuck，报错截图如下：
+解压即可看到`kmod-megaraid_sas-07.729.00.00-1.src.rpm`源码包。
 
-![a2219e1405d94ad7ff8a8541b128db7](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/a2219e1405d94ad7ff8a8541b128db7.png)
+`e:/Downloads/07.729.00.00-1_MR7.29_Linux_driver/mrlinuxdrv_rel/megaraid_sas_components/megaraid_sas_components/kmod_srpm/kmod-megaraid_sas-07.729.00.00-1.src.rpm`
 
-reboot是热重启，将机器掉电后热重启，能进入系统：
+当前目录下也有一份`kmod-megaraid_sas-07.729.00.00-1.src.rpm`离线包可供下载。
+
+安装megaraid_sas源码包：
 
 ```bash
-![lsmod | grep mlx5 core](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/06c9a78d1a02d386ddf4f1552a09006.png)
+rpm -ivh kmod-megaraid_sas-07.729.00.00-1.src.rpm
 ```
 
-目前基本确定是mlx网卡驱动导致的reboot流程被打断。
+编译megaraid_sas源码包：
+
+```bash
+rpmbuild -ba ~/rpmbuild/SPECS/megaraid_sas.spec
+
+Wrote: /root/rpmbuild/SRPMS/kernel-alt-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.src.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-headers-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debuginfo-common-aarch64-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/perf-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/perf-debuginfo-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/python-perf-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/python-perf-debuginfo-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-libs-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-libs-devel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-tools-debuginfo-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-devel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debuginfo-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debug-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debug-devel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+Wrote: /root/rpmbuild/RPMS/aarch64/kernel-debug-debuginfo-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+```
+
+先将物理机切换到系统自带的内核，以便正常进系统。
+
+进入系统后安装上一步编译出的megaraid_sas rpm包`/root/rpmbuild/RPMS/aarch64/kernel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm`:
+
+```bash
+rpm -ivh kernel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.rpm
+```
+
+检查initramfs中时候包含megaraid_sas驱动：
+
+```bash
+[root@chuji-11-96-0-41 ~]# lsinitrd /boot/initramfs-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64.img | grep megaraid_sas
+drwxr-xr-x   2 root     root            0 Jul 25 14:59 usr/lib/modules/4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64/extra/megaraid_sas
+-rw-r--r--   1 root     root       285208 Jul 25 14:59 usr/lib/modules/4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64/extra/megaraid_sas/megaraid_sas.ko
+```
+
+上述结果表明megaraid_sas驱动已压缩到调试内核对应的initramfs中。
+
+重启物理机，选择调试内核，发现可以挂载根文件系统，可以进入系统。
+
+## 禁止mlx网卡驱动加载
+
+在GRUB_CMDLINE_LINUX新增参数禁止mlx网卡驱动加载：
+
+```bash
+vim /etc/default/grub
+
+initcall_blacklist=mlx5_core_init module_blacklist=mlx5_core
+```
+
+增加参数后的`/etc/default/grub`:
+
+```bash
+cat /etc/default/grub
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="$(sed 's, release .*$,,g' /etc/system-release)"
+GRUB_DEFAULT=saved
+GRUB_DISABLE_SUBMENU=true
+GRUB_TERMINAL="serial console"
+GRUB_SERIAL_COMMAND="serial --speed=115200"
+GRUB_CMDLINE_LINUX="console=tty0 pci=realloc hardened_usercopy=off noirqdebug pciehp.pciehp_force=1 crashkernel=512M initcall_blacklist=mlx5_ib_init,mx5_core_init module_blacklist=mlx5_ib,mlx5_core biosdevname=0 net.ifnames=0 console=ttyS0,115200n8"
+GRUB_DISABLE_RECOVERY="true"
+```
+
+```bash
+cat /proc/cmdline
+BOOT_IMAGE=/vmlinuz-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64 root=/dev/mapper/system-lv_root ro console=tty0 pci=realloc hardened_usercopy=off noirqdebug pciehp.pciehp_force=1 crashkernel=512M initcall_blacklist=mlx5_ib_init,mx5_core_init module_blacklist=mlx5_ib,mlx5_core biosdevname=0 net.ifnames=0 console=ttyS0,115200n8
+```
+
+禁止mlx网卡驱动加载后，reboot还是soft_lockup。
+
+## kdump 服务无法正常启动
+
+将`crashkernel`参数配置成`crashkernel=768M`或者`crashkernel=1024M.high`或者`crashkernel=2048M.high`，kdump服务都无法正常启动。
+
+将`crashkernel`参数配置成`crashkernel=auto`或者`crashkernel=512M`后，kdump可以正常启动，但是会kudmp在生成转储文件的时候会发生oom，导致没有生成转储文件。
+
+- [kdump安装及调试策略（详细）](https://blog.csdn.net/lindorx/article/details/135489412)
+
+### kdump生成转储文件时oom
+
+修改kdumpctl脚本，在第二内核启动时禁用部分驱动。具体修改方法为：
+
+vim /usr/bin/kdumpctl，注释掉prepare_cmdline()函数的cmdline变量赋值语句，添加一行cmdline变量的赋值语句，赋值的内容为cat /proc/cmdline命令的显示结果，并且加上modprobe.blacklist=hisi_sas_v3_hw,hisi_sas_main，配置完成后使用systemctl restart kdump.service重启kdump服务。
+
+```bash
+vim /usr/bin/kdumpctl
+
+cmdline="BOOT_IMAGE=/vmlinuz-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64 root=/dev/mapper/system-lv_root ro console=tty0 pci=realloc hardened_usercopy=off noirqdebug pciehp.pciehp_force=1 crashkernel=512M initcall_blacklist=mlx5_ib_init,mx5_core_init module_blacklist=mlx5_ib,mlx5_core modprobe.blacklist=hisi_sas_v3_hw,hisi_sas_main biosdevname=0 net.ifnames=0 console=ttyS0,115200n8"
+```
+
+![modprobe.blacklist=hisi_sas_v3_hw,hisi_sas_main](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240725221906.png)
+
+```bash
+systemctl restart kdump.service
+```
+
+- [TaiShan 200 2280 CentOS7.6无法生成kdump日志](https://support.huawei.com/enterprise/zh/knowledge/EKB1100058786)
+
+建议将物理机重启，选择调试内进入系统后，执行reboot命令：
+
+```bash
+reboot
+```
+
+这回可以生成kudmp了，具体参见下图。
+
+![kdump](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240725203101.png)
+
+```bash
+[root@chuji-11-96-0-41 ~]# cd /var/crash/127.0.0.1-2024-07-25-20\:29\:18/
+[root@chuji-11-96-0-41 127.0.0.1-2024-07-25-20:29:18]# ls
+vmcore  vmcore-dmesg.txt
+```
+
+### 根据vmcore确定根因
+
+根据vmcore-dmesg.txt基本上确定硬件时钟芯片有一定问题。
+
+```bash
+# vim vmcore-dmesg.txt +3190
+
+3190 [  164.106663] Kernel panic - not syncing: softlockup: hung tasks
+3191 [  164.114920] CPU: 0 PID: 0 Comm: swapper/0 Kdump: loaded Tainted: G        W  OEL ------------   4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64 #1
+3192 [  164.133349] Hardware name: HUAKUN HuaKun AT3500 G3/IT21SK4E, BIOS 12.01.08 03/22/2024
+3193 [  164.146366] Call trace:
+3194 [  164.151375] [<ffff000008089e14>] dump_backtrace+0x0/0x23c
+3195 [  164.159407] [<ffff00000808a074>] show_stack+0x24/0x2c
+3196 [  164.167113] [<ffff0000088568a8>] dump_stack+0x84/0xa8
+3197 [  164.174811] [<ffff0000080d4adc>] panic+0x138/0x2a0
+3198 [  164.182227] [<ffff0000081b1170>] watchdog+0x0/0x38
+3199 [  164.189649] [<ffff00000815eff8>] __hrtimer_run_queues+0x110/0x2f8
+3200 [  164.198420] [<ffff00000815f428>] hrtimer_interrupt+0xc0/0x23c
+3201 [  164.206861] [<ffff0000086c7a50>] arch_timer_handler_phys+0x3c/0x48
+3202 [  164.215797] [<ffff000008146810>] handle_percpu_devid_irq+0x98/0x210
+3203 [  164.224851] [<ffff0000081402fc>] generic_handle_irq+0x34/0x4c
+3204 [  164.233373] [<ffff000008140afc>] __handle_domain_irq+0x6c/0xc4
+3205 [  164.241993] [<ffff000008081868>] gic_handle_irq+0xa0/0x1b8
+3206 [  164.250263] Exception stack(0xffff00000800fca0 to 0xffff00000800fde0)
+3207 [  164.259488] fca0: 3ffffffffffffffe 419176834f6d5000 ffff000008db3000 ffff000008dc5600
+3208 [  164.272819] fcc0: 0000e057c4760000 0000000000000000 ffff000009601d00 ffff000008d50018
+3209 [  164.286460] fce0: 000000000000006f 000000009b64c2b0 000000000b28d3ad 000000000000004c
+3210 [  164.300439] fd00: 0000000000000033 0000000000000019 0000000000000001 0000000000000007
+3211 [  164.314778] fd20: 000000000000000e ffff000008954bb0 ffffe057cd4ca720 00000000000007d0
+3212 [  164.329297] fd40: 0000000000000003 ffff000008db1000 0000000000000008 0000000000000003
+3213 [  164.343905] fd60: ffff000008f216d0 ffff000008d6e980 ffff000008db0000 ffff000008d52120
+3214 [  164.358551] fd80: ffff000008dc5600 ffff00000800fde0 ffff000008722878 ffff00000800fde0
+3215 [  164.373304] fda0: ffff000008159dac 0000000000400009 ffff000009601d00 ffff000008d50018
+3216 [  164.388348] fdc0: 0000ffffffffffff 000000009b64c2b0 ffff00000800fde0 ffff000008159dac
+3217 [  164.403797] [<ffff0000080830b0>] el1_irq+0xb0/0x140
+3218 [  164.412586] [<ffff000008159dac>] __usecs_to_jiffies+0x34/0x54
+3219 [  164.422254] [<ffff000008722878>] net_rx_action+0x58/0x470
+3220 [  164.431569] [<ffff000008081a9c>] __do_softirq+0x11c/0x2f0
+3221 [  164.440861] [<ffff0000080db6ac>] irq_exit+0x120/0x150
+3222 [  164.449785] [<ffff000008140b08>] __handle_domain_irq+0x78/0xc4
+3223 [  164.459503] [<ffff000008081868>] gic_handle_irq+0xa0/0x1b8
+3224 [  164.468877] Exception stack(0xffff000008d8fd80 to 0xffff000008d8fec0)
+3225 [  164.479275] fd80: 0000e057c4760000 ffff000008d50018 ffff000008dc0c44 0000000000000001
+3226 [  164.494945] fda0: 0000000000000000 ffffe057cd4b9010 ffff00000979ad40 ffffe057cd4b9168
+3227 [  164.510674] fdc0: ffff000008dc6360 ffff000008d8fe30 0000000000000d00 ffff0000088d2590
+3228 [  164.526396] fde0: 0000000000000000 0000000000000005 0000000000000000 0000000000000007
+3229 [  164.542111] fe00: 000000000000000e ffff000008954bb0 ffff000059f8fd38 ffff000008f224b8
+3230 [  164.557836] fe20: ffff000008d50000 ffff000008f22000 0000000000000000 ffff000008dbc50c
+3231 [  164.573548] fe40: 0000000000000000 0000000000000000 00000057fff8b460 00000057ffed8be0
+3232 [  164.589263] fe60: 0000000000c00018 ffff000008d8fec0 ffff0000080858c8 ffff000008d8fec0
+3233 [  164.604977] fe80: ffff0000080858cc 0000000060c00009 ffff000008d8fea0 ffff000008152050
+3234 [  164.620701] fea0: ffffffffffffffff ffff0000081520b8 ffff000008d8fec0 ffff0000080858cc
+3235 [  164.636423] [<ffff0000080830b0>] el1_irq+0xb0/0x140
+3236 [  164.645208] [<ffff0000080858cc>] arch_cpu_idle+0x44/0x144
+3237 [  164.654485] [<ffff000008871b68>] default_idle_call+0x20/0x30
+3238 [  164.664028] [<ffff00000812482c>] do_idle+0x158/0x1cc
+3239 [  164.672859] [<ffff000008124a3c>] cpu_startup_entry+0x28/0x30
+3240 [  164.682401] [<ffff00000886af54>] rest_init+0xbc/0xc8
+3241 [  164.691249] [<ffff000008c00dac>] start_kernel+0x410/0x43c
+3242 [  164.700793] SMP: stopping secondary CPUs
+3243 [  164.725314] Starting crashdump kernel...
+3244 [  164.733064] Bye!
+```
+
+![Kernel panic - not syncing: softlockup: hung tasks](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17219115889811.png)
+
+进一步使用crash查看vmcore转储文件内容：
+
+```bash
+[root@chuji-11-96-0-41 127.0.0.1-2024-07-25-20:29:18]# crash /usr/lib/debug/lib/modules/4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64/vmlinux vmcore                                                                                          [162/1929]
+
+crash 7.2.3-8.el7
+Copyright (C) 2002-2017  Red Hat, Inc.
+Copyright (C) 2004, 2005, 2006, 2010  IBM Corporation
+Copyright (C) 1999-2006  Hewlett-Packard Co
+Copyright (C) 2005, 2006, 2011, 2012  Fujitsu Limited
+Copyright (C) 2006, 2007  VA Linux Systems Japan K.K.
+Copyright (C) 2005, 2011  NEC Corporation
+Copyright (C) 1999, 2002, 2007  Silicon Graphics, Inc.
+Copyright (C) 1999, 2000, 2001, 2002  Mission Critical Linux, Inc.
+This program is free software, covered by the GNU General Public License,
+and you are welcome to change it and/or distribute copies of it under
+certain conditions.  Enter "help copying" to see the conditions.
+This program has absolutely no warranty.  Enter "help warranty" for details.
+
+GNU gdb (GDB) 7.6
+Copyright (C) 2013 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "aarch64-unknown-linux-gnu"...
+
+crash: seek error: kernel virtual address: ffffe057cd4b0090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd4e0090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd510090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd540090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd570090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd5a0090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd5d0090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd600090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd630090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd660090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd690090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd6c0090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd6f0090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd720090  type: "IRQ stack pointer"
+crash: seek error: kernel virtual address: ffffe057cd750090  type: "IRQ stack pointer"
+```
+
+- [Getting the error message "crash: seek error: kernel virtual address: XXXXXXXXXXXXXXXX type: "cpu_possible_mask", while opening an incomplete vmcore in "crash utility".](https://access.redhat.com/solutions/171713)
+
+上述红帽链接建议附加`--minimal`参数：
+
+```bash
+[root@chuji-11-96-0-41 127.0.0.1-2024-07-25-20:29:18]# crash --minimal  /usr/lib/debug/lib/modules/4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64/vmlinux vmcore
+
+crash 7.2.3-8.el7
+Copyright (C) 2002-2017  Red Hat, Inc.
+Copyright (C) 2004, 2005, 2006, 2010  IBM Corporation
+Copyright (C) 1999-2006  Hewlett-Packard Co
+Copyright (C) 2005, 2006, 2011, 2012  Fujitsu Limited
+Copyright (C) 2006, 2007  VA Linux Systems Japan K.K.
+Copyright (C) 2005, 2011  NEC Corporation
+Copyright (C) 1999, 2002, 2007  Silicon Graphics, Inc.
+Copyright (C) 1999, 2000, 2001, 2002  Mission Critical Linux, Inc.
+This program is free software, covered by the GNU General Public License,
+and you are welcome to change it and/or distribute copies of it under
+certain conditions.  Enter "help copying" to see the conditions.
+This program has absolutely no warranty.  Enter "help warranty" for details.
+
+GNU gdb (GDB) 7.6
+Copyright (C) 2013 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "aarch64-unknown-linux-gnu"...
+
+NOTE: minimal mode commands: log, dis, rd, sym, eval, set, extend and exit
+
+crash>
+```
+
+只能使用几个命令，基本上没多大用。
+
+执行上述命令后，进入内核源码路径：
+
+```bash
+cd ~/rpmbuild/BUILD/kernel-alt-4.14.0-115.el7a/linux-4.14.0-115.el7.0.1.aarch64
+```
