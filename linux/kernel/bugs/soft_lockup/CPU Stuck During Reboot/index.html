@@ -1,0 +1,916 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="CPU Stuck During Reboot 机型：Atlas 800I弹性裸金属 bug 现场  CPU Stuck During Reboot  在grub中增加如下参数后： 1initcall_debug no_console_suspend ignore_loglevel 从下图看到reboot流程被软中断打断。  CPU Stuck During Reboot  12345678910">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CPU Stuck During Reboot">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/bugs/soft_lockup/CPU%20Stuck%20During%20Reboot/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="CPU Stuck During Reboot 机型：Atlas 800I弹性裸金属 bug 现场  CPU Stuck During Reboot  在grub中增加如下参数后： 1initcall_debug no_console_suspend ignore_loglevel 从下图看到reboot流程被软中断打断。  CPU Stuck During Reboot  12345678910">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/%E4%BC%81%E4%B8%9A%E5%BE%AE%E4%BF%A1%E6%88%AA%E5%9B%BE_17212862205127.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/%E4%BC%81%E4%B8%9A%E5%BE%AE%E4%BF%A1%E6%88%AA%E5%9B%BE_17207537656184.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/%E4%BC%81%E4%B8%9A%E5%BE%AE%E4%BF%A1%E6%88%AA%E5%9B%BE_17206693863448.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724145414.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724145716.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/915735adf44b509b57fb8c1d3ed60d3.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724155620.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724153818.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/a2219e1405d94ad7ff8a8541b128db7.png">
+<meta property="article:published_time" content="2024-07-24T16:04:28.000Z">
+<meta property="article:modified_time" content="2024-07-24T16:04:28.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="qemu">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="HTML">
+<meta property="article:tag" content="initramfs">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/%E4%BC%81%E4%B8%9A%E5%BE%AE%E4%BF%A1%E6%88%AA%E5%9B%BE_17212862205127.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>CPU Stuck During Reboot - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="CPU Stuck During Reboot"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-07-24 16:04" pubdate>
+          2024年7月24日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          9.9k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          83 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">CPU Stuck During Reboot</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="cpu-stuck-during-reboot">CPU Stuck During Reboot</h1>
+<p>机型：Atlas 800I弹性裸金属</p>
+<h2 id="bug-现场">bug 现场</h2>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17212862205127.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>CPU Stuck During Reboot</figcaption>
+</figure>
+<p>在grub中增加如下参数后：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">initcall_debug no_console_suspend ignore_loglevel<br></code></pre></td></tr></table></figure>
+<p>从下图看到reboot流程被软中断打断。</p>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17207537656184.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>CPU Stuck During Reboot</figcaption>
+</figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><code class="hljs bash">[  452.388493] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G           OE  ------------   4.14.0-115.el7a.0.1.aarch64 <span class="hljs-comment">#1</span><br>[  452.407685] Hardware name: HUAKUN HuaKun AT3500 G3/IT21SK4E, BIOS 12.01.08 03/22/2024<br>[  452.424436] task: ffff000008dc5600 task.stack: ffff000008d80000<br>[  452.434835] PC is at __do_softirq+0xc0/0x2f0<br>[  452.443498] LR is at irq_exit+0x120/0x150<br>[  452.451806] pc : [&lt;ffff000008081a40&gt;] lr : [&lt;ffff0000080db6ac&gt;] pstate: 20400009<br>[  452.467753] sp : ffff00000800fec0<br>[  452.475238] x29: ffff00000800fec0 x28: ffff000008dc5600<br>[  452.484666] x27: ffff000008d52120 x26: ffff000008db0000<br>[  452.493973] x25: ffff000008f804f0 x24: ffff000008f216d0<br>[  452.503166] x23: ffff000008d8fd80 x22: 0000000000000202<br>[  452.512263] x21: 0000000000000001 x20: 0000000000000000<br>[  452.521245] x19: ffff000008d50000 x18: ffffe057cd4ca720<br>[  452.530141] x17: ffff000008954b30 x16: 000000000000000e<br>[  452.538939] x15: 0000000000000007 x14: 0000000000000000<br>[  452.547623] x13: 0000000000000001 x12: 0000000000000000<br>[  452.556164] x11: ffff0000088d2590 x10: ffff0000088d2564<br>[  452.564609] x9 : 0000000000000078 x8 : 0000000000000020<br>[  452.572969] x7 : ffff000008d50018 x6 : ffff000009601d00<br>[  452.581226] x5 : 0000000000000000 x4 : 0000000100003171<br>[  452.589394] x3 : 0000000000000100 x2 : ffff000009601000<br>[  452.597445] x1 : ffff000009601d00 x0 : 0000000000000000<br>[  452.605395] Call trace:<br>[  452.610362] Exception stack(0xffff00000800fd80 to 0xffff00000800fec0)<br>[  452.619381] fd80: 0000000000000000 ffff000009601d00 ffff000009601000 0000000000000100<br>[  452.632208] fda0: 0000000100003171 0000000000000000 ffff000009601d00 ffff000008d50018<br>[  452.645118] fdc0: 0000000000000020 0000000000000078 ffff0000088d2564 ffff0000088d2590<br>[  452.658079] fde0: 0000000000000000 0000000000000001 0000000000000000 0000000000000007<br>[  452.671138] fe00: 000000000000000e ffff000008954b30 ffffe057cd4ca720 ffff000008d50000<br>[  452.684443] fe20: 0000000000000000 0000000000000001 0000000000000202 ffff000008d8fd80<br>[  452.697864] fe40: ffff000008f216d0 ffff000008f804f0 ffff000008db0000 ffff000008d52120<br>[  452.711667] fe60: ffff000008dc5600 ffff00000800fec0 ffff0000080db6ac ffff00000800fec0<br>[  452.725926] fe80: ffff000008081a40 0000000020400009 ffff00000800fee0 ffff0000086c7a50<br>[  452.740590] fea0: 0000ffffffffffff 0000000000000000 ffff00000800fec0 ffff000008081a40<br>[  452.755647] [&lt;ffff000008081a40&gt;] __do_softirq+0xc0/0x2f0<br>[  452.764739] [&lt;ffff0000080db6ac&gt;] irq_exit+0x120/0x150<br>[  452.773572] [&lt;ffff000008140b08&gt;] __handle_domain_irq+0x78/0xc4<br>[  452.783223] [&lt;ffff000008081868&gt;] gic_handle_irq+0xa0/0x1b8<br>[  452.792536] Exception stack(0xffff000008d8fd80 to 0xffff000008d8fec0)<br>[  452.802899] fd80: 0000e057c4760000 ffff000008d50018 ffff000008dc0c44 0000000000000001<br>[  452.818739] fda0: 0000000000000000 000000105a9b5d23 0000000000014ca6 0000000100003173<br>[  452.834839] fdc0: ffff000008dc6360 ffff000008d8fe30 0000000000000d00 ffff0000088d2590<br>[  452.851048] fde0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000<br>[  452.867264] fe00: 000000000000014f ffffffffffffffff 0000000000000008 ffff000008f224b8<br>[  452.883486] fe20: ffff000008d50000 ffff000008f22000 0000000000000000 ffff000008dbc50c<br>[  452.899701] fe40: 0000000000000000 0000000000000000 00000057fff8ab20 00000057fff63c8d<br>[  452.915919] fe60: 0000000000c00018 ffff000008d8fec0 ffff0000080858c8 ffff000008d8fec0<br>[  452.932125] fe80: ffff0000080858cc 0000000060c00009 ffff000008d8fea0 ffff000008152050<br>[  452.948335] fea0: ffffffffffffffff ffff0000081520b8 ffff000008d8fec0 ffff0000080858cc<br>[  452.964549] [&lt;ffff0000080830b0&gt;] el1_irq+0xb0/0x140<br>[  452.973580] [&lt;ffff0000080858cc&gt;] arch_cpu_idle+0x44/0x144<br>[  452.983051] [&lt;ffff000008871b68&gt;] default_idle_call+0x20/0x30<br>[  452.992715] [&lt;ffff00000812482c&gt;] do_idle+0x158/0x1cc<br>[  453.001590] [&lt;ffff000008124a3c&gt;] cpu_startup_entry+0x28/0x30<br>[  453.011152] [&lt;ffff00000886af54&gt;] rest_init+0xbc/0xc8<br>[  453.019999] [&lt;ffff000008c00dac&gt;] start_kernel+0x410/0x43c<br>[  456.343559] [ascend] [drv_pcie] [devdrv_sync_non_trans_msg_send 1239] &lt;kworker/u385:0:15232:15232&gt; Device is abnormal. (dev_id=5; msg_type=3; common_type=5)<br>[  456.365571] [ascend] [devdrv] [devdrv_refresh_aicore_info_work 322] &lt;kworker/u385:0:15232&gt; devdrv_manager_send_msg unsuccessful. (ret=-19; dev_id=5)<br></code></pre></td></tr></table></figure>
+<h2 id="panic_on_soft_lockup">panic_on_soft_lockup</h2>
+<ul>
+<li><p>kernel.softlockup_panic</p>
+<p>作用： 软死锁是指内核中的一个任务（线程）由于长时间未能释放CPU而导致系统失去响应时是否触发 panic。</p>
+<p>潜在风险： 如果启用，系统在检测到软锁定时会触发 panic。</p>
+<p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sysctl -w kernel.softlockup_panic=1<br></code></pre></td></tr></table></figure></p>
+<p>内核编译选项：CONFIG_SOFTLOCKUP_DETECTOR=y BOOTPARAM_SOFTLOCKUP_PANIC=y</p></li>
+</ul>
+<p>从下图可以看到当前内核软锁的时候不会触发panic。</p>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17206693863448.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>panic_on_soft_lockup</figcaption>
+</figure>
+<h2 id="搭建环境">搭建环境</h2>
+<h3 id="iso下载">iso下载</h3>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/vah101/article/details/116691272">centos aarch64（arm64） iso 下载网址</a></li>
+<li><a target="_blank" rel="noopener" href="https://vault.centos.org/altarch/7.6.1810/isos/aarch64/">https://vault.centos.org/altarch/7.6.1810/isos/aarch64/</a></li>
+<li><a target="_blank" rel="noopener" href="https://vault.centos.org/altarch/7.6.1810/isos/aarch64/">https://mirrors.aliyun.com/centos-vault/centos/7.6.1810/isos/x86_64/CentOS-7-x86_64-Everything-1810.iso</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/yeziwinone/p/17916626.html">安装CentOS Vault系统踩过的坑</a></li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://vault.centos.org/altarch/7.6.1810/isos/aarch64/CentOS-7-aarch64-Everything-1810.iso<br></code></pre></td></tr></table></figure>
+<h3 id="创建安装磁盘">创建安装磁盘</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-img create -f qcow2 centos.qcow2 128G<br></code></pre></td></tr></table></figure>
+<h3 id="安装镜像">安装镜像</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">virt-install --virt-type kvm \<br>--name centos \<br>--memory 32768 \<br>--vcpus=64 \<br>--location /root/inf-test/CentOS-7-aarch64-Everything-1810.iso \<br>--disk path=/root/inf-test/centos.qcow2,size=128 \<br>--network network=default \<br>--os-type=linux \<br>--os-variant=rhel7 \<br>--graphics none \<br>--extra-args=<span class="hljs-string">&quot;console=ttyS0&quot;</span><br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh root@192.168.122.211<br>F7!r9Bn2@kP<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">ssh root@11.96.0.42<br>fTjw1%x8eJKY<br></code></pre></td></tr></table></figure>
+<h3 id="内核源码src.rpm下载">内核源码src.rpm下载</h3>
+<ul>
+<li><p><a target="_blank" rel="noopener" href="https://vault.centos.org/7.6.1810/os/Source/SPackages/">https://vault.centos.org/7.6.1810/os/Source/SPackages/</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://vault.centos.org/7.6.1810/os/Source/SPackages/kernel-alt-4.14.0-115.el7a.0.1.src.rpm">https://vault.centos.org/7.6.1810/os/Source/SPackages/kernel-alt-4.14.0-115.el7a.0.1.src.rpm</a> <img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724145414.png" srcset="/img/loading.gif" lazyload alt="https://vault.centos.org/7.6.1810/os/Source/SPackages/kernel-alt-4.14.0-115.el7a.0.1.src.rpm" /></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://vault.centos.org/altarch/7.6.1810/kernel/Source/SPackages/">https://vault.centos.org/altarch/7.6.1810/kernel/Source/SPackages/</a></p></li>
+</ul>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724145716.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>https://vault.centos.org/altarch/7.6.1810/kernel/Source/SPackages/</figcaption>
+</figure>
+<p>从上面的链接可以看到，<code>kernel-alt-4.14.0-115.el7a.0.1.src.rpm</code>没有归档到内核源码src.rpm专用链接<a target="_blank" rel="noopener" href="https://vault.centos.org/altarch/7.6.1810/kernel/Source/SPackages/" class="uri">https://vault.centos.org/altarch/7.6.1810/kernel/Source/SPackages/</a>里面，而是归档到了公共src.rpm链接<a target="_blank" rel="noopener" href="https://vault.centos.org/7.6.1810/os/Source/SPackages/%5D(https://vault.centos.org/7.6.1810/os/Source/SPackages/" class="uri">https://vault.centos.org/7.6.1810/os/Source/SPackages/](https://vault.centos.org/7.6.1810/os/Source/SPackages/</a>里面，故<code>kernel-alt-4.14.0-115.el7a.0.1.src.rpm</code>到底是不是<code>https://vault.centos.org/altarch/7.6.1810/isos/aarch64/CentOS-7-aarch64-Everything-1810.iso</code>对应的内核源码？</p>
+<h4 id="下载kernel-alt-4.14.0-115.el7a.0.1.src.rpm">下载<code>kernel-alt-4.14.0-115.el7a.0.1.src.rpm</code></h4>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://goodcommand.readthedocs.io/zh-cn/latest/os/CentOS_build_kernel.html">CentOS上编译安装内核</a></li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://vault.centos.org/7.6.1810/os/Source/SPackages/kernel-alt-4.14.0-115.el7a.0.1.src.rpm<br></code></pre></td></tr></table></figure>
+<h4 id="源码包安装解压">源码包安装解压</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">rpm -ivh kernel-alt-4.14.0-115.el7a.0.1.src.rpm<br></code></pre></td></tr></table></figure>
+<h4 id="源码打patch">源码打patch</h4>
+<p>打patch主要是因为CentOS的源码其实和Redhat一致，Redhat的源码应用patch后就变成CentOS。</p>
+<p>打patch之前需要安装一些工具,主要是rpmbuild和git：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">yum install -y rpm-build git<br></code></pre></td></tr></table></figure>
+<p>首先打源码包里面的patch,可以在当前用户的任意路径执行:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">rpmbuild -bp --nodeps ~/rpmbuild/SPECS/kernel-alt.spec<br></code></pre></td></tr></table></figure>
+<p>执行上述命令后，进入内核源码路径：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> ~/rpmbuild/BUILD/kernel-alt-4.14.0-115.el7a/linux-4.14.0-115.el7.0.1.aarch64<br></code></pre></td></tr></table></figure>
+<h4 id="编译内核rpm包">编译内核rpm包</h4>
+<p>这一步，编译内核，并且打包成rpm安装包，这样就可以把安装包拷贝到目标机器上执行安装了。</p>
+<p>安装编译工具:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">yum groupinstall –y “Development Tools”<br>yum install -y ncurses-devel make gcc bc bison flex elfutils-libelf-devel openssl-devel rpm-build redhat-rpm-config -y<br></code></pre></td></tr></table></figure>
+<p>配合config. 主要是对内核编译选项进行设置。先把当前用来启动系统的config拷贝过来是最保险的。注意是.config</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cp</span> /boot/config-4.14.0-115.el7a.0.1.aarch64 ./.config<br></code></pre></td></tr></table></figure>
+<p>修改.config中的CONFIG_SYSTEM_TRUSTED_KEYS=“certs/centos.pem”为空。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">CONFIG_SYSTEM_TRUSTED_KEYS=<span class="hljs-string">&quot;&quot;</span><br></code></pre></td></tr></table></figure>
+<h5 id="使用build-kernel-natively.sh脚本编译">使用build-kernel-natively.sh脚本编译</h5>
+<p>执行编译, 下载编译脚本：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://raw.githubusercontent.com/xin3liang/home-bin/master/build-kernel-natively.sh<br></code></pre></td></tr></table></figure>
+<p><code>build-kernel-natively.sh</code>内容如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-meta">#!/bin/bash</span><br><span class="hljs-built_in">set</span> -x<br><br><span class="hljs-comment">## params</span><br>version_prefix=<span class="hljs-string">&quot;rhel8.1-sas-5.1-update&quot;</span><br><br><span class="hljs-keyword">if</span> [ <span class="hljs-variable">$#</span> -ge 1 ]; <span class="hljs-keyword">then</span><br>	version_prefix=<span class="hljs-variable">$1</span><br><span class="hljs-keyword">fi</span><br><br>COFNIG_FILE=<span class="hljs-string">&quot;~/config-`uname -r`&quot;</span><br><span class="hljs-built_in">export</span> LOCALVERSION=<span class="hljs-string">&quot;-<span class="hljs-variable">$&#123;version_prefix&#125;</span>-`date +%F`&quot;</span><br>cpunum=$(getconf _NPROCESSORS_ONLN)<br><span class="hljs-comment">#cpunum=1</span><br><br><span class="hljs-comment"># targets: bindeb-pkg binrpm-pkg INSTALL_MOD_STRIP=1 Image modules INSTALL_MOD_PATH=$&#123;OUT&#125; modules_install&quot;</span><br>BUILD_TARGETS=<span class="hljs-string">&quot;rpm-pkg INSTALL_MOD_STRIP=1&quot;</span><br><br><span class="hljs-comment">## kernel .config compile</span><br><span class="hljs-comment"># cp /boot/conf-xx kernel_source_dir/.config</span><br><span class="hljs-comment"># CONFIG: oldconfig defconfig estuary_defconfig</span><br>CONFIG=<span class="hljs-string">&quot;oldconfig&quot;</span><br><br>make <span class="hljs-variable">$&#123;CONFIG&#125;</span><br>make <span class="hljs-variable">$&#123;BUILD_TARGETS&#125;</span> -j<span class="hljs-variable">$cpunum</span><br><br><span class="hljs-built_in">set</span> +x<br></code></pre></td></tr></table></figure>
+<p>在源码目录执行:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">./build-kernel-natively.sh<br></code></pre></td></tr></table></figure>
+<h5 id="直接make-binrpm-pkg编译">直接make binrpm-pkg编译</h5>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">time make binrpm-pkg -j64 2&gt; make_error.log<br></code></pre></td></tr></table></figure>
+<h2 id="initramfs无法加载根文件系统">initramfs无法加载根文件系统</h2>
+<p>在物理机上安装新内核后出现了新的故障，在initramfs无法加载根文件系统。</p>
+<p>报错信息如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">[  238.741337] dracut-initqueue[2520]: Warning: dracut-initqueue <span class="hljs-built_in">timeout</span> - starting <span class="hljs-built_in">timeout</span> scripts<br>[  239.311370] dracut-initqueue[2520]: Warning: dracut-initqueue <span class="hljs-built_in">timeout</span> - starting <span class="hljs-built_in">timeout</span> scripts<br>[  239.311673] dracut-initqueue[2520]: Warning: Could not boot.<br></code></pre></td></tr></table></figure>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/915735adf44b509b57fb8c1d3ed60d3.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>Warning:/devdisk/by-uuid/c38d268?-f12-469a-913f-549d23c6ba12 does not exist</figcaption>
+</figure>
+<h3 id="使用-dracut-重新生成initramfs">使用 dracut 重新生成initramfs</h3>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/superbfly/article/details/122114397">dracut 使用笔记</a></li>
+<li><a target="_blank" rel="noopener" href="https://linuxconfig.org/how-to-build-an-initramfs-using-dracut-on-linux">How to build an initramfs using Dracut on Linux</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.man7.org/linux/man-pages/man8/dracut.8.html">dracut(8) — Linux manual page</a></li>
+</ul>
+<p>根据下图可以看到，新编内核生成的initramfs与镜像中自带的initramfs差异点主要在于：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">usr/lib/modules/4.14.0/kernel/crypto<br>usr/lib/modules/4.14.0/kernel/drivers/md<br>usr/lib/modules/4.14.0/kernel/drivers/net<br>usr/lib/modules/4.14.0/kernel/drivers/scsi<br>usr/lib/modules/4.14.0/kernel/lib/raid6<br></code></pre></td></tr></table></figure>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724155620.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>initramfs.log &lt;-&gt; initramfs1.log</figcaption>
+</figure>
+<p>使用 dracut 根据当前内核生成 initramfs：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dracut -f<br></code></pre></td></tr></table></figure>
+<p>使用 dracut 生成指定版本内核对应的 initramfs：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">dracut -f initramfs-`<span class="hljs-built_in">uname</span> -r`.img `<span class="hljs-built_in">uname</span> -r`<br>dracut -f initramfs-4.14.0.img 4.14.0<br></code></pre></td></tr></table></figure>
+<p>将某个驱动模块添加到initramfs中(可以使用绝对路径，但是要去掉结尾.ko)：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">dracut -f --add-drivers crypto initramfs-`<span class="hljs-built_in">uname</span> -r`.img `<span class="hljs-built_in">uname</span> -r`<br>dracut -f --add-drivers /usr/lib/modules/4.14.0/kernel/drivers/scsi/scsi_transport_sas initramfs-`<span class="hljs-built_in">uname</span> -r`.img `<span class="hljs-built_in">uname</span> -r`<br></code></pre></td></tr></table></figure>
+<p>将<code>/usr/lib/modules/4.14.0/kernel/drivers/scsi</code>路径下的所有内容打包到initramfs下的<code>/usr/lib/modules/4.14.0/kernel/drivers/scsi</code>:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dracut -f -i /usr/lib/modules/4.14.0/kernel/drivers/scsi /usr/lib/modules/4.14.0/kernel/drivers/scsi initramfs-`<span class="hljs-built_in">uname</span> -r`.img `<span class="hljs-built_in">uname</span> -r`<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dracut -f -i /usr/lib/modules/4.14.0/kernel/drivers/md /usr/lib/modules/4.14.0/kernel/drivers/md initramfs-`<span class="hljs-built_in">uname</span> -r`.img `<span class="hljs-built_in">uname</span> -r`<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dracut -f -i /usr/lib/modules/4.14.0/kernel/lib/raid6 /usr/lib/modules/4.14.0/kernel/lib/raid6 initramfs-`<span class="hljs-built_in">uname</span> -r`.img `<span class="hljs-built_in">uname</span> -r`<br></code></pre></td></tr></table></figure>
+<p>后续排查故障过程更新了mlx网卡驱动<code>MLNX_OFED_LINUX-5.8-4.1.5.0-rhel7.6alternate-aarch64.tgz</code>，安装时报错如下：</p>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240724153818.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>Failed to query 45:00.0 device, error: No such file or directory. MFE NO FLASH DETECTED</figcaption>
+</figure>
+<p>由于不知道具体的网络驱动是啥，将net目录整体加入到initramfs中：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dracut -f -v -i /lib/modules/4.14.0-115.el7a.0.1.aarch64/extra/mlnx-ofa_kernel/drivers/net initramfs-`<span class="hljs-built_in">uname</span> -r`.img `<span class="hljs-built_in">uname</span> -r`<br></code></pre></td></tr></table></figure>
+<p>reboot后又卡cpu stuck，报错截图如下：</p>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/a2219e1405d94ad7ff8a8541b128db7.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>a2219e1405d94ad7ff8a8541b128db7</figcaption>
+</figure>
+<p>reboot是热重启，将机器掉电后热重启，能进入系统：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">![lsmod | grep mlx5 core](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/06c9a78d1a02d386ddf4f1552a09006.png)<br></code></pre></td></tr></table></figure>
+<p>目前基本确定是mlx网卡驱动导致的reboot流程被打断。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/bugs/" class="category-chain-item">bugs</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/bugs/soft-lockup/" class="category-chain-item">soft_lockup</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/qemu/">#qemu</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/HTML/">#HTML</a>
+      
+        <a href="/tags/initramfs/">#initramfs</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>CPU Stuck During Reboot</div>
+      <div>https://realwujing.github.io/linux/kernel/bugs/soft_lockup/CPU Stuck During Reboot/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2024年7月24日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/docker/README/" title="README">
+                        <span class="hidden-mobile">README</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: 'e5695bb89f1b159f622cf4ee2569a792'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
