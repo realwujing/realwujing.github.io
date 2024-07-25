@@ -8,6 +8,7 @@
 - [<font color=Red>VIM常用命令</font>](https://blog.csdn.net/weixin_44441367/article/details/124810525)
 
 - [12 个超实用的 vim 编辑技巧](https://mp.weixin.qq.com/s/MyV3ZC7A7vdWpQ1lt3d_dg)
+- [<font color=Red>VIM常用快捷键</font>](https://blog.csdn.net/xiaoxinyu316/article/details/44061173)
 
 ## 多窗口
 
@@ -21,6 +22,38 @@
 - [<font color=Red>vim 多行操作(7)</font>](https://waliblog.com/2019/05/06/vim-7.html)
 - [Linux——VIM学习选取多行（转）](https://blog.csdn.net/sinat_36053757/article/details/78183506)
 - [【Linux】Vim编辑器-批量注释与反注释](https://blog.csdn.net/xiajun07061225/article/details/8488210)
+
+## 移动
+
+- [<font color=Red>VIM常用快捷键</font>](https://blog.csdn.net/xiaoxinyu316/article/details/44061173)
+
+w：光标右移一个单词
+
+W：右移一个以空格作为分隔符的单词
+
+b：左移一个单词
+
+B：左移一个以空格作为分隔符的单词
+
+e：光标右移到一个单词的结尾
+
+E：右移一个以空格作为分隔符的单词结尾
+
+f+字符：向右移动到字符上
+
+F+字符：向左移动到字符上
+
+t+字符：向右移动到字符前
+
+T+字符：向左移动到字符前
+
+n+G：移动到第n行
+
+*：在文档中，光标所在单词间移动，可多次按
+
+#：在文档中，光标所在单词间移动，可多次按
+
+（重复上次操作，按 ; 分号，不要按shfit）
 
 ## 查找替换
 
