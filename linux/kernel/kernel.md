@@ -32,11 +32,60 @@
 
 - [https://www.kernel.org/](https://www.kernel.org/)
 
+    ```bash
+    Clone
+    git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+    https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+    https://kernel.googlesource.com/pub/scm/linux/kernel/git/stable/linux.git
+    ```
+
+- [Linux kernel source tree](https://github.com/torvalds/linux)
+
+    ```bash
+    Clone
+    https://github.com/torvalds/linux.git
+    git@github.com:torvalds/linux.git
+    ```
+
+- [Linux kernel stable tree mirror](https://github.com/gregkh/linux)
+
+    ```bash
+    Clone
+    https://github.com/gregkh/linux.git
+    git@github.com:gregkh/linux.git
+    ```
+
+- <https://mirrors.tuna.tsinghua.edu.cn/help/linux-stable.git/>
+
+    如需克隆 Linux Stable 代码，使用:
+
+    ```bash
+    git clone https://mirrors.tuna.tsinghua.edu.cn/git/linux-stable.git
+    ```
+
+    若要将 mirror 加入已有代码库，可在已有仓库中运行:
+
+    ```bash
+    git remote add mirror https://mirrors.tuna.tsinghua.edu.cn/git/linux-stable.git
+    ```
+
+    或运行：
+
+    ```bash
+    git remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/linux-stable.git
+    ```
+
+    将默认上游设置为镜像站。
+
+
 - [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
 - [git获取指定版本的linux内核源码](https://blog.csdn.net/weixin_40837318/article/details/95546377)
-- [Linux kernel source tree](https://github.com/torvalds/linux)
-- [Linux kernel stable tree mirror](https://github.com/gregkh/linux)
+
 - [OpenCloudOS kernel](https://gitee.com/OpenCloudOS/OpenCloudOS-Kernel/tree/master)
+
+```bash
+git clone
+```
 
 ### LKML
 
