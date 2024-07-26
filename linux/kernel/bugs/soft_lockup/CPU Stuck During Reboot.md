@@ -700,6 +700,15 @@ cat /proc/cmdline
 BOOT_IMAGE=/vmlinuz-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64 root=/dev/mapper/system-lv_root ro console=tty0 pci=realloc hardened_usercopy=off noirqdebug pciehp.pciehp_force=1 crashkernel=512M initcall_blacklist=mlx5_ib_init,mx5_core_init module_blacklist=mlx5_ib,mlx5_core biosdevname=0 net.ifnames=0 console=ttyS0,115200n8
 ```
 
+进入系统后，使用lsmod命令查看mlx5_core驱动是否加载：
+
+```bash
+[root@chuji-11-96-0-41 127.0.0.1-2024-07-25-20:29:18]# lsmod | grep mlx5_core
+[root@chuji-11-96-0-41 127.0.0.1-2024-07-25-20:29:18]#
+```
+
+从上面的输出看到，mlx5_core驱动模块未加载。
+
 禁止mlx网卡驱动加载后，reboot还是soft_lockup。
 
 ## kdump 服务无法正常启动
@@ -748,7 +757,106 @@ vmcore  vmcore-dmesg.txt
 
 ### 根据vmcore确定根因
 
-根据vmcore-dmesg.txt基本上确定硬件时钟芯片有一定问题。
+高精度时钟堆栈是内核watch dog线程发现网卡enp0导致cpu soft lockup后打印的。
+
+enp0驱动指向了hns3。
+
+驱动提供方为华为海思。
+
+```bash
+# vim vmcore-dmesg.txt +3055
+
+3055 [  139.896889] NETDEV WATCHDOG: enp0 (hns3): transmit queue 0 timed out
+3056 [  139.896911] ------------[ cut here ]------------
+3057 [  139.896925] WARNING: CPU: 8 PID: 0 at net/sched/sch_generic.c:320 dev_watchdog+0x2b0/0x2b8
+3058 [  139.896927] Modules linked in: xt_conntrack ipt_MASQUERADE nf_nat_masquerade_ipv4 nf_conntrack_netlink nfnetlink xt_addrtype iptable_filter iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack br_netfilter bridge 8021q ga     rp mrp stp llc bonding tun uio_pci_generic uio vfio_pci vfio_virqfd vfio_iommu_type1 vfio cuse fuse overlay ib_ipoib(OE) ib_cm(OE) ib_uverbs(OE) ib_umad(OE) ib_core(OE) sunrpc vfat fat ext4 mbcache jbd2 crc32_ce ghash_ce sha2_ce sha256_arm64 sha1_c     e sbsa_gwdt ses enclosure sg gpio_dwapb gpio_generic ipmi_ssif ipmi_devintf ipmi_msghandler dm_multipath knem(OE) ip_tables xfs libcrc32c virtio_net mlxfw(OE) ptp pps_core hibmc_drm auxiliary(OE) devlink drm_kms_helper virtio_pci mlx_compat(OE) sys     copyarea sysfillrect virtio_ring sysimgblt virtio fb_sys_fops ttm
+3059 [  139.897097]  drm hns3 hclge hnae3 hisi_sas_v3_hw hisi_sas_main megaraid_sas(OE) libsas scsi_transport_sas i2c_designware_platform i2c_designware_core dm_mirror dm_region_hash dm_log dm_mod
+3060 [  139.897134] CPU: 8 PID: 0 Comm: swapper/8 Kdump: loaded Tainted: G        W  OE  ------------   4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64 #1
+3061 [  139.897136] Hardware name: HUAKUN HuaKun AT3500 G3/IT21SK4E, BIOS 12.01.08 03/22/2024
+3062 [  139.897138] task: ffff80302b853200 task.stack: ffff00000bb60000
+3063 [  139.897143] PC is at dev_watchdog+0x2b0/0x2b8
+3064 [  139.897146] LR is at dev_watchdog+0x2b0/0x2b8
+3065 [  139.897149] pc : [<ffff000008754640>] lr : [<ffff000008754640>] pstate: 60400009
+3066 [  139.897151] sp : ffff0000099efd40
+3067 [  139.897153] x29: ffff0000099efd40 x28: ffff80302b853200
+3068 [  139.897159] x27: ffff000008d52120 x26: ffff000008db0000
+3069 [  139.897164] x25: 00000000ffffffff x24: 0000000000000008
+3070 [  139.897169] x23: ffff80283209d49c x22: ffff80283190d280
+3071 [  139.897174] x21: ffff80283190d200 x20: ffff80283209d000
+3072 [  139.897179] x19: ffff000008db1000 x18: 0000ffffdefffdf0
+3073 [  139.897184] x17: 0000ffff9d140028 x16: ffff0000080da4d4
+3074 [  139.897188] x15: 0000000000000000 x14: 0000000000000000
+3075 [  139.897193] x13: 0000000000000000 x12: 0000000000000bee
+3076 [  139.897197] x11: 0000000000000004 x10: 0000000000000bef
+3077 [  139.897202] x9 : 00000000001bb120 x8 : ffffe057ffa44f28
+3078 [  139.897207] x7 : 0000000000000000 x6 : 0000000000000000
+3079 [  139.897212] x5 : ffffe057cd6369f0 x4 : 0000000000000000
+3080 [  139.897216] x3 : 0000000000000001 x2 : 419176834f6d5000
+3081 [  139.897221] x1 : 419176834f6d5000 x0 : 0000000000000038
+3082 [  139.897226] Call trace:
+3083 [  139.897230] Exception stack(0xffff0000099efc00 to 0xffff0000099efd40)
+3084 [  139.897235] fc00: 0000000000000038 419176834f6d5000 419176834f6d5000 0000000000000001
+3085 [  139.897238] fc20: 0000000000000000 ffffe057cd6369f0 0000000000000000 0000000000000000
+3086 [  139.897241] fc40: ffffe057ffa44f28 00000000001bb120 0000000000000bef 0000000000000004
+3087 [  139.897244] fc60: 0000000000000bee 0000000000000000 0000000000000000 0000000000000000
+3088 [  139.897247] fc80: ffff0000080da4d4 0000ffff9d140028 0000ffffdefffdf0 ffff000008db1000
+3089 [  139.897251] fca0: ffff80283209d000 ffff80283190d200 ffff80283190d280 ffff80283209d49c
+3090 [  139.897254] fcc0: 0000000000000008 00000000ffffffff ffff000008db0000 ffff000008d52120
+3091 [  139.897257] fce0: ffff80302b853200 ffff0000099efd40 ffff000008754640 ffff0000099efd40
+3092 [  139.897260] fd00: ffff000008754640 0000000060400009 ffff0000015c02e8 0000000000000000
+3093 [  139.897263] fd20: 0000ffffffffffff ffff80283190d280 ffff0000099efd40 ffff000008754640
+3094 [  139.897268] [<ffff000008754640>] dev_watchdog+0x2b0/0x2b8
+3095 [  139.897274] [<ffff00000815caf8>] call_timer_fn+0x54/0x16c
+3096 [  139.897278] [<ffff00000815cd04>] expire_timers+0xf4/0x170
+3097 [  139.897281] [<ffff00000815ce34>] run_timer_softirq+0xb4/0x1dc
+3098 [  139.897286] [<ffff000008081a9c>] __do_softirq+0x11c/0x2f0
+3099 [  139.897290] [<ffff0000080db6ac>] irq_exit+0x120/0x150
+3100 [  139.897297] [<ffff000008140b08>] __handle_domain_irq+0x78/0xc4
+3101 [  139.897300] [<ffff000008081868>] gic_handle_irq+0xa0/0x1b8
+```
+
+![NETDEV WATCHDOG: enp0 (hns3): transmit queue 0 timed out](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/ec67d505f622676ed7bca734415116c.jpg)
+
+```bash
+[root@chuji-11-96-0-41 127.0.0.1-2024-07-25-20:29:18]# ethtool -i enp0
+driver: hns3
+version: 4.14.0-115.el7.0.1.ctyun.panic.
+firmware-version: 0x0114001b
+expansion-rom-version:
+bus-info: 0000:bd:00.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: no
+supports-register-dump: yes
+supports-priv-flags: no
+```
+
+```bash
+[root@chuji-11-96-0-41 127.0.0.1-2024-07-25-20:29:18]# modinfo hns3
+filename:       /lib/modules/4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64/kernel/drivers/net/ethernet/hisilicon/hns3/hns3.ko.xz
+version:        1.0
+alias:          pci:hns-nic
+license:        GPL
+author:         Huawei Tech. Co., Ltd.
+description:    HNS3: Hisilicon Ethernet Driver
+rhelversion:    7.6
+srcversion:     C47CD4CEBBA5E0E90661D99
+alias:          pci:v000019E5d0000A22Fsv*sd*bc*sc*i*
+alias:          pci:v000019E5d0000A22Esv*sd*bc*sc*i*
+alias:          pci:v000019E5d0000A226sv*sd*bc*sc*i*
+alias:          pci:v000019E5d0000A225sv*sd*bc*sc*i*
+alias:          pci:v000019E5d0000A224sv*sd*bc*sc*i*
+alias:          pci:v000019E5d0000A223sv*sd*bc*sc*i*
+alias:          pci:v000019E5d0000A222sv*sd*bc*sc*i*
+alias:          pci:v000019E5d0000A221sv*sd*bc*sc*i*
+alias:          pci:v000019E5d0000A220sv*sd*bc*sc*i*
+depends:        hnae3
+intree:         Y
+name:           hns3
+vermagic:       4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64 SMP mod_unload modversions aarch64
+```
+
+![ethtool -i enp0 modinfo hns3](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/9c97ab1b42c7fba03a674c70b3f326b.jpg)
 
 ```bash
 # vim vmcore-dmesg.txt +3190
@@ -856,6 +964,8 @@ crash: seek error: kernel virtual address: ffffe057cd720090  type: "IRQ stack po
 crash: seek error: kernel virtual address: ffffe057cd750090  type: "IRQ stack pointer"
 ```
 
+- [arm64-kernel-5.4-crash-7.3.0-run-directly-error #91](https://github.com/crash-utility/crash/issues/91)
+- [crash_arm64 can not load coredump #134](https://github.com/crash-utility/crash/issues/134)
 - [Getting the error message "crash: seek error: kernel virtual address: XXXXXXXXXXXXXXXX type: "cpu_possible_mask", while opening an incomplete vmcore in "crash utility".](https://access.redhat.com/solutions/171713)
 
 上述红帽链接建议附加`--minimal`参数：
@@ -891,9 +1001,3 @@ crash>
 ```
 
 只能使用几个命令，基本上没多大用。
-
-执行上述命令后，进入内核源码路径：
-
-```bash
-cd ~/rpmbuild/BUILD/kernel-alt-4.14.0-115.el7a/linux-4.14.0-115.el7.0.1.aarch64
-```
