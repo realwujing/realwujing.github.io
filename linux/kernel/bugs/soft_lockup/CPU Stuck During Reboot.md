@@ -817,6 +817,53 @@ enp0驱动指向了hns3。
 
 ![NETDEV WATCHDOG: enp0 (hns3): transmit queue 0 timed out](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/ec67d505f622676ed7bca734415116c.jpg)
 
+```c
+// vim net/sched/sch_generic.c +320
+
+291 static void dev_watchdog(unsigned long arg)
+292 {
+293         struct net_device *dev = (struct net_device *)arg;
+294
+295         netif_tx_lock(dev);
+296         if (!qdisc_tx_is_noop(dev)) {
+297                 if (netif_device_present(dev) &&
+298                     netif_running(dev) &&
+299                     netif_carrier_ok(dev)) {
+300                         int some_queue_timedout = 0;
+301                         unsigned int i;
+302                         unsigned long trans_start;
+303
+304                         for (i = 0; i < dev->num_tx_queues; i++) {
+305                                 struct netdev_queue *txq;
+306
+307                                 txq = netdev_get_tx_queue(dev, i);
+308                                 trans_start = txq->trans_start;
+309                                 if (netif_xmit_stopped(txq) &&
+310                                     time_after(jiffies, (trans_start +
+311                                                          dev->watchdog_timeo))) {
+312                                         some_queue_timedout = 1;
+313                                         txq->trans_timeout++;
+314                                         break;
+315                                 }
+316                         }
+317
+318                         if (some_queue_timedout) {
+319                                 WARN_ONCE(1, KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit queue %u timed out\n",
+320                                        dev->name, netdev_drivername(dev), i);
+321                                 dev->netdev_ops->ndo_tx_timeout(dev);
+322                         }
+323                         if (!mod_timer(&dev->watchdog_timer,
+324                                        round_jiffies(jiffies +
+325                                                      dev->watchdog_timeo)))
+326                                 dev_hold(dev);
+327                 }
+328         }
+329         netif_tx_unlock(dev);
+330
+331         dev_put(dev);
+332 }
+```
+
 ```bash
 [root@chuji-11-96-0-41 127.0.0.1-2024-07-25-20:29:18]# ethtool -i enp0
 driver: hns3
@@ -855,6 +902,18 @@ intree:         Y
 name:           hns3
 vermagic:       4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64 SMP mod_unload modversions aarch64
 ```
+
+```bash
+[root@chuji-11-96-0-41 127.0.0.1-2024-07-25-20:29:18]# yum provides /lib/modules/4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64/kernel/drivers/net/ethernet/hisilicon/hns3/hns3.ko.xz
+Loaded plugins: fastestmirror, langpacks
+Loading mirror speeds from cached hostfile
+kernel-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64 : The Linux kernel
+Repo        : installed
+Matched from:
+Filename    : /lib/modules/4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64/kernel/drivers/net/ethernet/hisilicon/hns3/hns3.ko.xz
+```
+
+hns3是核内驱动，建议使用核外驱动排查一下是否还会导致reboot时cpu soft lockup。
 
 ![ethtool -i enp0 modinfo hns3](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/9c97ab1b42c7fba03a674c70b3f326b.jpg)
 
