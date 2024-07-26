@@ -289,7 +289,7 @@ Tmux（Terminal Multiplexer）是一款终端复用软件，可以让你在一�
 #### 窗口管理
 
 - **新建窗口**: `Ctrl-b c`
-- **切换窗口**: `Ctrl-b n` (下一个窗口), `Ctrl-b p` (上一个窗口)
+- **切换窗口**: `Ctrl-b n` (下一个窗口), `Ctrl-b p` (上一个窗口)， `Ctrl-b 0` (切换到窗口0)，`Ctrl-b 1` (切换到窗口1)
 - **选择窗口**: `Ctrl-b <window-number>`
 - **重命名窗口**: `Ctrl-b ,`
 - **关闭窗口**: `Ctrl-b &`
@@ -582,7 +582,7 @@ Tmux（Terminal Multiplexer）是一款终端复用软件，可以让你在一�
 ### /etc/fstab
 
 ```bash
-cat /etc/fstab 
+cat /etc/fstab
 # /dev/nvme0n1p3
 UUID=b8785205-a668-4d32-8cd8-e506b9850f01       /               ext4            rw,relatime     0 1
 
@@ -693,7 +693,7 @@ UUID=cc5da720-dbfb-4bc2-8f35-f566d1603508       /media/wujing/data      ext4    
   现有三台机器A、B、C,期望从机器A上通过跳板机B免密远程登录机器C。
 
   在机器A上执行如下命令:
-  
+
   ```bash
   ssh-keygen
   ssh-copy-id uos@10.20.53.160
@@ -702,7 +702,7 @@ UUID=cc5da720-dbfb-4bc2-8f35-f566d1603508       /media/wujing/data      ext4    
   ```
 
   在机器B上执行如下命令:
-  
+
   ```bash
   ssh-keygen
   ssh-copy-id uos@192.168.122.76
@@ -711,7 +711,7 @@ UUID=cc5da720-dbfb-4bc2-8f35-f566d1603508       /media/wujing/data      ext4    
   ```
 
   在机器C上执行如下命令:
-  
+
   ```bash
   cat id_rsa.pub >> ~/.ssh/authorized_keys
   ```
