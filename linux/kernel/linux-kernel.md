@@ -57,7 +57,7 @@ inode则反映了文件系统对象中的一般元数据信息。dentry则是反
 
 ### 四个对象
 
-####  超级块(super block)
+#### 超级块(super block)
 
 超级块：一个超级块对应一个文件系统(已经安装的文件系统类型如ext2，此处是实际的文件系统，不是VFS)。
 
@@ -110,7 +110,7 @@ inode则反映了文件系统对象中的一般元数据信息。dentry则是反
 ### I/O 调度器
 
 I/O 调度器用来决定读写请求的提交顺序，针对不同的
-使用场景提供了多种调度算法：NOOP（No Operation）、CFQ（完全公平排队，Complete Fair 
+使用场景提供了多种调度算法：NOOP（No Operation）、CFQ（完全公平排队，Complete Fair
 Queuing）和 deadline（限期）。NOOP 调度算法适合闪存类块设备，CFQ 和 deadline 调度算
 法适合机械硬盘。
 
@@ -646,6 +646,7 @@ __local_bh_disable_ip是怎么实现的呢，貌似也没有看到关抢占？�
 ### rwlock读写锁
 
 读写锁是自旋锁的一种变种，分为读锁和写锁，有以下特点：
+
 - 可以多个读者同时进入临界区；
 - 读者与写者互斥；
 - 写者与写者互斥；
@@ -965,9 +966,9 @@ struct page {
                     struct page *next;
 #ifdef CONFIG_64BIT
                     // slab 所在管理链表中的包含的 slab 总数
-                    int pages;  
+                    int pages;
                     // slab 所在管理链表中包含的对象总数
-                    int pobjects; 
+                    int pobjects;
 #else
                     short int pages;
                     short int pobjects;
@@ -1122,7 +1123,7 @@ PGD_SHIFT 用来表示 PGD 中的一个页目录项 pgd_t 可以映射的物理�
 ```c
 // 进程虚拟内存空间描述符
 struct mm_struct {
-    // 串联组织进程空间中所有的 VMA  的双向链表 
+    // 串联组织进程空间中所有的 VMA  的双向链表
     struct vm_area_struct *mmap;  /* list of VMAs */
     // 管理进程空间中所有 VMA 的红黑树
     struct rb_root mm_rb;
@@ -1335,7 +1336,7 @@ struct vmap_area {
     // vmalloc 区所在双向链表中的节点
     struct list_head list;          /* address sorted list */
     // 用于关联 vm_struct 结构
-    struct vm_struct *vm;          
+    struct vm_struct *vm;
 };
 ```
 
@@ -1385,7 +1386,7 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
         // 将分配的物理内存页依次存放到 vm_struct 结构中的 pages 数组中
         area->pages[i] = page;
     }
-    
+
     atomic_long_add(area->nr_pages, &nr_vmalloc_pages);
     // 修改内核主页表，将刚刚分配出来的所有物理内存页与 vmalloc 虚拟内存区域进行映射
     if (map_vm_area(area, prot, pages))
@@ -1531,12 +1532,12 @@ static vm_fault_t do_anonymous_page(struct vm_fault *vmf)
     // pte_alloc 这里会创建一级页表，并填充 pmd 中的内容
     if (pte_alloc(vma->vm_mm, vmf->pmd))
         return VM_FAULT_OOM;
-  
+
     // 页表创建好之后，这里从伙伴系统中分配一个 4K 物理内存页出来
     page = alloc_zeroed_user_highpage_movable(vma, vmf->address);
     if (!page)
         goto oom;
-    // 将 page 的 pfn 以及相关权限标记位 vm_page_prot 初始化一个临时 pte 出来 
+    // 将 page 的 pfn 以及相关权限标记位 vm_page_prot 初始化一个临时 pte 出来
     entry = mk_pte(page, vma->vm_page_prot);
     // 如果 vma 是可写的，则将 pte 标记为可写，脏页。
     if (vma->vm_flags & VM_WRITE)
@@ -1556,14 +1557,14 @@ static vm_fault_t do_anonymous_page(struct vm_fault *vmf)
 setpte:
     // 将 entry 赋值给真正的 pte，这里 pte 就算被填充好了，进程页表体系也就补齐了
     set_pte_at(vma->vm_mm, vmf->address, vmf->pte, entry);
-    // 刷新 mmu 
+    // 刷新 mmu
     update_mmu_cache(vma, vmf->address, vmf->pte);
 unlock:
     // 解除 pte 的映射
     pte_unmap_unlock(vmf->pte, vmf->ptl);
     return ret;
 release:
-    // 释放 page 
+    // 释放 page
     put_page(page);
     goto unlock;
 oom:
@@ -3048,8 +3049,8 @@ numElements)
 
 ```c
  asm("brkpt;");
-0x000cf950 [0304] tmp15: 
-0x000cf950 [0307] brkpt; 
+0x000cf950 [0304] tmp15:
+0x000cf950 [0307] brkpt;
 0x000cf950 BPT.TRAP 0x1;
 ```
 
@@ -3178,7 +3179,7 @@ QEMU与KVM交互涉及到许多关键函数，其中一些主要函数包括：
 
 ![转向 virtio](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240328105932.png)
 
-virtio 是一种前后端架构，包括前端驱动（Front-End Driver）和后端设备（Back-End 
+virtio 是一种前后端架构，包括前端驱动（Front-End Driver）和后端设备（Back-End
 Device）以及自身定义的传输协议。通过传输协议，virtio 不仅可以用于 QEMU/KVM 方案，也
 可以用于其他的虚拟化方案。如虚拟机可以不必是 QEMU，也可以是其他类型的虚拟机，后端
 不一定要在 QEMU 中实现，也可以在内核中实现（这实际上就是 vhost 方案，后面会详细介
@@ -3439,21 +3440,21 @@ Container: Container是由多个Group组成的集合。虽然Group是VFIO的最�
 1）假设需要直通的设备如下所示。
 
 ```bash
-01:10.0 Ethernet controller: Intel Corporation 82576 Virtual Function 
+01:10.0 Ethernet controller: Intel Corporation 82576 Virtual Function
 (rev 01)
 ```
 
 2）找到这个设备的 VFIO group，这是由内核生成的。
 
 ```bash
-# readlink /sys/bus/pci/devices/0000:01:10.0/iommu_group 
+# readlink /sys/bus/pci/devices/0000:01:10.0/iommu_group
 ../../../../kernel/iommu_groups/15
 ```
 
 3）查看 group 里面的设备，这个 group 只有一个设备。
 
 ```bash
-# ls /sys/bus/pci/devices/0000:01:10.0/iommu_group/devices/ 
+# ls /sys/bus/pci/devices/0000:01:10.0/iommu_group/devices/
 0000:01:10.0
 ```
 
@@ -3466,7 +3467,7 @@ Container: Container是由多个Group组成的集合。虽然Group是VFIO的最�
 5）找到设备的生产商&设备 ID。
 
 ```bash
-$ lspci -n -s 01:10.0 
+$ lspci -n -s 01:10.0
 01:10.0 0200: 8086:10ca (rev 01)
 ```
 
@@ -3493,9 +3494,9 @@ $ echo 8086 10ca /sys/bus/pci/drivers/vfio-pci/new_id
 9）向 QEMU 传递相关参数。
 
 ```bash
-sudo qemuqemu-system-x86_64 -m 2048 -hda rhel6vm \ 
- -vga std -vnc :0 -net none \ 
- -enable-kvm \ 
+sudo qemuqemu-system-x86_64 -m 2048 -hda rhel6vm \
+ -vga std -vnc :0 -net none \
+ -enable-kvm \
  -device vfio-pci,host=01:10.0,id=net0
 ```
 
