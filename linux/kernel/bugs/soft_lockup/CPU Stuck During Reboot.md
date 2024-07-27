@@ -1060,3 +1060,47 @@ crash>
 ```
 
 只能使用几个命令，基本上没多大用。
+
+## 禁掉hns3驱动
+
+```bash
+lsmod | grep -i hns3
+hns3                  262144  0
+hnae3                 262144  2 hns3,hclge
+```
+
+在GRUB_CMDLINE_LINUX新增参数禁止hns3驱动加载：
+
+```bash
+vim /etc/default/grub
+
+initcall_blacklist=hns3_init module_blacklist=hns3 initcall_debug no_console_suspend ignore_loglevel
+```
+
+```bash
+[root@chuji-11-96-0-41 ~]# cat /etc/default/grub
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="$(sed 's, release .*$,,g' /etc/system-release)"
+GRUB_DEFAULT=saved
+GRUB_DISABLE_SUBMENU=true
+GRUB_TERMINAL="serial console"
+GRUB_SERIAL_COMMAND="serial --speed=115200"
+GRUB_CMDLINE_LINUX="console=tty0 initcall_blacklist=hns3_init module_blacklist=hns3 initcall_debug no_console_suspend ignore_loglevel pci=realloc hardened_usercopy=off noirqdebug pciehp.pciehp_force=1 crashkernel=2048M biosdevname=0 net.ifnames=0   console=ttyS0,115200n8"
+GRUB_DISABLE_RECOVERY="true"
+```
+
+```bash
+[root@chuji-11-96-0-41 ~]# grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
+/etc/sysconfig/kernel: line 7: alias: scsi_hostadapter0: not found
+/etc/sysconfig/kernel: line 7: alias: megaraid_sas: not found
+Generating grub configuration file ...
+Found linux image: /boot/vmlinuz-4.14.0-115.el7a.0.1.aarch64
+Found initrd image: /boot/initramfs-4.14.0-115.el7a.0.1.aarch64.img
+Found linux image: /boot/vmlinuz-0-rescue-4ad9ae0bc10540edac7304e5603fd71e
+Found initrd image: /boot/initramfs-0-rescue-4ad9ae0bc10540edac7304e5603fd71e.img
+done
+```
+
+grub中禁掉hns3驱动后根本进不去系统，一下USB disconnect。
+
+![initcall_blacklist=hns3_init module_blacklist=hns3 initcall_debug no_console_suspend ignore_loglevel](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240727222640.png)
