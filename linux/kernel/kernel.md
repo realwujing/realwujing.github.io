@@ -681,6 +681,10 @@ Lines executed:70.57% of 367
 Creating 'main.c.gcov'
 ```
 
+## kpatch
+
+- [kpatch入门实践教程](https://blog.csdn.net/lonely_geek/article/details/88555709)
+
 ## 其它
 
 - [用户态和内核态的切换耗费时间的原因](https://blog.csdn.net/weixin_43871678/article/details/106723029)
