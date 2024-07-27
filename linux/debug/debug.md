@@ -6,7 +6,6 @@
 - [Linux内核调试方法](https://blog.csdn.net/u013253075/article/details/120569270)
 - [全面剖析Linux kernel的调试debug技术](https://zhuanlan.zhihu.com/p/543103513)
 - [内核earlyprintk选项](https://blog.csdn.net/sinat_20184565/article/details/111875638)
-- [系统稳定性](?action=getalbum&__biz=MzkwNTI0MzQ4Nw==&scene=1&album_id=2341520520153726976&count=3#wechat_redirect)
 
 ## fadd2line
 
