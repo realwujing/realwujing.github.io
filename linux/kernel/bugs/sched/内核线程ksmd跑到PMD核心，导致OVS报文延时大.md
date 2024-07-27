@@ -1,12 +1,10 @@
-# Extended Runtime of ksmd Impacting Virtual Machine Latency
-
-ksmd频繁被调度导致虚拟机性能下降。
+# 内核线程ksmd跑到PMD核心，导致OVS报文延时大
 
 ## perf sched
 
 - [perf sched查看调度延迟与唤醒延迟](https://blog.csdn.net/yiyeguzhou100/article/details/102809576)
 
-在物理机上查看cpu 43 的时间片使用情况:
+在物理机上查看隔离核心cpu 43 的时间片使用情况:
 
 ```bash
 perf sched record -C 43
