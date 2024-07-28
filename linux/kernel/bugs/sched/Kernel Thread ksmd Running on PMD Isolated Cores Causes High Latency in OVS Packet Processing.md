@@ -1,4 +1,6 @@
-# 内核线程ksmd跑到PMD核心，导致OVS报文延时大
+# Kernel Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS Packet Processing
+
+内核线程ksmd跑到PMD核心，导致OVS报文延时大
 
 ## perf sched
 
@@ -1231,6 +1233,55 @@ vim -t select_idle_sibling
 ```
 
 ![select_idle_smt](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/0cff1eb9f04c3af1d19cddf9496e27e.jpg)
+
+### 修复方案
+
+改一行代码，隔离cpu的时候可以不考虑超线程逻辑，可修复此问题:
+
+```bash
+git show HEAD
+commit a90c573c74f55930f3b770ec67d7a84528e8dac8 (HEAD -> master)
+Author: QiLiang Yuan <yuanql9@chinatelecom.cn>
+Date:   Thu Jul 18 23:18:24 2024 +0800
+
+    sched/fair: Fix wrong cpu selecting from isolated domain
+
+    Signed-off-by: QiLiang Yuan <yuanql9@chinatelecom.cn>
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index f58f13545450..30f32641a45c 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -6178,7 +6178,7 @@ static int select_idle_smt(struct task_struct *p, struct sched_domain *sd, int t
+                return -1;
+
+        for_each_cpu(cpu, cpu_smt_mask(target)) {
+-               if (!cpumask_test_cpu(cpu, &p->cpus_allowed))
++               if (!cpumask_test_cpu(cpu, &p->cpus_allowed) || !cpumask_test_cpu(cpu, sched_domain_span(sd)))
+                        continue;
+                if (available_idle_cpu(cpu))
+                        return cpu;
+```
+
+![sched_domain_span](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17213092884379.png)
+
+历史上select_idle_smt、cpumask_test_cpu(cpu, sched_domain_span(sd))多次删除再合入，最近一次在6个月前:
+
+````bash
+git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched/fair.c | cat
+8aeaffef8c6e sched/fair: Take the scheduling domain into account in select_idle_smt()
+3e6efe87cd5c sched/fair: Remove redundant check in select_idle_smt()
+3e8c6c9aac42 sched/fair: Remove task_util from effective utilization in feec()
+c722f35b513f sched/fair: Bring back select_idle_smt(), but differently
+6cd56ef1df39 sched/fair: Remove select_idle_smt()
+df3cb4ea1fb6 sched/fair: Fix wrong cpu selecting from isolated domain
+```
+
+进一步使用git show 查看上述所有commit的具体内容：
+
+```bash
+git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched/fair.c | awk {'print $1'} | xargs git show > sched_domain_span.log
+```
 
 ### PF_NO_SETAFFINITY
 
