@@ -1,5 +1,6 @@
 # vim
 
+- [Vim实用技巧（第2版）.pdf](https://gitee.com/tulip-kung/books/blob/main/Vim%E5%AE%9E%E7%94%A8%E6%8A%80%E5%B7%A7%EF%BC%88%E7%AC%AC2%E7%89%88%EF%BC%89.pdf)
 - [设置默认文本编辑器](https://www.debian.org/doc/manuals/debian-reference/ch01.zh-cn.html#_setting_a_default_text_editor)
 - [<font color=Red>Linux vi/vim - 菜鸟教程</font>](https://www.runoob.com/linux/linux-vim.html)
 
@@ -25,6 +26,7 @@
 
 ## 移动
 
+- [vim移动、定位命令与快捷键速查表(简练通俗)](https://blog.csdn.net/QQ245671051/article/details/53228752)
 - [<font color=Red>VIM常用快捷键</font>](https://blog.csdn.net/xiaoxinyu316/article/details/44061173)
 
 w：光标右移一个单词
@@ -48,12 +50,6 @@ t+字符：向右移动到字符前
 T+字符：向左移动到字符前
 
 n+G：移动到第n行
-
-*：在文档中，光标所在单词间移动，可多次按
-
-#：在文档中，光标所在单词间移动，可多次按
-
-（重复上次操作，按 ; 分号，不要按shfit）
 
 ## 查找替换
 
@@ -311,11 +307,16 @@ Vim 中 cscope 相关的 Ctrl 快捷键:
 
 ## Quickfix
 
-你说得很对,`:cnext` 这个命令可以进一步简写。那么让我再总结一下 Vim 中使用 Quickfix 窗口的常用快捷键简写:
+- [Vim/Neovim 中的快速修复列表和位置列表](https://blog.csdn.net/qq_39785418/article/details/125680659)
+
+Vim 中使用 Quickfix 窗口的常用快捷键简写:
 
 1. `:copen` - 打开 Quickfix 窗口
 
-2. `:cclose` - 关闭 Quickfix 窗口
+   - 命令模式下执行`:TlistToggle`关闭函数及变量列表，不关闭会影响Quickfix 窗口聚焦。
+   - 当窗口聚焦时，您可以使用 j 或 k 来高亮显示下一个或上一个列表项，使用 enter 将光标移动到高亮显示的文件上和位置上。
+
+2. `:ccl` - 关闭 Quickfix 窗口，是`:cclose`命令的简写形式
 
 3. `:cl` - 列出所有 Quickfix 条目，是`:clist` 命令的简写形式，进入选择列表后`d`向下翻页，`u`向上翻页
 
@@ -329,11 +330,53 @@ Vim 中 cscope 相关的 Ctrl 快捷键:
 
 8. `:clast` - 跳转到最后一个 Quickfix 条目
 
-9. `:colder` - 切换到较早的 Quickfix 列表
+### 导航旧Quickfix
 
-10. `:cnewer` - 切换到较新的 Quickfix 列表
+Vim 在每个会话中保留多达 10 个快速修复列表，在每个窗口中保留 10 个位置列表。
 
-11. `:cdo <command>` - 对所有 Quickfix 条目执行指定命令
+cscope、grep等都可以创建新的快速修复列表。
+
+如`vim -t start_kernel`打开init/main.c后，在命令行模式下执行:
+
+```bash
+:grep start_kernel include/linux -inr --include='*.h'
+```
+
+可以创建一个新的Quickfix。
+
+1. `:col` - 切换到较早的 Quickfix 列表，是`:colder` 命令的简写形式
+
+2. `:cnew` - 切换到较新的 Quickfix 列表，是`:cnewer` 命令的简写形式
+
+3. `:cdo <command>` - 对所有 Quickfix 条目执行指定命令
+
+## 位置列表
+
+如`vim -t start_kernel`打开init/main.c后，在命令行模式下执行:
+
+```bash
+:lgrep start_kernel include/linux -inr --include='*.h'
+```
+
+可以创建一个新的位置列表。
+
+导航位置列表的一些命令：
+
+1. `:lopen` - 打开位置列表窗口。
+
+2. `:lcl` 或 `:lclose` - 关闭位置列表窗口。
+
+3. `:lnext` - 跳到列表的下一项。
+
+4. `:lprev` - 跳到列表的前一项。
+
+5. `:lfirst` - 跳到列表的第一项。
+
+6. `:llast` - 跳到列表的最后一项。
+
+7. `ll [n]` - 跳到第 n 项。
+
+位置命令与它们的快速修复列表几乎完全相同，除了c 被替换成 l 。
 
 ## 其它
 
