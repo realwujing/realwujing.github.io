@@ -686,30 +686,186 @@ Creating 'main.c.gcov'
 - [kpatch入门实践教程](https://blog.csdn.net/lonely_geek/article/details/88555709)
 - [openEuler内核热补丁使用指南](https://gitee.com/src-openeuler/kpatch)
 
+### 编译安装测试内核
+
+本教程以openeuler-4-19为例，编译安装测试内核。
+
 ```bash
 cd ~/code/openeuler-4-19
 git checkout -b 95170c1fb40c 95170c1fb40c
-cp kernel/sched/fair.c kernel/sched/fair.c.orig
-git checkout master
-cd ..
-# patch文件路径(patch文件必须支持在kernel-source路径下通过patch -p1的方式修改源码)
-diff -uNap openeuler-4-19/kernel/sched/fair.c.orig openeuler-4-19/kernel/sched/fair.c > openeuler-4-19/kernel/sched/fair.c.patch
-git checkout 95170c1fb40c
-time make binrpm-pkg -j64 2> make_error.log
+```
+
+#### 自定义内核版本号
+
+```bash
+cd build/spec
+diff -u kernel.spec.bak kernel.spec
+--- kernel.spec.bak     2024-07-29 16:43:55.850551849 +0800
++++ kernel.spec 2024-07-29 14:47:21.439102425 +0800
+@@ -24,7 +24,7 @@
+
+ Name:   kernel
+ Version: 4.19.90
+-Release: %{hulkrelease}.0068
++Release: %{hulkrelease}.0068.ksmd
+ Summary: Linux Kernel
+ License: GPLv2
+ URL:    http://www.kernel.org/
+```
+
+#### 安装编译依赖
+
+```bash
+yum-builddep -y kernel.spec
+```
+
+#### 编译
+
+```bash
+cd ../../
 ```
 
 ```bash
-kpatch-build -s ~/code/openeuler-4-19 -t ~/code/openeuler-4-19/vmlinux ~/code/openeuler-4-19/kernel/sched/fair.c.patch -d > kernel/sched/fair.c.l
-og 2>&1
+pwd
+/home/wujing/code/openeuler-4-19/build/spec
+```
 
-vim kernel/sched/fair.c.log
+```bash
+./build/build.sh
 
-Using source directory at /home/wujing/code/openeuler-4-19
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/bpftool-debuginfo-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/python3-perf-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/python2-perf-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/kernel-tools-devel-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/kernel-tools-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/kernel-tools-debuginfo-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/python3-perf-debuginfo-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/python2-perf-debuginfo-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/bpftool-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/perf-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/perf-debuginfo-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/kernel-devel-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/kernel-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/kernel-debugsource-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/kernel-source-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+Wrote: /home/wujing/rpmbuild/RPMS/x86_64/kernel-debuginfo-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64.rpm
+```
+
+### 制作补丁文件
+
+```bash
+cp kernel/sched/fair.c kernel/sched/fair.c.orig
+git checkout master
+# patch文件路径(patch文件必须支持在kernel-source路径下通过patch -p1的方式修改源码)
+diff -uNap openeuler-4-19/kernel/sched/fair.c.orig openeuler-4-19/kernel/sched/fair.c > openeuler-4-19/kernel/sched/fair.c.patch
+```
+
+### 编译更新补丁工具
+
+```bash
+yum install -y git rpm-build elfutils-libelf-devel gdb-headless
+git clone https://gitee.com/src-openeuler/kpatch.git
+git checkout -b origin/openEuler-22.03-LTS-SP3 remotes/origin/openEuler-22.03-LTS-SP3
+mkdir -p ~/rpmbuild/SOURCES/
+/bin/cp kpatch/* ~/rpmbuild/SOURCES/
+rpmbuild -ba kpatch/kpatch.spec
+rpm -Uvh ~/rpmbuild/RPMS/`arch`/kpatch*.rpm
+rpm -Uvh ~/rpmbuild/RPMS/noarch/kpatch*.rpm
+```
+
+### 热补丁制作
+
+#### 环境准备
+
+安装依赖软件包：
+
+```bash
+yum install -y make gcc patch bison flex openssl-devel kpatch kpatch-runtime elfutils-libelf-devel
+```
+
+安装当前内核源码和开发包(这里是上面带ksmd的rpmb包):
+
+```bash
+yum install -y kernel-source-`uname -r` kernel-debuginfo-`uname -r` kernel-devel-`uname -r`
+```
+
+#### 进入热补丁制作目录并准备环境
+
+```bash
+cd /opt/patch_workspace
+rm -rf kernel-source .config
+ln -s /usr/src/linux-`uname -r`/ kernel-source
+ln -s /usr/src/linux-`uname -r`/.config .config
+ln -s /usr/lib/debug/lib/modules/`uname -r`/vmlinux vmlinux
+```
+
+#### 开始制作热补丁
+
+给make_hotpatch执行权限:
+
+```bash
+sudo chmod +x make_hotpatch
+```
+
+```bash
+sudo cp ~/code/openeuler-4-19/kernel/sched/fair.c.1.patch .
+```
+
+```bash
+sudo ./make_hotpatch -i fairisolcpus -p fair.c.patch
+
+kernel version:4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64
+Using source directory at /usr/src/linux-4.19.90-2102.2.0.0068.ksmd.ctl2.x86_64
 Testing patch file(s)
 Reading special section data
 Building original source
 Building patched source
-ERROR: no changed objects found. Check /home/wujing/.kpatch/build.log for more details.
+Extracting new and modified ELF sections
+fair.o: changed function: select_idle_sibling
+Patched objects: vmlinux vmlinux
+Building patch module: klp_fairisolcpus.ko
+SUCCESS
+```
+
+补丁制作完成，补丁文件以压缩包的格式存放于/opt/patch_workspace/hotpatch目录下。
+
+#### 管理热补丁
+
+```bash
+cd hotpatch
+```
+
+##### 加载热补丁
+
+```bash
+sudo livepatch -l klp_fairisolcpus.tar.gz
+
+insmod /lib/modules/hotpatch.227734/klp_fairisolcpus/klp_fairisolcpus.ko
+install patch klp_fairisolcpus.tar.gz success
+```
+
+##### 激活热补丁
+
+```bash
+sudo livepatch -a fairisolcpus
+
+active patch klp_fairisolcpus success
+```
+
+##### 回退热补丁
+
+```bash
+sudo livepatch -d fairisolcpus
+
+deactive patch klp_fairisolcpus success
+```
+
+##### 卸载热补丁
+
+```bash
+sudo livepatch -r fairisolcpus
+
+remove patch klp_fairisolcpus success
 ```
 
 ## 其它

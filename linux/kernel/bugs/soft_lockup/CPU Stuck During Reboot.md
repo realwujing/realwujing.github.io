@@ -1074,8 +1074,10 @@ hnae3                 262144  2 hns3,hclge
 ```bash
 vim /etc/default/grub
 
-initcall_blacklist=hns3_init module_blacklist=hns3 initcall_debug no_console_suspend ignore_loglevel
+initcall_blacklist=hns3_init,hns_roce_init,hns_roce_hw_v2_init module_blacklist=hns3,hns_roce,hns_roce_hw_v2 initcall_debug no_console_suspend ignore_loglevel
 ```
+
+hns_roce、hns_roce_hw_v2s是后续建议禁用的选项，禁用这两者的时候不要禁用hns3。
 
 ```bash
 [root@chuji-11-96-0-41 ~]# cat /etc/default/grub
@@ -1085,7 +1087,7 @@ GRUB_DEFAULT=saved
 GRUB_DISABLE_SUBMENU=true
 GRUB_TERMINAL="serial console"
 GRUB_SERIAL_COMMAND="serial --speed=115200"
-GRUB_CMDLINE_LINUX="console=tty0 initcall_blacklist=hns3_init module_blacklist=hns3 initcall_debug no_console_suspend ignore_loglevel pci=realloc hardened_usercopy=off noirqdebug pciehp.pciehp_force=1 crashkernel=2048M biosdevname=0 net.ifnames=0   console=ttyS0,115200n8"
+GRUB_CMDLINE_LINUX="console=tty0 initcall_blacklist=hns3_init module_blacklist=hns3 initcall_debug no_console_suspend ignore_loglevel pci=realloc hardened_usercopy=off noirqdebug pciehp.pciehp_force=1 crashkernel=2048M biosdevname=0 net.ifnames=0 console=ttyS0,115200n8"
 GRUB_DISABLE_RECOVERY="true"
 ```
 
