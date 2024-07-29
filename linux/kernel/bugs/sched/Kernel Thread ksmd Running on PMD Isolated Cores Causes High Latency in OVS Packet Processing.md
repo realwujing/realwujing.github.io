@@ -92,6 +92,8 @@ echo 256 | sudo tee /sys/kernel/mm/ksm/pages_to_scan
 
 ## housekeeping_isolcpus_setup
 
+在grub中传入`isolcpus=`参数时，`kernel/sched/isolation.c`文件中的`housekeeping_isolcpus_setup`函数会被调用。
+
 ```c
 // vim kernel/sched/isolation.c +126
 
@@ -1163,7 +1165,7 @@ pid 510's current affinity list: 0-95
 2089 }
 ```
 
-### bug复现
+### 修复方案
 
 ![bug复现](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17210964434930.png)
 
@@ -1203,7 +1205,7 @@ vim -t select_idle_sibling
 
 ![select_idle_sibling](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17210965521554.png)
 
-### select_idle_smt
+#### select_idle_smt
 
 ![select_idle_smt](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240716210803.png)
 
@@ -1234,7 +1236,7 @@ vim -t select_idle_sibling
 
 ![select_idle_smt](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/0cff1eb9f04c3af1d19cddf9496e27e.jpg)
 
-### 修复方案
+#### 修改源码
 
 改一行代码，隔离cpu的时候可以不考虑超线程逻辑，可修复此问题:
 
@@ -1267,8 +1269,9 @@ index f58f13545450..30f32641a45c 100644
 
 历史上select_idle_smt、cpumask_test_cpu(cpu, sched_domain_span(sd))多次删除再合入，最近一次在6个月前:
 
-````bash
-git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched/fair.c | cat
+```bash
+git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched/fair.c
+
 8aeaffef8c6e sched/fair: Take the scheduling domain into account in select_idle_smt()
 3e6efe87cd5c sched/fair: Remove redundant check in select_idle_smt()
 3e8c6c9aac42 sched/fair: Remove task_util from effective utilization in feec()
@@ -1283,7 +1286,7 @@ df3cb4ea1fb6 sched/fair: Fix wrong cpu selecting from isolated domain
 git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched/fair.c | awk {'print $1'} | xargs git show > sched_domain_span.log
 ```
 
-### PF_NO_SETAFFINITY
+#### 手动将ksmd迁走
 
 - [PF_NO_SETAFFINITY校验值](https://cloud.tencent.com/developer/ask/sof/108318424/answer/119151179)
 
@@ -1326,12 +1329,6 @@ root     1979672  0.0  0.0 213952  1600 pts/16   S+   16:13   0:00 grep -i ksmd
 
 可以看到ksmd进程的标志位（flags）不包含PF_NO_SETAFFINITY（0x04000000）。故可以通过taskset或者cgroups设置ksmd的cpu亲和性，将起绑定到非客户虚拟机所在的cpu上。
 
-## 总结
-
-优先建议通过调整ksmd参数来提高虚拟机的性能。
-
-进一步可以通过设置ksmd的cpu亲和性，将其绑定到非客户虚拟机所在的cpu上。
-
 将ksmd的亲和性设置为10号cpu:
 
 ```bash
@@ -1345,6 +1342,14 @@ taskset -pc 0-63 510
 ```
 
 通过上述两步即可将ksmd从隔离的cpu上迁走。
+
+## 总结
+
+下一个发行版合修复源码。
+
+线上机器通过设置kpatch方式进行热修复，通过设置ksmd的cpu亲和性，将其绑定到非客户虚拟机所在的cpu上。
+
+进一步可以通过调整ksmd参数来提高虚拟机的性能。
 
 ## More
 
