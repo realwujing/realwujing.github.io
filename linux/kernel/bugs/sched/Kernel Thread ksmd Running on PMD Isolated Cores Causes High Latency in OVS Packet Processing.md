@@ -1167,13 +1167,19 @@ pid 510's current affinity list: 0-95
 
 ### 修复方案
 
+#### bug复现
+
 ![bug复现](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17210964434930.png)
 
-#### 0号进程
+##### 0号进程
+
+查看系统初始化smp多核心前0号进程位于哪个cpu上:
 
 ![0号进程跑在0号cpu上](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17210958842048.png)
 
-#### ksmd
+##### ksmd
+
+从/var/log/messages中查看ksmd被调度到隔离核心上的日志:
 
 ```bash
 grep 'p->comm:ksmd' /var/log/messages -inr --color > ksmd.log
@@ -1182,7 +1188,9 @@ vim ksmd.log
 
 ![ksmd.log](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_1721096169123.png)
 
-#### kthreadd
+##### kthreadd
+
+从/var/log/messages中查看kthreadd被调度到隔离核心上的日志:
 
 ```bash
 grep 'p->comm:kthreadd' /var/log/messages -inr --color > kthreadd.log
@@ -1192,6 +1200,10 @@ vim kthreadd.log
 ![vim kthreadd.log](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240716171657.png)
 
 #### 关键代码
+
+上方日志代码位置参见下图。
+
+##### select_task_rq_fair
 
 ```bash
 vim kernel/sched/fair.c +6554
@@ -1205,7 +1217,7 @@ vim -t select_idle_sibling
 
 ![select_idle_sibling](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17210965521554.png)
 
-#### select_idle_smt
+##### select_idle_smt
 
 ![select_idle_smt](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240716210803.png)
 
@@ -1236,7 +1248,7 @@ vim -t select_idle_sibling
 
 ![select_idle_smt](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/0cff1eb9f04c3af1d19cddf9496e27e.jpg)
 
-#### 修改源码
+#### 修改源码修复bug
 
 改一行代码，隔离cpu的时候可以不考虑超线程逻辑，可修复此问题:
 
@@ -1286,7 +1298,28 @@ df3cb4ea1fb6 sched/fair: Fix wrong cpu selecting from isolated domain
 git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched/fair.c | awk {'print $1'} | xargs git show > sched_domain_span.log
 ```
 
+#### 不修改源码避开此bug
+
+##### 隔离核心考虑超线程调度域
+
+查看逻辑cpu0的超线程调度域下的兄弟节点：
+
+```bash
+cat /sys/devices/system/cpu/cpu0/topology/thread_siblings_list
+76
+```
+
+从下图可以看出`isolcpus=1-75,77-151`的时候ksmd不会被调度上去。
+
+![企业微信截图_17212691514223](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17212691514223.png)
+
+![企业微信截图_17212686898314](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17212686898314.png)
+
+![企业微信截图_17212686615589](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17212686615589.png)
+
 #### 手动将ksmd迁走
+
+此方案适用于线上不停机的情况，可直接将ksmd迁至非隔离核心上。
 
 - [PF_NO_SETAFFINITY校验值](https://cloud.tencent.com/developer/ask/sof/108318424/answer/119151179)
 
@@ -1335,13 +1368,15 @@ root     1979672  0.0  0.0 213952  1600 pts/16   S+   16:13   0:00 grep -i ksmd
 taskset -pc 10 510
 ```
 
-将ksmd的亲和性设置为0-63号cpu:
+将ksmd的亲和性设置为非隔离核心:
+
+此场景需要刨去超线程调度域下的兄弟节点，假设0号逻辑cpu、76号逻辑cpu位于同一个物理cpu上，即0号逻辑cpu跟76号逻辑cpu是一个超线程调度域下的兄弟节点。假设0号逻辑cpu是隔离核心，那设置ksmd亲核心的时候需要排除掉掉76号逻辑cpu。
 
 ```bash
 taskset -pc 0-63 510
 ```
 
-通过上述两步即可将ksmd从隔离的cpu上迁走。
+通过上述两步即可将ksmd从隔离的cpu上迁走，同时保障ksmd不会再被调度到隔离核心上。
 
 ## 总结
 
