@@ -10,6 +10,8 @@
 
 - [12 个超实用的 vim 编辑技巧](https://mp.weixin.qq.com/s/MyV3ZC7A7vdWpQ1lt3d_dg)
 - [<font color=Red>VIM常用快捷键</font>](https://blog.csdn.net/xiaoxinyu316/article/details/44061173)
+- [Linux 文本编辑器Vim（1）——初识模式以及基本操作介绍](https://blog.csdn.net/SkyDream999/article/details/106741448)
+- [vim操作大全](https://www.toutiao.com/article/6732007685937431044)
 
 ## 多窗口
 
