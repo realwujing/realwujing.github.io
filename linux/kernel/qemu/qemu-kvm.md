@@ -245,6 +245,11 @@ sudo mount -a
 - [QEMU monitor控制台使用详解](https://blog.csdn.net/qq_43523618/article/details/106278245)
 - [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
 
+## KVM性能优化
+
+- [KVM性能优化最佳实践](https://blog.csdn.net/allway2/article/details/102760738)
+- [内存管理实战案例分析2：KSM和NUMA引发的虚拟机宕机](https://juejin.cn/post/7068991559689535525)
+
 ## VIFO透传
 
 - [KVM设备透传与重定向](https://blog.csdn.net/zhongbeida_xue/article/details/103602105)
