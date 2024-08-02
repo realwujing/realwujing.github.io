@@ -2,6 +2,9 @@
 # network
 
 - [你管这破玩意叫网络](https://mp.weixin.qq.com/s/MXHouvWLBsm7hqHUUjJaEw)
+- [22张图详解浏览器请求数据包如何到达web服务器（搞懂网络可以出师了）](https://mp.weixin.qq.com/s/ylwRYbc2onEOVOxPsNfdwQ)
+- [网卡与Linux网络结构（上）](https://mp.weixin.qq.com/s/2BXrbTJcaKV2OMgHfcuYNg)
+- [源码溯源：网卡队列超时机制](https://mp.weixin.qq.com/s/FtgHB2yPb1-3p6KJ653B3w)
 - [通俗理解数据中心CPU和GPU之后的第三颗关键芯片“DPU”](https://mp.weixin.qq.com/s/SVscsnpOAtsZ6IBk34AYug)
 - [字节校招：TCP 和 UDP 可以同时绑定相同的端口吗？](https://mp.weixin.qq.com/s/4G4il3rZSMmEgvdvGSH_Gw)
 - [59页PPT，全面了解"无线通信原理"](https://mp.weixin.qq.com/s/TEJYQJkT4FToeEoxI_9Tmg)
