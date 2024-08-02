@@ -23,9 +23,13 @@
 <meta property="og:site_name" content="WuJing&#39;s Blog">
 <meta property="og:description" content="进程管理 ELF  linux下的ELF格式分析 程序运行环境 认识目标文件结构 - 云+社区 - 腾讯云 (tencent.com) 扒一扒ELF文件 Linux ELF文件格式分析 Linux系统中编译、链接的基石-ELF文件：扒开它的层层外衣，从字节码的粒度来探索  ELF加载  ELF文件加载过程 ELF文件的加载过程(load_elf_binary函数详解)Linux进程的管理与调度（十">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802160524.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802161019.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802162458.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802161625.png">
 <meta property="og:image" content="https://mmbiz.qpic.cn/sz_mmbiz_png/PnO7BjBKUzibyXf6yjDjYVpicewX5MTNYqLjwc8WXPZIhh5hQiaP9PPhDLM1MOaIIpHGH3sQm2WibJeTD57MOyAXEQ/640?wx_fmt=png&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1">
 <meta property="article:published_time" content="2023-04-19T16:01:25.000Z">
-<meta property="article:modified_time" content="2024-07-26T18:11:35.000Z">
+<meta property="article:modified_time" content="2024-08-02T16:29:10.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="qemu">
@@ -34,7 +38,7 @@
 <meta property="article:tag" content="HTML">
 <meta property="article:tag" content="bcc">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://mmbiz.qpic.cn/sz_mmbiz_png/PnO7BjBKUzibyXf6yjDjYVpicewX5MTNYqLjwc8WXPZIhh5hQiaP9PPhDLM1MOaIIpHGH3sQm2WibJeTD57MOyAXEQ/640?wx_fmt=png&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1">
+<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802160524.png">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
@@ -281,7 +285,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          4k 字
+          5.2k 字
         
       </span>
     
@@ -292,7 +296,7 @@
         
         
         
-          34 分钟
+          44 分钟
         
       </span>
     
@@ -335,7 +339,7 @@
               <p class="note note-info">
                 
                   
-                    本文最后更新于：2024年7月26日 晚上
+                    本文最后更新于：2024年8月2日 下午
                   
                 
               </p>
@@ -444,8 +448,73 @@
 <li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/LoyenWang/p/12584345.html">【原创】（六）Linux进程调度-实时调度器</a></li>
 </ul></li>
 </ul>
+<h4 id="进程优先级">进程优先级</h4>
+<h5 id="什么是进程优先级">什么是进程优先级？</h5>
+<p>Linux进程的优先级是用来确定在多个进程同时运行时，哪个进程会获得更多的CPU时间片。</p>
+<p>Linux进程的优先级分为实时优先级和普通优先级。</p>
+<p>实时优先级用于实时应用程序，如硬实时任务和实时控制系统，而普通优先级用于非实时应用程序。</p>
+<h5 id="进程优先级原理">进程优先级原理</h5>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802160524.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>动态优先级:0-139</figcaption>
+</figure>
+<p>实时进程：动态优先级为0-99的进程，采用实时调度算法调度。</p>
+<p>普通进程：动态优先级为100-139的进程，采用完全公平调度算法调度。</p>
+<p>nice值：是用于调整普通进程优先级的参数。范围：-20-19。</p>
+<p>prio（动态优先级）</p>
+<ul>
+<li>动态优先级，有效优先级，调度器最终使用的优先级数值，范围0-139，值越小，优先级越高。</li>
+</ul>
+<p>static_prio（静态优先级）</p>
+<ul>
+<li><p>静态优先级，采用SCHED_NORMAL和SCHED_BATCH调度策略的进程（即普通进程）用于计算动态优先级的，范围100-139。</p></li>
+<li><p>prio = static_prio = nice + DEFAULT_PRIO = nice + 120。</p></li>
+</ul>
+<p>normal_prio（归一化优先级）</p>
+<ul>
+<li>用于计算prio的中间变量，不需要太关心。</li>
+</ul>
+<p>rt_priority（实时优先级）</p>
+<ul>
+<li><p>实时优先级，采用SCHED_FIFO和SCHED_RR调度策略进程（即实时进程）用于计算动态优先级，范围0-99。</p></li>
+<li><p>prio = MAX_RT_PRIO - 1 - rt_prio = 100 - 1 - rt_priority;</p></li>
+<li><p><font color=Red>实时优先级数值越大，得到的动态优先级数值越小，优先级越高。</font></p></li>
+</ul>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802161019.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>20240802161019</figcaption>
+</figure>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.toutiao.com/article/6981724701642998305">Linux调度器 - 进程优先级详解</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.toutiao.com/article/7297608227003531803">图解Linux进程优先级</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/u010317005/article/details/80531985"><font color=Red>【linux】进程优先级、nice系统中的nice值和nice time，top中的PR和ps中的PRI</font></a></li>
+</ul>
+<h5 id="查看进程优先级">查看进程优先级</h5>
+<h6 id="top中的pr和ni">top中的PR和NI</h6>
+<p>top中的PR表示优先级，但是跟上述的值不是直接对等的。在top中，实时优先级的[0,99]没有具体的表示，统一用RT来表示。</p>
+<p>而静态优先级和top中的优先级关系为:</p>
+<ul>
+<li>top_PR = static_prio - 100</li>
+</ul>
+<p>也就是说，top中的PR取值为[0,39]，对应图1的优先级[100,139]</p>
+<p>top中的NI表示nice等级，nice的取值为[-20,19],对应图1中的优先级为[100,139]，也就是说nice等级可以改变用户进程（非实时进程的优先级）。</p>
+<p>在top界面中，输入r即可启动nice系统，先输入进程id,回车后再输入nice等级即可修改。</p>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802162458.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>top中的PR和NI</figcaption>
+</figure>
+<h6 id="ps--elf-命令">ps -elf 命令</h6>
+<p>执行ps -elf 命令查看进程优先级</p>
+<p>PRI：进程优先级，数值越小，优先级越高。（并非动态优先级）</p>
+<p>NI：nice值。</p>
+<p>这里的PRI与图1 中的优先级关系为：</p>
+<ul>
+<li>ps_PRI = static_prio - 40</li>
+</ul>
+<p>这边PRI的取值范围为[-40,99]，也就是说，ps中PRI值为80等价于nice值为0，等价于静态优先级的120。</p>
+<figure>
+<img src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802161625.png" srcset="/img/loading.gif" lazyload alt="" /><figcaption>执行ps -elf 命令查看进程优先级</figcaption>
+</figure>
 <h4 id="进程状态">进程状态</h4>
 <ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/songyuchaoshi/article/details/108949487">关于ps -aux进程状态stat的中Ss、S＜l、Ssl、SLl、SNl、R、R+的解释</a></li>
 <li><a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1568077">Linux系统之进程状态</a></li>
 <li><a target="_blank" rel="noopener" href="https://blog.csdn.net/flyingleo1981/article/details/7739490">ps -aux出来的stat结果Ss,Sl,SN~~ 进程状态</a></li>
 </ul>
