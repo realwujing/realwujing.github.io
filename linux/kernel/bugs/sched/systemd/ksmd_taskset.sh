@@ -1,6 +1,9 @@
-#! /bin/bash
+#!/bin/bash
 
 # set -aex
+
+# 将当前脚本的PID写入PID文件
+echo $$ > /run/ksmd_taskset.pid
 
 # 定义一个函数来查找CPU的兄弟核心（不包括自身）
 function find_cpu_sibling() {
@@ -111,7 +114,6 @@ if [ -n "$ksmd_pid" ]; then
 	if [ -z "$ksmd_cpuid" ]; then
 		# 处理没有第二行输出的情况（虽然在这个特定情况下不太可能）
 		echo "ksmd_cpuid is null."
-		exit 1
 	else
 		# logical_cpus: 总逻辑 CPU 数量
 		logical_cpus=$(nproc --all)
@@ -142,36 +144,47 @@ if [ -n "$ksmd_pid" ]; then
 			if echo "$smt_isolcpus" | grep -qw "$ksmd_cpuid"; then
 				echo "ksmd is running on cpu $ksmd_cpuid, cpu $ksmd_cpuid is in the smt_isolcpus list."
 
-				# 选择 not_smt_isolcpus 列表中的第一个核心进行迁移
-				new_cpu=$(echo "$not_smt_isolcpus" | awk -F ',' '{print $1}')
+				# 选择 not_smt_isolcpus 列表中的最后一个核心进行迁移
+				new_cpu=$(echo "$not_smt_isolcpus" | awk -F ',' '{print $NF}')
 				if [ -n "$new_cpu" ]; then
 					echo "migrating ksmd from cpu: $ksmd_cpuid to cpu: $new_cpu."
 					command="taskset -pc $new_cpu $ksmd_pid"
 					echo "command: $command"
-					# 使用 eval 执行字符串中的命令
-					# eval "$command"
+					# 使用 eval 执行command字符串中的命令
+					eval "$command"
 
-					# 等待 10 秒，确保ksmd被调度一次，不然下方再次迁移到 not_smt_isolcpus 列表中的核心可能会失败
-					# sleep 10
+					# 主动调度一次ksmd
+					echo 1 > /sys/kernel/mm/ksm/run
 
-					# 将ksmd迁移到 not_smt_isolcpus 列表中的核心
-					echo "ksmd is running on cpu: $ksmd_cpuid, now migrating to cpu: $not_smt_isolcpus."
-					command="taskset -pc $not_smt_isolcpus $ksmd_pid"
-					echo "command: $command"
-					# eval "$command"
+					# 进行循环检查，确保 ksmd 迁移完成
+					while true; do
+						ksmd_taskset_cpuid=$(ps -o cpuid -p $ksmd_pid | awk 'NR==2 {print $1}')
+						if [ "$ksmd_taskset_cpuid" == "$new_cpu" ]; then
+							# 再次将ksmd迁移到 not_smt_isolcpus 列表中的核心
+							echo "ksmd is running on cpu: $ksmd_taskset_cpuid, now migrating to cpu: $not_smt_isolcpus."
+							command="taskset -pc $not_smt_isolcpus $ksmd_pid"
+							echo "command: $command"
+							# 使用 eval 执行command字符串中的命令
+							eval "$command"
+							break
+						else
+							echo "ksmd is still running on cpu: $ksmd_cpuid, retrying migration..."
+							sleep 5
+						fi
+					done
 				else
-					echo "No available CPUs in not_smt_isolcpus list for migration. Exiting."
-					exit 1
+					echo "No available CPUs in not_smt_isolcpus list for migration."
 				fi
 			else
 				echo "ksmd is running on cpu: $ksmd_cpuid, cpu: $ksmd_cpuid is not in the smt_isolcpus list, don't need to migrate."
-				exit 0
 			fi
 		else
 			echo "The total count of smt_isolcpus and not_smt_isolcpus is not equal to logical_cpus."
-			exit 1
 		fi
 	fi
 else
 	echo "ksmd is not running."
 fi
+
+# 脚本执行完成后删除 PID 文件
+rm -f /run/ksmd_taskset.pid

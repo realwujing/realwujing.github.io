@@ -1378,6 +1378,38 @@ taskset -pc 0-63 510
 
 通过上述两步即可将ksmd从隔离的cpu上迁走，同时保障ksmd不会再被调度到隔离核心上。
 
+##### cicd运维一键迁
+
+已经打成了rpm包，安装ksmd-taskset.rpm包即可一键迁移，详细步骤可以参考[ksmd-taskset打包说明](#ksmd-taskset打包说明)。
+
+###### stress-ng压测
+
+<https://github.com/ColinIanKing/stress-ng>
+
+```bash
+git clone https://github.com/ColinIanKing/stress-ng.git
+```
+
+```bash
+cd stress-ng
+make
+make install
+```
+
+```bash
+stress-ng --timeout 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110
+```
+
+![stress-ng --timeout 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802115921.png)
+
+```bash
+stress-ng --timeout 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110
+```
+
+![stress-ng --timeout 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110 --ksm](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802120305.png)
+
+实测将ksmd迁移到非隔离核心没有太大影响，从pidstat结果来看ksmd消耗了整体cpu占比为0.19%。
+
 ## 总结
 
 下一个发行版合修复源码。
