@@ -16,6 +16,12 @@
 - [<font color=Red>https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu</font>](https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu)
 - [<font color=Red>Linux内核调试</font>](https://blog.csdn.net/onlylove_/category_11607029.html)
 
+## book
+
+- [QEMU KVM学习笔记](https://github.com/yifengyou/learn-kvm)
+- [kvm虚拟化技术：实战与原理解析.pdf](http://www.downcc.com/soft/317578.html)
+- [QEMU/KVM源码解析与应用-李强编著-微信读书](https://weread.qq.com/web/bookDetail/ec132be07263ffc1ec1dc10)
+
 ## virt-manager
 
 - [<font color=Red>虚拟化入门指南</font>](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/virtualization_getting_started_guide/index)
@@ -227,7 +233,7 @@ sudo mount -a
     sudo apt install systemd-timesyncd
     ```
 
-### 网络
+## 网络虚拟化
 
 - [<font color=Red>QEMU用户模式网络</font>](https://blog.csdn.net/m0_43406494/article/details/124827927)
 - [<font color=Red>QEMU 网络配置</font>](https://tomwei7.com/2021/10/09/qemu-network-config/)
@@ -238,12 +244,9 @@ sudo mount -a
 - [<font color=Red>Ubuntu 20.04 物理机 QEMU-KVM + Virt-Manager 创建桥接模式的虚拟机</font>](https://www.cnblogs.com/whjblog/p/17213359.html)
 - [[Debian10]使用KVM虚拟机并配置桥接网络](https://www.cnblogs.com/DouglasLuo/p/12731591.html)
 
-## qemu monitor
+## 显示虚拟化
 
-- [36 使用 QEMU 监视器管理虚拟机](https://documentation.suse.com/zh-cn/sles/15-SP4/html/SLES-all/cha-qemu-monitor.html)
-- [QEMU Monitor](https://www.qemu.org/docs/master/system/monitor.html)
-- [QEMU monitor控制台使用详解](https://blog.csdn.net/qq_43523618/article/details/106278245)
-- [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
+- [QEMU显示虚拟化的几种选项](https://blog.csdn.net/tugouxp/article/details/134487575)
 
 ## KVM性能优化
 
@@ -266,7 +269,16 @@ sudo mount -a
 - [unraid 直通usb](https://juejin.cn/s/unraid%20%E7%9B%B4%E9%80%9Ausb)
 - [libvirt-usb设备透传给虚拟机](http://www.manongjc.com/detail/50-cxzuhdjzmdqrklm.html)
 
-## x86_64下qemu虚拟x86_64
+## qemu
+
+### qemu monitor
+
+- [36 使用 QEMU 监视器管理虚拟机](https://documentation.suse.com/zh-cn/sles/15-SP4/html/SLES-all/cha-qemu-monitor.html)
+- [QEMU Monitor](https://www.qemu.org/docs/master/system/monitor.html)
+- [QEMU monitor控制台使用详解](https://blog.csdn.net/qq_43523618/article/details/106278245)
+- [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
+
+### x86_64下qemu虚拟x86_64
 
 - [<font color=Red>使用 VSCode + qemu 搭建 Linux 内核调试环境</font>](https://howardlau.me/programming/debugging-linux-kernel-with-vscode-qemu.html)
 - [Linux内核源码远程调试（3.16.84）](https://www.cnblogs.com/harmful-chan/p/12994693.html)
@@ -305,20 +317,35 @@ sudo mount -a
 - [qemu模拟vexpress开发板](https://www.cnblogs.com/bigsissy/p/11134802.html)
 - [<font color=Red>第四期 QEMU调试Linux内核实验 《虚拟机就是开发板》</font>](https://blog.csdn.net/aggresss/article/details/54946438)
 
-## arm64下qemu虚拟arm64
+### arm64下qemu虚拟arm64
 
 - [ARM平台检测是否支持虚拟化的几种常见方法](https://blog.csdn.net/sinat_34833447/article/details/109765004)
 - [X86_64 环境下使用 QEMU 虚拟机安装 ARM 版 EulerOS 小记](https://www.txisfine.cn/archives/a0d5fa12)
 - [利用qemu-system-aarch64调试Linux内核（arm64）](https://blog.csdn.net/Oliverlyn/article/details/105178832)
 - [QEMU搭建arm64 Linux调试环境](https://zhuanlan.zhihu.com/p/345232459)
 
-## x86_64下qemu虚拟arm64
+### x86_64下qemu虚拟arm64
 
 - [VSCode+GDB+Qemu调试ARM64 linux内核](https://zhuanlan.zhihu.com/p/510289859)
 - [编译arm64内核](https://blog.csdn.net/fell_sky/article/details/119818112)
 - [交叉编译arm64内核](https://blog.csdn.net/shanruo/article/details/80474338)
 - [交叉编译环境下对linux内核编译](https://blog.csdn.net/ludaoyi88/article/details/115633849)
 - [交叉编译linux内核并使用qemu运行](https://blog.csdn.net/jinking01/article/details/129580621)
+
+### Mac OSX
+
+- [<font color=Red>使用Qemu在Mac上安装虚拟机</font>](https://blog.csdn.net/weixin_39759247/article/details/126569448)
+- [使用QEMU在macOS上创建Ubuntu 20.04桌面虚拟机](https://www.arthurkoziel.com/qemu-ubuntu-20-04/)
+- [Running virt-manager and libvirt on macOS](https://www.arthurkoziel.com/running-virt-manager-and-libvirt-on-macos/)
+- [Mac安装Linux的KVM管理工具virt-manager](https://blog.csdn.net/weixin_30883777/article/details/95729678)
+- [homebrew-virt-manager](https://github.com/jeffreywildman/homebrew-virt-manager)
+- [macOS系统和mac装Windows系统开启虚拟化](https://blog.csdn.net/nbin_newby/article/details/120307866)
+- [macOS | nvram boot-args的作用及设置方式](https://blog.csdn.net/MissMango0820/article/details/127398047)
+- [GitHub - kholia/OSX-KVM: Run macOS on QEMU/KVM. With OpenCore + Big Sur + Monterey + Ventura support now! Only commercial (paid) support is available now to avoid spammy issues. No Mac system is required.](https://github.com/kholia/OSX-KVM)
+- [Linux kernel debug on macOS 搭建可视化内核debug环境](https://zhuanlan.zhihu.com/p/399857241)
+- [UTM - Virtual machines for iOS and macOS](https://github.com/utmapp/UTM)
+- [Parallels Desktop 19.2.1 54832 破解教程（pd19永久授权）](https://www.luoxx.top/archives/pd-18-active?cid=162)
+- [如何轻松扩展Parallel Desktop下的Ubuntu虚拟机磁盘空间](https://blog.coderluny.com/archives/53)
 
 ## buildroot
 
@@ -341,16 +368,6 @@ sudo mount -a
 
 - [龙芯虚拟化使用手册](https://blog.csdn.net/faxiang1230/article/details/120907896)
 
-## 显示虚拟化
-
-- [QEMU显示虚拟化的几种选项](https://blog.csdn.net/tugouxp/article/details/134487575)
-
-## book
-
-- [QEMU KVM学习笔记](https://github.com/yifengyou/learn-kvm)
-- [kvm虚拟化技术：实战与原理解析.pdf](http://www.downcc.com/soft/317578.html)
-- [QEMU/KVM源码解析与应用-李强编著-微信读书](https://weread.qq.com/web/bookDetail/ec132be07263ffc1ec1dc10)
-
 ## openstack
 
 - [什么是OpenStack？](https://info.support.huawei.com/info-finder/encyclopedia/zh/OpenStack.html)
@@ -367,50 +384,3 @@ sudo mount -a
 - [在Ubuntu 20.04上安装VMWare Workstation](https://waydo.xyz/soft/linux/ubuntu-vmware-workstation/)
 - [用 archinstall 自动化脚本安装 Arch Linux](https://linux.cn/article-14444-1.html)
 - [Arch Linux图文安装教程（2022.08.01）](https://blog.csdn.net/love906897406/article/details/126109464)
-
-### Mac OSX
-
-- [<font color=Red>使用Qemu在Mac上安装虚拟机</font>](https://blog.csdn.net/weixin_39759247/article/details/126569448)
-- [使用QEMU在macOS上创建Ubuntu 20.04桌面虚拟机](https://www.arthurkoziel.com/qemu-ubuntu-20-04/)
-- [Running virt-manager and libvirt on macOS](https://www.arthurkoziel.com/running-virt-manager-and-libvirt-on-macos/)
-- [Mac安装Linux的KVM管理工具virt-manager](https://blog.csdn.net/weixin_30883777/article/details/95729678)
-- [homebrew-virt-manager](https://github.com/jeffreywildman/homebrew-virt-manager)
-- [macOS系统和mac装Windows系统开启虚拟化](https://blog.csdn.net/nbin_newby/article/details/120307866)
-- [macOS | nvram boot-args的作用及设置方式](https://blog.csdn.net/MissMango0820/article/details/127398047)
-- [GitHub - kholia/OSX-KVM: Run macOS on QEMU/KVM. With OpenCore + Big Sur + Monterey + Ventura support now! Only commercial (paid) support is available now to avoid spammy issues. No Mac system is required.](https://github.com/kholia/OSX-KVM)
-- [Linux kernel debug on macOS 搭建可视化内核debug环境](https://zhuanlan.zhihu.com/p/399857241)
-- [UTM - Virtual machines for iOS and macOS](https://github.com/utmapp/UTM)
-- [Parallels Desktop 19.2.1 54832 破解教程（pd19永久授权）](https://www.luoxx.top/archives/pd-18-active?cid=162)
-- [如何轻松扩展Parallel Desktop下的Ubuntu虚拟机磁盘空间](https://blog.coderluny.com/archives/53)
-
-### vmware
-
-- [安装 Open VM Tools](https://docs.vmware.com/cn/VMware-Tools/12.4.0/com.vmware.vsphere.vmwaretools.doc/GUID-C48E1F14-240D-4DD1-8D4C-25B6EBE4BB0F.html)
-
-Ubuntu、Debian 及相关操作系统
-
-如果虚拟机具有 GUI（X11 等），请安装或升级 open-vm-tools-desktop：
-
-```bash
-sudo apt-get install open-vm-tools-desktop
-```
-
-否则，请使用以下命令安装 open-vm-tools：
-
-```bash
-sudo apt-get install open-vm-tools
-```
-
-RHEL、Fedora 和 CentOS
-
-如果虚拟机具有 GUI（X11 等），请安装或升级 open-vm-tools-desktop：
-
-```bash
-sudo yum install open-vm-tools-desktop
-```
-
-否则，请安装 open-vm-tools：
-
-```bash
-sudo yum install open-vm-tools
-```
