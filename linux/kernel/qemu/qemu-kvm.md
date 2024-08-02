@@ -248,9 +248,16 @@ sudo mount -a
 ## KVM性能优化
 
 - [KVM性能优化最佳实践](https://blog.csdn.net/allway2/article/details/102760738)
-- [内存管理实战案例分析2：KSM和NUMA引发的虚拟机宕机](https://juejin.cn/post/7068991559689535525)
+- [KVM 虚拟化基本原理](https://www.toutiao.com/article/6862880595601523211)
 
-## VIFO透传
+### ksm
+
+- [内存管理实战案例分析2：KSM和NUMA引发的虚拟机宕机](https://juejin.cn/post/7068991559689535525)
+- [针对低端机KSM的优化](https://blog.csdn.net/pillarbuaa/article/details/79205426)
+- [kvm内存优化--KSM](https://www.cnblogs.com/lcword/p/14361931.html)
+- [浅析内核同页合并(Kernel Same-page Merging, KSM)](https://www.toutiao.com/article/7227665373129212456)
+
+### VIFO透传
 
 - [KVM设备透传与重定向](https://blog.csdn.net/zhongbeida_xue/article/details/103602105)
 - [19.3.2. 将 USB 设备附加到虚拟机](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/virtualization_deployment_and_administration_guide/sect-the_virtual_hardware_details_window-attaching_usb_devices_to_a_guest_virtual_machine)
