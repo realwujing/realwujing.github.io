@@ -686,6 +686,7 @@ sudo make install
 - [dump分析工具_ubantu18.04内核奔溃调试工具Crash的搭建](https://blog.csdn.net/weixin_39545102/article/details/111215997)
 - [<font color=Red>用crash tool观察ARM64 Linux地址转换</font>](https://mp.weixin.qq.com/s/Hp-n9n3M9zy92Xm-dnRUZQ)
 - [CRASH安装和调试](https://www.toutiao.com/article/6903790073377063428/)
+- [Linux crash Dump分析](https://mp.weixin.qq.com/s/ReTyAr8gSWV-ee4mvPpGYg)
 
 ### eval命令
 
