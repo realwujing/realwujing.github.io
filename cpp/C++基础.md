@@ -242,6 +242,7 @@
 
 - [C语言：内存分配---栈区、堆区、全局区、常量区和代码区](https://blog.csdn.net/MQ0522/article/details/114823770)
 - [<font color=Red>什么是代码区、常量区、静态区（全局区）、堆区、栈区？</font>](https://blog.csdn.net/u014470361/article/details/79297601)
+- [实习面试题：初始化为0的全局变量在bss还是data？](https://mp.weixin.qq.com/s/7tXfhUBJcao3Z67GfxxtXg)
 
 ### 虚拟内存
 
