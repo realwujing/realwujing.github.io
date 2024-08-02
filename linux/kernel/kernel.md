@@ -77,7 +77,6 @@
 
     将默认上游设置为镜像站。
 
-
 - [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
 - [git获取指定版本的linux内核源码](https://blog.csdn.net/weixin_40837318/article/details/95546377)
 
@@ -110,10 +109,17 @@ Linux 内核相关网站的出现顺序:
    - **简介**：lore.kernel.org 是一个托管和搜索 Linux 内核相关邮件列表的平台，提供强大的搜索和索引功能，使开发者更容易找到相关讨论和补丁。
    - **网址**：[https://lore.kernel.org/](https://lore.kernel.org/)
 
+### Git邮件向Linux社区提交内核补丁
+
+- [从 LKML 优雅的摘取补丁](https://blog.xzr.moe/archives/293/)
 - [从 LKML 优雅的摘取补丁](https://blog.xzr.moe/archives/293/)
 - [正确使用邮件列表参与开源社区的协作](https://tinylab.org/mailing-list-intro/)
 - [提交内核补丁到Linux社区的步骤](https://www.cnblogs.com/gmpy/p/12200609.html)
 - [Git邮件向Linux社区提交内核补丁教程](https://blog.csdn.net/Guet_Kite/article/details/117997036)
+- [如何回复内核邮件：简单示例：多个patch](https://blog.csdn.net/Rong_Toa/article/details/126808967)
+- [提交补丁：如何让你的改动进入内核](https://www.kernel.org/doc/html/latest/translations/zh_CN/process/submitting-patches.html)
+- [所有你想知道的事情 - 关于linux稳定版发布](https://www.kernel.org/doc/html/latest/translations/zh_CN/process/stable-kernel-rules.html)
+- <https://www.kernel.org/doc/html/latest/process/stable-kernel-rules.html>
 
 ### DebianKernel
 
@@ -567,6 +573,7 @@ dpkg-buildpackage -b -nc -uc -us -j16
 
 ## 系统调用
 
+- [Linux系统调用三部曲之三：从零实现一个系统调用](https://mp.weixin.qq.com/s/YVBRYZdqyQzYd1AAXF3zBQ)
 - [<font color=Red>linux系统调用函数大全_Linux架构</font>](https://blog.csdn.net/weixin_39852688/article/details/110815377)
 - [<font color=Red>介绍Linux系统调用（值得收藏）</font>](https://blog.csdn.net/m0_74282605/article/details/128097944)
 - [linux系统下的各种hook方式Linux内核hook系统调用](https://m.dandelioncloud.cn/article/details/1567859018796593153)
