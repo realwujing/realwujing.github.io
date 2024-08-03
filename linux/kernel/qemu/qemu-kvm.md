@@ -376,12 +376,71 @@ sudo mount -a
 - [超详细ubuntu20安装搭建openstack](https://blog.csdn.net/qq_53348314/article/details/123021856)
 - [Ubuntu 20使用devstack快速安装openstack最新版](https://www.cnblogs.com/dyd168/p/14476271.html)
 
-## More
+## vmware
 
-- [Wine 开发者指导/架构概览](https://blog.csdn.net/Flora_xuan1993/article/details/89205922)
+- [在Ubuntu 20.04上安装VMWare Workstation](https://waydo.xyz/soft/linux/ubuntu-vmware-workstation/)
 - [如何用命令行模式启动VMWare虚拟机](https://blog.csdn.net/u014389734/article/details/107481852)
 - [在 Linux 主机上安装 Workstation Pro](https://docs.vmware.com/cn/VMware-Workstation-Pro/17/com.vmware.ws.using.doc/GUID-1F5B1F14-A586-4A56-83FA-2E7D8333D5CA.html)
+
+### VMware 共享文件夹
+
 - [安装 Open VM Tools](https://docs.vmware.com/cn/VMware-Tools/12.4.0/com.vmware.vsphere.vmwaretools.doc/GUID-C48E1F14-240D-4DD1-8D4C-25B6EBE4BB0F.html)
-- [在Ubuntu 20.04上安装VMWare Workstation](https://waydo.xyz/soft/linux/ubuntu-vmware-workstation/)
+- [open-vm-tools使用共享文件夹](https://blog.csdn.net/weixin_44565095/article/details/95937794)
+- [open-vm-tools工具的安装与使用](https://www.jianshu.com/p/b6ad701a2045)
+- [vmware使用open-vm-tools配置ubuntu共享文件夹](https://blog.csdn.net/chinoukin/article/details/84984947)
+- [VMware中Linux虚拟机挂载主机共享文件夹的方法](https://www.cnblogs.com/foolbit/p/9954332.html)
+
+1. **列出共享文件夹**：
+
+   ```bash
+   vmware-hgfsclient
+   code
+   ```
+
+   - 这个命令列出所有在 VMware 虚拟机中配置的共享文件夹。在你的情况下，它显示了名为 `code` 的共享文件夹。
+
+2. **创建挂载点目录**：
+
+   ```bash
+   mkdir -p /mnt/hgfs
+   ```
+
+   - 这个命令创建了一个挂载点目录 `/mnt/hgfs`，如果目录已经存在则不会有任何效果。`-p` 选项确保目录的父目录也被创建（如果不存在）。
+
+3. **挂载共享文件夹**：
+
+   ```bash
+   sudo vmhgfs-fuse .host:/ /mnt/hgfs -o subtype=vmhgfs-fuse,allow_other
+   ```
+
+   - 这个命令使用 `vmhgfs-fuse` 挂载 VMware 虚拟机中的共享文件夹到 `/mnt/hgfs` 目录。
+   - `.host:/` 表示挂载主机的共享文件夹。
+   - `-o subtype=vmhgfs-fuse,allow_other` 是挂载选项，`subtype` 指定了文件系统的类型，`allow_other` 允许其他用户访问挂载点。
+
+4. **取消挂载共享文件夹**：
+
+   ```bash
+   umount /mnt/hgfs
+   ```
+
+   - 这个命令取消了之前挂载到 `/mnt/hgfs` 目录的文件系统。
+
+5. **将挂载设置添加到 `/etc/fstab`**：
+
+   ```bash
+   .host:/ /mnt/hgfs fuse.vmhgfs-fuse defaults,allow_other 0 0
+   ```
+
+   - 这个命令将挂载配置添加到 `/etc/fstab` 文件中，以便在系统启动时自动挂载共享文件夹。
+   - `fuse.vmhgfs-fuse` 是文件系统类型，`defaults,allow_other` 是挂载选项，`0 0` 表示不进行文件系统检查，也不进行备份。
+
+总结：这些命令用于配置 VMware 的共享文件夹，使其在虚拟机中可用，并在系统启动时自动挂载。
+
+## wine
+
+- [Wine 开发者指导/架构概览](https://blog.csdn.net/Flora_xuan1993/article/details/89205922)
+
+## Arch Linux
+
 - [用 archinstall 自动化脚本安装 Arch Linux](https://linux.cn/article-14444-1.html)
 - [Arch Linux图文安装教程（2022.08.01）](https://blog.csdn.net/love906897406/article/details/126109464)
