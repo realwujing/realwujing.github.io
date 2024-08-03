@@ -13,6 +13,40 @@
 - [Linux 文本编辑器Vim（1）——初识模式以及基本操作介绍](https://blog.csdn.net/SkyDream999/article/details/106741448)
 - [vim操作大全](https://www.toutiao.com/article/6732007685937431044)
 
+## 插件
+
+- [<font color=Red>vim配置</font>](https://blog.csdn.net/tiantianhaoxinqing__/article/details/123593749)
+
+- [<font color=Red>https://vimawesome.com/</font>](https://vimawesome.com/)
+- [（转）Vim十大必备插件](https://blog.51cto.com/u_15905375/5919878)
+- [Ubuntu 下 vim+Ctags+Taglist+WinManager工具的安装](https://blog.csdn.net/eric_sunah/article/details/51028874)
+- [2021-11-11 vim 显示函数列表](https://blog.csdn.net/weihua1643/article/details/121264521)
+- [linux安装vim插件 NERDTree、taglist 、winmanager（类似source insight）](https://blog.csdn.net/qq_36754075/article/details/100030981)
+- [<font color=Red>https://github.com/VundleVim/Vundle.vim</font>](https://github.com/VundleVim/Vundle.vim)
+- [https://github.com/preservim/nerdtree](https://github.com/preservim/nerdtree)
+- [https://github.com/yegappan/taglist](https://github.com/yegappan/taglist)
+
+```bash
+sudo apt install vim vim-gtk ctags cscope
+git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
+wget -O ~/.vimrc https://raw.githubusercontent.com/realwujing/realwujing.github.io/main/linux/vim/.vimrc
+vim .
+:PluginInstall
+```
+
+## 快速执行上一条命令
+
+- **`@:`**：在普通模式下，重复上一条 Ex 命令。
+- **命令行模式**：在 `:` 命令行模式下，按 `↑` 查看和执行上一条命令。
+- **`@@`**：在普通模式下，重复上一个宏。
+
+- **`.` 命令**：
+  - **作用**：在普通模式下，重复最后一次普通模式命令或插入模式操作。
+  - **示例**：
+    - **删除多行**：`dd`（删除当前行），然后按 `.` 继续删除下一行。
+    - **插入文本**：`iHello<ESC>`（插入文本并返回普通模式），然后按 `j.` 重复插入。
+    - **替换字符**：`rA`（替换字符），然后按 `.` 重复替换下一个字符。
+
 ## 多窗口
 
 - [vim操作之多窗格,多文件的编辑和操作](https://www.cnblogs.com/yukina/p/16401529.html)
@@ -52,6 +86,29 @@ t+字符：向右移动到字符前
 T+字符：向左移动到字符前
 
 n+G：移动到第n行
+
+## 复制和移动行
+
+### `:t` 命令（复制行）
+
+- **语法**: `:[range]t[target]`
+- **示例**:
+  - 复制当前行到第 10 行后：`:t10`
+  - 复制第 3 行到第 10 行后：`:3t10`
+  - 复制第 1 到第 3 行到第 10 行后：`:1,3t10`
+
+### `:m` 命令（移动行）
+
+- **语法**: `:[range]m[ove] [target]`
+- **示例**:
+  - 移动当前行到第 10 行后：`:m10`
+  - 移动第 3 行到第 10 行后：`:3m10`
+  - 移动第 1 到第 3 行到第 10 行后：`:1,3m10`
+
+### 实用技巧
+
+- 复制当前行到文件末尾：`:t$`
+- 移动当前行到文件末尾：`:m$`
 
 ## 查找替换
 
@@ -107,27 +164,6 @@ g*(g#)        //此命令与上条命令相似, 只不过它不完全匹配光�
     ```
 
 - [vim中使用sudo保存文件](https://www.cnblogs.com/jackie-astro/p/13295584.html)
-
-## 插件
-
-- [<font color=Red>vim配置</font>](https://blog.csdn.net/tiantianhaoxinqing__/article/details/123593749)
-
-- [<font color=Red>https://vimawesome.com/</font>](https://vimawesome.com/)
-- [（转）Vim十大必备插件](https://blog.51cto.com/u_15905375/5919878)
-- [Ubuntu 下 vim+Ctags+Taglist+WinManager工具的安装](https://blog.csdn.net/eric_sunah/article/details/51028874)
-- [2021-11-11 vim 显示函数列表](https://blog.csdn.net/weihua1643/article/details/121264521)
-- [linux安装vim插件 NERDTree、taglist 、winmanager（类似source insight）](https://blog.csdn.net/qq_36754075/article/details/100030981)
-- [<font color=Red>https://github.com/VundleVim/Vundle.vim</font>](https://github.com/VundleVim/Vundle.vim)
-- [https://github.com/preservim/nerdtree](https://github.com/preservim/nerdtree)
-- [https://github.com/yegappan/taglist](https://github.com/yegappan/taglist)
-
-```bash
-sudo apt install vim vim-gtk ctags cscope
-git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
-wget -O ~/.vimrc https://raw.githubusercontent.com/realwujing/realwujing.github.io/main/linux/vim/.vimrc
-vim .
-:PluginInstall
-```
 
 ## 格式化
 
@@ -234,7 +270,7 @@ vim .
 
 ## 前进后退
 
-好的,让我来总结一下 Vim 中常用的前进后退快捷键:
+Vim 中常用的前进后退快捷键:
 
 1. **前进**:
    - `Ctrl + ]`: 跳转到光标下符号的定义处
@@ -244,7 +280,7 @@ vim .
 2. **后退**:
    - `Ctrl + t`: 返回到上一个跳转位置
    - `Ctrl + i`: 前进到下一个跳转位置(与 `Ctrl + o` 配合使用)
-   - `uUUu`: 撤销/重做操作
+   - `:jumps`:列出跳转列表，显示你在当前编辑会话中的所有跳转位置(命令模式下执行)。
 
 3. **书签**:
    - `m{a-zA-Z}`: 设置书签
