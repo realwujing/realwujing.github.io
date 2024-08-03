@@ -42,7 +42,7 @@
 - [linux之登录式shell和非登录式shell](https://cloud.tencent.com/developer/article/1883601)
 - [linux之登录式shell和非登录式shell](https://zhuanlan.zhihu.com/p/415152910)
 
-## 父子shell
+### 父子shell
 
 - [linux中父shell与子shell（脚本执行的几种方式）_peacewind-CSDN博客](https://blog.csdn.net/NOStandby/article/details/82914930)
 - [Linux shell类型，shell父子关系，子shell用法](https://www.linuxidc.com/Linux/2018-09/154321.htm)
@@ -51,6 +51,44 @@
 - [你知道shell脚本中$0 $1 $# $@ $* $? $$都是什么意思吗？](https://mp.weixin.qq.com/s?__biz=MzUxMjEyNDgyNw==&mid=2247498444&idx=1&sn=2150e8461c1d6a40cef8f9fe9d36013e&chksm=f96b8838ce1c012ed600fcd1b4c5964b93f6b061343bc6e3d91bd9f45d0230838e3ce8666e4f&scene=178&cur_album_id=1507350615537025026#rd)
 - [Linux多命令顺序执行连接符(; || && |)_Don't lost way-CSDN博客](https://blog.csdn.net/wang740209668/article/details/53152596)
 - [Linux中单引号和双引号的区别](https://www.cnblogs.com/yeyuzhuanjia/p/16407968.html)
+
+### Bash 常用快捷键总结
+
+- [Linux技巧：可以提升命令行效率的bash快捷键](https://www.toutiao.com/article/6930807880790639115)
+
+#### 控制相关命令
+
+- **`Ctrl+L`**：清屏。
+- **`Ctrl+C`**：终止前台程序。
+- **`Ctrl+\`**：终止前台程序（与 `Ctrl+C` 类似）。
+- **`Ctrl+Z`**：将当前进程挂起并切换到后台。
+
+#### 编辑相关命令
+
+- **`Tab`**：命令补齐。
+- **`Ctrl+A`**：光标移到行首。
+- **`Ctrl+E`**：光标移到行尾。
+- **`Ctrl+F`**：光标前进。
+- **`Ctrl+B`**：光标后退。
+- **`Ctrl+XX`**：光标在当前位置和行首之间切换。
+- **`Ctrl+U`**：删除光标之前的所有内容。
+- **`Ctrl+K`**：删除光标之后的所有内容。
+- **`Ctrl+H`**：删除光标处前一个字符。
+- **`Ctrl+D`**：删除当前光标所在字符。
+- **`Ctrl+W`**：删除光标前的单词。
+- **`Ctrl+Y`**：粘贴 `Ctrl+K` 或 `Ctrl+W` 删除的内容。
+- **`Alt+.`或`Esc+.`**：粘贴上一条命令的最后一个参数。
+
+#### !相关命令
+
+- **`!!`**：快速执行上一条命令。
+- **`!+字符串`**：执行最近使用过的以指定字符串开头的命令（如 `!p` 执行 `ping` 命令）。
+
+#### 历史命令
+
+- **`Ctrl+P`**：历史中上一条命令（与方向键↑作用一样）。
+- **`Ctrl+N`**：历史中下一条命令（与方向键↓作用一样）。
+- **`Ctrl+R`**：查找历史命令中的关键词。
 
 ## 上传下载文件
 
