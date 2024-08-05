@@ -985,3 +985,6 @@ UUID=cc5da720-dbfb-4bc2-8f35-f566d1603508       /media/wujing/data      ext4    
 - [盘一盘各种”xPU”](https://mp.weixin.qq.com/s/UAzN_7Bmb9uLRy8GJ-9rFg)
 
 - [Linux虚拟网络设备bridge你真搞懂了吗？](https://cloud.tencent.com/developer/article/1871867)
+
+- [vscode cpptools cpu 100%](https://blog.csdn.net/weixin_37010179/article/details/140623323)
+- [vscode cpptools cpu 100%](https://www.cnblogs.com/ahuo/p/18309420)
