@@ -4,9 +4,11 @@ Release:        1%{?dist}
 Summary:        KSMD Taskset Service
 
 License:        GPL
-URL:            http://example.com/
+URL:             https://ctyunos.ctyun.cn/
 Source0:        ksmd_taskset.sh
 Source1:        ksmd-taskset.service
+
+BuildArch:      noarch
 
 %description
 This package provides a systemd service to set the CPU affinity of ksmd using taskset.
@@ -16,15 +18,15 @@ This package provides a systemd service to set the CPU affinity of ksmd using ta
 %build
 
 %install
-mkdir -p %{buildroot}/usr/lib/ctyunos/
-install -m 755 %{SOURCE0} %{buildroot}/usr/lib/ctyunos/ksmd_taskset.sh
+mkdir -p %{buildroot}/usr/local/ctyunos/
+install -m 755 %{SOURCE0} %{buildroot}/usr/local/ctyunos/ksmd_taskset.sh
 
-mkdir -p %{buildroot}/etc/systemd/system/
-install -m 644 %{SOURCE1} %{buildroot}/etc/systemd/system/ksmd-taskset.service
+mkdir -p %{buildroot}/usr/lib/systemd/system/
+install -m 644 %{SOURCE1} %{buildroot}/usr/lib/systemd/system/ksmd-taskset.service
 
 %files
-/usr/lib/ctyunos/ksmd_taskset.sh
-/etc/systemd/system/ksmd-taskset.service
+/usr/local/ctyunos/ksmd_taskset.sh
+/usr/lib/systemd/system/ksmd-taskset.service
 
 %post
 /bin/systemctl daemon-reload
@@ -44,10 +46,8 @@ if [ $1 -eq 0 ]; then
     /bin/systemctl disable ksmd-taskset.service
 fi
 # Remove the service file and script
-rm -f /usr/lib/ctyunos/ksmd_taskset.sh
-rm -f /etc/systemd/system/ksmd-taskset.service
 /bin/systemctl daemon-reload
 
 %changelog
-* Fri Aug 01 2024 Your Name <your.email@example.com> - 1.0-1
+* Thur Aug 01 2024 QiLiang Yuan <yuanql9@chinatelecom.cn> - 1.0-1
 - Initial package
