@@ -310,14 +310,14 @@ Vim 中常用的前进后退快捷键:
 Vim 中 cscope 相关的 Ctrl 快捷键:
 
 1. `Ctrl + \` 系列快捷键:
-   - `Ctrl + \` `s`: 查找C语言符号
-   - `Ctrl + \` `g`: 查找函数、宏、枚举等定义的位置
-   - `Ctrl + \` `d`: 查找本函数调用的函数
-   - `Ctrl + \` `c`: 查找调用本函数的函数
-   - `Ctrl + \` `t`: 查找指定的文本字符串
-   - `Ctrl + \` `e`: 查找egrep模式
-   - `Ctrl + \` `f`: 查找并打开指定的文件
-   - `Ctrl + \` `i`: 查找包含本文件的文件
+   - `Ctrl + \` `s`: 查找C语言符号，等同于normal模式下的`:cs f s <symbol>`
+   - `Ctrl + \` `g`: 查找函数、宏、枚举等定义的位置，等同于normal模式下的`:cs f g <symbol>`
+   - `Ctrl + \` `d`: 查找本函数调用的函数，等同于normal模式下的`:cs f d <symbol>`
+   - `Ctrl + \` `c`: 查找调用本函数的函数，等同于normal模式下的`:cs f c <symbol>`
+   - `Ctrl + \` `t`: 查找指定的文本字符串，等同于normal模式下的`:cs f t <string>`
+   - `Ctrl + \` `e`: 查找egrep模式，等同于normal模式下的`:cs f e <pattern>`
+   - `Ctrl + \` `f`: 查找并打开指定的文件，等同于normal模式下的`:cs f f <filename>`
+   - `Ctrl + \` `i`: 查找包含本文件的文件，等同于normal模式下的`:cs f i <filename>`
 
 2. 其他 cscope 快捷键:
    - `Ctrl + ]`: 跳转到光标下符号的定义处
