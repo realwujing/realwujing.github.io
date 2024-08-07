@@ -110,6 +110,8 @@ qemu-img create -f qcow2 yql-openeuler.img 200G
 
 #### virt-install
 
+##### CentOS
+
 - [CentOS 7 virt-install 命令行方式（非图形界面）安装KVM虚拟机](https://blog.csdn.net/mshxuyi/article/details/99852820)
 
 创建一个名为 yql-openeuler 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出:
@@ -142,6 +144,73 @@ virt-install \
 - `--console pty,target_type=serial`：设置虚拟机的控制台类型为串口控制台。
 - `-x 'console=ttyS0,115200n8 console=tty0'`：启动参数，设置串口控制台和控制台输出。
 - `--extra-args 'console=ttyS0,115200n8'`：额外的启动参数，设置串口控制台输出。
+
+##### fedora
+
+```bash
+osinfo-query os | grep fedora
+ fedora-unknown       | Fedora                                             | unknown  | http://fedoraproject.org/fedora/unknown
+ fedora1              | Fedora Core 1                                      | 1        | http://fedoraproject.org/fedora/1
+ fedora10             | Fedora 10                                          | 10       | http://fedoraproject.org/fedora/10
+ fedora11             | Fedora 11                                          | 11       | http://fedoraproject.org/fedora/11
+ fedora12             | Fedora 12                                          | 12       | http://fedoraproject.org/fedora/12
+ fedora13             | Fedora 13                                          | 13       | http://fedoraproject.org/fedora/13
+ fedora14             | Fedora 14                                          | 14       | http://fedoraproject.org/fedora/14
+ fedora15             | Fedora 15                                          | 15       | http://fedoraproject.org/fedora/15
+ fedora16             | Fedora 16                                          | 16       | http://fedoraproject.org/fedora/16
+ fedora17             | Fedora 17                                          | 17       | http://fedoraproject.org/fedora/17
+ fedora18             | Fedora 18                                          | 18       | http://fedoraproject.org/fedora/18
+ fedora19             | Fedora 19                                          | 19       | http://fedoraproject.org/fedora/19
+ fedora2              | Fedora Core 2                                      | 2        | http://fedoraproject.org/fedora/2
+ fedora20             | Fedora 20                                          | 20       | http://fedoraproject.org/fedora/20
+ fedora21             | Fedora 21                                          | 21       | http://fedoraproject.org/fedora/21
+ fedora22             | Fedora 22                                          | 22       | http://fedoraproject.org/fedora/22
+ fedora23             | Fedora 23                                          | 23       | http://fedoraproject.org/fedora/23
+ fedora24             | Fedora 24                                          | 24       | http://fedoraproject.org/fedora/24
+ fedora25             | Fedora 25                                          | 25       | http://fedoraproject.org/fedora/25
+ fedora26             | Fedora 26                                          | 26       | http://fedoraproject.org/fedora/26
+ fedora27             | Fedora 27                                          | 27       | http://fedoraproject.org/fedora/27
+ fedora28             | Fedora 28                                          | 28       | http://fedoraproject.org/fedora/28
+ fedora3              | Fedora Core 3                                      | 3        | http://fedoraproject.org/fedora/3
+ fedora4              | Fedora Core 4                                      | 4        | http://fedoraproject.org/fedora/4
+ fedora5              | Fedora Core 5                                      | 5        | http://fedoraproject.org/1mfedo/5
+ fedora6              | Fedora Core 6                                      | 6        | http://fedoraproject.org/fedora/6
+ fedora7              | Fedora 7                                           | 7        | http://fedoraproject.org/fedora/7
+ fedora8              | Fedora 8                                           | 8        | http://fedoraproject.org/fedora/8
+ fedora9              | Fedora 9                                           | 9        | http://fedoraproject.org/fedora/9
+ silverblue28         | Fedora Silverblue 28                               | 28       | http://fedoraproject.org/silverblue/28
+```
+
+```bash
+virt-install --virt-type kvm \
+--name fedora \
+--memory 32768 \
+--vcpus=64 \
+--location /data/yql/Fedora-Server-dvd-aarch64-40-1.14.iso \
+--disk path=/data/yql/fedora.qcow2,size=300 \
+--network network=default \
+--os-type=linux \
+--os-variant=fedora28 \
+--graphics none \
+--extra-args="console=ttyS0"
+```
+
+##### debian
+
+```bash
+virt-install --virt-type kvm \
+--name debian \
+--memory 32768 \
+--vcpus=64 \
+--location /data/yql/debian-12.5.0-arm64-DVD-1.iso \
+--disk path=/data/yql/debian.qcow2,size=300 \
+--network network=default \
+--os-type=linux \
+--os-variant=debian9 \
+--graphics none \
+--extra-args="console=ttyS0"
+```
+
 
 #### 克隆一个虚拟机
 
