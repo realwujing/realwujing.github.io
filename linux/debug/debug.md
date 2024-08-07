@@ -681,6 +681,7 @@ make -j16
 sudo make install
 ```
 
+- [<font color=Red>【调试】crash使用方法</font>](https://blog.csdn.net/qq_16933601/article/details/130446840)
 - [Linux crash 调试环境搭建](https://blog.csdn.net/qq_42931917/article/details/108236139)
 - [linux内核学习-Linux内核程序调试工具Crash的安装](https://www.cnblogs.com/ssyfj/p/16278883.html)
 - [dump分析工具_ubantu18.04内核奔溃调试工具Crash的搭建](https://blog.csdn.net/weixin_39545102/article/details/111215997)
