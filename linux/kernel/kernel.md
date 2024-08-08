@@ -502,6 +502,11 @@ dpkg-buildpackage -b -nc -uc -us -j16
 
 - [<font color=Red>C关键字section的作用</font>](https://mp.weixin.qq.com/s/sglxUkdboT4epiJOH5z7pg)
 
+### vmlinux.lds.S
+
+- [<font color=Red>linux内核的“头”究竟是什么？</font>](https://mp.weixin.qq.com/s/VC59Bxv7eVkkvut6uObsvQ)
+- [【linux内核】linux内核入口：head.o](https://mp.weixin.qq.com/s/ZSOyi5X0_QW0eUaiiPl7mQ)
+
 ### 内核链表
 
 - [玩转内核链表list_head，教你管理不同类型节点的实现，建议收藏](https://mp.weixin.qq.com/s/Ddonv6FdY4oroIT32IGxOw)
