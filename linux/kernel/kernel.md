@@ -408,7 +408,7 @@ dpkg-buildpackage -b -nc -uc -us -j16
 - [（转载）ubuntu 安装 dbgsym (debug-info)](https://cloud.tencent.com/developer/article/1637887)
 - [dpkg-buildpackage error](https://github.com/Mellanox/nv_peer_memory/issues/77)
 
-### 编译内核rmp包
+### 编译内核rpm包
 
 - [编译内核rpm包](https://blog.csdn.net/qq_40983405/article/details/123875955)
 
