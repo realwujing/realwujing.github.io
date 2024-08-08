@@ -579,6 +579,7 @@ dpkg-buildpackage -b -nc -uc -us -j16
 
 ## 系统调用
 
+- [<font color=Red>亲自“操刀”linux的系统调用！</font>](https://mp.weixin.qq.com/s/M6LjkxkSep72mZmU8UzLUg)
 - [Linux系统调用三部曲之三：从零实现一个系统调用](https://mp.weixin.qq.com/s/YVBRYZdqyQzYd1AAXF3zBQ)
 - [<font color=Red>linux系统调用函数大全_Linux架构</font>](https://blog.csdn.net/weixin_39852688/article/details/110815377)
 - [<font color=Red>介绍Linux系统调用（值得收藏）</font>](https://blog.csdn.net/m0_74282605/article/details/128097944)
