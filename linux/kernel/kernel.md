@@ -25,11 +25,13 @@
 - [<font color=Red>Linux内核解读</font>](https://www.toutiao.com/article/7333073522220089867)
 - [#linux内核 ｜ 嵌入式小生](https://mp.weixin.qq.com/mp/appmsgalbum?action=getalbum&album_id=2267430745143066629)
 
-## The Linux Kernel documentation
+## kernel docs
 
 - [https://www.kernel.org/doc/html/](https://www.kernel.org/doc/html/)
 
 ## linux内核源码
+
+- [git获取指定版本的linux内核源码](https://blog.csdn.net/weixin_40837318/article/details/95546377)
 
 - [https://www.kernel.org/](https://www.kernel.org/)
 
@@ -78,16 +80,17 @@
 
     将默认上游设置为镜像站。
 
-- [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
-- [git获取指定版本的linux内核源码](https://blog.csdn.net/weixin_40837318/article/details/95546377)
+### DebianKernel
 
+- <https://wiki.debian.org/DebianKernel>
+- <https://salsa.debian.org/kernel-team/linux>
+
+### others
+
+- [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
 - [OpenCloudOS kernel](https://gitee.com/OpenCloudOS/OpenCloudOS-Kernel/tree/master)
 
-```bash
-git clone
-```
-
-### LKML
+### linux内核邮件列表
 
 Linux 内核相关网站的出现顺序:
 
@@ -112,20 +115,14 @@ Linux 内核相关网站的出现顺序:
 
 ### Git邮件向Linux社区提交内核补丁
 
-- [从 LKML 优雅的摘取补丁](https://blog.xzr.moe/archives/293/)
-- [从 LKML 优雅的摘取补丁](https://blog.xzr.moe/archives/293/)
+- [<font color=Red>从 LKML 优雅的摘取补丁</font>](https://blog.xzr.moe/archives/293/)
 - [正确使用邮件列表参与开源社区的协作](https://tinylab.org/mailing-list-intro/)
 - [提交内核补丁到Linux社区的步骤](https://www.cnblogs.com/gmpy/p/12200609.html)
 - [Git邮件向Linux社区提交内核补丁教程](https://blog.csdn.net/Guet_Kite/article/details/117997036)
 - [如何回复内核邮件：简单示例：多个patch](https://blog.csdn.net/Rong_Toa/article/details/126808967)
 - [提交补丁：如何让你的改动进入内核](https://www.kernel.org/doc/html/latest/translations/zh_CN/process/submitting-patches.html)
 - [所有你想知道的事情 - 关于linux稳定版发布](https://www.kernel.org/doc/html/latest/translations/zh_CN/process/stable-kernel-rules.html)
-- <https://www.kernel.org/doc/html/latest/process/stable-kernel-rules.html>
-
-### DebianKernel
-
-- <https://wiki.debian.org/DebianKernel>
-- <https://salsa.debian.org/kernel-team/linux>
+- [Everything you ever wanted to know about Linux -stable](https://www.kernel.org/doc/html/latest/process/stable-kernel-rules.html)
 
 ### 内核源码结构
 
@@ -145,22 +142,77 @@ Linux 内核相关网站的出现顺序:
 - [Linux-0.11操作系统源码调试-在 Ubuntu22 上](https://blog.csdn.net/chaoguo1234/article/details/128613219)
 - [<font color=Red>https://github.com/yuan-xy/Linux-0.11</font>](https://github.com/yuan-xy/Linux-0.11)
 
-## 启动过程
+## Linux 启动过程
 
 - [Linux基础- Linux 启动过程](https://www.toutiao.com/article/7271522135665902115/)
 - [你知道Linux的启动过程吗？#程序员##Linux#](https://www.toutiao.com/article/7204305085835346467)
     ![你知道Linux的启动过程吗？#程序员##Linux#](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/8e2accc090364ccf9792e064817f091e~tplv-obj_1280_1664.gif)
 
+### 内核启动参数
+
+- [The kernel's command-line parameters](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html)
+
+#### 日志级别
+
+- [ignore_loglevel](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=ignore_loglevel)
+
+#### dynamic debug
+
+- [<font color=Red>https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html</font>](https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html)
+
+dyndbg="QUERY", module.dyndbg="QUERY", or ddebug_query="QUERY"三者的区别？
+
+If foo module is not built-in, foo.dyndbg will still be processed at boot time, without effect, but will be reprocessed when module is loaded later. dyndbg_query= and bare dyndbg= are only processed at boot.
+
+- foo.dyndbg：
+
+    如果 foo 模块不是内核的一部分，而是在运行时可加载的模块，foo.dyndbg 的设置会在系统启动时被处理，但在此时不会产生实际效果。这是因为 foo 模块尚未加载，所以动态调试设置在这个时候并不影响任何东西。
+
+    当稍后加载 foo 模块时，foo.dyndbg 的设置会被重新处理并生效。因此，动态调试设置在模块加载后才真正生效。
+
+- dyndbg_query= 和 dyndbg=：
+
+    这两种设置（全局动态调试设置）只在系统启动时被处理，而不会在系统运行时重新处理。一旦系统进入运行状态，这些设置就不再生效。
+
+    这意味着如果你想要在系统运行时动态调整调试设置，你应该使用模块特定的设置，比如 foo.dyndbg，而不是全局设置。
+
+    综合来说，foo.dyndbg 在系统启动时会被处理，但不会在 foo 模块加载前生效。而 dyndbg_query= 和dyndbg= 这两种设置只在系统启动时生效，进入系统后不再生效。
+
+在grub中新增 dyndbg 参数：
+
+```bash
+dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p; file *usb* +p'
+```
+
+```bash
+update-grub
+```
+
+进入系统后：
+
+```bash
+echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p; file *usb* +p' > /sys/kernel/debug/dynamic_debug/control
+```
+
+- [dev_info、dev_dbg、dev_err及动态调试](https://blog.csdn.net/daocaokafei/article/details/116102271)
+- [打开dev_dbg()调试开关](https://blog.csdn.net/u014770862/article/details/81408859)
+- [<font color=Red>内核动态打印</font>](https://blog.csdn.net/lyndon_li/article/details/126276835)
+
+#### printk
+
+- [Message logging with printk](https://www.kernel.org/doc/html/latest/core-api/printk-basics.html?highlight=loglevel)
+- [Linux 内核调试工具Printk介绍](https://mp.weixin.qq.com/s/Uaq-rm0SLmWUNZMw5krgsw)
+
 ### grub
 
-### grub doc
+#### grub doc
 
 - [GNU GRUB Manual 2.12](https://www.gnu.org/software/grub/manual/grub/grub.html)
 - [6.1 Simple configuration handling /etc/default/grub](https://www.gnu.org/software/grub/manual/grub/grub.html#Simple-configuration)
 - [17.3.1 serial](https://www.gnu.org/software/grub/manual/grub/grub.html#serial)
 - [15 GRUB environment variables](https://www.gnu.org/software/grub/manual/grub/grub.html#Environment)
 
-### grub命令
+#### grub命令
 
 - [<font color=Red>GRUB 引导流程</font>](https://www.cnblogs.com/Link-Luck/p/9858869.html)
 - [<font color=Red>grub命令 – 交互式的管理GRUB引导程序</font>](https://www.linuxcool.com/grub)
@@ -236,90 +288,37 @@ Linux 内核相关网站的出现顺序:
 - [主分区、扩展分区、逻辑分区](https://www.cnblogs.com/itmeatball/p/11469673.html)
 - [主磁盘分区和逻辑磁盘分区的区别是什么？](https://blog.csdn.net/weixin_33906657/article/details/92576959)
 
-#### 更改默认启动内核
+#### grub中更改默认启动内核
 
 - [linux查看安装的所有内核,查看已安装的Linux内核](https://blog.csdn.net/weixin_39702400/article/details/116625705)
 - [Debian 指定内核启动](https://blog.chenxiaosheng.com/posts/2022-05-07/debian-switch-kernel-boot.html)
 - [deepin系统更改默认启动内核](https://blog.csdn.net/jxwzh/article/details/116041716)
 - [ubuntu 修改开机启动项默认值](https://blog.csdn.net/DEEP_M/article/details/118103914)
 
-#### 启动参数
-
-- [The kernel's command-line parameters](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html)
-
-    ```bash
-    initcall_debug no_console_suspend ignore_loglevel initcall_blacklist=phytium_spi_driver_init module_blacklist=spi_phytium_plat dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p; file *usb* +p'
-    ```
-
-- grub中不加载某个驱动
-
-    `initcall_blacklist=phytium_spi_driver_init`
-
-    ```bash
-    initcall_blacklist=  [KNL] Do not execute a comma-separated list of
-                        initcall functions.  Useful for debugging built-in
-                        modules and initcalls.
-    ```
-
-    ```bash
-    module_blacklist=  [KNL] Do not load a comma-separated list of
-                        modules.  Useful for debugging problem modules.
-    ```
-
-### 日志级别
-
-- [ignore_loglevel](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=ignore_loglevel)
-
-#### dynamic debug
-
-- [<font color=Red>https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html</font>](https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html)
-
-dyndbg="QUERY", module.dyndbg="QUERY", or ddebug_query="QUERY"三者的区别？
-
-If foo module is not built-in, foo.dyndbg will still be processed at boot time, without effect, but will be reprocessed when module is loaded later. dyndbg_query= and bare dyndbg= are only processed at boot.
-
-- foo.dyndbg：
-
-    如果 foo 模块不是内核的一部分，而是在运行时可加载的模块，foo.dyndbg 的设置会在系统启动时被处理，但在此时不会产生实际效果。这是因为 foo 模块尚未加载，所以动态调试设置在这个时候并不影响任何东西。
-
-    当稍后加载 foo 模块时，foo.dyndbg 的设置会被重新处理并生效。因此，动态调试设置在模块加载后才真正生效。
-
-- dyndbg_query= 和 dyndbg=：
-
-    这两种设置（全局动态调试设置）只在系统启动时被处理，而不会在系统运行时重新处理。一旦系统进入运行状态，这些设置就不再生效。
-
-    这意味着如果你想要在系统运行时动态调整调试设置，你应该使用模块特定的设置，比如 foo.dyndbg，而不是全局设置。
-
-    综合来说，foo.dyndbg 在系统启动时会被处理，但不会在 foo 模块加载前生效。而 dyndbg_query= 和dyndbg= 这两种设置只在系统启动时生效，进入系统后不再生效。
-
-在grub中新增 dyndbg 参数：
+#### grub中禁止某个驱动加载
 
 ```bash
-dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p; file *usb* +p'
+initcall_debug no_console_suspend ignore_loglevel initcall_blacklist=phytium_spi_driver_init module_blacklist=spi_phytium_plat dyndbg='module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p; file *usb* +p'
 ```
 
 ```bash
-update-grub
+initcall_blacklist=phytium_spi_driver_init
 ```
-
-进入系统后：
 
 ```bash
-echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pmdk_es8388 +p; module snd_soc_pmdk_es8336 +p; module snd_soc_pmdk_dp +p; file *usb* +p' > /sys/kernel/debug/dynamic_debug/control
+initcall_blacklist=  [KNL] Do not execute a comma-separated list of
+                    initcall functions.  Useful for debugging built-in
+                    modules and initcalls.
 ```
 
-- [dev_info、dev_dbg、dev_err及动态调试](https://blog.csdn.net/daocaokafei/article/details/116102271)
-- [打开dev_dbg()调试开关](https://blog.csdn.net/u014770862/article/details/81408859)
-- [<font color=Red>内核动态打印</font>](https://blog.csdn.net/lyndon_li/article/details/126276835)
+```bash
+module_blacklist=  [KNL] Do not load a comma-separated list of
+                    modules.  Useful for debugging problem modules.
+```
 
-#### printk
+## 内核编译
 
-- [Message logging with printk](https://www.kernel.org/doc/html/latest/core-api/printk-basics.html?highlight=loglevel)
-- [Linux 内核调试工具Printk介绍](https://mp.weixin.qq.com/s/Uaq-rm0SLmWUNZMw5krgsw)
-
-## 内核 Makefile config
-
-- [Linux系统内核概述](https://mp.weixin.qq.com/s/VJFXFs8430SrpnJTmUsIZg)
+- [<font color=Red>Linux系统内核概述</font>](https://mp.weixin.qq.com/s/VJFXFs8430SrpnJTmUsIZg)
 - [make 参数 ARCH与CROSS_COMPILE***](https://www.cnblogs.com/jiangzhaowei/p/12288515.html)
 - [Linux内核编译很简单，6步编译一个自己的内核](https://www.51cto.com/article/663841.html)
 
@@ -423,7 +422,7 @@ dpkg-buildpackage -b -nc -uc -us -j16
 
     也可以通过下方命令安装 Linux 内核的构建依赖项：
 
-    ```
+    ```bash
     sudo yum install bison flex ncurses-devel elfutils-libelf-devel openssl-devel make rpm-build
     ```
 
@@ -477,7 +476,7 @@ dpkg-buildpackage -b -nc -uc -us -j16
 - [linux dkms,DKMS简介](https://blog.csdn.net/weixin_42388631/article/details/117547371)
 - [Linux 模块管理方法之 DKMS](https://blog.csdn.net/Wang_anna/article/details/126955523)
 
-## ASLR
+## 地址空间随机化
 
 - [Linux下关闭ASLR(地址空间随机化)的方法](https://blog.csdn.net/counsellor/article/details/81543197)
 - [Linux关闭KASLR](https://blog.csdn.net/zy_zhengyang/article/details/95451484)
@@ -503,11 +502,6 @@ dpkg-buildpackage -b -nc -uc -us -j16
 
 - [<font color=Red>C关键字section的作用</font>](https://mp.weixin.qq.com/s/sglxUkdboT4epiJOH5z7pg)
 
-### vmlinux.lds.S
-
-- [<font color=Red>linux内核的“头”究竟是什么？</font>](https://mp.weixin.qq.com/s/VC59Bxv7eVkkvut6uObsvQ)
-- [【linux内核】linux内核入口：head.o](https://mp.weixin.qq.com/s/ZSOyi5X0_QW0eUaiiPl7mQ)
-
 ### EXPORT_SYMBOL
 
 - [linux 内核中EXPORT_SYMBOL（）分析与实践](https://mp.weixin.qq.com/s/WZAukUBaDAIAn2DbRRzrqQ)
@@ -525,9 +519,14 @@ dpkg-buildpackage -b -nc -uc -us -j16
 
 - [linux--sysfs文件系统](https://mp.weixin.qq.com/s/tAricCUN1nauS-9XQjblTg)
 
-## 启动流程
+## 内核启动流程
 
 - [Linux | Kernel 启动流程源码分析](https://mp.weixin.qq.com/s/umB4mgMUtAvL52AcjDq55g)
+
+### vmlinux.lds.S
+
+- [<font color=Red>linux内核的“头”究竟是什么？</font>](https://mp.weixin.qq.com/s/VC59Bxv7eVkkvut6uObsvQ)
+- [【linux内核】linux内核入口：head.o](https://mp.weixin.qq.com/s/ZSOyi5X0_QW0eUaiiPl7mQ)
 
 ### 0号进程，1号进程，2号进程
 
@@ -577,10 +576,6 @@ dpkg-buildpackage -b -nc -uc -us -j16
 - [initcall_debug来查看开机慢问题](https://blog.csdn.net/rikeyone/article/details/84258391)
 - [<font color=Red>Linux 各种 initcall 的调用原理</font>](https://blog.csdn.net/enlaihe/article/details/123904759)
 - [【Linux内核源码分析】initcall机制与module_init](https://mp.weixin.qq.com/s/2lgtL6dRJEs803Gn43tLsg)
-
-## cpu调频
-
-- [Linux&Tina动态调压调频配置与实现](https://blog.csdn.net/tugouxp/article/details/120527174)
 
 ## 系统调用
 
