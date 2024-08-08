@@ -23,6 +23,7 @@
 - [海康一面过！（纯Linux八股）](https://mp.weixin.qq.com/s/3P1fL5RbuLq_ARqp4ATIaw)
 
 - [<font color=Red>Linux内核解读</font>](https://www.toutiao.com/article/7333073522220089867)
+- [#linux内核 ｜ 嵌入式小生](https://mp.weixin.qq.com/mp/appmsgalbum?action=getalbum&album_id=2267430745143066629)
 
 ## The Linux Kernel documentation
 
