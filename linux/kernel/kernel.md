@@ -506,6 +506,27 @@ dpkg-buildpackage -b -nc -uc -us -j16
 
 - [linux 内核中EXPORT_SYMBOL（）分析与实践](https://mp.weixin.qq.com/s/WZAukUBaDAIAn2DbRRzrqQ)
 
+### __VA_ARGS__
+
+`__VA_ARGS__` 是一个在宏定义中使用的预处理器标识符，用于表示可变数量的参数。它允许在宏中接受并处理任意数量的参数。
+
+- **用途**: 处理可变参数列表。
+- **语法**: `__VA_ARGS__` 在宏定义中占位，表示传递给宏的所有额外参数。
+- **示例**:
+
+  ```c
+  #define PRINT(fmt, ...) printf(fmt, __VA_ARGS__)
+  ```
+
+  使用宏 `PRINT` 可以传递任意数量的参数：
+
+  ```c
+  PRINT("Value: %d\n", 42);
+  PRINT("Values: %d, %d\n", 1, 2);
+  ```
+
+在宏 `PRINT` 中，`fmt` 是格式化字符串，而 `__VA_ARGS__` 被替换为 `printf` 的其他参数。
+
 ### 内核链表
 
 - [玩转内核链表list_head，教你管理不同类型节点的实现，建议收藏](https://mp.weixin.qq.com/s/Ddonv6FdY4oroIT32IGxOw)
