@@ -1,6 +1,6 @@
 ---
-date: 2022/12/05 22:48:50
-updated: 2023/04/21 15:49:27
+date: 2023/04/21 15:49:27
+updated: 2024/07/19 14:30:39
 ---
 
 # git教程
@@ -42,18 +42,88 @@ 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
 ## reset
 
 - [git reset 命令](https://www.runoob.com/git/git-reset.html)
+- [git如何恢复本地删除的文件夹](https://blog.csdn.net/qq_32077121/article/details/111150662)
+
+- [<font color=Red>git 回退一个文件的版本</font>](https://blog.csdn.net/weixin_39580031/article/details/123826439)
+- [<font color=Red>使用git checkout和git reset覆盖本地修改</font>](https://www.toutiao.com/article/6752851057765794308)
+
+在本地修改文件、或者删除文件后，如果想恢复这些文件内容为git仓库保存的版本，可以使用下面几个命令：
+
+- `git checkout [--] <filepath>`：可以恢复还没有执行 `git add` 的文件，但不能恢复已经执行过 `git add` 的文件
+- `git reset [--] <filepath>`：把文件从git的staged区域移除，即取消`git add`，再使用 `git checkout` 进行恢复
+- `git reset --hard`：恢复整个git仓库的文件内容为当前分支的最新版本
 
 ## commit
 
-- [Git怎样合并最近两次commit](https://blog.csdn.net/keeplook/article/details/39324971)
+- [<font color=Red>Git怎样合并最近两次commit</font>](https://blog.csdn.net/keeplook/article/details/39324971)
+
+```bash
+git rebase -i HEAD~2
+```
+
+根据提示，把第二个“pick”改成“squash”，这样就可以把第二个commit合并到到第一个里。
+
 - [对之前的commit 提交进行修改](https://www.jianshu.com/p/7d40838883af)
 - [<font color=Red>Git 修改已提交 commit 的信息</font>](https://cloud.tencent.com/developer/article/1730774)
 - [<font color=Red>git只合并某一个分支的某个commit</font>](https://www.cnblogs.com/boshen-hzb/p/9764835.html)
 - [<font color=Red>Git合并特定commits 到另一个分支</font>](https://blog.csdn.net/ybdesire/article/details/42145597)
 
-- [git如何恢复本地删除的文件夹](https://blog.csdn.net/qq_32077121/article/details/111150662)
+## 查看文件每次提交的diff
 
-- [<font color=Red>git 回退一个文件的版本</font>](https://blog.csdn.net/weixin_39580031/article/details/123826439)
+- [Git 查看某个文件的修改记录](https://blog.csdn.net/sunshine_505/article/details/92795152)
+
+```bash
+git log -p kernel/sched/fair.c
+```
+
+## 查找某句代码在哪个提交中出现
+
+- [Git搜索Git历史记录中的字符串](https://geek-docs.com/git/git-questions/210_git_search_all_of_git_history_for_a_string.html)
+
+```bash
+git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched/fair.c | cat
+8aeaffef8c6e sched/fair: Take the scheduling domain into account in select_idle_smt()
+3e6efe87cd5c sched/fair: Remove redundant check in select_idle_smt()
+3e8c6c9aac42 sched/fair: Remove task_util from effective utilization in feec()
+c722f35b513f sched/fair: Bring back select_idle_smt(), but differently
+6cd56ef1df39 sched/fair: Remove select_idle_smt()
+df3cb4ea1fb6 sched/fair: Fix wrong cpu selecting from isolated domain
+```
+
+`kernel/sched/fair.c`参数可以去掉。
+
+进一步使用git show 查看上述所有commit的具体内容：
+
+```bash
+git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched/fair.c | awk {'print $1'} | xargs git show > sched_domain_span.log
+```
+
+`kernel/sched/fair.c`参数可以去掉。
+
+## 查看某个补丁在内核哪些版本中有
+
+在Linux kernel stable tree mirror中查找某个提交：
+
+```bash
+git remote -v
+origin  https://github.com/gregkh/linux.git (fetch)
+origin  https://github.com/gregkh/linux.git (push)
+```
+
+```bash
+git log --oneline | grep "arm64: implement ftrace with regs"
+3b23e4991fb6 arm64: implement ftrace with regs
+```
+
+在Linux kernel source tree中查找这个提交：
+
+<https://github.com/torvalds/linux/commit/3b23e4991fb6>
+
+将`3b23e4991fb6`替换成要查找的commit:
+
+![3b23e4991fb6最早出现在linux-v5.5-rc1上](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240418101723.png)
+
+![3b23e4991fb6最早出现在linux-v5.5-rc1上](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240418101819.png)
 
 ## head
 
@@ -123,32 +193,32 @@ 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
     设置永久记住密码
 
     ```bash
-    # 设置永久记住密码 
+    # 设置永久记住密码
 
-    git config --global credential.helper store 
-    git pull  
-    
+    git config --global credential.helper store
+    git pull
 
-    # 拉取所有子模块 
 
-    git submodule update --init --recursive 
+    # 拉取所有子模块
 
-    
-    
+    git submodule update --init --recursive
 
-    git submodule foreach git pull origin master 
 
-    
-    
 
-    git submodule foreach git checkout master 
 
-    
-    
+    git submodule foreach git pull origin master
 
-    # 取消永久记住密码 
 
-    # git config --global --unset credential.helper 
+
+
+    git submodule foreach git checkout master
+
+
+
+
+    # 取消永久记住密码
+
+    # git config --global --unset credential.helper
     ```
 
 - [Git详解10-Git子库：submodule与subtree](https://juejin.cn/post/6934107291621228558)
@@ -188,3 +258,86 @@ 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
 
 - [通过 GitHub Actions 将 GitHub 仓库自动备份到 Gitee、GitLab](https://www.it610.com/article/1527116916244676608.htm)
 - [bash - Github Action - Error: Process completed with exit code 1 - Stack Overflow](https://stackoverflow.com/questions/66626814/github-action-error-process-completed-with-exit-code-1)
+- [<font color=Red>Github actions git log only output one line</font>](https://github.com/orgs/community/discussions/26928)
+
+## patch
+
+- [使用Git生成patch和应用patch，看完这一篇文章就全懂了](https://www.toutiao.com/article/6652488964823319052)
+- [git生成patch和打patch的操作命令](https://blog.csdn.net/qq_30624591/article/details/89474571)
+
+## send-email
+
+- [提交内核补丁到Linux社区的步骤](https://www.cnblogs.com/gmpy/p/12200609.html)
+- [Git邮件向Linux社区提交内核补丁教程](https://blog.csdn.net/Guet_Kite/article/details/117997036)
+
+`.gitconfig`中的配置如下：
+
+```text
+[user]
+	email = realwujing@qq.com
+	name = wujing
+[url "git@github.com:"]
+	insteadOf = https://github.com/
+[commit]
+	template = ~/.gitcommit_template
+[sendemail]
+    smtpServer = smtp.qq.com
+    smtpServerPort = 587
+    smtpEncryption = tls
+    smtpUser = realwujing@qq.com
+    smtpPass = kpdkskfgpbaxsrnwbifi
+```
+
+测试连接和认证:
+
+```bash
+git send-email -v --to="realwujing@qq.com" HEAD^
+```
+
+```text
+/var/folders/hh/0wpdzj8s79scygrdntrwy32h0000gn/T/xctMCK9Q3r/v-to-realwujing-qq.com-0001-git-send-email-and-Signed-off.patch
+The following files are 8bit, but do not declare a Content-Transfer-Encoding.
+    /var/folders/hh/0wpdzj8s79scygrdntrwy32h0000gn/T/xctMCK9Q3r/v-to-realwujing-qq.com-0001-git-send-email-and-Signed-off.patch
+Which 8bit encoding should I declare [UTF-8]?
+To whom should the emails be sent (if anyone)? realwujing@qq.com
+Message-ID to be used as In-Reply-To for the first email (if any)?
+(mbox) Adding cc: wujing <realwujing@qq.com> from line 'From: wujing <realwujing@qq.com>'
+(body) Adding cc: wujing <realwujing@qq.com> from line 'Signed-off-by: wujing <realwujing@qq.com>'
+
+From: wujing <realwujing@qq.com>
+To: realwujing@qq.com
+Subject: [PATCH v--to=realwujing@qq.com] git: send-email and Signed-off-by
+Date: Sat,  6 Jul 2024 19:19:17 +0800
+Message-ID: <20240706111927.56825-1-realwujing@qq.com>
+X-Mailer: git-send-email 2.45.2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+    The Cc list above has been expanded by additional
+    addresses found in the patch commit message. By default
+    send-email prompts before sending whenever this occurs.
+    This behavior is controlled by the sendemail.confirm
+    configuration setting.
+
+    For additional information, run 'git send-email --help'.
+    To retain the current behavior, but squelch this message,
+    run 'git config --global sendemail.confirm auto'.
+
+Send this email? ([y]es|[n]o|[e]dit|[q]uit|[a]ll): y
+OK. Log says:
+Server: smtp.qq.com
+MAIL FROM:<realwujing@qq.com>
+RCPT TO:<realwujing@qq.com>
+From: wujing <realwujing@qq.com>
+To: realwujing@qq.com
+Subject: [PATCH v--to=realwujing@qq.com] git: send-email and Signed-off-by
+Date: Sat,  6 Jul 2024 19:19:17 +0800
+Message-ID: <20240706111927.56825-1-realwujing@qq.com>
+X-Mailer: git-send-email 2.45.2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Result: 250
+```

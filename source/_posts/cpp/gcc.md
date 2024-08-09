@@ -1,6 +1,6 @@
 ---
-date: 2023/02/01 13:37:53
-updated: 2023/04/21 15:49:27
+date: 2023/04/21 15:49:27
+updated: 2024/05/31 17:28:20
 ---
 
 # gcc
@@ -33,3 +33,22 @@ updated: 2023/04/21 15:49:27
 - [编译器常用的8种优化方法](https://zhuanlan.zhihu.com/p/381490718)
 - [被知乎大佬嘲讽后的一个月，我重新研究了一下内联函数](https://zhuanlan.zhihu.com/p/50812510)
 - [c - gcc -g0 并且没有 -g 选项](https://www.coder.work/article/176992)
+
+## ccache
+
+- <https://ccache.dev/>
+- [高速的C/C++编译工具——ccache](https://blog.csdn.net/King_weng/article/details/117415618)
+- [Linux 5.10.20 上使用ccache加快内核编译速度（安装配置及使用方法）](https://blog.csdn.net/weixin_48299611/article/details/115563624)
+
+安装ccache:
+
+```bash
+sudo apt install ccache
+```
+
+在～/.bashrc中添加如下内容:
+
+```bash
+# ccache
+export PATH=/usr/lib/ccache:$PATH
+```
