@@ -689,6 +689,35 @@ sudo make install
 - [CRASH安装和调试](https://www.toutiao.com/article/6903790073377063428/)
 - [Linux crash Dump分析](https://mp.weixin.qq.com/s/ReTyAr8gSWV-ee4mvPpGYg)
 
+### fedora
+
+- [fedora How to use kdump to debug kernel crashes](https://fedoraproject.org/wiki/How_to_use_kdump_to_debug_kernel_crashes)
+- [fedora Linux kernel debug](https://discussion.fedoraproject.org/t/linux-kernel-debug/84998/4)
+
+仅为一个命令启用存储库：
+
+```bash
+sudo dnf --enablerepo=fedora-debuginfo,updates-debuginfo install kernel-debuginfo
+```
+
+永久启用存储库（可能不是您想要的）：
+
+```bash
+sudo dnf config-manager --set-enabled fedora-debuginfo updates-debuginfo
+```
+
+禁用存储库：
+
+```bash
+sudo dnf config-manager --set-disabled fedora-debuginfo updates-debuginfo
+```
+
+推荐使用`sudo dnf debuginfo-install kernel`安装内核调试包：
+
+```bash
+sudo dnf debuginfo-install kernel
+```
+
 ### eval命令
 
 - [crash —— 自带的计算器和转换器](https://www.cnblogs.com/pengdonglin137/p/17725310.html)
