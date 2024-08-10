@@ -27,6 +27,12 @@
 - [C++11 并发指南五(std::condition_variable 详解) - Haippy - 博客园 (cnblogs.com)](https://www.cnblogs.com/haippy/p/3252041.html)
 - [C++11条件变量：notify_one()与notify_all()的区别_feikudai8460的博客-CSDN博客_c++ notify_one](https://blog.csdn.net/feikudai8460/article/details/109604690)
 - [C++11是如何封装Thread库的？](https://mp.weixin.qq.com/s/WsYEvRays-l58KAOwwzP-w)
+- [【C++并发编程】（十三）递归锁](https://www.toutiao.com/article/7393248382594056739)
+
+## 无锁
+
+- [Linux高性能编程_无锁队列](https://mp.weixin.qq.com/s/4tnAYIry-kwS0PvDTxN-qQ)
+- [linux多线程--双buffer“无锁”设计](https://www.toutiao.com/article/7094521185219838503)
 
 ### join
 
@@ -77,5 +83,3 @@
 - <https://github.com/cdwfs/cds_job>
 
 - <https://github.com/delscorcho/basic-job-system>
-
-- [Linux高性能编程_无锁队列](https://mp.weixin.qq.com/s/4tnAYIry-kwS0PvDTxN-qQ)
