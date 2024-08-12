@@ -1403,7 +1403,7 @@ stress-ng --timeout 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable 
 ![stress-ng --timeout 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802115921.png)
 
 ```bash
-stress-ng --timeout 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110
+stress-ng --timeout 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110 --ksm
 ```
 
 ![stress-ng --timeout 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110 --ksm](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802120305.png)
