@@ -19,6 +19,7 @@
 ## main
 
 - [main 函数和命令行参数](https://learn.microsoft.com/zh-cn/cpp/cpp/main-function-command-line-args?view=msvc-170)
+- [C语言中的int argc, char *argv[]是什么？](https://mp.weixin.qq.com/s/jU4DU4eIT2f9rLsN2C7YQw)
 
 ## typedef
 
@@ -184,6 +185,7 @@
 - [<font color=Red>C++中的默认函数与default和delete用法</font>](https://blog.csdn.net/u012333003/article/details/25299939)
 - [C++11 =default和=delete -简书(jianshu.com)](https://www.jianshu.com/p/ef66ba66916c)
 - [C++中的=default和=delete_FEEL的博客-CSDN博客_c++ default](https://blog.csdn.net/weixin_38339025/article/details/89161324)
+- [C++中的四种强制类型转换：理解不同转换方式的优缺点](https://mp.weixin.qq.com/s/MuwAx7jbCy3Q3RUV-OnhJg)
 
 #### 初始化列表
 
