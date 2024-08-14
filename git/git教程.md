@@ -63,6 +63,18 @@ git rebase -i HEAD~2
 - [<font color=Red>git只合并某一个分支的某个commit</font>](https://www.cnblogs.com/boshen-hzb/p/9764835.html)
 - [<font color=Red>Git合并特定commits 到另一个分支</font>](https://blog.csdn.net/ybdesire/article/details/42145597)
 
+### git 修改最新commit的作者
+
+使用 `git commit --amend --author` 修改提交的作者信息：
+
+```bash
+git commit --amend --author="新作者名 <新作者邮箱>"
+```
+
+```bash
+git commit --amend --author="realwujing <realwujing@qq.com>"
+```
+
 ## 查看文件每次提交的diff
 
 - [Git 查看某个文件的修改记录](https://blog.csdn.net/sunshine_505/article/details/92795152)
