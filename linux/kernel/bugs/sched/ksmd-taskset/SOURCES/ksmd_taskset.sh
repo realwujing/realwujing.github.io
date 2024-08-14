@@ -73,7 +73,7 @@ function handle_isolcpus() {
 }
 
 # 定义函数来计算不在 smt_isolcpus 列表中的 CPU，并以逗号分隔
-function calculate_not_smt_isolcpus() {
+function calculate_non_smt_isolcpus() {
 	local logical_cpus=$1 # 总逻辑 CPU 数量
 	local smt_isolcpus=$2 # smt_isolcpus 列表
 
@@ -81,25 +81,62 @@ function calculate_not_smt_isolcpus() {
 	local cpu_range=$(seq 0 $((logical_cpus - 1)))
 
 	# 使用数组来存储结果
-	local not_smt_isolcpus=()
+	local non_smt_isolcpus=()
 
 	# 遍历 cpu_range 中的每个 CPU
 	for cpu in $cpu_range; do
 		# 检查当前 CPU 是否在 smt_isolcpus 列表中
 		if ! [[ " $smt_isolcpus " =~ " $cpu " ]]; then
-			# 如果不在 smt_isolcpus 中，添加到 not_smt_isolcpus 数组
-			not_smt_isolcpus+=("$cpu")
+			# 如果不在 smt_isolcpus 中，添加到 non_smt_isolcpus 数组
+			non_smt_isolcpus+=("$cpu")
 		fi
 	done
 
-	# 将 not_smt_isolcpus 数组转换为逗号分隔的字符串
-	local not_smt_isolcpus_str=$(
+	# 将 non_smt_isolcpus 数组转换为逗号分隔的字符串
+	local non_smt_isolcpus_str=$(
 		IFS=,
-		echo "${not_smt_isolcpus[*]}"
+		echo "${non_smt_isolcpus[*]}"
 	)
 
 	# 输出结果
-	echo "$not_smt_isolcpus_str"
+	echo "$non_smt_isolcpus_str"
+}
+
+# 定义函数来计算不在 smt_isolcpus 列表中的在线 CPU
+function calculate_non_smt_isolated_online_cpus() {
+	local smt_isolcpus_str=$1 # 从 calculate_non_smt_isolcpus 返回的字符串
+
+	# 使用数组来存储结果
+	local non_smt_isolated_online_cpus=()
+	local non_smt_isolated_offline_cpus=()
+
+	# 将输入字符串转换为数组
+	IFS=, read -r -a cpus <<< "$smt_isolcpus_str"
+
+	# 遍历 CPU 列表，检查每个 CPU 是否在线
+	for cpu in "${cpus[@]}"; do
+		if [ -f "/sys/devices/system/cpu/cpu${cpu}/online" ] && [ "$(cat /sys/devices/system/cpu/cpu${cpu}/online)" -eq 1 ]; then
+			# 如果 CPU 在线，添加到 non_smt_isolated_online_cpus 数组
+			non_smt_isolated_online_cpus+=("$cpu")
+		else
+			# 如果 CPU 不在线，添加到 non_smt_isolated_offline_cpus 数组
+			non_smt_isolated_offline_cpus+=("$cpu")
+		fi
+	done
+
+	# 输出离线的 CPU 列表，使用 >&2 将其输出到标准错误流，以避免干扰函数的实际返回值
+	if [ ${#non_smt_isolated_offline_cpus[@]} -gt 0 ]; then
+		echo "Offline non-SMT-isolated CPUs: $(IFS=,; echo "${non_smt_isolated_offline_cpus[*]}")" >&2
+	fi
+
+	# 将 non_smt_isolated_online_cpus 数组转换为逗号分隔的字符串
+	local non_smt_isolated_online_cpus_str=$(
+		IFS=,
+		echo "${non_smt_isolated_online_cpus[*]}"
+	)
+
+	# 返回在线的 CPU 列表
+	echo "$non_smt_isolated_online_cpus_str"
 }
 
 # 查找 ksmd 的 PID
@@ -130,22 +167,27 @@ if [ -n "$ksmd_pid" ]; then
 		# 打印计数
 		echo "smt_isolcpus count: $smt_isolcpus_count"
 
-		# 调用calculate_not_smt_isolcpus函数并获取结果
-		not_smt_isolcpus=$(calculate_not_smt_isolcpus "$logical_cpus" "$smt_isolcpus")
-		echo "not_smt_isolcpus: $not_smt_isolcpus"
-		# 统计 not_smt_isolcpus 的计数
-		not_smt_isolcpus_count=$(echo "$not_smt_isolcpus" | tr ',' ' ' | wc -w)
+		# 调用calculate_non_smt_isolcpus函数并获取结果
+		non_smt_isolcpus=$(calculate_non_smt_isolcpus "$logical_cpus" "$smt_isolcpus")
+		echo "non_smt_isolcpus: $non_smt_isolcpus"
+		# 统计 non_smt_isolcpus 的计数
+		non_smt_isolcpus_count=$(echo "$non_smt_isolcpus" | tr ',' ' ' | wc -w)
 		# 打印计数
-		echo "not_smt_isolcpus count: $not_smt_isolcpus_count"
+		echo "non_smt_isolcpus count: $non_smt_isolcpus_count"
+
+		# 计算 Online non-SMT-isolated CPUs
+		non_smt_isolated_online_cpus=$(calculate_non_smt_isolated_online_cpus "$non_smt_isolcpus")
+		# 打印 Online non-SMT-isolated CPUs
+		echo "Online non-SMT-isolated CPUs: $non_smt_isolated_online_cpus"
 
 		# 验证计数和逻辑 CPU 数量是否一致
-		if [ $(($smt_isolcpus_count + $not_smt_isolcpus_count)) -eq $logical_cpus ]; then
-			# 判断 ksmd_cpuid 是否在 smt_isolcpus 列表中
-			if echo "$smt_isolcpus" | grep -qw "$ksmd_cpuid"; then
-				echo "ksmd is running on cpu $ksmd_cpuid, cpu $ksmd_cpuid is in the smt_isolcpus list."
+		if [ $(($smt_isolcpus_count + $non_smt_isolcpus_count)) -eq $logical_cpus ]; then
+			# 判断 ksmd_cpuid 是否在 non_smt_isolated_online_cpus 列表中
+			if ! echo "$non_smt_isolated_online_cpus" | tr ',' ' ' | grep -qw "$ksmd_cpuid"; then
+				echo "ksmd is running on cpu $ksmd_cpuid, cpu $ksmd_cpuid is not in the non_smt_isolated_online_cpus list, need to migrate."
 
-				# 选择 not_smt_isolcpus 列表中的最后一个核心进行迁移
-				new_cpu=$(echo "$not_smt_isolcpus" | awk -F ',' '{print $NF}')
+				# 选择 non_smt_isolated_online_cpus 列表中的最后一个核心进行迁移
+				new_cpu=$(echo "$non_smt_isolated_online_cpus" | awk -F ',' '{print $NF}')
 				if [ -n "$new_cpu" ]; then
 					echo "migrating ksmd from cpu: $ksmd_cpuid to cpu: $new_cpu."
 					command="taskset -pc $new_cpu $ksmd_pid"
@@ -154,18 +196,34 @@ if [ -n "$ksmd_pid" ]; then
 					eval "$command"
 
 					# 主动调度一次ksmd
-					echo 1 > /sys/kernel/mm/ksm/run
+					command="echo 1 > /sys/kernel/mm/ksm/run"
+					echo "command: $command"
+					# 使用 eval 执行command字符串中的命令
+					eval "$command"
 
 					# 进行循环检查，确保 ksmd 迁移完成
 					while true; do
 						ksmd_taskset_cpuid=$(ps -o cpuid -p $ksmd_pid | awk 'NR==2 {print $1}')
 						if [ "$ksmd_taskset_cpuid" == "$new_cpu" ]; then
-							# 再次将ksmd迁移到 not_smt_isolcpus 列表中的核心
-							echo "ksmd is running on cpu: $ksmd_taskset_cpuid, now migrating to cpu: $not_smt_isolcpus."
-							command="taskset -pc $not_smt_isolcpus $ksmd_pid"
+
+							# 再次计算 Online non-SMT-isolated CPUs，防止再次迁移前有cpu被offline
+							non_smt_isolated_online_cpus=$(calculate_non_smt_isolated_online_cpus "$non_smt_isolcpus")
+							# 打印 Online non-SMT-isolated CPUs
+							echo "Online non-SMT-isolated CPUs: $non_smt_isolated_online_cpus"
+
+							# 再次将ksmd迁移到 non_smt_isolated_online_cpus 列表中的核心
+							echo "ksmd is running on cpu: $ksmd_taskset_cpuid, now migrating to cpu: $non_smt_isolated_online_cpus."
+							command="taskset -pc $non_smt_isolated_online_cpus $ksmd_pid"
 							echo "command: $command"
 							# 使用 eval 执行command字符串中的命令
 							eval "$command"
+
+							# 主动调度一次ksmd
+							command="echo 1 > /sys/kernel/mm/ksm/run"
+							echo "command: $command"
+							# 使用 eval 执行command字符串中的命令
+							eval "$command"
+
 							break
 						else
 							echo "ksmd is still running on cpu: $ksmd_cpuid, retrying migration..."
@@ -173,13 +231,13 @@ if [ -n "$ksmd_pid" ]; then
 						fi
 					done
 				else
-					echo "No available CPUs in not_smt_isolcpus list for migration."
+					echo "No available CPUs in non_smt_isolated_online_cpus list for migration."
 				fi
 			else
-				echo "ksmd is running on cpu: $ksmd_cpuid, cpu: $ksmd_cpuid is not in the smt_isolcpus list, don't need to migrate."
+				echo "ksmd is running on cpu: $ksmd_cpuid, cpu: $ksmd_cpuid is in the non_smt_isolated_online_cpus list, don't need to migrate."
 			fi
 		else
-			echo "The total count of smt_isolcpus and not_smt_isolcpus is not equal to logical_cpus."
+			echo "The total count of smt_isolcpus and non_smt_isolcpus is not equal to logical_cpus."
 		fi
 	fi
 else

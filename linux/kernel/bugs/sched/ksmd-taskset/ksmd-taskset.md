@@ -87,7 +87,7 @@ rm -f /etc/systemd/system/ksmd-taskset.service
 确保你已经安装了`rpm-build`工具包，然后执行以下命令来构建RPM包：
 
 ```bash
-cd my_package
+cd ksmd-taskset
 rpmbuild --define "_topdir $(pwd)" -ba SPECS/ksmd-taskset.spec
 ```
 
