@@ -295,6 +295,37 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 - [deepin系统更改默认启动内核](https://blog.csdn.net/jxwzh/article/details/116041716)
 - [ubuntu 修改开机启动项默认值](https://blog.csdn.net/DEEP_M/article/details/118103914)
 
+##### centos中更改默认启动内核
+
+在grub.cfg中查找内核启动选项:
+
+```bash
+grep -E "^menuentry" /boot/efi/EFI/ctyunos/grub.cfg
+
+menuentry 'CTyunOS (4.19.90-2102.2.0.0070.1.all.rc5.ctl2.aarch64) 2 24.07' --class ctyunos --class gnu-linux --class gnu --class os --unrestricted $menuentry_id_option 'gnulinux-4.19.90-2102.2.0.0070.1.all.rc5.ctl2.aarch64-advanced-02de5198-45ec-4794-8a93-c4d2864f0e3b' {
+menuentry 'Kylin V10 (V10) rescue (on /dev/mapper/klas-root)' --class gnu-linux --class gnu --class os $menuentry_id_option 'osprober-gnulinux-/vmlinuz-0-rescue-d9d667fdb84247168957a932c8c6a733--c16672cc-6d1d-4253-84b0-06e288652f4a' {
+menuentry 'Kylin V10 (V10) (on /dev/mapper/klas-root)' --class gnu-linux --class gnu --class os $menuentry_id_option 'osprober-gnulinux-/vmlinuz-4.19.90-52.22.v2207.ky10.aarch64--c16672cc-6d1d-4253-84b0-06e288652f4a' {
+```
+
+###### 更改默认启动内核
+
+GRUB菜单项的索引是从0开始计算的，这意味着第一个菜单项的索引为0，第二个菜单项的索引为1，以此类推。
+
+将第三个GRUB菜单项设置为默认启动项:
+
+```bash
+grub2-set-default 2
+```
+
+###### 验证当前的默认启动项
+
+```bash
+grub2-editenv list
+
+saved_entry=2
+boot_success=0
+```
+
 #### grub中禁止某个驱动加载
 
 ```bash
