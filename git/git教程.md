@@ -75,6 +75,55 @@ git commit --amend --author="新作者名 <新作者邮箱>"
 git commit --amend --author="realwujing <realwujing@qq.com>"
 ```
 
+### git 修改指定commit的作者
+
+要修改指定提交（commit）的作者信息，你可以使用以下步骤：
+
+1. **找到你要修改的提交的哈希值**：
+   你可以通过 `git log` 来查看提交历史，并找到需要修改的提交哈希值。
+
+2. **使用交互式变基来修改提交**：
+
+   执行以下命令以启动交互式变基，从而修改指定的提交：
+
+   ```bash
+   git rebase -i <commit-hash>^
+   ```
+
+   其中 `<commit-hash>` 是你要修改的提交的哈希值。`^` 表示从前一个提交开始。
+
+3. **标记为编辑（edit）**：
+
+   在进入交互式变基编辑界面后，将要修改的提交前面的 `pick` 改为 `edit`，然后保存并退出。
+
+4. **修改作者信息**：
+
+   运行以下命令修改提交的作者信息：
+
+   ```bash
+   git commit --amend --author="New Author Name <new.email@example.com>"
+   ```
+
+   这会修改该提交的作者为你指定的新作者。
+
+5. **继续变基**：
+
+   修改完作者信息后，继续执行变基过程：
+
+   ```bash
+   git rebase --continue
+   ```
+
+6. **强制推送到远程仓库**（如果提交已推送到远程仓库）：
+
+   由于你修改了历史提交，你需要强制推送到远程仓库：
+
+   ```bash
+   git push --force
+   ```
+
+**注意**：强制推送会覆盖远程仓库的历史，可能影响其他协作者，因此应谨慎使用。
+
 ## 查看文件每次提交的diff
 
 - [Git 查看某个文件的修改记录](https://blog.csdn.net/sunshine_505/article/details/92795152)
