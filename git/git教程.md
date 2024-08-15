@@ -166,6 +166,21 @@ git log --pretty=format:"%an <%ae>" | grep "@example.com" | awk '!seen[$0]++'
 
 这个命令可以帮助确保每个作者的邮箱地址只显示一次。
 
+### 查找所有使用 @example.com 域名的提交
+
+在 `git log` 中显示简短的提交信息（`--oneline` 格式），同时包含作者的姓名、邮箱以及提交的 `commit id`：
+
+```bash
+git log --pretty=format:"%h %s %an <%ae>" | grep "@example.com"
+```
+
+- `%h`：简短的 `commit id`。
+- `%s`：提交信息的简短描述（相当于 `--oneline` 格式的描述）。
+- `%an`：作者的名字。
+- `%ae`：作者的邮箱。
+
+通过这种方式，你将获得包含简短 `commit id`、提交信息、作者姓名和邮箱的输出，并且只显示 `@example.com` 域名的提交记录。
+
 ## 查看某个补丁在内核哪些版本中有
 
 在Linux kernel stable tree mirror中查找某个提交：
