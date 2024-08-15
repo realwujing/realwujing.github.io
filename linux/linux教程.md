@@ -67,7 +67,7 @@
 - [【Linux学习 】Linux使用Script命令来记录并回放终端会话](https://blog.csdn.net/ouyang_peng/article/details/78818492)
 - [终于知道保存SCP日志了](https://blog.csdn.net/reyleon/article/details/13999033)
 
-### 终端复用
+### 终端复用tmux
 
 - [Linux笔记：终端复用与管理工具screen和tmux](https://blog.csdn.net/Naisu_kun/article/details/119567566)
 - [<font color=Red>Tmux 使用教程</font>](https://www.ruanyifeng.com/blog/2019/10/tmux.html)
@@ -147,6 +147,24 @@ Tmux（Terminal Multiplexer）是一款终端复用软件，可以让你在一�
 - **刷新屏幕**: `Ctrl-b r`
 
 这些是 tmux 中一些常见的组合键命令，使用这些命令可以大大提高终端操作的效率。你可以通过编辑 `~/.tmux.conf` 文件来自定义这些快捷键。
+
+#### 自动退出
+
+1. 删除 tmux 中的 TMOUT 变量
+
+检查 tmux 的全局环境中是否存在 TMOUT：
+
+```bash
+tmux showenv -g | grep TMOUT
+```
+
+使用以下命令删除该环境变量：
+
+```bash
+tmux setenv -ug TMOUT
+```
+
+- [由于自动注销而关闭tmux窗口](https://cloud.tencent.com/developer/ask/sof/108640356/answer/118723989)
 
 #### xterm
 
