@@ -156,6 +156,16 @@ git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched
 
 `kernel/sched/fair.c`参数可以去掉。
 
+## 查找所有使用 @example.com 域名的提交作者
+
+```bash
+git log --pretty=format:"%an <%ae>" | grep "@example.com" | awk '!seen[$0]++'
+```
+
+- `awk '!seen[$0]++'`：`awk` 命令的这个用法可以用来去除重复行。`seen[$0]++` 是一个关联数组，用于跟踪已经看到的行，如果行第一次出现，它会被打印；如果是重复的行，则不会被打印。
+
+这个命令可以帮助确保每个作者的邮箱地址只显示一次。
+
 ## 查看某个补丁在内核哪些版本中有
 
 在Linux kernel stable tree mirror中查找某个提交：
