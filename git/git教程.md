@@ -132,6 +132,13 @@ git commit --amend --author="realwujing <realwujing@qq.com>"
 git log -p kernel/sched/fair.c
 ```
 
+## git diff查看改动内容
+
+- **查看已暂存文件的改动**：使用 `git diff --cached <file>`。
+- **查看工作目录中未暂存文件的改动**：使用 `git diff <file>`。
+
+将 `<file>` 替换为具体的文件路径。
+
 ## 查找某句代码在哪个提交中出现
 
 - [Git搜索Git历史记录中的字符串](https://geek-docs.com/git/git-questions/210_git_search_all_of_git_history_for_a_string.html)
