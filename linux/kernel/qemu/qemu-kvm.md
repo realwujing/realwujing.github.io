@@ -113,6 +113,7 @@ qemu-img create -f qcow2 yql-openeuler.img 200G
 ##### CentOS
 
 - [CentOS 7 virt-install 命令行方式（非图形界面）安装KVM虚拟机](https://blog.csdn.net/mshxuyi/article/details/99852820)
+- [anaconda在tmux文本模式时的快捷键](https://blog.csdn.net/weixin_53389944/article/details/130849245)
 
 创建一个名为 yql-openeuler 的虚拟机，配置了适当的内存、CPU、磁盘、安装位置以及启动参数，以便正确连接到串口控制台和控制台输出:
 
@@ -211,6 +212,185 @@ virt-install --virt-type kvm \
 --extra-args="console=ttyS0"
 ```
 
+##### /dev/vda
+
+qemu一般将`--disk path=/data/yql/fedora.qcow2,size=300`挂在到虚拟机的`/dev/vda`或`/dev/sda`。
+
+```bash
+lsblk
+NAME             MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+sda                8:0    0   300G  0 disk
+|-sda1             8:1    0   600M  0 part /boot/efi
+|-sda2             8:2    0     1G  0 part /boot
+|-sda3             8:3    0 298.4G  0 part
+  |-ctyunos-root 252:0    0    70G  0 lvm  /
+  |-ctyunos-home 252:1    0 228.4G  0 lvm  /home
+```
+
+```bash
+lsblk
+NAME             MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+vda                8:0    0   300G  0 disk
+|-vda1             8:1    0   600M  0 part /boot/efi
+|-vda2             8:2    0     1G  0 part /boot
+|-vda3             8:3    0 298.4G  0 part
+  |-ctyunos-root 252:0    0    70G  0 lvm  /
+  |-ctyunos-home 252:1    0 228.4G  0 lvm  /home
+```
+
+这里假设`/dev/vda`，现在我们来创建上面lsblk展示的分区结构。
+
+###### 1. **分区创建**
+
+使用 `parted` 创建分区：
+
+```bash
+# 创建新的分区表
+parted /dev/vda mklabel gpt
+
+# 创建 vda1 分区，用于 /boot/efi
+parted /dev/vda mkpart primary fat32 1MiB 601MiB
+
+# 设置第一个分区为 EFI 系统分区
+parted /dev/vda set 1 esp on
+
+# 创建 vda2 分区，用于 /boot
+parted /dev/vda mkpart primary xfs 601MiB 1601MiB
+
+# 创建 vda3 分区，用于 LVM，使用剩余的空间
+parted /dev/vda mkpart primary 1601MiB 100%
+```
+
+###### 2. **配置文件系统**
+
+接下来，为 `vda1` 和 `vda2` 创建文件系统：
+
+```bash
+# 格式化 /boot/efi 为 vfat
+mkfs.vfat /dev/vda1
+
+# 格式化 /boot 为 XFS
+mkfs.xfs /dev/vda2
+```
+
+###### 3. **设置 LVM**
+
+创建物理卷、卷组和逻辑卷：
+
+```bash
+# 创建物理卷
+pvcreate /dev/vda3
+
+# 创建卷组 ctyunos
+vgcreate ctyunos /dev/vda3
+
+# 创建逻辑卷 ctyunos-root (70G) 和 ctyunos-home (剩余空间)
+lvcreate -L 70G -n root ctyunos
+lvcreate -l 100%FREE -n home ctyunos
+```
+
+在设置 LVM 时，创建的逻辑卷可以放置在 `/dev/mapper/` 下。这实际上是 LVM 的默认行为，LVM 逻辑卷会在 `/dev/mapper/` 目录下自动创建符号链接，指向 `/dev/<卷组名>/<逻辑卷名>`。
+
+- 卷组名称为 `ctyunos`。
+- 逻辑卷名称为 `root` 和 `home`。
+
+会看到以下两个设备路径：
+
+- `/dev/ctyunos/root` 和 `/dev/mapper/ctyunos-root`
+- `/dev/ctyunos/home` 和 `/dev/mapper/ctyunos-home`
+
+这两个路径实际上指向同一个逻辑卷设备。
+
+###### 4. **格式化 LVM 逻辑卷**
+
+为逻辑卷创建 XFS 文件系统：
+
+```bash
+# 格式化 root 逻辑卷
+mkfs.xfs /dev/mapper/ctyunos-root
+
+# 格式化 home 逻辑卷
+mkfs.xfs /dev/mapper/ctyunos-home
+```
+
+###### 5. **挂载分区**
+
+挂载分区和逻辑卷：
+
+```bash
+# 挂载 root
+mount /dev/mapper/ctyunos-root /mnt
+
+# 创建 /mnt/home 并挂载 home
+mkdir /mnt/home
+mount /dev/mapper/ctyunos-home /mnt/home
+
+# 挂载 /boot
+mkdir /mnt/boot
+mount /dev/vda2 /mnt/boot
+
+# 挂载 /boot/efi
+mkdir /mnt/boot/efi
+mount /dev/vda1 /mnt/boot/efi
+```
+
+###### 6. **更新 `/etc/fstab`**
+
+在安装完成或手动配置时，将这些挂载点添加到 `/etc/fstab` 以便系统启动时自动挂载：
+
+```bash
+/dev/mapper/ctyunos-root   /           xfs    defaults        0 0
+/dev/mapper/ctyunos-home   /home       xfs    defaults        0 0
+/dev/vda2                  /boot       xfs    defaults        0 0
+/dev/vda1                  /boot/efi   vfat   umask=0077      0 1
+```
+
+这些命令确保了 EFI 分区使用 `vfat` 文件系统，并且所有剩余空间都分配给 `vda3`，用于 LVM 管理。
+
+这一章节只是为了展示qumu如何将`--disk path=/data/yql/fedora.qcow2,size=300`挂在到虚拟机的`/dev/vda`或`/dev/sda`，并在磁盘`/dev/sda`上创建了用`uefi`引导的完整文件系统，`/`、`/home`是 `lvm`逻辑卷。
+
+##### kickstart
+
+ks.cfs位于/root目录下。
+
+```bash
+/root/anaconda-ks.cfg
+/root/initial-setup-ks.cfg
+```
+
+- [CentOS安装LVM方式](https://blog.csdn.net/weixin_34308389/article/details/90627069)
+- [Linux系统安装：磁盘自定义分区](https://www.toutiao.com/article/7347161180114403849)
+
+- [virt-install之kickstart方式安装](https://www.cnblogs.com/nihaoit/articles/15570640.html)
+- [virt-install](https://www.jianshu.com/p/f586f4ce0722)
+- [kickstart自动安装脚本](https://blog.csdn.net/xixlxl/article/details/79127131)
+- [Linux高级篇--使用system-config-kickstart工具制作kickstart应答文件](https://blog.csdn.net/u013168176/article/details/82817300)
+- [linux使用system-config-kickstart 自动安装系统](https://blog.csdn.net/shang_feng_wei/article/details/89218552)
+- [使用Kickstart自动化部署Linux操作系统](https://xwanli0923.github.io/2023/02/13/Install-Linux-Using-Kickstart.html)
+- [第 33 章 Kickstart Configurator](https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/6/html/installation_guide/ch-redhat-config-kickstart#ch-redhat-config-kickstart)
+- [Kickstart自动安装脚本](https://blog.csdn.net/qq_41582883/article/details/109401305)
+- [kickstart+virt-install安装虚拟机](https://www.cnblogs.com/powerrailgun/p/12158037.html)
+- [fedora Kickstart 语法参考](https://docs.fedoraproject.org/zh_CN/fedora/f26/install-guide/appendixes/Kickstart_Syntax_Reference/)
+- [<font color=Red>centos7 27.2. 如何执行 Kickstart 安装？</font>](https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/7/html/installation_guide/sect-kickstart-howto)
+- [<font color=Red>27.3.3. 预安装脚本</font>](https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/7/html/installation_guide/sect-kickstart-preinstall)
+- [openeurler 使用kickstart自动化安装](https://docs.openeuler.org/zh/docs/20.03_LTS/docs/Installation/%E4%BD%BF%E7%94%A8kickstart%E8%87%AA%E5%8A%A8%E5%8C%96%E5%AE%89%E8%A3%85.html)
+- [<font color=Red>kickstart安装</font>](https://www.cnblogs.com/zhenhui/p/6233285.html)
+- [银河麒麟服务器操作系统V10SP1基于Kickstart无人值守安装](https://blog.csdn.net/weixin_54752007/article/details/126037635)
+
+```bash
+virt-install --virt-type kvm \
+--initrd-inject=/mnt/sdd1/yql/ks1.cfg \
+--name wujing-zy-xfs \
+--memory 32768 \
+--vcpus=64 \
+--location /mnt/sdd1/yql/ctyunos-2-24.07-240716-rc2-aarch64-dvd.iso \
+--disk path=/mnt/sdd1/yql/wujing-zy-xfs.qcow2,size=128 \
+--network network=default \
+--os-type=linux \
+--os-variant=centos7.0 \
+--graphics none \
+--extra-args="console=ttyS0 inst.ks=file:/ks1.cfg"
+```
 
 #### 克隆一个虚拟机
 
