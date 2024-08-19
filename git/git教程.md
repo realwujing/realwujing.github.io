@@ -1,17 +1,5 @@
 # git教程
 
-## Github.token
-
-```text
-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
-```
-
-- [<font color=Red>git client 配置以及连接GitHub、Bitbucket_purplego的博客-CSDN博客</font>](https://blog.csdn.net/purplego/article/details/78657521)
-- [【VSCode 笔记】Git： Host key verification failed](https://www.wdssmq.com/post/20201216004.html)
-- [[ github ] github clone private repo克隆私有项目详细-简书(jianshu.com)](https://www.jianshu.com/p/0503722f69af)
-- [git client 配置以及连接GitHub、Bitbucket](https://blog.csdn.net/purplego/article/details/78657521)
-- [github项目如何快速git clone https](https://www.jianshu.com/p/affe1af6781c)
-
 ## 密码
 
 - [GitLab使用手册配置Git永久记住密码，免去重复输入的烦恼 - 心向阳 - 博客园 (cnblogs.com)](https://www.cnblogs.com/qdlhj/p/13215158.html)
@@ -21,9 +9,76 @@ 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
 - [github配置了公钥依旧提示git@github.com‘s password: Permission denied, please try again.的解决办法](https://blog.csdn.net/yuzhiqiang_1993/article/details/127032178)
 - [Git报错：git@github.com: Permission denied (publickey)](https://blog.csdn.net/syzdev/article/details/126921031)
 
-## config
+### Github.token
 
-- [git config的删除命令 | 云上小悟 (maixj.net)](https://www.maixj.net/ict/git-config-unset-21515)
+- [<font color=Red>git client 配置以及连接GitHub、Bitbucket_purplego的博客-CSDN博客</font>](https://blog.csdn.net/purplego/article/details/78657521)
+- [【VSCode 笔记】Git： Host key verification failed](https://www.wdssmq.com/post/20201216004.html)
+- [[ github ] github clone private repo克隆私有项目详细-简书(jianshu.com)](https://www.jianshu.com/p/0503722f69af)
+- [git client 配置以及连接GitHub、Bitbucket](https://blog.csdn.net/purplego/article/details/78657521)
+- [github项目如何快速git clone https](https://www.jianshu.com/p/affe1af6781c)
+
+## Git 仓库配置用户和邮箱
+
+### 特定仓库
+
+要为一个特定的 Git 仓库配置用户和邮箱，可以使用以下命令：
+
+1. **进入你要配置的 Git 仓库目录**：
+
+   ```bash
+   cd /path/to/your/repo
+   ```
+
+2. **配置用户名称**：
+
+   ```bash
+   git config user.name "Your Name"
+   ```
+
+3. **配置用户邮箱**：
+
+   ```bash
+   git config user.email "your.email@example.com"
+   ```
+
+可以通过查看 `.git/config` 文件来确认配置是否已被成功写入：
+
+```bash
+cat .git/config
+```
+
+在文件中，你应该能看到类似以下的配置：
+
+```ini
+[user]
+    name = Your Name
+    email = your.email@example.com
+```
+
+### 全局配置用户和邮箱
+
+这表示 `user.name` 和 `user.email` 已经被成功配置到该仓库的本地配置文件中。
+
+这些配置只会影响当前仓库，不会影响全局配置。如果你需要配置全局的用户和邮箱，可以使用 `--global` 选项：
+
+```bash
+git config --global user.name "Your Global Name"
+git config --global user.email "your.global.email@example.com"
+```
+
+全局配置的信息会存储在用户主目录下的 Git 配置文件中，具体路径是：
+
+- **`~/.gitconfig`** 或 **`~/.config/git/config`** 文件：这个文件包含了你为所有 Git 仓库配置的全局设置。
+
+当你使用 `git config --global user.name "Your Name"` 或 `git config --global user.email "your.email@example.com"` 时，这些配置信息会被写入到 `~/.gitconfig` 文件中。
+
+你可以通过以下命令查看全局配置文件内容：
+
+```bash
+cat ~/.gitconfig
+```
+
+这个文件中的配置对系统中所有的 Git 仓库都有效。
 
 ## 命令
 
