@@ -420,6 +420,15 @@ cscope、grep等都可以创建新的快速修复列表。
 
 以下是 Vim 的 NERDTree 插件中常用的快捷键总结：
 
+`NERDTree` 是 Vim 的一个插件，用于在 Vim 中管理和浏览文件和目录。以下是一些常用的 `NERDTree` 命令和操作：
+
+### 基本命令
+
+- **`:NERDTree`**：打开或关闭 `NERDTree` 窗口。
+- **`:NERDTreeToggle`**：切换 `NERDTree` 窗口的显示或隐藏状态（如果打开则关闭，关闭则打开）。
+- **`:NERDTreeFocus`**：将焦点切换到已经打开的 `NERDTree` 窗口。
+- **`:NERDTreeFind`**：定位 `NERDTree` 到当前正在编辑的文件，并将焦点移动到该文件上。
+
 ### 基本导航
 
 - **`o`**: 打开/关闭选中文件或目录。
