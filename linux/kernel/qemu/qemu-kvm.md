@@ -581,6 +581,43 @@ sudo mount -a
 - [交叉编译环境下对linux内核编译](https://blog.csdn.net/ludaoyi88/article/details/115633849)
 - [交叉编译linux内核并使用qemu运行](https://blog.csdn.net/jinking01/article/details/129580621)
 
+### kunpeng 920
+
+```bash
+/usr/libexec/qemu-kvm \
+-smp 8 \
+-enable-kvm \
+-cpu host \
+-m 16G \
+-machine virt-rhel7.6.0,gic-version=3 \
+-drive file=/usr/share/edk2/aarch64/QEMU_EFI-pflash.raw,if=pflash,format=raw \
+-drive file=/var/lib/libvirt/qemu/nvram/wujing_VARS.fd,if=pflash,format=raw \
+-hda /data_vm/wujing/virsh/wujing/wujing.qcow2 \
+-nographic
+```
+
+该命令配置和启动一个基于 ARM 架构（aarch64）的虚拟机，并将所有输出重定向到当前终端。以下是该命令的详细解析：
+
+1. **`/usr/libexec/qemu-kvm`**：指定使用 `qemu-kvm` 可执行文件来启动虚拟机，通常位于 `/usr/libexec/` 目录下。
+
+2. **`-smp 8`**：为虚拟机分配 8 个虚拟 CPU。
+
+3. **`-enable-kvm`**：启用 KVM 硬件加速，利用主机的 CPU 资源来提升虚拟机的性能。
+
+4. **`-cpu host`**：配置虚拟机的 CPU 设置，使其与主机的 CPU 一致，以便最大限度地利用主机 CPU 的特性。
+
+5. **`-m 16G`**：分配 16GB 内存给虚拟机。
+
+6. **`-machine virt-rhel7.6.0,gic-version=3`**：指定虚拟机的机器类型为 `virt-rhel7.6.0`，并设置 ARM 架构的中断控制器 GIC 的版本为 3。
+
+7. **`-drive file=/usr/share/edk2/aarch64/QEMU_EFI-pflash.raw,if=pflash,format=raw`**：指定用于 UEFI 引导的固件文件（这是一个 pflash 设备），通常用于 ARM 架构系统的引导。
+
+8. **`-drive file=/var/lib/libvirt/qemu/nvram/wujing_VARS.fd,if=pflash,format=raw`**：指定虚拟机的 NVRAM 文件（另一个 pflash 设备），用于存储 UEFI 固件变量和配置。
+
+9. **`-hda /data_vm/wujing/virsh/wujing/wujing.qcow2`**：指定虚拟机的硬盘镜像文件为 `wujing.qcow2`，这是虚拟机的主存储设备，包含操作系统和数据。
+
+10. **`-nographic`**：禁用虚拟机的图形输出，将所有输出（包括引导信息和操作系统日志）重定向到当前终端，使其适合在非图形界面或远程 SSH 环境中使用。
+
 ### Mac OSX
 
 - [<font color=Red>使用Qemu在Mac上安装虚拟机</font>](https://blog.csdn.net/weixin_39759247/article/details/126569448)
