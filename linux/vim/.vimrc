@@ -400,6 +400,7 @@ let NERDTreeShowBookmarks=1 "显示书签
 
 let mapleader = ","
 map <leader>ne :NERDTreeToggle<CR>
+map <leader>nd :NERDTreeFind<CR>
 map <leader>tl :TlistToggle<CR>
 nnoremap <leader>ma :set mouse=a<cr>
 nnoremap <leader>mu :set mouse=<cr>
