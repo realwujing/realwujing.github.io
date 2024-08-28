@@ -470,6 +470,64 @@ git log --oneline | grep "arm64: implement ftrace with regs"
 - [使用Git生成patch和应用patch，看完这一篇文章就全懂了](https://www.toutiao.com/article/6652488964823319052)
 - [git生成patch和打patch的操作命令](https://blog.csdn.net/qq_30624591/article/details/89474571)
 
+### 将某个作者的所有提交打成序列号递增的patch
+
+```bash
+#!/bin/bash
+
+# 定义补丁目录变量
+PATCH_DIR="../patchs"
+
+# 生成补丁文件到指定目录
+git log --oneline --reverse --author="^realwujing" | awk '{print $1}' | xargs -I {} git format-patch -1 {} -o "$PATCH_DIR"
+
+# 切换到补丁目录
+cd "$PATCH_DIR" || { echo "Directory $PATCH_DIR does not exist"; exit 1; }
+
+# 计数器初始化
+i=1
+
+# 遍历所有 .patch 文件，按照当前目录中的排序方式处理
+for patch in $(ls -lt | tac | awk '{print $NF}' | grep '\.patch$'); do
+    # 使用 sed 删除原有的序号部分
+    base_name=$(echo "$patch" | sed 's/^[0-9]\{4\}-//')
+
+    # 使用 printf 格式化为四位数字，不足前面补零
+    new_name=$(printf "%04d-%s" $i "$base_name")
+
+    # 显示原始文件名和新的文件名
+    echo "Renaming $patch to $new_name"
+
+    # 重命名文件
+    mv "$patch" "$new_name"
+
+    # 增加计数器
+    i=$((i + 1))
+done
+```
+
+1. **定义补丁目录变量**：`PATCH_DIR="../patchs"` 将目标目录存储在一个变量中。
+
+2. **生成补丁文件到指定目录**：`git format-patch` 命令将补丁文件生成到 `"$PATCH_DIR"` 目录。
+
+3. **切换到补丁目录**：`cd "$PATCH_DIR"` 进入指定目录。如果目录不存在，则输出错误信息并退出。
+
+4. **遍历并重命名文件**：
+   - 使用 `sed` 删除原有的序号部分，得到文件的基本名称。
+   - 使用 `printf` 格式化新的文件名，包括递增的序号。
+   - **增加对比输出**：使用 `echo` 显示每个文件的原始名称和新的名称。
+   - 使用 `mv` 重命名文件。
+
+5. **计数器递增**：每处理一个文件，计数器 `i` 递增。
+
+这个脚本在重命名过程中会输出每个文件的原始名称和新的名称，便于跟踪文件的变化。
+
+使用git am，可以将上述一系列补丁应用到某个分支上，如果存在冲突，则会报错并生成reject文件，需要手动处理冲突:
+
+```bash
+git am ../patchs/*.patch --reject
+```
+
 ## send-email
 
 - [提交内核补丁到Linux社区的步骤](https://www.cnblogs.com/gmpy/p/12200609.html)
