@@ -200,6 +200,7 @@ git log -p kernel/sched/fair.c
 
 ```bash
 git log -S 'cpumask_test_cpu(cpu, sched_domain_span(sd))' --oneline kernel/sched/fair.c | cat
+
 8aeaffef8c6e sched/fair: Take the scheduling domain into account in select_idle_smt()
 3e6efe87cd5c sched/fair: Remove redundant check in select_idle_smt()
 3e8c6c9aac42 sched/fair: Remove task_util from effective utilization in feec()
@@ -318,6 +319,67 @@ git log --oneline | grep "arm64: implement ftrace with regs"
 
 - [<font color=Red>2.6 Git基础-打标签</font>](https://git-scm.com/book/zh/v2/Git-%E5%9F%BA%E7%A1%80-%E6%89%93%E6%A0%87%E7%AD%BE)
 - [git tag创建、远程推送、回退以及强推push -f](https://blog.csdn.net/QH_JAVA/article/details/77979622)
+
+## branch
+
+## Branch
+
+1. **查看远程仓库的分支**：
+
+   - 查看所有远程仓库的分支：
+
+     ```bash
+     git branch -r
+     ```
+
+   - 查看已知的远程仓库及其分支：
+
+     ```bash
+     git remote show <remote-name>
+     ```
+
+2. **重命名远程仓库**：
+   - 将远程仓库重命名：
+
+      ```bash
+      git remote rename <旧名称> <新名称>
+      ```
+
+     例如，将 `origin` 重命名为 `upstream`：
+
+      ```bash
+      git remote rename origin upstream
+      ```
+
+      执行完这个命令后，你的远程仓库名称就会从 `origin` 改为 `upstream`。
+
+3. **克隆特定远程分支**：
+
+   - 获取特定远程分支而不影响其他分支：
+
+     ```bash
+     git fetch <远程仓库名> <远程分支名>:refs/remotes/<远程仓库名>/<远程分支名>
+     ```
+
+   - 将该远程分支检出为本地分支：
+
+     ```bash
+     git checkout -b <本地分支名> <远程仓库名>/<远程分支名>
+     ```
+
+4. **查看当前分支对应的远程分支**：
+
+   - 查看所有本地分支及其对应的远程分支：
+
+     ```bash
+     git branch -vv
+     ```
+
+   - 查看当前分支对应的远程分支：
+
+     ```bash
+     git rev-parse --abbrev-ref --symbolic-full-name @{u}
+     ```
 
 ## submodule
 
