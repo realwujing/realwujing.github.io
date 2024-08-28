@@ -12,6 +12,7 @@
 - [<font color=Red>VIM常用快捷键</font>](https://blog.csdn.net/xiaoxinyu316/article/details/44061173)
 - [Linux 文本编辑器Vim（1）——初识模式以及基本操作介绍](https://blog.csdn.net/SkyDream999/article/details/106741448)
 - [vim操作大全](https://www.toutiao.com/article/6732007685937431044)
+- [vim进阶:200个终身受益的命令](https://mp.weixin.qq.com/s/wxJMpanpYaNHzBKV0Uiy4A)
 
 ## 插件
 
@@ -51,6 +52,37 @@ vim .
 
 - [vim操作之多窗格,多文件的编辑和操作](https://www.cnblogs.com/yukina/p/16401529.html)
 - [在Vim中同时打开多个文件的相关操作技巧](https://www.bilibili.com/read/cv16390641)
+
+## 跳转翻页
+
+### **跳转到指定行**
+
+- **直接输入行号**：在命令模式下直接输入行号即可跳转到该行，例如输入 `500` 跳转到第 500 行。
+- `:行号`：跳转到指定行，例如 `:101` 跳转到第 101 行。
+
+### **翻页操作**
+
+- `Ctrl+f`：向下翻一整页。
+- `Ctrl+b`：向上翻一整页。
+- `Ctrl+d`：向下翻半页。
+- `Ctrl+u`：向上翻半页。
+
+### **滚动操作**
+
+- `Ctrl+e`：向下滚动一行。
+- `Ctrl+y`：向上滚动一行。
+
+### **位置跳转**
+
+- `n%`：跳转到文件的 n% 位置，例如 `50%` 跳转到文件中间。
+
+### **屏幕显示调整**
+
+- `zz`：将当前行移动到屏幕中央。
+- `zt`：将当前行移动到屏幕顶端。
+- `zb`：将当前行移动到屏幕底端。
+
+这些命令可以帮助你更有效地在 Vim 中导航和调整视图，适用于快速查找和定位代码或文本。
 
 ## 多行操作
 
