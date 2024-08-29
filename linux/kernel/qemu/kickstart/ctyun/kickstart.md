@@ -1,5 +1,20 @@
 # kickstart
 
+```bash
+virt-install --virt-type kvm \
+--initrd-inject=/mnt/sdd1/yql/anaconda-ks.cfg \
+--name wujing-ctyunos-22.06 \
+--memory 32768 \
+--vcpus=64 \
+--location /mnt/sdd1/yql/ctyunos-22.06-230117-aarch64-dvd.iso \
+--disk path=/mnt/sdd1/yql/wujing-ctyunos-22.06.qcow2,size=128,device=disk,bus=scsi \
+--network network=default \
+--os-type=linux \
+--os-variant=centos7.0 \
+--graphics none \
+--extra-args="console=ttyS0 inst.ks=file:/anaconda-ks.cfg"
+```
+
 ## /dev/sda
 
 将虚拟磁盘指定为 SCSI 设备，并且在虚拟机中看到 `/dev/sda`，则需要了解 SCSI 和 IDE 设备在虚拟机中的行为：
