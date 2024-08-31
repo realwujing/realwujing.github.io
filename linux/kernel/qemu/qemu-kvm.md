@@ -496,6 +496,7 @@ sudo mount -a
 ## 显示虚拟化
 
 - [QEMU显示虚拟化的几种选项](https://blog.csdn.net/tugouxp/article/details/134487575)
+- [GPU虚拟化技术探索](https://mp.weixin.qq.com/s/LEVdZYLz62H_zwTthxuw7A)
 
 ## KVM性能优化
 
