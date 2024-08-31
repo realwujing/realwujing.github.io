@@ -1178,6 +1178,26 @@ syslog-ng 7547 root    4w   REG    3,3 217309 834024 /var/log/messages
 - [Linux: grep多个关键字“与”和“或”](https://blog.csdn.net/mmbbz/article/details/51035401)
 - [grep中的正则表达式](https://www.cnblogs.com/linuxprobe/p/13044173.html)
 
+#### grep 特殊字符串
+
+使用单引号并不能避免 `*` 等字符被解释为正则表达式的一部分。为了完全匹配包含这些特殊字符的字符串，以下是两种推荐的方式：
+
+1. **使用转义字符**：
+   需要对特殊字符进行转义，例如 `*` 和 `(` 等，确保它们不会被解释为正则表达式符号。
+
+   ```bash
+   grep -rn "\(struct wait_queue_entry \*wq_entry, unsigned mode, int flags, void \*key\)" /path/to/source/code
+   ```
+
+2. **使用 `-F` 选项**：
+   如果想避免手动转义所有特殊字符，可以使用 `grep -F` 或 `fgrep`，将搜索字符串视为纯文本进行匹配。
+
+   ```bash
+   grep -rnF "(struct wait_queue_entry *wq_entry, unsigned mode, int flags, void *key)" /path/to/source/code
+   ```
+
+这两种方式可以帮助你在代码中准确查找包含特殊字符的字符串。
+
 ### sed
 
 - [<font color=Red>linux复制一行或几行数据到另一个文本</font>](https://blog.csdn.net/benben0503/article/details/91493515)
