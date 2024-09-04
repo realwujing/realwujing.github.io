@@ -188,3 +188,7 @@ BuildVersion:   21H1222
   ```bash
   sudo chflags nouchg /Library/Preferences/SystemConfiguration/preferences.plist
   ```
+
+## wifi
+
+- [Linux通过命令行连接wifi的方式](https://www.toutiao.com/article/7407405280704659994)
