@@ -1,7 +1,7 @@
 
 # network
 
-- [你管这破玩意叫网络](https://mp.weixin.qq.com/s/MXHouvWLBsm7hqHUUjJaEw)
+- [<font color=Red>你管这破玩意叫网络</font>](https://mp.weixin.qq.com/s/MXHouvWLBsm7hqHUUjJaEw)
 - [22张图详解浏览器请求数据包如何到达web服务器（搞懂网络可以出师了）](https://mp.weixin.qq.com/s/ylwRYbc2onEOVOxPsNfdwQ)
 - [网卡与Linux网络结构（上）](https://mp.weixin.qq.com/s/2BXrbTJcaKV2OMgHfcuYNg)
 - [网卡与Linux网络结构（中）](https://mp.weixin.qq.com/s/zlbdi6n8lVUARVEtC3lHcA)
@@ -153,6 +153,10 @@
   ```
 
   ![http.host=="www.baidu.com"](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240117135816.png)
+
+## 丢包
+
+- [Linux内核常见的网络丢包场景分析](https://mp.weixin.qq.com/s/vdW0L7nEdfrxSJ_9VGviaA)
 
 ## dns
 
