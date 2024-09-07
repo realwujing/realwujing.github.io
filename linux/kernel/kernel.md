@@ -682,6 +682,27 @@ dpkg-buildpackage -b -nc -uc -us -j16
 - [getuid() 与 geteuid()  获得 UID 以及 有效 UID 值](https://blog.csdn.net/dedlous/article/details/7188776)
 - [linux c setuid函数解析](https://blog.csdn.net/whatday/article/details/102844879)
 
+## 内核单元测试
+
+- [如何测试Linux内核？](https://blog.csdn.net/weixin_50829653/article/details/109537407)
+- [KUnit和kselftest的区别](https://docs.kernel.org/translations/zh_CN/dev-tools/testing-overview.html#kunitkselftest)
+- [关于kunit的一点够用就行知识概念](https://blog.csdn.net/weixin_45264425/article/details/127932494)
+- [KUnit - Linux Kernel Unit Testing](https://www.kernel.org/doc/html/latest/dev-tools/kunit/index.html)
+- [深入了解KUnit：Linux内核新一代单元测试工具（上）](https://developer.aliyun.com/article/1369622)
+- [LWN：Linux kernel要有几种test framework？](https://blog.csdn.net/Linux_Everything/article/details/93270727)
+
+Linux 内核单元测试主要通过两大框架：
+
+1. **Kselftest**：
+   - 适用于集成测试和功能测试，支持用户空间和内核空间交互。
+   - 测试代码在 `tools/testing/selftests/` 目录，运行命令：`make -C tools/testing/selftests run_tests`。
+
+2. **KUnit**：
+   - 轻量级单元测试框架，专注内核态的单元测试。
+   - 测试代码在 `lib/kunit/`，运行命令：`./tools/testing/kunit/kunit.py run`。
+
+Kselftest 适合功能测试，KUnit 适合内核模块的单元测试。
+
 ## 内核gcov代码覆盖率
 
 - [在Linux内核里使用gcov做代码覆盖率检查](https://www.kernel.org/doc/html/latest/translations/zh_CN/dev-tools/gcov.html)
