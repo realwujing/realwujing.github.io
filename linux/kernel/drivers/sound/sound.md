@@ -173,3 +173,4 @@ cat /proc/asound/card*/codec#* | grep "Vendor Id" -B3
 
 - [黑苹果定制声卡驱动（ALC892为例)](https://www.jianshu.com/p/29a74f0664f1)
 - [飞腾 X100](https://www.phytium.com.cn/homepage/download/)
+- [FFmpeg解码播放视频原理](https://mp.weixin.qq.com/s/W-L6JkY1wSuzsbMMNxko3Q)
