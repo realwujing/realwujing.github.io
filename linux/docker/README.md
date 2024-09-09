@@ -26,3 +26,11 @@
     
     ## 启动镜像
     docker run -p 22223:22 -p 33307:3306 -dit --name ubuntu-ai2 ubuntu:ai2
+
+## docker仓库源
+
+- [Docker 安装脚本](https://linuxmirrors.cn/other/)
+
+    ```bash
+    bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
+    ```
