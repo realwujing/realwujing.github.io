@@ -219,6 +219,7 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 - [GRUB-一个多重操作系统启动管理器](https://www.baike.com/wikiid/7276828077877800951)
 - [<font color=Red>Linux系统启动管理</font>](http://c.biancheng.net/linux_tutorial/12/)
 - [如何手动安装(并配置)GRUB？](https://www.zhihu.com/question/610484788?utm_id=0)
+- [Linux中使用grub2-install重新生成引导程序](https://mp.weixin.qq.com/s/aP27bamroQeb27VZtMLJ9w)
 
 #### grub串口
 
