@@ -55,3 +55,7 @@
 ## Linux开源网络全栈详解：从DPDK到OpenFlow
 
 - [Linux开源网络全栈详解：从DPDK到OpenFlow](https://www.aliyunpub.com/quark/2024-05/31655/)
+
+## 深入浅出DPDK
+
+- [深入浅出DPDK (朱河清等著) 中文完整扫描pdf版[9MB]](https://www.jb51.net/books/651350.html)
