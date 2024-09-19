@@ -234,7 +234,18 @@ if [ -n "$ksmd_pid" ]; then
 					echo "No available CPUs in non_smt_isolated_online_cpus list for migration."
 				fi
 			else
-				echo "ksmd is running on cpu: $ksmd_cpuid, cpu: $ksmd_cpuid is in the non_smt_isolated_online_cpus list, don't need to migrate."
+				echo "ksmd is running on cpu: $ksmd_cpuid, cpu: $ksmd_cpuid is in the non_smt_isolated_online_cpus list. There's no need to migrate immediately. However, to prevent ksmd from running on isolated cores in the future, it's important to set CPU affinity."
+				# 再次计算 Online non-SMT-isolated CPUs，防止再次迁移前有cpu被offline
+				non_smt_isolated_online_cpus=$(calculate_non_smt_isolated_online_cpus "$non_smt_isolcpus")
+				# 打印 Online non-SMT-isolated CPUs
+				echo "Online non-SMT-isolated CPUs: $non_smt_isolated_online_cpus"
+
+				# 设置ksmd亲和性到 non_smt_isolated_online_cpus 列表中的核心
+				echo "ksmd is running on cpu: $ksmd_taskset_cpuid, now migrating to cpu: $non_smt_isolated_online_cpus."
+				command="taskset -pc $non_smt_isolated_online_cpus $ksmd_pid"
+				echo "command: $command"
+				# 使用 eval 执行command字符串中的命令
+				eval "$command"
 			fi
 		else
 			echo "The total count of smt_isolcpus and non_smt_isolcpus is not equal to logical_cpus."
