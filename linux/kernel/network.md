@@ -13,6 +13,7 @@
 - [字节校招：TCP 和 UDP 可以同时绑定相同的端口吗？](https://mp.weixin.qq.com/s/4G4il3rZSMmEgvdvGSH_Gw)
 - [59页PPT，全面了解"无线通信原理"](https://mp.weixin.qq.com/s/TEJYQJkT4FToeEoxI_9Tmg)
 - [【Linux】如何查看网卡驱动](https://blog.csdn.net/imliuqun123/article/details/139596951)
+- [Linux网络最难理解的五个核心概念](https://mp.weixin.qq.com/s/15oz0wMR-lGIjDmQcGo_rQ)
 
 ## 计算机网络
 
@@ -157,6 +158,7 @@
 ## 丢包
 
 - [Linux内核常见的网络丢包场景分析](https://mp.weixin.qq.com/s/vdW0L7nEdfrxSJ_9VGviaA)
+- [Linux内核网络丢包探秘，这些办法轻松搞定](https://mp.weixin.qq.com/s/eLO9NxH4XfRca-PP5VCtPQ)
 
 ## dns
 
