@@ -296,6 +296,11 @@ g*(g#)        //此命令与上条命令相似, 只不过它不完全匹配光�
 - [<font color=Red>vim之函数跳转功能</font>](https://blog.csdn.net/ballack_linux/article/details/71036072)
 - [vim -t 选项](https://blog.csdn.net/qwaszx523/article/details/77838855)
 
+#### 回到函数开头
+
+1. **使用 `[{` 命令**:
+   - 将光标放在函数体的任意位置，然后输入 `[{`。这个命令会将光标移动到当前函数的开头。
+
 ## cscope
 
 先在源码目录中生成索引数据:
