@@ -75,7 +75,7 @@
 - [在tmux缓冲区中搜索](https://www.cnblogs.com/lovesKey/p/12151317.html)
 - [tmux常用命令及快捷键](https://blog.51cto.com/u_6997825/3748023)
 - [tmux 解决屏幕比例不协调问题](https://blog.csdn.net/chaokudeztt/article/details/126299939)
-- [【Tmux】窗口周围出现大量点点导致窗口面积减小](https://blog.csdn.net/qq_16763983/article/details/130450323)
+- [<font color=Red>【Tmux】窗口周围出现大量点点导致窗口面积减小</font>](https://blog.csdn.net/qq_16763983/article/details/130450323)
 
 Tmux（Terminal Multiplexer）是一款终端复用软件，可以让你在一个终端窗口中运行多个终端会话。以下是一些常用的 tmux 组合键命令：
 
