@@ -74,3 +74,6 @@
 #### service
 
 - [Linux中的systemctl和service](https://www.jianshu.com/p/ffe6990570d9)
+
+- [Linux systemd资源控制初探](https://www.cnblogs.com/jimbo17/p/9107052.html)
+- [在新 Linux 发行版上切换 cgroups 版本](https://www.vvave.net/archives/introduction-to-linux-kernel-control-groups-v2.html)

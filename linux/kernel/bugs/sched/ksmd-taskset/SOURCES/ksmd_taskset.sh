@@ -241,6 +241,7 @@ if [ -n "$ksmd_pid" ]; then
 				echo "Online non-SMT-isolated CPUs: $non_smt_isolated_online_cpus"
 
 				# 设置ksmd亲和性到 non_smt_isolated_online_cpus 列表中的核心
+				ksmd_taskset_cpuid=$(ps -o cpuid -p $ksmd_pid | awk 'NR==2 {print $1}')
 				echo "ksmd is running on cpu: $ksmd_taskset_cpuid, now migrating to cpu: $non_smt_isolated_online_cpus."
 				command="taskset -pc $non_smt_isolated_online_cpus $ksmd_pid"
 				echo "command: $command"
