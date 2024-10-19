@@ -127,6 +127,7 @@ Linux 内核相关网站的出现顺序:
 ### 内核源码结构
 
 - [Linux内核  内核源码结构](https://www.cnblogs.com/y4247464/p/12333955.html)
+- [第五期Linux内核源码结构-1](https://www.openeuler.org/zh/blog/luoyuzhe/005Linux-kernel-source-structure-1/index.html)
 - [Linux kernel diagram](https://makelinux.github.io/kernel/diagram/)
 - [Interactive map of Linux kernel](https://makelinux.github.io/kernel/map/)
 
