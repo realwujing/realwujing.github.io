@@ -26,8 +26,8 @@ set nocompatible  "去掉讨厌的有关vi一致性模式，避免以前版本�
 
 " 显示中文帮助
 if version >= 603
-    set helplang=cn
-    set encoding=utf-8
+	set helplang=cn
+	set encoding=utf-8
 endif
 
 " 设置配色方案
@@ -51,39 +51,39 @@ set fileencoding=utf-8
 "autocmd BufNewFile *.cpp,*.[ch],*.sh,*.java exec ":call SetTitle()"
 ""定义函数SetTitle，自动插入文件头
 func SetTitle()
-    "如果文件类型为.sh文件
-    if &filetype == 'sh'
-        call setline(1,"\#########################################################################")
-        call append(line("."), "\# File Name: ".expand("%"))
-        call append(line(".")+1, "\# Author: wujing")
-        call append(line(".")+2, "\# mail: realwujing@qq.com")
-        call append(line(".")+3, "\# Created Time: ".strftime("%c"))
-        call append(line(".")+4, "\#########################################################################")
-        call append(line(".")+5, "\#!/bin/bash")
-        call append(line(".")+6, "")
-    else
-        call setline(1, "/*************************************************************************")
-        call append(line("."), "    > File Name: ".expand("%"))
-        call append(line(".")+1, "    > Author: wujing")
-        call append(line(".")+2, "    > Mail: realwujing@qq.com ")
-        call append(line(".")+3, "    > Created Time: ".strftime("%c"))
-        call append(line(".")+4, " ************************************************************************/")
-        call append(line(".")+5, "")
-    endif
+	"如果文件类型为.sh文件
+	if &filetype == 'sh'
+		call setline(1,"\#########################################################################")
+		call append(line("."), "\# File Name: ".expand("%"))
+		call append(line(".")+1, "\# Author: wujing")
+		call append(line(".")+2, "\# mail: realwujing@qq.com")
+		call append(line(".")+3, "\# Created Time: ".strftime("%c"))
+		call append(line(".")+4, "\#########################################################################")
+		call append(line(".")+5, "\#!/bin/bash")
+		call append(line(".")+6, "")
+	else
+		call setline(1, "/*************************************************************************")
+		call append(line("."), "    > File Name: ".expand("%"))
+		call append(line(".")+1, "    > Author: wujing")
+		call append(line(".")+2, "    > Mail: realwujing@qq.com ")
+		call append(line(".")+3, "    > Created Time: ".strftime("%c"))
+		call append(line(".")+4, " ************************************************************************/")
+		call append(line(".")+5, "")
+	endif
 
-    if &filetype == 'cpp'
-        call append(line(".")+6, "#include<iostream>")
-        call append(line(".")+7, "using namespace std;")
-        call append(line(".")+8, "")
-    endif
+	if &filetype == 'cpp'
+		call append(line(".")+6, "#include<iostream>")
+		call append(line(".")+7, "using namespace std;")
+		call append(line(".")+8, "")
+	endif
 
-    if &filetype == 'c'
-        call append(line(".")+6, "#include<stdio.h>")
-        call append(line(".")+7, "")
-    endif
+	if &filetype == 'c'
+		call append(line(".")+6, "#include<stdio.h>")
+		call append(line(".")+7, "")
+	endif
 
-    "新建文件后，自动定位到文件末尾
-    autocmd BufNewFile * normal G
+	"新建文件后，自动定位到文件末尾
+	autocmd BufNewFile * normal G
 endfunc
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -116,27 +116,27 @@ map <C-F3> \be
 "C，C++ 按F5编译运行
 map <F5> :call CompileRunGcc()<CR>
 func! CompileRunGcc()
-    exec "w"
-    if &filetype == 'c'
-        exec "!g++ % -o %<"
-        exec "! ./%<"
-    elseif &filetype == 'cpp'
-        exec "!g++ % -o %<"
-        exec "! ./%<"
-    elseif &filetype == 'java'
-        exec "!javac %"
-        exec "!java %<"
-    elseif &filetype == 'sh'
-        :!./%
-    endif
+	exec "w"
+	if &filetype == 'c'
+		exec "!g++ % -o %<"
+		exec "! ./%<"
+	elseif &filetype == 'cpp'
+		exec "!g++ % -o %<"
+		exec "! ./%<"
+	elseif &filetype == 'java'
+		exec "!javac %"
+		exec "!java %<"
+	elseif &filetype == 'sh'
+		:!./%
+	endif
 endfunc
 
 "C,C++的调试
 map <F8> :call Rungdb()<CR>
 func! Rungdb()
-    exec "w"
-    exec "!g++ % -g -o %<"
-    exec "!gdb ./%<"
+	exec "w"
+	exec "!g++ % -g -o %<"
+	exec "!gdb ./%<"
 endfunc
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -309,11 +309,11 @@ au BufRead,BufNewFile *  setfiletype txt
 :inoremap " ""<ESC>i
 :inoremap ' ''<ESC>i
 function! ClosePair(char)
-    if getline('.')[col('.') - 1] == a:char
-        return "\<Right>"
-    else
-        return a:char
-    endif
+	if getline('.')[col('.') - 1] == a:char
+		return "\<Right>"
+	else
+		return a:char
+	endif
 endfunction
 filetype plugin indent on
 
@@ -363,7 +363,7 @@ Plugin 'vim-airline/vim-airline'
 
 Plugin 'altercation/vim-colors-solarized'
 
-Plugin 'valloric/youcompleteme'
+"Plugin 'valloric/youcompleteme'
 
 Plugin 'kien/ctrlp.vim'
 
@@ -455,27 +455,27 @@ let g:miniBufExplModSelTarget = 1
 " cscope的设定
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 if has("cscope")
-set csprg=/usr/bin/cscope
-"指定:cstag的搜索顺序。0表示先搜索cscope数据库，若不匹配，再搜索tag文件，1
-"则相反
-set csto=0
-":tag/Ctrl-]/vim -t将使用:cstag，而不是默认的:tag
-set cst
-" +(将结果追加到quickfix窗口)、-(清空上一次的结果)、0(不使用quickfix。没有指定也相当于标志为0)))
-set cscopequickfix=s-,c-,d-,i-,t-,e- " 使用QuickFix窗口来显示cscope查找结果
-set nocsverb "增加cscope数据库时，将不会打印成功或失败信息
-set cspc=3 "指定在查找结果中显示多少级文件路径,默认值0表示显示全路径,1表示只显示文件名"
-if filereadable("cscope.out")
-cs add $PWD/cscope.out $PWD
-"cs add cscope.out
-else " 子目录打开，向上查找
-let cscope_file=findfile("cscope.out", ".;")
-let cscope_pre=matchstr(cscope_file, ".*/")
-if !empty(cscope_file) && filereadable(cscope_file)
-exe "cs add" cscope_file cscope_pre
-endif
-endif
-set nocsverb
+	set csprg=/usr/bin/cscope
+	"指定:cstag的搜索顺序。0表示先搜索cscope数据库，若不匹配，再搜索tag文件，1
+	"则相反
+	set csto=0
+	":tag/Ctrl-]/vim -t将使用:cstag，而不是默认的:tag
+	set cst
+	" +(将结果追加到quickfix窗口)、-(清空上一次的结果)、0(不使用quickfix。没有指定也相当于标志为0)))
+	set cscopequickfix=s-,c-,d-,i-,t-,e- " 使用QuickFix窗口来显示cscope查找结果
+	set nocsverb "增加cscope数据库时，将不会打印成功或失败信息
+	"set cspc=3 "指定在查找结果中显示多少级文件路径,默认值0表示显示全路径,1表示只显示文件名"
+	if filereadable("cscope.out")
+		cs add $PWD/cscope.out $PWD
+		"cs add cscope.out
+	else " 子目录打开，向上查找
+		let cscope_file=findfile("cscope.out", ".;")
+		let cscope_pre=matchstr(cscope_file, ".*/")
+		if !empty(cscope_file) && filereadable(cscope_file)
+			exe "cs add" cscope_file cscope_pre
+		endif
+	endif
+	set nocsverb
 endif
 set cscopequickfix=s-,c-,d-,i-,t-,e-
 nmap <C-\>s :cs find s <C-R>=expand("<cword>")<CR><CR>
@@ -487,4 +487,3 @@ nmap <C-\>f :cs find f <C-R>=expand("<cfile>")<CR><CR>
 nmap <C-\>i :cs find i ^<C-R>=expand("<cfile>")<CR>$<CR>
 nmap <C-\>d :cs find d <C-R>=expand("<cword>")<CR><CR>
 " 使用时，将光标停留在要查找的对象上，按下<C->g，即先按“Ctrl+\”，然后很快再按“g”，将会查找该对象的定义。
-
