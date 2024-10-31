@@ -1,6 +1,6 @@
 ---
 date: 2023/04/19 22:00:35
-updated: 2023/04/19 22:00:35
+updated: 2024/01/05 10:36:55
 ---
 
 # pbuilder教程
@@ -44,8 +44,9 @@ updated: 2023/04/19 22:00:35
     cd /usr/share/debootstrap/scripts/
     cp sid eagle
     ```
-    
+
     需要额外添加仓库源可以`login`后添加`apt`仓库源：
+
     ```bash
     sudo pbuilder login --basetgz /var/cache/pbuilder/base.tgz --save-after-login
     ```
