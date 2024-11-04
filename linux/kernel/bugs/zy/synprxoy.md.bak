@@ -1,0 +1,95 @@
+# synproxy
+
+- [[kernel67][网络协议栈增强]服务器端开启SynProxy，客户端发送攻击报文，服务器端出现oom](https://www.srdcloud.cn/zxwim/34687/allWorkltems/INF-test-653)
+
+## env
+
+- 北七家-基础架构-linux跳板机1 30.16.111.131
+  - host 海光: 11.102.1.18/Admin@12#$
+    - guest server: 192.168.122.21/Ctyun@22407#
+    - guest clent: 192.168.122.50/Ctyun@22407#
+
+## server
+
+```bash
+[root@localhost 127.0.0.1-2024-10-31-20:35:47]# uname -a
+Linux localhost.localdomain 4.19.90-2102.2.0.0074.ctl2.x86_64 #1 SMP Tue May 21 09:52:58 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux
+
+
+[root@localhost ~]# cat /etc/os-release
+NAME="CTyunOS"
+VERSION="2 24.07"
+ID="ctyunos"
+VERSION_ID="2"
+PRETTY_NAME="CTyunOS 2 24.07.2"
+ANSI_COLOR="0;31"
+
+
+[root@localhost 127.0.0.1-2024-10-31-20:35:47]# ip addr | grep -i inet
+    inet 127.0.0.1/8 scope host lo
+    inet6 ::1/128 scope host
+    inet 192.168.122.21/24 brd 192.168.122.255 scope global dynamic noprefixroute ens2
+```
+
+```bash
+sysctl -w vm.panic_on_oom=1
+sysctl -p
+```
+
+```bash
+modprobe synproxy
+echo 1 > /proc/sys/net/synproxy/start_tcp
+```
+
+Python 自带的 HTTP 服务器模块可以快速地启动一个 HTTP 服务器：
+
+```bash
+python3 -m http.server 80
+```
+
+它会在当前目录启动一个静态文件服务器，并监听在 80 端口。
+
+```bash
+[root@localhost 127.0.0.1-2024-10-31-20:35:47]# ll
+total 422836
+-rw-------. 1 root root 432586145 Oct 31 20:35 vmcore
+-r--------. 1 root root    389673 Oct 31 20:35 vmcore-dmesg.txt
+```
+
+## client
+
+```bash
+[root@localhost ~]# uname -a
+Linux localhost.localdomain 4.19.90-2102.2.0.0074.ctl2.x86_64 #1 SMP Tue May 21 09:52:58 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux
+
+
+[root@localhost ~]# cat /etc/os-release
+NAME="CTyunOS"
+VERSION="2 24.07"
+ID="ctyunos"
+VERSION_ID="2"
+PRETTY_NAME="CTyunOS 2 24.07.2"
+ANSI_COLOR="0;31"
+
+
+[root@localhost ~]# ip addr | grep -i inet
+    inet 127.0.0.1/8 scope host lo
+    inet6 ::1/128 scope host
+    inet 192.168.122.50/24 brd 192.168.122.255 scope global dynamic noprefixroute ens2
+    inet6 fe80::5054:ff:fee1:9bbc/64 scope link noprefixroute
+```
+
+```bash
+rpm -ivh synflood-1.0.0-1.ctl2.x86_64.rpm
+```
+
+```bash
+[root@localhost ~]# wssyn -s 192.168.122.2 -e 192.168.122.244 -d 192.168.122.21 -p 80 -n 10000
+src 192.168.122.2 - 192.168.122.244 dst 192.168.122.21 port 80 , count 10000 /second
+====== Send count 2430000, unit count 10000, use time 20029 ms
+====== Send count 2430000, unit count 10000, use time 18092 ms
+```
+
+## result
+
+74.rc1可复现，74.rc3已修复。
