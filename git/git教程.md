@@ -320,9 +320,31 @@ git log --oneline | grep "arm64: implement ftrace with regs"
 - [<font color=Red>2.6 Git基础-打标签</font>](https://git-scm.com/book/zh/v2/Git-%E5%9F%BA%E7%A1%80-%E6%89%93%E6%A0%87%E7%AD%BE)
 - [git tag创建、远程推送、回退以及强推push -f](https://blog.csdn.net/QH_JAVA/article/details/77979622)
 
-## branch
+要查看某个提交是否被标签包含，可以使用以下命令：
 
-## Branch
+```bash
+git tag --contains <commit-id>
+```
+
+### 示例
+
+检查提交 `3b23e4991fb6` 是否被任何标签包含：
+
+```bash
+git tag --contains 3b23e4991fb6 | head -n10
+v5.10
+v5.10-rc1
+v5.10-rc2
+v5.10-rc3
+v5.10-rc4
+v5.10-rc5
+v5.10-rc6
+v5.10-rc7
+v5.10.1
+v5.10.10
+```
+
+## branch
 
 1. **查看远程仓库的分支**：
 
@@ -380,6 +402,55 @@ git log --oneline | grep "arm64: implement ftrace with regs"
      ```bash
      git rev-parse --abbrev-ref --symbolic-full-name @{u}
      ```
+
+5. **查看包含指定提交的本地分支**：
+
+   - 要查看包含特定提交（如 `3b23e4991fb6`）的所有分支，可以使用以下 Git 命令：
+
+      ```bash
+      git branch --contains 3b23e4991fb6
+      ```
+
+      `git branch --contains <commit>`：这个命令将列出所有包含指定提交的本地分支。
+
+   - 如果你想查看所有远程和本地分支中包含该提交的分支，可以使用以下命令：
+
+      ```bash
+      git branch -a --contains 3b23e4991fb6
+      ```
+
+      运行以上命令后，输出可能类似于：
+
+      ```bash
+      * develop
+      feature-branch
+      remotes/origin/master
+      remotes/origin/develop
+      ```
+
+      在输出中，带有 `*` 的分支表示当前所在的分支，其他分支则表示包含指定提交的所有分支。如果输出为空，则表示没有分支包含该提交。
+
+## name-rev
+
+使用 `git name-rev` 命令可以帮助开发者更方便地识别提交在版本历史中的位置，提供一个更人性化的提交引用方式。
+
+### 用法示例
+
+1. **查找提交的符号名称**
+
+   ```bash
+   git name-rev 1b06a0
+   ```
+
+   **输出示例**：
+
+   ```bash
+   1b06a0 tags/release-0074~744
+   ```
+
+   **解释**：
+   - 该命令查找提交 `1b06a0` 的符号名称。
+   - 输出显示 `1b06a0` 距离标签 `release-0074` 有 744 次提交。
 
 ## submodule
 
