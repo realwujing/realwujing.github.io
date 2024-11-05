@@ -434,6 +434,10 @@ virsh undefine wujing --nvram
 - `--nvram` 选项用于指示虚拟机具有 NVRAM（非易失性随机存储器），需要一并删除。
 - `wujing` 是要删除的虚拟机的名称或定义文件的路径。
 
+### vcpupin
+
+- [KVM虚拟机cpu资源限制和vcpu亲缘性绑定](https://www.cnblogs.com/anay/p/11121708.html)
+
 ### 共享剪切板
 
 - [qemu/kvm linux 虚拟机配置（共享剪切版，文件拖拽进虚拟机）](https://blog.csdn.net/qq_33831360/article/details/123700719)
