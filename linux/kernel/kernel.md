@@ -309,6 +309,19 @@ menuentry 'Kylin V10 (V10) rescue (on /dev/mapper/klas-root)' --class gnu-linux 
 menuentry 'Kylin V10 (V10) (on /dev/mapper/klas-root)' --class gnu-linux --class gnu --class os $menuentry_id_option 'osprober-gnulinux-/vmlinuz-4.19.90-52.22.v2207.ky10.aarch64--c16672cc-6d1d-4253-84b0-06e288652f4a' {
 ```
 
+可以进一步使用`awk` 从 `/boot/grub2/grub.cfg` 文件中提取了 `menuentry` 行并显示相应的启动项名称：
+
+```bash
+awk -F\' '$1=="menuentry " {print i++ " : " $2}' /boot/grub2/grub.cfg
+
+0 : CTyunOS (4.19.90-2102.2.0.0076.ctl2.x86_64) 2 24.07
+1 : CTyunOS (0-rescue-c59d31ab74dd4c4e95314c300589c91d) 2 24.07
+```
+
+- **`-F\'`**：将单引号（`'`）作为字段分隔符。这样，`menuentry` 的名称（即系统引导项的名称）会出现在 `$2` 中。
+- **`$1=="menuentry "`**：这个条件表示只处理以 `"menuentry "` 开头的行。`$1` 是使用 `-F\'` 分隔符之后的第一部分，所以 `$1` 应该是 `"menuentry "`。
+- **`{print i++ " : " $2}`**：当匹配到 `"menuentry "` 行时，输出一个计数器 `i` 和 `$2`（也就是 `menuentry` 的名称部分）。`i++` 会在每次输出后递增，给每个菜单项分配一个编号。
+
 ###### 更改默认启动内核
 
 GRUB菜单项的索引是从0开始计算的，这意味着第一个菜单项的索引为0，第二个菜单项的索引为1，以此类推。
