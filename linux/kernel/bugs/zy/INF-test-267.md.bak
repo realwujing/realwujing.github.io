@@ -1,43 +1,186 @@
 # INF-test-267
 
+- 北七家-基础架构-linux跳板机1 30.16.111.131
+  - host 海光: 11.102.1.18/Admin@12#$
+    - guest server: 192.168.122.227/Ctyun@22407#
+
 需复现bug单号：
 1、https://www.srdcloud.cn/zxwim/34687/allWorkltems/INF-test-267
 
 复现条件：
-1、yum源上的rpm包都用最新的，内核使用70版本内核。
+1、虚拟机yum源上的rpm包都用最新的，虚拟机内核使用70版本内核。
 
 全部安装步骤：
 1、yum install nvml(安装后就有libpmem.so库)，rpm -ivh qemu-ccpf-env-1.0-4.ctl2.x86_64.rpm(安装qemu执行文件，合入yum后，就可以yum直接安装)。
+
+    ```bash
+    yum install nvml qemu-ccpf-env
+    ```
+
 2、rpm –ivh rdma_tools-1-1.ctl2.x86_64.rpm (合入yum后，就可以yum直接安装) 安装完成后会生成/root/zijin-ccpf/目录。
+
+    ```bash
+    yum install rdma_tools
+    ```
+
 3、进入/root/zijin-ccpf/，拷贝两个.qcow2类型镜像分别到/root/zijin-ccpf/下的iso1和iso2目录下(iso1和iso2下都只能有一个镜像，可以同名)。
+
+    ```bash
+    cd /root/zijin-ccpf/
+    cp /root/yql/yql-ctyunos241017.qcow2 /root/zijin-ccpf/iso1
+    cp /root/yql/yql-ctyunos241017.qcow2 /root/zijin-ccpf/iso2
+    ```
 4、执行./serial.sh(自动将.qcow2镜像名称添加到qemu启动脚本)。
+
+    ```bash
+    ./serial.sh
+    ```
+
 5、执行/root/zijin-ccpf/zijin-vm1/start.sh运行虚拟机1(虚拟机1的信息直接打在当前界面，只要ctrl+c就是推出虚拟机，得配置完再ctrl+c)，只需要完成虚拟机ip和yum配置(这部分无法自动化，只能手动配置)。
+
+    ```bash
+    /root/zijin-ccpf/zijin-vm1/start.sh
+    ```
+
+    查看当前网卡名称为`enp5s0`:
+
+    ```bash
+    ip addr 
+    ```
+
+    ```bash
+    vim /etc/sysconfig/network-scripts/ifcfg-enp5s0
+
+    TYPE=Ethernet
+    PROXY_METHOD=none
+    BROWSER_ONLY=no
+    BOOTPROTO=static
+    DEFROUTE=yes
+    IPV4_FAILURE_FATAL=no
+    IPV6INIT=yes
+    IPV6_AUTOCONF=yes
+    IPV6_DEFROUTE=yes
+    IPV6_FAILURE_FATAL=no
+    IPADDR=192.168.122.227
+    NETMASK=255.25.255.0
+    GATEWAY=192.168.122.1
+    NAME=enp5s0
+    UUID=1849cf67-db6b-4a86-834c-2b4cd17cb27b
+    DEVICE=enp5s0
+    ONBOOT=yes
+    ```
+
+    配置yum源:
+
+    ```bash
+    cat /etc/yum.repos.d/ctyunos.repo
+    [everything]
+    name=ctyunos-everything
+    baseurl=http://11.8.10.241/localrepo/ctyun/ctyunos/ctyunos-2-24.07/everything/$basearch/
+    enabled=1
+    gpgcheck=0
+
+    [update]
+    name=ctyunos-update
+    baseurl=http://11.8.10.241/localrepo/ctyun/ctyunos/ctyunos-2-24.07/update/$basearch/
+    enabled=1
+    gpgcheck=0
+    ```
+
 6、执行./daemon.sh(配置qemu启动脚本成后台启动，可输入两个参数比如./daemon.sh 1-64 65-126,指定虚拟机1绑定core1-64, 虚拟机2绑定core65-126)。然后按照./daemon.sh输出提示信息分别后台启动虚拟机1.
+
+    ```bash
+    ./daemon.sh 1-64 65-126
+    please cd /root/zijin-ccpf/zijin-vm1, then ./start.sh backend start virtual machine 1
+    please cd /root/zijin-ccpf/zijin-vm2, then ./start.sh backend start virtual machine 2
+    ```
+
+    ```bash
+    cd /root/zijin-ccpf/zijin-vm1
+    ./start.sh
+    ```
+
+    ```bash
+    cd /root/zijin-ccpf/zijin-vm2
+    ./start.h
+    ```
+
 7、ssh登陆虚拟机1，安装zijin_rdma相关rpm包(注意需要卸载两个rpm包否则会有冲突)：
-rpm -e ctinspector libibverbs-58mlnx43
-yum install ibacm-42.0-2.ctl2.x86_64 \
-infiniband-diags-42.0-2.ctl2.x86_64 \
-infiniband-diags-compat-42.0-2.ctl2.x86_64 \
-iwpmd-42.0-2.ctl2.x86_64 \
-libibumad-42.0-2.ctl2.x86_64 \
-libibverbs-42.0-2.ctl2.x86_64 \
-libibverbs-utils-42.0-2.ctl2.x86_64 \
-librdmacm-42.0-2.ctl2.x86_64 \
-librdmacm-utils-42.0-2.ctl2.x86_64 \
-rdma-core-42.0-2.ctl2.x86_64 \
-rdma-core-debuginfo-42.0-2.ctl2.x86_64 \
-rdma-core-debugsource-42.0-2.ctl2.x86_64 \
-rdma-core-devel-42.0-2.ctl2.x86_64 
-srp_daemon-42.0-2.ctl2.x86_64
-yum install zijin-rdma-driver.x86_64
-yum install perftest-4.5-4.ctl2.x86_64
+
+    ```bash
+    ssh 192.168.122.227
+    ```
+
+    ```bash
+    rpm -e ctinspector libibverbs-58mlnx43
+    ```
+
+    ```bash
+    yum install ibacm-42.0-2.ctl2.x86_64 \
+    infiniband-diags-42.0-2.ctl2.x86_64 \
+    infiniband-diags-compat-42.0-2.ctl2.x86_64 \
+    iwpmd-42.0-2.ctl2.x86_64 \
+    libibumad-42.0-2.ctl2.x86_64 \
+    libibverbs-42.0-2.ctl2.x86_64 \
+    libibverbs-utils-42.0-2.ctl2.x86_64 \
+    librdmacm-42.0-2.ctl2.x86_64 \
+    librdmacm-utils-42.0-2.ctl2.x86_64 \
+    rdma-core-42.0-2.ctl2.x86_64 \
+    rdma-core-debuginfo-42.0-2.ctl2.x86_64 \
+    rdma-core-debugsource-42.0-2.ctl2.x86_64 \
+    rdma-core-devel-42.0-2.ctl2.x86_64 \
+    srp_daemon-42.0-2.ctl2.x86_64
+    ```
+
+    ```bash
+    yum install zijin-rdma-driver.x86_64
+    yum install perftest-4.5-4.ctl2.x86_64
+    ```
+
 8、安装zijin_ccpf的rpm包，zijin-ccpf-1.0-4.ctl2.x86_64.rpm(合入yum后，就可以yum直接安装)。
+
+    ```bash
+    yum install zijin-ccpf
+    ```
+
 9、执行/root/ccpfscript/install.sh，这步是初始化zijin_rdma的操作。
+
+    ```bash
+    /root/ccpfscript/install.sh
+    ```
+
 10、modprobe zijin_ccpf，加载zijin_ccpf内核态驱动
+
+    ```bash
+    modprobe zijin_ccpf
+    ```
+
 11、执行/usr/bin/ccpfdev
+
+    ```bash
+    /usr/bin/ccpfdev
+    ```
+
 12、另外启一个窗口(也得是登陆到虚拟机上)，反复执行ccpfconfig -c 1 --server_ip 127.0.0.1 --server_port 38750和ccpfconfig -c 2 --server_ip 127.0.0.1 --server_port 38750，大约执行30次。
+
+    ```bash
+    ssh 192.168.122.227
+    ```
+
+    ```bash
+    for i in {1..30}; do ccpfconfig -c 1 --server_ip 127.0.0.1 --server_port 38750; ccpfconfig -c 2 --server_ip 127.0.0.1 --server_port 38750; done
+    ```
+
 13、观察执行/usr/bin/ccpfdev的窗口报错，“create fifo buffer alloc shmget error”。(报错后环境修复，需要在虚拟机中执行reboot)
 
 当前复现步骤：
 1、登陆到192.168.122.227虚拟机中，先reboot重启。
 2、重新登陆到192.168.122.227虚拟机中，重新执行“全部安装步骤”中的9-13步骤
+
+重启虚拟机：
+1、kill掉qemu进程
+2、重新执行“全部安装步骤”中第6步骤。
+
+重启虚拟机且忘记ip：
+1、kill掉qemu进程
+2、重新执行“全部安装步骤”中第4-6步骤。
