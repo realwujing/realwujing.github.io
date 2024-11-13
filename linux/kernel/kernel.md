@@ -312,6 +312,10 @@ menuentry 'Kylin V10 (V10) (on /dev/mapper/klas-root)' --class gnu-linux --class
 可以进一步使用`awk` 从 `/boot/grub2/grub.cfg` 文件中提取了 `menuentry` 行并显示相应的启动项名称：
 
 ```bash
+awk -F\' '$1=="menuentry " {print i++ " : " $2}' /boot/efi/EFI/ctyunos/grub.cfg
+```
+
+```bash
 awk -F\' '$1=="menuentry " {print i++ " : " $2}' /boot/grub2/grub.cfg
 
 0 : CTyunOS (4.19.90-2102.2.0.0076.ctl2.x86_64) 2 24.07

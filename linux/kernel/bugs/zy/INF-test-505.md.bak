@@ -1,0 +1,70 @@
+# INF-test-505
+
+- 北七家-基础架构-linux跳板机1 30.16.111.131
+  - host 海光: 11.102.1.18/Admin@12#$
+    - guest server: 192.168.122.21/Ctyun@22407#
+
+## env
+
+确保虚拟机有三张虚拟网卡，参考505.xml，virsh 安装虚拟机后，关闭虚拟机后使用`virsh edit vm`命令给虚拟机新增一个虚拟网卡:
+
+```bash
+    <interface type='network'>
+      <mac address='52:54:00:75:74:15'/>
+      <source network='default' portid='974e6022-906e-4af6-973d-750d3eae2180' bridge='virbr0'/>
+      <target dev='vnet174'/>
+      <model type='virtio'/>
+      <alias name='net0'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
+    </interface>
+    <interface type='network'>
+      <mac address='52:54:00:75:74:16'/>
+      <source network='default' portid='a2f48364-54de-4c62-b3b5-19ae9ddf94fe' bridge='virbr0'/>
+      <target dev='vnet175'/>
+      <model type='virtio'/>
+      <alias name='net1'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x1f' function='0x0'/>
+    </interface>
+```
+
+确保vm interface标签有两个。
+
+内核版本：
+
+```bash
+[root@localhost ~]# uname -a
+Linux localhost.localdomain 4.19.90-2102.2.0.0072.ctl2.x86_64 #1 SMP Mon Nov 11 06:30:53 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux
+```
+
+![编译此内核对应的commit](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17313168295692.png)
+
+## 复现bug
+
+```bash
+modprobe zijin_soft_roce
+```
+
+查看网卡名:
+
+```bash
+ip a
+```
+
+```bash
+# 网卡1
+echo ens2 > /sys/module/zijin_soft_roce/parameters/add
+
+# 网卡2
+echo ens31 > /sys/module/zijin_soft_roce/parameters/add
+
+# 网卡3
+echo lo > /sys/module/zijin_soft_roce/parameters/add
+```
+
+```bash
+echo zijin_soft_roce_2 > /sys/module/zijin_soft_roce/parameters/remove
+echo zijin_soft_roce_1 > /sys/module/zijin_soft_roce/parameters/remove
+echo zijin_soft_roce_0 > /sys/module/zijin_soft_roce/parameters/remove
+```
+
+反复执行两次，基本都能复现。

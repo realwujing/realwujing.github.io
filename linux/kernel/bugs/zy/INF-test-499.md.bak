@@ -1,0 +1,134 @@
+# INF-test-499
+
+2024年-测试池4.0-内蒙古呼和浩特测试池7-可用区1
+
+soc: 21.98.192.49  host: 21.98.192.50
+
+登录方式： 登录21.98.199.34----》sudo -i  ---> 执行go 49  登录soc; 执行go 50登录host
+
+## 复现bug
+
+```bash
+[root@nm-het7-region-os-deploy-21e98e199e34 secure]# go 49
+ssh to server 21.98.192.49
+
+Authorized users only. All activities may be monitored and reported.
+
+Authorized users only. All activities may be monitored and reported.
+Last login: Fri Nov 15 16:36:06 2024 from 21.98.199.34
+
+
+Welcome to 4.19.90-2102.2.0.0072.ctl2.x86_64
+
+System information as of time:  2024年 11月 15日 星期五 16:40:14 CST
+
+System load:  4.10
+Processes:  194
+Memory used:  42.0%
+Swap used:  0.0%
+Usage On:  7%
+IP address:  21.98.192.49
+Users online:  1
+```
+
+```bash
+[root@localhost ~]# uname -a
+Linux localhost.localdomain 4.19.90-2102.2.0.0072.ctl2.x86_64 #1 SMP Tue Mar 5 10:00:13 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux
+```
+
+soc执行以下命令：
+
+```bash
+ctsnictool -p -a vf0 -f 1 -m aa:00:00:00:00:00 -d 2048 -q 32 -u 9000
+
+snictool -c -w  -f ipv4 0xff -r 0xf000 0xf000 -u tcp 0xff
+```
+
+```bash
+go 50
+```
+
+在50 dmesg中可看到如下call trace报错:
+
+```bash
+[六 11月 16 00:48:04 2024] Call Trace:
+[六 11月 16 00:48:04 2024]  __schedule+0x1d4/0x4d0
+[六 11月 16 00:48:04 2024]  schedule+0x32/0x80
+[六 11月 16 00:48:04 2024]  schedule_preempt_disabled+0xa/0x10
+[六 11月 16 00:48:04 2024]  __mutex_lock.constprop.0+0x14a/0x490
+[六 11月 16 00:48:04 2024]  dev_ioctl+0x2c1/0x345
+[六 11月 16 00:48:04 2024]  sock_do_ioctl+0x9b/0x130
+[六 11月 16 00:48:04 2024]  sock_ioctl+0x182/0x2f0
+[六 11月 16 00:48:04 2024]  ? ioctl_has_perm.constprop.0.isra.0+0xaf/0x120
+[六 11月 16 00:48:04 2024]  do_vfs_ioctl+0x2bb/0x4e0
+[六 11月 16 00:48:04 2024]  ksys_ioctl+0x5e/0x90
+[六 11月 16 00:48:04 2024]  __x64_sys_ioctl+0x16/0x20
+[六 11月 16 00:48:04 2024]  do_syscall_64+0x60/0xb0
+[六 11月 16 00:48:04 2024]  entry_SYSCALL_64_after_hwframe+0x44/0xa9
+[六 11月 16 00:48:04 2024] RIP: 0033:0x7f3b25c70bcb
+[六 11月 16 00:48:04 2024] Code: Bad RIP value.
+[六 11月 16 00:48:04 2024] RSP: 002b:00007ffe343c5238 EFLAGS: 00000246 ORIG_RAX: 0000000000000010
+[六 11月 16 00:48:04 2024] RAX: ffffffffffffffda RBX: 00007ffe343c5370 RCX: 00007f3b25c70bcb
+[六 11月 16 00:48:04 2024] RDX: 00007ffe343c5390 RSI: 0000000000008946 RDI: 0000000000000019
+[六 11月 16 00:48:04 2024] RBP: 00007ffe343c53f0 R08: 000000000000000b R09: 0000000000000000
+[六 11月 16 00:48:04 2024] R10: 15dc8f8819f4b7db R11: 0000000000000246 R12: 0000000000000007
+[六 11月 16 00:48:04 2024] R13: 0000000000000000 R14: 00007ffe343c5390 R15: 00007ffe343c5370
+```
+
+在 49 dmesg中也有错误日志:
+
+```bash
+[五 11月 15 16:35:02 2024] vfio-pci 0000:15:01.4: timed out waiting for pending transaction; performing function level reset anyway
+[五 11月 15 16:37:13 2024] slot(1) add timeout
+[五 11月 15 16:37:13 2024] Failed to Add EP pf port cfg,-22
+[五 11月 15 16:37:13 2024] Failed to Add EP pf port cfg,ret -3
+[五 11月 15 16:37:13 2024] snic 0000:15:00.0: CTSNIC ERR,[zijin_20_hal_common_add_pvf](238):pvf add fail(rv = -3), vid = 0x100000.
+[五 11月 15 16:37:13 2024] snic 0000:15:00.0: CTSNIC ERR,[zijin_20_snic_vpc_new_port](146):add vport fail, rc(-110), errstr(SNIC_ERR_HW_FAILURE)
+```
+
+## 验证修复
+
+先在soc中通过grub设置启动内核为76:
+
+```bash
+awk -F\' '$1=="menuentry " {print i++ " : " $2}' /boot/efi/EFI/ctyunos/grub.cfg
+0 : CTyunOS (4.19.90-2102.2.0.0076.ctl2.x86_64) 2 24.07
+1 : CTyunOS (4.19.90-2102.2.0.0072.ctl2.x86_64) 2 24.07
+2 : CTyunOS (0-rescue-001ee0744d484667a85375c3522deea1) 2 24.07
+```
+
+```bash
+grub2-set-default 0
+```
+
+问题复现后，如果需要恢复设备，请先进行设备冷重启。
+
+执行下方命令可以进入host 50 bmc 控制台:
+
+```bash
+2024年-测试池4.0-内蒙古呼和浩特测试池7-可用区1
+
+driver
+
+2
+```
+
+给soc host掉电:
+
+```bash
+ipmitool -I lanplus -H 30.0.228.79 -U ydadmin  -P NMyqyfcsyd2@gc raw 0x3a 0xf5 0x00
+```
+
+观察状态，为off:
+
+```bash
+ipmitool -I lanplus -H 30.0.228.79 -U ydadmin  -P NMyqyfcsyd2@gc  power status
+```
+
+启动设备（host+ soc 均会上电）:
+
+```bash
+ipmitool -I lanplus -H 30.0.228.79 -U ydadmin  -P NMyqyfcsyd2@gc  power on
+```
+
+soc host启动后，可验证76版本内核已修复此bug。
