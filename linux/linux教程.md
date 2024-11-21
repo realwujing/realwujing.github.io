@@ -51,6 +51,8 @@
 
 - [Xshell效率提升_安装后必做的优化](https://mp.weixin.qq.com/s/DHrs-6LbL3emN85V4ncJNw)
 
+- [Linux命令：rz 和 sz](https://www.cnblogs.com/jiaklop9/p/14210011.html?share_token=3577c499-bdfc-41ae-9f9e-11cde2d62acf)
+
 ### 作业控制
 
 在 Linux 终端中使用作业控制时：
