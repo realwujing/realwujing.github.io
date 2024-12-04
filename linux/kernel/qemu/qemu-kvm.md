@@ -16,6 +16,8 @@
 - [<font color=Red>https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu</font>](https://github.com/realwujing/realwujing.github.io/tree/main/linux/kernel/qemu)
 - [<font color=Red>Linux内核调试</font>](https://blog.csdn.net/onlylove_/category_11607029.html)
 
+- [Quickly create and run optimised Windows, macOS and Linux virtual machines](https://github.com/quickemu-project/quickemu)
+
 ## book
 
 - [QEMU KVM学习笔记](https://github.com/yifengyou/learn-kvm)
