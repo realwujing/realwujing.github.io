@@ -621,6 +621,7 @@ sysctl -p
 
 - [<font color=Red>Documentation for Kdump - The kexec-based Crash Dumping Solution</font>](https://www.kernel.org/doc/html/latest/admin-guide/kdump/kdump.html)
 - [<font color=Red>How to on enable kernel crash dump on Debian Linux</font>](https://www.cyberciti.biz/faq/how-to-on-enable-kernel-crash-dump-on-debian-linux/)
+- [15.10. 防止内核驱动程序为 kdump 加载](https://docs.redhat.com/zh-cn/documentation/red_hat_enterprise_linux/8/html/managing_monitoring_and_updating_the_kernel/preventing-kernel-drivers-from-loading-for-kdump_configuring-kdump-on-the-command-line#preventing-kernel-drivers-from-loading-for-kdump_configuring-kdump-on-the-command-line)
 
     ```bash
     sudo apt install kdump-tools crash kexec-tools makedumpfile linux-image-$(uname -r)-dbg
