@@ -451,6 +451,11 @@ virsh undefine wujing --nvram
   sudo apt install spice-vdagent
   ```
 
+#### win11共享剪切板
+
+- [kvm安装windows11](https://www.cnblogs.com/studywithallofyou/p/17788892.html)
+  - [virtio-win-guest-tools.exe](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/virtio-win-0.1.240-1/)
+
 ### 共享目录
 
 在宿主机查看虚拟机共享目录配置:
