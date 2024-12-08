@@ -420,6 +420,93 @@ module_blacklist=  [KNL] Do not load a comma-separated list of
 - [第 10 章 Debian 和内核](https://www.debian.org/doc/manuals/debian-faq/kernel.zh-cn.html)
 - [“make deb-pkg” broken](https://davejingtian.org/2018/03/15/make-deb-pkg-broken/)
 
+#### x86上交叉编译arm内核deb
+
+要在 **x86 架构** 的机器上使用 `make bindeb-pkg` 为 **ARM** 架构交叉编译内核 `.deb` 包，可以按照以下步骤进行设置：
+
+---
+
+##### 1. **安装必要的工具**
+
+在主机上安装交叉编译工具链和必要的软件包：
+
+```bash
+sudo apt update
+sudo apt install gcc-arm-linux-gnueabi make dpkg-dev
+```
+
+如果目标是 64 位 ARM：
+
+```bash
+sudo apt install gcc-aarch64-linux-gnu
+```
+
+---
+
+##### 2. **准备内核源码**
+
+确保你已经下载并解压了正确版本的 Linux 内核源码，例如：
+
+```bash
+wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.9.tar.xz
+tar -xf linux-6.9.tar.xz
+cd linux-6.9
+```
+
+---
+
+##### 3. **配置交叉编译环境**
+
+为交叉编译设置工具链：
+- 对于 32 位 ARM：
+  ```bash
+  export ARCH=arm
+  export CROSS_COMPILE=arm-linux-gnueabi-
+  ```
+- 对于 64 位 ARM：
+  ```bash
+  export ARCH=arm64
+  export CROSS_COMPILE=aarch64-linux-gnu-
+  ```
+
+---
+
+##### 4. **配置内核**
+加载适合目标设备的内核配置：
+```bash
+make ARCH=arm64 defconfig
+```
+如果有特定的设备配置（比如从设备厂家获取的 `.config` 文件），可以直接复制到源码目录：
+```bash
+cp /path/to/your/.config .
+```
+
+---
+
+##### 5. **编译并生成 `.deb` 包**
+使用 `bindeb-pkg` 目标生成 `.deb` 包：
+```bash
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- bindeb-pkg -j$(nproc)
+```
+
+编译完成后，生成的 `.deb` 包会出现在源码目录的上一级目录，例如：
+```bash
+../linux-image-6.9.0-arm64.deb
+../linux-headers-6.9.0-arm64.deb
+```
+
+---
+
+##### 6. **注意事项**
+1. **内核配置的适配性**  
+   确保使用了正确的内核配置（`.config`），以支持目标 ARM 硬件。
+2. **模块支持**  
+   如果内核需要额外模块，确保在 `.config` 中启用对应选项。
+3. **检查工具链兼容性**  
+   工具链版本需与目标架构和内核源码兼容。
+
+完成后，你可以将生成的 `.deb` 包传输到目标 ARM 设备上安装。
+
 #### linux-perf deb
 
 - [make deb-pkg linux-kernel源码支持构建perf工具](https://blog.csdn.net/qq_24423085/article/details/132696041)
