@@ -1,6 +1,6 @@
 ---
-date: 2023/02/01 13:37:53
-updated: 2023/04/22 22:58:18
+date: 2023/04/21 15:49:27
+updated: 2024/08/12 09:55:00
 ---
 
 # C++基础
@@ -19,10 +19,12 @@ updated: 2023/04/22 22:58:18
 - [Linux系统调用函数列表](https://blog.csdn.net/kwame211/article/details/77572123)
 - [Linux函数调用手册](https://www.chinastor.com/manuals/linuxfunctions/)
 - [linux系统调用和库函数调用的区别](https://www.cnblogs.com/Yogurshine/p/3666527.html)
+- [在程序里面执行system(“cd /某个目录“)，为什么路径切换不成功？](https://mp.weixin.qq.com/s/64xAPVhntRjz65SvrCqi7g)
 
 ## main
 
 - [main 函数和命令行参数](https://learn.microsoft.com/zh-cn/cpp/cpp/main-function-command-line-args?view=msvc-170)
+- [C语言中的int argc, char *argv[]是什么？](https://mp.weixin.qq.com/s/jU4DU4eIT2f9rLsN2C7YQw)
 
 ## typedef
 
@@ -113,6 +115,8 @@ updated: 2023/04/22 22:58:18
 
 - [函数式编程 - 廖雪峰的官方网站 (liaoxuefeng.com)](https://www.liaoxuefeng.com/wiki/1016959663602400/1017328525009056)
 
+- [Linux 可重入、异步信号安全和线程安全](https://mp.weixin.qq.com/s/D9lLDvdLI9lkDXhMhr-VKQ)
+
 ### 回调函数
 
 - [「C/C++」回调函数详解，拿捏住了](https://www.toutiao.com/i7054434692053090853)
@@ -135,7 +139,6 @@ updated: 2023/04/22 22:58:18
 - [漫画 | 因为用了C语言，Linux内核代码一团糟](https://mp.weixin.qq.com/s/93Z1QX5cMsN6888i8KFjWA)
 - [C语言：春节回家过年，我发现只有我没有对象！](https://mp.weixin.qq.com/s/2ivQ9hcRvZnhk89jzAppSg)
 - [UML类图几种关系的总结](https://kb.cnblogs.com/page/129490/)
-
 
 ### const、static
 
@@ -187,6 +190,7 @@ updated: 2023/04/22 22:58:18
 - [<font color=Red>C++中的默认函数与default和delete用法</font>](https://blog.csdn.net/u012333003/article/details/25299939)
 - [C++11 =default和=delete -简书(jianshu.com)](https://www.jianshu.com/p/ef66ba66916c)
 - [C++中的=default和=delete_FEEL的博客-CSDN博客_c++ default](https://blog.csdn.net/weixin_38339025/article/details/89161324)
+- [C++中的四种强制类型转换：理解不同转换方式的优缺点](https://mp.weixin.qq.com/s/MuwAx7jbCy3Q3RUV-OnhJg)
 
 #### 初始化列表
 
@@ -243,8 +247,9 @@ updated: 2023/04/22 22:58:18
 
 #### 代码区、常量区、静态区（全局区）、堆区、栈区
 
-- [C语言中各变量/常量的存储模型——静态、全局、堆、栈梳理](https://blog.csdn.net/klq6743/article/details/82535173)
+- [C语言：内存分配---栈区、堆区、全局区、常量区和代码区](https://blog.csdn.net/MQ0522/article/details/114823770)
 - [<font color=Red>什么是代码区、常量区、静态区（全局区）、堆区、栈区？</font>](https://blog.csdn.net/u014470361/article/details/79297601)
+- [实习面试题：初始化为0的全局变量在bss还是data？](https://mp.weixin.qq.com/s/7tXfhUBJcao3Z67GfxxtXg)
 
 ### 虚拟内存
 
