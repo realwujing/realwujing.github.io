@@ -569,6 +569,49 @@ dpkg-buildpackage -b -nc -uc -us -j16
     make binrpm-pkg -j8 2> make_error.log
     ```
 
+#### x86上交叉编译arm内核rpm
+
+##### gcc-linaro-7.3.1-2018.05-x86_64_arm-linux-gnueabihf
+
+<https://releases.linaro.org/components/toolchain/binaries/7.3-2018.05/arm-linux-gnueabihf/>
+
+![gcc-linaro-7.3.1-2018.05-x86_64_arm-linux-gnueabihf.tar.xz](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20241210112251.png)
+
+下载gcc-linaro-7.3.1-2018.05-x86_64_arm-linux-gnueabihf.tar.xz并解压：
+
+```bash
+tar -xJf gcc-linaro-7.3.1-2018.05-x86_64_arm-linux-gnueabihf.tar.xz
+export CROSS_COMPILE=/root/Downloads/gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
+export ARCH=arm64
+make openeuler_defconfig
+make binrpm-pkg -j32
+```
+
+建议使用下方gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu进行交叉编译。
+
+##### gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu
+
+<https://blog.csdn.net/qq_37200742/article/details/128331909>
+
+- [ARM CPU汇总 & 编译链选择](https://www.cnblogs.com/solo666/p/16405064.html)
+
+<https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads>
+
+<https://developer.arm.com/downloads/-/gnu-a#panel4a>
+
+![gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20241210114001.png)
+
+在浏览器中下载上述gcc-arm-10.3交叉编译工具链后进行如下操作：
+
+```bash
+cp /root/Downloads/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz /root
+tar -xJf gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
+export CROSS_COMPILE=/root/Downloads/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+export ARCH=arm64
+make openeuler_defconfig
+make binrpm-pkg -j32
+```
+
 ## 内核模块
 
 - [<font color=Red>1. Linux内核模块</font>](https://doc.embedfire.com/linux/imx6/driver/zh/latest/linux_driver/module.html)
