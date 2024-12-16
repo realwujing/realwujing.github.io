@@ -1,0 +1,440 @@
+From f6555fdbf7b9b82d5258897c46338d2b85d19a01 Mon Sep 17 00:00:00 2001
+From: QiLiang Yuan <yuanql9@chinatelecom.cn>
+Date: Fri, 29 Nov 2024 12:27:45 +0800
+Subject: [PATCH] arm64: sched: cfs: ksmd
+
+Signed-off-by: QiLiang Yuan <yuanql9@chinatelecom.cn>
+---
+ kernel/sched/core.c     |  31 ++++++++-
+ kernel/sched/fair.c     | 145 +++++++++++++++++++++++++++++++++++++---
+ kernel/sched/sched.h    |  16 +++++
+ kernel/sched/topology.c |   6 ++
+ 4 files changed, 186 insertions(+), 12 deletions(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 045e78a88e07..5057ce21dfb7 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -1017,8 +1017,13 @@ static int migration_cpu_stop(void *data)
+ 	if (task_rq(p) == rq) {
+ 		if (task_on_rq_queued(p))
+ 			rq = __migrate_task(rq, &rf, p, arg->dest_cpu);
+-		else
++		else {
++			if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++				printk("file:%s func:%s line:%d p->comm:%s p->recent_used_cpu:%d p->wake_cpu:%d\n",
++						__FILE__, __FUNCTION__, __LINE__, p->comm, p->recent_used_cpu, p->wake_cpu);
++			}
+ 			p->wake_cpu = arg->dest_cpu;
++		}
+ 	}
+ 	rq_unlock(rq, &rf);
+ 	raw_spin_unlock(&p->pi_lock);
+@@ -1235,6 +1240,10 @@ static void __migrate_swap_task(struct task_struct *p, int cpu)
+ 		 * it before it went to sleep. This means on wakeup we make the
+ 		 * previous CPU our target instead of where it really is.
+ 		 */
++		if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++			printk("file:%s func:%s line:%d p->comm:%s p->recent_used_cpu:%d p->wake_cpu:%d\n",
++					__FILE__, __FUNCTION__, __LINE__, p->comm, p->recent_used_cpu, p->wake_cpu);
++		}
+ 		p->wake_cpu = cpu;
+ 	}
+ }
+@@ -1555,6 +1564,10 @@ static int select_fallback_rq(int cpu, struct task_struct *p)
+ static inline
+ int select_task_rq(struct task_struct *p, int cpu, int sd_flags, int wake_flags)
+ {
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s p->recent_used_cpu:%d cpu:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, p->recent_used_cpu, cpu);
++	}
+ 	lockdep_assert_held(&p->pi_lock);
+ 
+ 	if (p->nr_cpus_allowed > 1)
+@@ -2063,6 +2076,10 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
+ 		atomic_dec(&task_rq(p)->nr_iowait);
+ 	}
+ 
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s p->recent_used_cpu:%d p->wake_cpu:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, p->recent_used_cpu, p->wake_cpu);
++	}
+ 	cpu = select_task_rq(p, p->wake_cpu, SD_BALANCE_WAKE, wake_flags);
+ 	if (task_cpu(p) != cpu) {
+ 		wake_flags |= WF_MIGRATED;
+@@ -2440,7 +2457,15 @@ void wake_up_new_task(struct task_struct *p)
+ 	 * as we're not fully set-up yet.
+ 	 */
+ 	p->recent_used_cpu = task_cpu(p);
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s p->recent_used_cpu:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, p->recent_used_cpu);
++	}
+ 	rseq_migrate(p);
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s p->recent_used_cpu:%d task_cpu(p):%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, p->recent_used_cpu, task_cpu(p));
++	}
+ 	__set_task_cpu(p, select_task_rq(p, task_cpu(p), SD_BALANCE_FORK, 0));
+ #endif
+ 	rq = __task_rq_lock(p, &rf);
+@@ -2993,6 +3018,10 @@ void sched_exec(void)
+ 	int dest_cpu;
+ 
+ 	raw_spin_lock_irqsave(&p->pi_lock, flags);
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s p->recent_used_cpu:%d task_cpu(p):%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, p->recent_used_cpu, task_cpu(p));
++	}
+ 	dest_cpu = p->sched_class->select_task_rq(p, task_cpu(p), SD_BALANCE_EXEC, 0);
+ 	if (dest_cpu == smp_processor_id())
+ 		goto unlock;
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index bb39a2a7ed28..bda415ac3b13 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -6135,6 +6135,11 @@ void __update_idle_core(struct rq *rq)
+  */
+ static int select_idle_core(struct task_struct *p, struct sched_domain *sd, int target)
+ {
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s target:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, target);
++	}
++
+ 	struct cpumask *cpus = this_cpu_cpumask_var_ptr(select_idle_mask);
+ 	int core, cpu;
+ 
+@@ -6164,6 +6169,11 @@ static int select_idle_core(struct task_struct *p, struct sched_domain *sd, int
+ 	 */
+ 	set_idle_cores(target, 0);
+ 
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s target:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, target);
++	}
++
+ 	return -1;
+ }
+ 
+@@ -6172,6 +6182,11 @@ static int select_idle_core(struct task_struct *p, struct sched_domain *sd, int
+  */
+ static int select_idle_smt(struct task_struct *p, struct sched_domain *sd, int target)
+ {
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s target:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, target);
++	}
++
+ 	int cpu;
+ 
+ 	if (!static_branch_likely(&sched_smt_present))
+@@ -6185,6 +6200,11 @@ static int select_idle_smt(struct task_struct *p, struct sched_domain *sd, int t
+ 			return cpu;
+ 	}
+ 
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s target:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, target);
++	}
++
+ 	return -1;
+ }
+ 
+@@ -6209,6 +6229,11 @@ static inline int select_idle_smt(struct task_struct *p, struct sched_domain *sd
+  */
+ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, int target)
+ {
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s target:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, target);
++	}
++
+ 	struct sched_domain *this_sd;
+ 	u64 avg_cost, avg_idle;
+ 	u64 time, cost;
+@@ -6216,8 +6241,13 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, int t
+ 	int cpu, nr = INT_MAX;
+ 
+ 	this_sd = rcu_dereference(*this_cpu_ptr(&sd_llc));
+-	if (!this_sd)
+-		return -1;
++	if (!this_sd) {
++		if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++			printk("file:%s func:%s line:%d p->comm:%s target:%d\n",
++					__FILE__, __FUNCTION__, __LINE__, p->comm, target);
++		}
++	return housekeeping_any_cpu(HK_FLAG_DOMAIN);
++	}
+ 
+ 	/*
+ 	 * Due to large variance we need a large fuzz factor; hackbench in
+@@ -6226,8 +6256,13 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, int t
+ 	avg_idle = this_rq()->avg_idle / 512;
+ 	avg_cost = this_sd->avg_scan_cost + 1;
+ 
+-	if (sched_feat(SIS_AVG_CPU) && avg_idle < avg_cost)
++	if (sched_feat(SIS_AVG_CPU) && avg_idle < avg_cost) {
++		if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++			printk("file:%s func:%s line:%d p->comm:%s target:%d\n",
++					__FILE__, __FUNCTION__, __LINE__, p->comm, target);
++		}
+ 		return -1;
++	}
+ 
+ 	if (sched_feat(SIS_PROP)) {
+ 		u64 span_avg = sd->span_weight * avg_idle;
+@@ -6240,8 +6275,13 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, int t
+ 	time = local_clock();
+ 
+ 	for_each_cpu_wrap(cpu, sched_domain_span(sd), target) {
+-		if (!--nr)
++		if (!--nr) {
++			if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++				printk("file:%s func:%s line:%d p->comm:%s target:%d\n",
++						__FILE__, __FUNCTION__, __LINE__, p->comm, target);
++			}
+ 			return -1;
++		}
+ 		if (!cpumask_test_cpu(cpu, &p->cpus_allowed))
+ 			continue;
+ 		if (available_idle_cpu(cpu))
+@@ -6253,6 +6293,11 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, int t
+ 	delta = (s64)(time - cost) / 8;
+ 	this_sd->avg_scan_cost += delta;
+ 
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s target:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, target);
++	}
++
+ 	return cpu;
+ }
+ 
+@@ -6264,14 +6309,31 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+ 	struct sched_domain *sd;
+ 	int i, recent_used_cpu;
+ 
+-	if (available_idle_cpu(target))
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s prev:%d target:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, prev, target);
++	}
++
++	if (available_idle_cpu(target)  && cpumask_test_cpu(target, housekeeping_cpumask(HK_FLAG_DOMAIN))) {
++		if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++			printk("file:%s func:%s line:%d p->comm:%s prev:%d target:%d\n",
++					__FILE__, __FUNCTION__, __LINE__, p->comm, prev, target);
++		}
+ 		return target;
++	}
+ 
+ 	/*
+ 	 * If the previous CPU is cache affine and idle, don't be stupid:
+ 	 */
+-	if (prev != target && cpus_share_cache(prev, target) && available_idle_cpu(prev))
++	if (prev != target && cpus_share_cache(prev, target) && available_idle_cpu(prev) && 
++			cpumask_test_cpu(target, housekeeping_cpumask(HK_FLAG_DOMAIN))) {
++
++		if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++			printk("file:%s func:%s line:%d p->comm:%s prev:%d target:%d\n",
++					__FILE__, __FUNCTION__, __LINE__, p->comm, prev, target);
++		}
+ 		return prev;
++	}
+ 
+ 	/* Check a recently used CPU as a potential idle candidate: */
+ 	recent_used_cpu = p->recent_used_cpu;
+@@ -6285,24 +6347,63 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+ 		 * candidate for the next wake:
+ 		 */
+ 		p->recent_used_cpu = prev;
++		if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++			printk("file:%s func:%s line:%d p->comm:%s prev:%d target:%d recent_used_cpu:%d\n",
++					__FILE__, __FUNCTION__, __LINE__, p->comm, prev, target, recent_used_cpu);
++		}
+ 		return recent_used_cpu;
+ 	}
+ 
+ 	sd = rcu_dereference(per_cpu(sd_llc, target));
+-	if (!sd)
++	if (!sd && cpumask_test_cpu(target, housekeeping_cpumask(HK_FLAG_DOMAIN))) {
++		if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++			printk("file:%s func:%s line:%d p->comm:%s prev:%d target:%d recent_used_cpu:%d\n",
++					__FILE__, __FUNCTION__, __LINE__, p->comm, prev, target, recent_used_cpu);
++		}
+ 		return target;
++	}
+ 
+ 	i = select_idle_core(p, sd, target);
+-	if ((unsigned)i < nr_cpumask_bits)
++	if ((unsigned)i < nr_cpumask_bits) {
++		if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++			printk("file:%s func:%s line:%d p->comm:%s prev:%d target:%d recent_used_cpu:%d (unsigned)i:%u\n",
++					__FILE__, __FUNCTION__, __LINE__, p->comm, prev, target, recent_used_cpu, (unsigned)i);
++		}
+ 		return i;
++	}
++
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s prev:%d target:%d recent_used_cpu:%d (unsigned)i:%u\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, prev, target, recent_used_cpu, (unsigned)i);
++	}
+ 
+ 	i = select_idle_cpu(p, sd, target);
+-	if ((unsigned)i < nr_cpumask_bits)
++	if ((unsigned)i < nr_cpumask_bits) {
++		if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++			printk("file:%s func:%s line:%d p->comm:%s prev:%d target:%d recent_used_cpu:%d (unsigned)i:%u\n",
++					__FILE__, __FUNCTION__, __LINE__, p->comm, prev, target, recent_used_cpu, (unsigned)i);
++		}
+ 		return i;
++	}
++
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s prev:%d target:%d recent_used_cpu:%d (unsigned)i:%u\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, prev, target, recent_used_cpu, (unsigned)i);
++	}
+ 
+ 	i = select_idle_smt(p, sd, target);
+-	if ((unsigned)i < nr_cpumask_bits)
++	if ((unsigned)i < nr_cpumask_bits) {
++		if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++			printk("file:%s func:%s line:%d p->comm:%s prev:%d target:%d recent_used_cpu:%d (unsigned)i:%u\n",
++					__FILE__, __FUNCTION__, __LINE__, p->comm, prev, target, recent_used_cpu, (unsigned)i);
++		}
+ 		return i;
++	}
++
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s prev:%d target:%d recent_used_cpu:%d (unsigned)i:%u\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, prev, target, recent_used_cpu, (unsigned)i);
++	}
+ 
+ 	return target;
+ }
+@@ -6494,6 +6595,17 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
+ 	int want_affine = 0;
+ 	int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
+ 
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s cpu:%d p->recent_used_cpu:%d prev_cpu:%d new_cpu:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, cpu, p->recent_used_cpu, prev_cpu, new_cpu);
++	}
++
++	if (strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s cpu:%d p->recent_used_cpu:%d prev_cpu:%d new_cpu:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, cpu, p->recent_used_cpu, prev_cpu, new_cpu);
++		dump_stack();
++	}
++
+ 	if (sd_flag & SD_BALANCE_WAKE) {
+ 		record_wakee(p);
+ 		want_affine = !wake_wide(p) && !wake_cap(p, cpu, prev_cpu)
+@@ -6511,9 +6623,15 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
+ 		 */
+ 		if (want_affine && (tmp->flags & SD_WAKE_AFFINE) &&
+ 		    cpumask_test_cpu(prev_cpu, sched_domain_span(tmp))) {
+-			if (cpu != prev_cpu)
++			if (cpu != prev_cpu) {
+ 				new_cpu = wake_affine(tmp, p, cpu, prev_cpu, sync);
+ 
++				if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++					printk("file:%s func:%s line:%d p->comm:%s cpu:%d p->recent_used_cpu:%d prev_cpu:%d new_cpu:%d\n",
++							__FILE__, __FUNCTION__, __LINE__, p->comm, cpu, p->recent_used_cpu, prev_cpu, new_cpu);
++				}
++			}
++
+ 			sd = NULL; /* Prefer wake_affine over balance flags */
+ 			break;
+ 		}
+@@ -6530,6 +6648,11 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
+ 	} else if (sd_flag & SD_BALANCE_WAKE) { /* XXX always ? */
+ 		/* Fast path */
+ 
++		if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++			printk("file:%s func:%s line:%d p->comm:%s cpu:%d prev_cpu:%d new_cpu:%d\n",
++					__FILE__, __FUNCTION__, __LINE__, p->comm, cpu, prev_cpu, new_cpu);
++		}
++
+ 		new_cpu = select_idle_sibling(p, prev_cpu, new_cpu);
+ 
+ 		if (want_affine)
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index 580688aba369..abd803e57af0 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -1458,7 +1458,15 @@ static inline struct task_group *task_group(struct task_struct *p)
+ 
+ static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
+ {
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s p->recent_used_cpu:%d task_cpu(p):%d, p->wake_cpu:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, p->recent_used_cpu, task_cpu(p), p->wake_cpu);
++	}
+ 	set_task_rq(p, cpu);
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s p->recent_used_cpu:%d task_cpu(p):%d, p->wake_cpu:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, p->recent_used_cpu, task_cpu(p), p->wake_cpu);
++	}
+ #ifdef CONFIG_SMP
+ 	/*
+ 	 * After ->cpu is set up to a new value, task_rq_lock(p, ...) can be
+@@ -1471,7 +1479,15 @@ static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
+ #else
+ 	WRITE_ONCE(task_thread_info(p)->cpu, cpu);
+ #endif
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s p->recent_used_cpu:%d task_cpu(p):%d, p->wake_cpu:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, p->recent_used_cpu, task_cpu(p), p->wake_cpu);
++	}
+ 	p->wake_cpu = cpu;
++	if (strcmp(p->comm, "ksmd") == 0 || strcmp(p->comm, "kthreadd") == 0) {
++		printk("file:%s func:%s line:%d p->comm:%s p->recent_used_cpu:%d task_cpu(p):%d, p->wake_cpu:%d\n",
++				__FILE__, __FUNCTION__, __LINE__, p->comm, p->recent_used_cpu, task_cpu(p), p->wake_cpu);
++	}
+ #endif
+ }
+ 
+diff --git a/kernel/sched/topology.c b/kernel/sched/topology.c
+index 9ee918468cae..fbf7ba152f64 100644
+--- a/kernel/sched/topology.c
++++ b/kernel/sched/topology.c
+@@ -401,6 +401,7 @@ DEFINE_PER_CPU(struct sched_domain *, sd_asym);
+ 
+ static void update_top_cache_domain(int cpu)
+ {
++	printk("file:%s func:%s line:%d cpu:%d\n", __FILE__, __FUNCTION__, __LINE__, cpu);
+ 	struct sched_domain_shared *sds = NULL;
+ 	struct sched_domain *sd;
+ 	int id = cpu;
+@@ -413,6 +414,7 @@ static void update_top_cache_domain(int cpu)
+ 		sds = sd->shared;
+ 	}
+ 
++	dump_stack();
+ 	rcu_assign_pointer(per_cpu(sd_llc, cpu), sd);
+ 	per_cpu(sd_llc_size, cpu) = size;
+ 	per_cpu(sd_llc_id, cpu) = id;
+@@ -1711,6 +1713,7 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
+ 
+ 	/* Set up domains for CPUs specified by the cpu_map: */
+ 	for_each_cpu(i, cpu_map) {
++		printk("file:%s func:%s line:%d cpu:%d\n", __FILE__, __FUNCTION__, __LINE__, i);
+ 		struct sched_domain_topology_level *tl;
+ 
+ 		sd = NULL;
+@@ -1846,6 +1849,9 @@ int sched_init_domains(const struct cpumask *cpu_map)
+ 	if (!doms_cur)
+ 		doms_cur = &fallback_doms;
+ 	cpumask_and(doms_cur[0], cpu_map, housekeeping_cpumask(HK_FLAG_DOMAIN));
++	pr_info("file:%s func:%s line:%d Housekeeping mask: %*pbl\n", __FILE__, __FUNCTION__, __LINE__, cpumask_pr_args(housekeeping_cpumask(HK_FLAG_DOMAIN)));
++	pr_info("file:%s func:%s line:%d CPU map: %*pbl\n", __FILE__, __FUNCTION__, __LINE__, cpumask_pr_args(cpu_map));
++	pr_info("file:%s func:%s line:%d Result mask: %*pbl\n", __FILE__, __FUNCTION__, __LINE__, cpumask_pr_args(doms_cur[0]));
+ 	err = build_sched_domains(doms_cur[0], NULL);
+ 	register_sched_domain_sysctl();
+ 
+-- 
+2.27.0
+
