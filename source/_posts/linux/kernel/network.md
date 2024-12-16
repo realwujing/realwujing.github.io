@@ -1,10 +1,24 @@
 ---
 date: 2023/04/19 16:11:21
-updated: 2023/04/21 17:49:29
+updated: 2024/09/19 09:53:14
 ---
 
 
 # network
+
+- [<font color=Red>你管这破玩意叫网络</font>](https://mp.weixin.qq.com/s/MXHouvWLBsm7hqHUUjJaEw)
+- [22张图详解浏览器请求数据包如何到达web服务器（搞懂网络可以出师了）](https://mp.weixin.qq.com/s/ylwRYbc2onEOVOxPsNfdwQ)
+- [网卡与Linux网络结构（上）](https://mp.weixin.qq.com/s/2BXrbTJcaKV2OMgHfcuYNg)
+- [网卡与Linux网络结构（中）](https://mp.weixin.qq.com/s/zlbdi6n8lVUARVEtC3lHcA)
+- [网卡与Linux网络结构（下）](https://mp.weixin.qq.com/s/SiM6K2uhdjEist6ZL_klyw)
+- [网卡与数据接收（上）](https://mp.weixin.qq.com/s/Ne9RFsJWPqzstZTlhIS1dQ)
+- [网卡与数据接收（中）](https://mp.weixin.qq.com/s/_pXvYxImkcTomer4kBoiXQ)
+- [源码溯源：网卡队列超时机制](https://mp.weixin.qq.com/s/FtgHB2yPb1-3p6KJ653B3w)
+- [通俗理解数据中心CPU和GPU之后的第三颗关键芯片“DPU”](https://mp.weixin.qq.com/s/SVscsnpOAtsZ6IBk34AYug)
+- [字节校招：TCP 和 UDP 可以同时绑定相同的端口吗？](https://mp.weixin.qq.com/s/4G4il3rZSMmEgvdvGSH_Gw)
+- [59页PPT，全面了解"无线通信原理"](https://mp.weixin.qq.com/s/TEJYQJkT4FToeEoxI_9Tmg)
+- [【Linux】如何查看网卡驱动](https://blog.csdn.net/imliuqun123/article/details/139596951)
+- [Linux网络最难理解的五个核心概念](https://mp.weixin.qq.com/s/15oz0wMR-lGIjDmQcGo_rQ)
 
 ## 计算机网络
 
@@ -23,10 +37,16 @@ updated: 2023/04/21 17:49:29
 - [socket编程入门：1天玩转socket通信技术（非常详细）](http://m.biancheng.net/socket/)
 - [socket缓冲区以及阻塞模式](http://m.biancheng.net/view/2349.html)
 - [<font color=Red>Socket缓冲区</font>](https://blog.csdn.net/summer_fish/article/details/121740570)
-- [Ubuntu 设置Socket缓冲区大小](https://zhuanlan.zhihu.com/p/486140420#:~:text=%E5%BD%93%E6%88%91%E4%BB%AC%E5%88%9B%E5%BB%BA%E4%B8%80%E4%B8%AAsocket%E7%9A%84%E6%97%B6%E5%80%99%EF%BC%8C%E5%85%B6%E9%BB%98%E8%AE%A4%E7%9A%84%E7%BC%93%E5%86%B2%E5%8C%BA%E5%A4%A7%E5%B0%8F%E7%94%B1%E5%86%85%E6%A0%B8%E7%9A%84%E9%BB%98%E8%AE%A4%E7%BC%93%E5%86%B2%E5%8C%BA%E5%A4%A7%E5%B0%8F%E5%86%B3%E5%AE%9A%EF%BC%8C%E5%8F%AF%E4%BB%A5%E9%80%9A%E8%BF%87%E5%A6%82%E4%B8%8B%E6%8C%87%E4%BB%A4%E6%9F%A5%E7%9C%8B%EF%BC%9A%20cat%20%2Fproc%2Fsys%2Fnet%2Fcore%2Frmem_default%20%2F%2F%20%E8%AF%BB%E7%BC%93%E5%86%B2%E5%8C%BA%EF%BC%8C%E5%8D%95%E4%BD%8DByte%EF%BC%8C%E5%A6%821048576%20%E8%A1%A8%E7%A4%BA,1MB%20cat%20%2Fproc%2Fsys%2Fnet%2Fcore%2Fwmem_default%20%2F%2F%20%E5%86%99%E7%BC%93%E5%86%B2%E5%8C%BA%EF%BC%8C%E5%8D%95%E4%BD%8DByte%EF%BC%8C%E5%A6%821048576%20%E8%A1%A8%E7%A4%BA%201MB)
+- [Ubuntu 设置Socket缓冲区大小](https://zhuanlan.zhihu.com/p/486140420)
 - [<font color=Red>Linux fd 系列 — socket fd 是什么？</font>](https://os.51cto.com/article/682138.html)
 - [Linux内核 | socket底层的来龙去脉](https://mp.weixin.qq.com/s/6fxS9GDdKOIkKASiz0e07Q)
 - [如何学习 Linux 内核网络协议栈](https://mp.weixin.qq.com/s/0eomyTaKWVeJbryIEdo1ug)
+- [socket中write和send有什么区别？——拆解大厂面试题(校招)](https://mp.weixin.qq.com/s/Wq0Ns-5oWcMH7QKhmxwtHg)
+
+### Netlink
+
+- [Linux用户空间与内核空间通信(Netlink通信机制)](https://mp.weixin.qq.com/s/CMWxPcJzoN6TlDypaB4kXA)
+- [深入了解Linux netlink机制：实现高性能网络通信](https://mp.weixin.qq.com/s/odS7qoVGrtOgSt99o5hw0g)
 
 ## select
 
@@ -49,6 +69,10 @@ updated: 2023/04/21 17:49:29
 - [盘点Linux Epoll那些致命弱点](https://mp.weixin.qq.com/s/tu7ovS2xO6ju-H5gB8TNCw)
 
 - [大话 Select、Poll、Epoll - 云+社区 - 腾讯云 (tencent.com)](https://cloud.tencent.com/developer/article/1005481)
+
+### 惊群效应
+
+- [深入理解linux惊群效应（超详细）](https://mp.weixin.qq.com/s/CTj-HpnmX8d_hDWk5t-oqQ)
 
 ## libevent
 
@@ -104,3 +128,78 @@ updated: 2023/04/21 17:49:29
 - [一文读懂物联网MQTT协议之基础特性篇](https://www.toutiao.com/article/7191463571258343948/)
 
 - [为什么HTTPS是安全的？](https://mp.weixin.qq.com/s/Qafa3nE_vTzdl1jGTiUaMw)
+
+- [刚插上网线，电脑怎么知道自己的IP是什么？](https://mp.weixin.qq.com/s/siG1XMxQnduBWdY-hvQO8g)
+
+- [一张图了解八种流行的网络协议](https://mp.weixin.qq.com/s/f19jaSwKA0oTE87yAfyb2w)
+
+## phy
+
+- [Linux 实现原理 — 网卡驱动程序初始化流程](https://mp.weixin.qq.com/s/jcolfo4bvKPS-eRdeCkRCg)
+- [PHY芯片快速深度理解（持续更新中……）](https://blog.csdn.net/qq_40715266/article/details/124095801)
+- [【网络驱动】ifconfig up 后内核网络驱动做了什么？](https://mp.weixin.qq.com/s/VQWEkycARPQ2pCpDxx_Rnw)
+
+## 扫描工具
+
+- [【工具更新】内网大杀器Fscan](https://mp.weixin.qq.com/s/HnerPmV34KWKLADVsEx5gA)
+
+## 内网穿透
+
+- [内网穿透详解](https://www.toutiao.com/article/7317562665730097704/)
+
+## 抓包
+
+- [Linux性能优化-用tcpdump 和 Wireshark 分析网络流量](https://blog.csdn.net/hixiaoxiaoniao/article/details/87596703)
+- [一文掌握 Linux 性能分析之网络篇](https://www.cnblogs.com/bakari/p/10515977.html)
+- [wireshark过滤http包](https://blog.csdn.net/github_40044758/article/details/111290919)
+- [<font color=Red>如何在 Linux 上使用 Wireshark 过滤器</font>](https://cn.linux-console.net/?p=8295)
+
+  ```bash
+  http.host=="www.baidu.com"
+  ```
+
+  ![http.host=="www.baidu.com"](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240117135816.png)
+
+## 丢包
+
+- [Linux内核常见的网络丢包场景分析](https://mp.weixin.qq.com/s/vdW0L7nEdfrxSJ_9VGviaA)
+- [Linux内核网络丢包探秘，这些办法轻松搞定](https://mp.weixin.qq.com/s/eLO9NxH4XfRca-PP5VCtPQ)
+
+## dns
+
+- [扫盲DNS缓存及客户端配置](https://mp.weixin.qq.com/s/r4yvPXu-DTYlmCflEE7o7A)
+- [Github Pages 绑定域名遇到的坑](https://blog.csdn.net/i_do_not_know_you/article/details/105594269)
+
+## proxy
+
+macOS Monterey 12.7.5在系统偏好设置-网络-WiFi-代理中修改配置无法保存，clashx中设置为系统代理也无法取消，详情参见下图：
+
+![代理](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240603234753.png)
+
+查看内核版本：
+
+  ```bash
+  uname -a
+  Darwin MacBook-Pro.local 21.6.0 Darwin Kernel Version 21.6.0: Wed Apr 24 06:02:02 PDT 2024; root:xnu-8020.240.18.708.4~1/RELEASE_X86_64 x86_64
+  ```
+
+查看系统系统发型版本：
+
+```bash
+sw_vers
+ProductName:    macOS
+ProductVersion: 12.7.5
+BuildVersion:   21H1222
+```
+
+在Finder中查看/Library/Preferences/SystemConfiguration/preferences.plist文件，发现图标左下角有把锁，打开简介，显示已锁定。
+
+移除文件锁定：取消对 preferences.plist 文件的用户不可更改（uchg）标志，使其可被修改：
+
+  ```bash
+  sudo chflags nouchg /Library/Preferences/SystemConfiguration/preferences.plist
+  ```
+
+## wifi
+
+- [Linux通过命令行连接wifi的方式](https://www.toutiao.com/article/7407405280704659994)

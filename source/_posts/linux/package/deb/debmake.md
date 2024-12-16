@@ -1,6 +1,6 @@
 ---
 date: 2023/04/19 22:00:35
-updated: 2023/04/19 22:00:35
+updated: 2023/09/21 10:07:10
 ---
 
 # 宿主机上打包deb教程
@@ -15,7 +15,7 @@ updated: 2023/04/19 22:00:35
 
     ```bash
     cd linglong-repo
-    sudo apt build-dep .
+    sudo apt build-dep .    # 使用.报错时，可以将.替换成debian/control中的Source字段
     cd ..
     ```
 

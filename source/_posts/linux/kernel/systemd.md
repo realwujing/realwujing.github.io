@@ -1,48 +1,40 @@
 ---
 date: 2023/04/19 16:32:36
-updated: 2023/04/21 17:50:07
+updated: 2024/10/12 09:20:08
 ---
 
 # systemd
 
-## 开机启动
+- [<font color=Red>Systemd 入门教程：命令篇</font>](https://www.ruanyifeng.com/blog/2016/03/systemd-tutorial-commands.html)
+- [<font color=Red>Systemd 入门教程：实战篇</font>](https://www.ruanyifeng.com/blog/2016/03/systemd-tutorial-part-two.html)
 
-- [<font color=Red>如何弄清Linux系统运行何种系统管理程序</font>](https://www.toutiao.com/article/6623154113427276291/)
-- [ubuntu-18.04设置开机启动脚本](https://www.cnblogs.com/airdot/p/9688530.html)
-- [Linux Ubuntu 20.04 —添加开机启动(服务/脚本)](https://www.cnblogs.com/Areas/p/13439000.html)
-- [Ubuntu安装sysv-rc-conf配置开机启动服务](https://www.cnblogs.com/dongruiha/p/9941667.html)
-- [centos开机启动项设置命令：chkconfig](https://www.cnblogs.com/zfying/archive/2013/03/12/2955710.html)
+- [＜systemd问题定位手段＞](https://blog.csdn.net/wentian901218/article/details/117811137)
 
-## systemd
+    systemd日志输出到串口控制台：
 
-- [<font color=Red>学会systemd</font>](https://systemd-book.junmajinlong.com/)
+    ```bash
+    systemd.log_level=debug systemd.log_target=console console=ttyS0,115200
+    ```
+
+## 配置文件编写
+
 - [<font color=Red>systemd服务配置文件编写(1)</font>](https://www.junmajinlong.com/linux/systemd/service_1/)
 - [<font color=Red>systemd service之：服务配置文件编写(2)-使用target组合多个服务</font>](https://www.junmajinlong.com/linux/systemd/service_2/)
-- [<font color=Red>可能是史上最全面易懂的Systemd服务管理教程！(强烈建议收藏)</font>](https://cloud.tencent.com/developer/article/1516125)
 - [Linux 使用 Systemd 管理进程服务，划重点~](https://mp.weixin.qq.com/s/1aYloTgM5c4riS0KVWKNdA)
-
-- [万字整理 | Linux systemd 学习笔记](https://mp.weixin.qq.com/s/OJILycTxaYHdTHIv3vI4kw)
 
 - [systemctl管理的active(exited)状态说明](https://www.cnblogs.com/cxyc005/p/13323116.html)
 
-- [<font color=Red>Systemd 入门教程：命令篇</font>](https://www.ruanyifeng.com/blog/2016/03/systemd-tutorial-commands.html)
-- [<font color=Red>Systemd 入门教程：实战篇</font>](https://www.ruanyifeng.com/blog/2016/03/systemd-tutorial-part-two.html)
 - [<font color=Red>systemd 用户级别</font>](https://wiki.archlinux.org/title/Systemd_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)/User_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87))
-- [<font color=Red>编写systemd服务脚本</font>](https://qgrain.github.io/2020/05/12/%E7%BC%96%E5%86%99systemd%E6%9C%8D%E5%8A%A1%E8%84%9A%E6%9C%AC/)
+
+## 日志
 
 - [<font color=Red>表 3.5. 典型的 journalctl 命令片段列表</font>](https://www.debian.org/doc/manuals/debian-reference/ch03.zh-cn.html#_the_system_message)
 - [<font color=Red>Linux系统查看日志命令journalctl的一些用法</font>](https://zhuanlan.zhihu.com/p/410995772)
 - [如何使用 journalctl 查看和分析 systemd 日志（附实例）](https://www.toutiao.com/article/7200566974173151802)
 
-- [Linux(入门基础):105-systemctl命令管理系统的操作界面环境（target）](https://www.likecs.com/show-204729373.html)
-
-- [Systemd工作原理及使用](https://blog.csdn.net/weixin_33728708/article/details/92449569)
-- [systemctl是 Systemd 的主命令，用于管理系统。](https://www.cnblogs.com/zwcry/p/9602756.html)
-- [Linux中的systemctl和service](https://www.jianshu.com/p/ffe6990570d9)
-- [systemctl与service](https://blog.csdn.net/qq_39385118/article/details/102542146)
-- [systemd详解](http://www.360doc.com/content/22/0517/13/35525662_1031760458.shtml)
-- [一看就懂的 Systemd 进程管理教程](https://mp.weixin.qq.com/s/5rl46HOh32UzIcjVUxMJjQ)
-- [Linux守护进程详解](https://www.jianshu.com/p/47ceac3a0e51)
+- [rsyslog服务及Linux系统日志简介](https://www.jianshu.com/p/3b11a2b7c746)
+- [Enable Rsyslog Logging on Debian 12](https://kifarunix.com/enable-rsyslog-logging-on-debian-12/)
+- [Linux系统中的日志管理——journal、rsyslog、timedatectl、时间同步](https://blog.csdn.net/qq_45225437/article/details/104294044)
 
 ## swap
 
@@ -51,3 +43,42 @@ updated: 2023/04/21 17:50:07
 - [systemd.swap — Swap unit configuration](https://www.freedesktop.org/software/systemd/man/systemd.swap.html)
 - [openSUSE Tumbleweed 中禁用 SWAP](https://cnzhx.net/blog/disable-swap-in-opensuse-tumbleweed/)
 - [openSUSE Tumbleweed 中禁用 SWAP](https://www.freedesktop.org/software/systemd/man/systemd.swap.html)
+
+## reload
+
+- [Linux Systemd 详细介绍: Unit、Unit File、Systemctl、Target](https://www.cnblogs.com/usmile/p/13065594.html)
+- [linux systemctl 命令](https://www.cnblogs.com/sparkdev/p/8472711.html)
+
+## 启动顺序
+
+- [<font color=Red>systemd服务启动顺序分析工具</font>](https://blog.csdn.net/qq_31442743/article/details/118571723)
+- [systemd启动流程分析](https://blog.csdn.net/rikeyone/article/details/108097837)
+
+- [<font color=Red>输出单元间的依赖关系图</font>](https://www.jinbuguo.com/systemd/systemd-analyze.html)
+
+    ```bash
+    sudo apt install graphviz
+    systemd-analyze dot "lightdm.service" | dot -Tsvg > systemd.svg
+    ```
+
+## 非图形界面
+
+- [ubuntu不启动图形界面](https://zhuanlan.zhihu.com/p/344347732)
+
+## 其他
+
+- [XDG Autostart](https://wiki.archlinux.org/title/XDG_Autostart)
+
+### chkconfig
+
+- [ubuntu-18.04设置开机启动脚本](https://www.cnblogs.com/airdot/p/9688530.html)
+- [Linux Ubuntu 20.04 —添加开机启动(服务/脚本)](https://www.cnblogs.com/Areas/p/13439000.html)
+- [Ubuntu安装sysv-rc-conf配置开机启动服务](https://www.cnblogs.com/dongruiha/p/9941667.html)
+- [centos开机启动项设置命令：chkconfig](https://www.cnblogs.com/zfying/archive/2013/03/12/2955710.html)
+
+#### service
+
+- [Linux中的systemctl和service](https://www.jianshu.com/p/ffe6990570d9)
+
+- [Linux systemd资源控制初探](https://www.cnblogs.com/jimbo17/p/9107052.html)
+- [在新 Linux 发行版上切换 cgroups 版本](https://www.vvave.net/archives/introduction-to-linux-kernel-control-groups-v2.html)
