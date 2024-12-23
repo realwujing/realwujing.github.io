@@ -512,3 +512,7 @@ cscope、grep等都可以创建新的快速修复列表。
 ### nano
 
 - [4.4 超简单文书编辑器： nano](https://www.wenjiangs.com/doc/8ij4xm4z)
+
+### Source Insight
+
+- [Source Insight 查看函数调用关系使用技巧](https://blog.csdn.net/lyndon_li/article/details/121504277)
