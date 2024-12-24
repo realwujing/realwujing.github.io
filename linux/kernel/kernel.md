@@ -116,6 +116,22 @@ Linux 内核相关网站的出现顺序:
 ### Git邮件向Linux社区提交内核补丁
 
 - [<font color=Red>从 LKML 优雅的摘取补丁</font>](https://blog.xzr.moe/archives/293/)
+
+    本次示例在debian12上操作：
+
+    ```bash
+    sudo apt install b4
+    ```
+
+    - <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=d94785bb46b6167382b1de3290eccc91fa98df53>
+
+    - <https://lore.kernel.org/all/20241008094325.896208-1-leitao@debian.org/>
+
+    ```bash
+    b4 am -o - 20241008094325.896208-1-leitao@debian.org | git am -3
+    ```
+
+
 - [正确使用邮件列表参与开源社区的协作](https://tinylab.org/mailing-list-intro/)
 - [提交内核补丁到Linux社区的步骤](https://www.cnblogs.com/gmpy/p/12200609.html)
 - [Git邮件向Linux社区提交内核补丁教程](https://blog.csdn.net/Guet_Kite/article/details/117997036)
