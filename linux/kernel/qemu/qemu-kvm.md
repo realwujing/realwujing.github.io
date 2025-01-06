@@ -458,6 +458,8 @@ virsh undefine wujing --nvram
 
 ### 共享目录
 
+#### 9p
+
 在宿主机查看虚拟机共享目录配置:
 
 ![共享目录](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240202130011.png)
@@ -484,6 +486,35 @@ sudo mount -a
 ```
 
 - [virt-manager设置主机和虚拟机之间文件共享](https://blog.csdn.net/sinat_38816924/article/details/120284285)
+
+#### virtio-fs
+
+![共享目录](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20250106194859.png)
+
+在虚拟机上执行下方命令：
+
+```bash
+sudo mount -t virtiofs /home/wujing/code /home/wujing/code
+sudo mount -t virtiofs /home/wujing/Downloads /home/wujing/Downloads
+```
+
+如果在虚拟机上想启动就默认挂载，可以写入 /etc/fstab：
+
+```bash
+sudo cat << EOF >> /etc/fstab
+/home/wujing/code    /home/wujing/code    virtiofs    defaults    0    0
+/home/wujing/Downloads /home/wujing/Downloads virtiofs defaults    0    0
+EOF
+```
+
+在虚拟机上重新挂载/etc/fstab：
+
+```bash
+sudo systemctl daemon-reload
+sudo mount -a
+```
+
+- [virtiofs: virtio-fs 主机<->客机共享文件系统](https://www.kernel.org/doc/html/latest/translations/zh_CN/filesystems/virtiofs.html)
 
 ### 时间
 
