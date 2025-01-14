@@ -431,6 +431,7 @@ ptype /o struct file
 
 ## panic
 
+- [<font color=Red>[linux][异常检测] hung task, soft lockup, hard lockup, workqueue stall</font>](https://blog.csdn.net/weixin_38184628/article/details/136208515)
 - [<font color=Red>Softlockup与hardlockup检测机制(又名:nmi_watchdog)</font>](https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/lockup-watchdogs.html)
 - [一起学习64位ARM平台稳定性分析：遇见内核 panic](https://mp.weixin.qq.com/s/d0vJgQYVDB3ZiQRMoDvvDw)
 - [Linux内核故障分类和排查](https://blog.csdn.net/rikeyone/article/details/105691909)
