@@ -1076,6 +1076,22 @@ traceroute www.example.com
 
 - [终于有人把正向代理和反向代理解释的明明白白了！](https://cloud.tencent.com/developer/article/1418457)
 
+#### wsl2使用w11代理
+
+在WSL 2中，Windows主机的IP通常可以通过以下命令获取：
+
+```bash
+ip route | grep default | awk '{print $3}'
+
+172.27.16.1
+```
+
+在WSL中设置代理:
+
+```bash
+export https_proxy=http://172.27.16.1:7897 http_proxy=http://172.27.16.1:7897 all_proxy=socks5://172.27.16.1:7897
+```
+
 ## 文件系统
 
 ### rm
