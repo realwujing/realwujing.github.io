@@ -340,15 +340,18 @@
                 
                 <h1 id="power_button">power_button</h1>
 <ul>
-<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/jjjjjj0000/article/details/120187623">linux下获取按键响应事件</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/yangwindsor/articles/3454955.html">linux下获取按键响应事件</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/jjjjjj0000/article/details/120187623">linux下获取按键响应事件</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.cnblogs.com/yangwindsor/articles/3454955.html">linux下获取按键响应事件</a></li>
 </ul>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> /sys/bus/acpi/drivers/button<br></code></pre></td></tr></table></figure>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// drivers/acpi/button.c:398</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">acpi_button_notify</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> acpi_device *device, u32 event)</span><br>&#123;<br>	<span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">acpi_button</span> *<span class="hljs-title">button</span> =</span> acpi_driver_data(device); <span class="hljs-comment">// 获取与按钮相关的数据结构</span><br><br>	<span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">input_dev</span> *<span class="hljs-title">input</span>;</span> <span class="hljs-comment">// 定义输入设备结构体指针</span><br>	<span class="hljs-type">int</span> users; <span class="hljs-comment">// 定义用户数</span><br><br>	<span class="hljs-keyword">switch</span> (event) &#123;<br>	<span class="hljs-keyword">case</span> ACPI_FIXED_HARDWARE_EVENT:<br>		event = ACPI_BUTTON_NOTIFY_STATUS; <span class="hljs-comment">// 重置事件为 ACPI_BUTTON_NOTIFY_STATUS</span><br>		<span class="hljs-comment">/* fall through */</span><br>	<span class="hljs-keyword">case</span> ACPI_BUTTON_NOTIFY_STATUS:<br>		input = button-&gt;input; <span class="hljs-comment">// 获取按钮关联的输入设备结构体</span><br><br>		<span class="hljs-keyword">if</span> (button-&gt;type == ACPI_BUTTON_TYPE_LID) &#123; <span class="hljs-comment">// 如果按钮类型是盖子开合按钮</span><br>			mutex_lock(&amp;button-&gt;input-&gt;mutex); <span class="hljs-comment">// 锁定输入设备的互斥锁</span><br>			users = button-&gt;input-&gt;users; <span class="hljs-comment">// 获取输入设备的用户数</span><br>			mutex_unlock(&amp;button-&gt;input-&gt;mutex); <span class="hljs-comment">// 解锁输入设备的互斥锁</span><br><br>			<span class="hljs-keyword">if</span> (users)<br>				acpi_lid_update_state(device, <span class="hljs-literal">true</span>); <span class="hljs-comment">// 如果有用户使用输入设备，更新盖子状态</span><br>		&#125; <span class="hljs-keyword">else</span> &#123; <span class="hljs-comment">// 对于其他类型的按钮</span><br>			<span class="hljs-type">int</span> keycode;<br><br>			acpi_pm_wakeup_event(&amp;device-&gt;dev); <span class="hljs-comment">// 唤醒事件</span><br>			<span class="hljs-keyword">if</span> (button-&gt;suspended)<br>				<span class="hljs-keyword">break</span>; <span class="hljs-comment">// 如果按钮被挂起，则跳过后续操作</span><br><br>			keycode = test_bit(KEY_SLEEP, input-&gt;keybit) ? KEY_SLEEP : KEY_POWER; <span class="hljs-comment">// 根据按钮类型确定按键代码</span><br>			input_report_key(input, keycode, <span class="hljs-number">1</span>); <span class="hljs-comment">// 上报按键按下事件</span><br>			input_sync(input); <span class="hljs-comment">// 同步输入事件</span><br>			input_report_key(input, keycode, <span class="hljs-number">0</span>); <span class="hljs-comment">// 上报按键释放事件</span><br>			input_sync(input); <span class="hljs-comment">// 同步输入事件</span><br><br>			acpi_bus_generate_netlink_event(<br>					device-&gt;pnp.device_class,<br>					dev_name(&amp;device-&gt;dev),<br>					event, ++button-&gt;pushed); <span class="hljs-comment">// 生成ACPI按钮事件的Netlink事件，递增按钮按下次数</span><br>		&#125;<br>		<span class="hljs-keyword">break</span>;<br>	<span class="hljs-keyword">default</span>:<br>		ACPI_DEBUG_PRINT((ACPI_DB_INFO,<br>				  <span class="hljs-string">&quot;Unsupported event [0x%x]\n&quot;</span>, event)); <span class="hljs-comment">// 输出不支持的事件信息</span><br>		<span class="hljs-keyword">break</span>;<br>	&#125;<br>&#125;<br></code></pre></td></tr></table></figure>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// drivers/acpi/button.c:110</span><br><span class="hljs-type">static</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">acpi_driver</span> <span class="hljs-title">acpi_button_driver</span> =</span> &#123;<br>	.name = <span class="hljs-string">&quot;button&quot;</span>, <span class="hljs-comment">// 驱动程序的名称为 &quot;button&quot;</span><br>	.class = ACPI_BUTTON_CLASS, <span class="hljs-comment">// 驱动程序的类别为 ACPI_BUTTON_CLASS</span><br>	.ids = button_device_ids, <span class="hljs-comment">// 驱动程序支持的设备标识列表</span><br>	.ops = &#123;<br>		.add = acpi_button_add, <span class="hljs-comment">// 添加设备时调用的回调函数</span><br>		.remove = acpi_button_remove, <span class="hljs-comment">// 移除设备时调用的回调函数</span><br>		.notify = acpi_button_notify, <span class="hljs-comment">// 处理设备通知事件的回调函数</span><br>	&#125;,<br>	.drv.pm = &amp;acpi_button_pm, <span class="hljs-comment">// 驱动程序的电源管理信息</span><br>&#125;;<br></code></pre></td></tr></table></figure>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c">drivers/acpi/bus.c:<span class="hljs-number">450</span><br>acpi_device_install_notify_handler<br></code></pre></td></tr></table></figure>
 <hr />
-<h2 id="按下电源键后acpi固件生成电源按钮事件的具体流程是啥">按下电源键后，acpi固件生成电源按钮事件的具体流程是啥？</h2>
+<h2
+id="按下电源键后acpi固件生成电源按钮事件的具体流程是啥">按下电源键后，acpi固件生成电源按钮事件的具体流程是啥？</h2>
 <p>按下电源键后，ACPI固件生成电源按钮事件的具体流程可以概括如下：</p>
 <ol type="1">
 <li><p><strong>电源按钮按下</strong>：当用户按下电源按钮时，电源按钮硬件上的电路状态发生变化，通常是由于按钮的闭合。这个状态变化是电源按钮事件的触发。</p></li>
@@ -371,7 +374,8 @@
 </ol>
 <p>总之，ACPI固件生成电源按钮事件的流程涉及硬件状态变化的检测、事件识别、生成ACPI事件、传递到操作系统内核以及在内核中的ACPI中断处理程序中进行事件处理。这种处理方式允许操作系统根据电源按钮事件的类型和配置来自定义响应。</p>
 <hr />
-<h2 id="第4步中的生成acpi事件在硬件层面如何观测呢">第4步中的生成ACPI事件在硬件层面如何观测呢？</h2>
+<h2
+id="第4步中的生成acpi事件在硬件层面如何观测呢">第4步中的生成ACPI事件在硬件层面如何观测呢？</h2>
 <p>在硬件层面，ACPI固件观测电源按钮事件的方式通常涉及以下步骤：</p>
 <ol type="1">
 <li><p><strong>硬件电路设计</strong>：在计算机系统的主板或电源管理控制器（例如，ACPI固件通常与主板上的BIOS或UEFI固件集成）上，存在一个与电源按钮相关的电路。这个电路通常包括与电源按钮物理连接的电线、电路元件和电子元器件。</p></li>
@@ -382,7 +386,8 @@
 </ol>
 <p>总之，硬件观测电源按钮事件的关键是通过电路设计和电路元件来检测电位差的变化，然后将这个变化转化为一个事件信号，通知ACPI固件有关事件的发生。这种硬件观测电源按钮事件的方式允许ACPI固件及时响应用户按下电源按钮的操作。</p>
 <hr />
-<h2 id="中断或事件通知这里再细化一下罗列出相关的函数">中断或事件通知这里再细化一下，罗列出相关的函数?</h2>
+<h2
+id="中断或事件通知这里再细化一下罗列出相关的函数">中断或事件通知这里再细化一下，罗列出相关的函数?</h2>
 <p>中断或事件通知的具体实现会涉及到与硬件和操作系统相关的多个函数和组件。以下是涉及到中断或事件通知的一些相关函数和组件，尽管具体的函数和调用链可能会因Linux内核版本和系统配置而有所不同，但这些函数和组件通常是涉及到的：</p>
 <ol type="1">
 <li><p><strong>中断处理程序</strong>：中断处理程序负责响应硬件产生的中断请求，其中可能包含与电源键事件相关的中断。这些函数通常在<code>arch/</code>和<code>drivers/</code>目录下实现，包括：</p>
@@ -426,7 +431,8 @@
 <p>第二次到底是ACPI事件通知机制有问题还是acpi固件没检测到电源按钮被按下？</p>
 <p>第一次acpi固件检测到了电源键按下事件并成功通过ACPI事件通知机制将电源键按下事件上报给了内核，进一步导致acpi_button_notify函数被调用。</p>
 <hr />
-<h2 id="电源按下后acpi固件电源按钮事件未能正确处理或未能在处理完后恢复正常状态会不会导致再次按下电源键后acpi固件检测电源按下事件异常">电源按下后acpi固件电源按钮事件未能正确处理或未能在处理完后恢复正常状态，会不会导致再次按下电源键后acpi固件检测电源按下事件异常？</h2>
+<h2
+id="电源按下后acpi固件电源按钮事件未能正确处理或未能在处理完后恢复正常状态会不会导致再次按下电源键后acpi固件检测电源按下事件异常">电源按下后acpi固件电源按钮事件未能正确处理或未能在处理完后恢复正常状态，会不会导致再次按下电源键后acpi固件检测电源按下事件异常？</h2>
 <p>电源按下后，如果ACPI固件未能正确处理电源按钮事件或未能在处理完事件后恢复正常状态，可能会导致再次按下电源键时出现异常情况。这种异常情况可能包括以下情况之一：</p>
 <ol type="1">
 <li><p><strong>电源按钮事件丢失</strong>：如果ACPI固件在首次按下电源按钮事件后未能正确处理并清除该事件，可能会导致后续的电源按钮事件被丢失或无法被正确检测。</p></li>
@@ -439,7 +445,9 @@
 <li><p><strong>检查硬件</strong>：确保电源按钮硬件没有故障。有时候，硬件故障可能导致电源按钮事件无法正确检测或处理。</p></li>
 <li><p><strong>操作系统和内核更新</strong>：确保操作系统和内核是最新的，以确保其与ACPI固件协同工作正常。</p></li>
 <li><p><strong>ACPI设置</strong>：在BIOS或UEFI设置中，检查与电源按钮事件相关的配置选项，确保其设置正确。</p></li>
-<li><p><strong>ACPI事件监测</strong>：使用ACPI事件监测工具（如 <code>acpidump</code> 或 <code>acpi_listen</code>）来监视ACPI事件，以检查它们是否按预期生成。</p></li>
+<li><p><strong>ACPI事件监测</strong>：使用ACPI事件监测工具（如
+<code>acpidump</code> 或
+<code>acpi_listen</code>）来监视ACPI事件，以检查它们是否按预期生成。</p></li>
 <li><p><strong>系统状态恢复</strong>：如果ACPI固件未能正确管理系统状态，可能需要手动干预来恢复系统状态。</p></li>
 </ul>
 <p>如果您遇到了电源按钮事件处理的异常情况，建议首先尝试更新ACPI固件和操作系统，并检查硬件是否正常。如果问题仍然存在，可能需要更深入的系统诊断和调试，可能需要与计算机制造商或操作系统供应商联系以获取更多支持。</p>
