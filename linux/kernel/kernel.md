@@ -85,6 +85,10 @@
 - <https://wiki.debian.org/DebianKernel>
 - <https://salsa.debian.org/kernel-team/linux>
 
+### openeuler
+
+- [2、openEuler社区版本生命周期管理规范（LTS+SP](https://www.openeuler.org/zh/other/lifecycle/)
+
 ### others
 
 - [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
