@@ -540,6 +540,9 @@ sudo mount -a
 - [QEMU显示虚拟化的几种选项](https://blog.csdn.net/tugouxp/article/details/134487575)
 - [GPU虚拟化技术探索](https://mp.weixin.qq.com/s/LEVdZYLz62H_zwTthxuw7A)
 
+- [FT2000+ openEuler 20.03 LTS SP3 yum install qemu手动创建虚拟机 图形界面安装openEuler 20.03系统](https://blog.csdn.net/hknaruto/article/details/130154674)
+- [解决qemu-system-aarch64 Guest has not initialized the display (yet)](https://blog.csdn.net/hknaruto/article/details/127515804)
+
 ## KVM性能优化
 
 - [KVM性能优化最佳实践](https://blog.csdn.net/allway2/article/details/102760738)
