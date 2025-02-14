@@ -668,7 +668,48 @@ export CROSS_COMPILE=/root/Downloads/gcc-arm-10.3-2021.07-x86_64-aarch64-none-li
 export ARCH=arm64
 make openeuler_defconfig
 make binrpm-pkg -j32
+rpmbuild -ba --target=aarch64 build/kernel.spec --define "_host_cpu aarch64"
 ```
+
+也可使用rpmbuild交叉编译的方式：
+```bash
+
+# 搭建交叉编译环境
+mkdir -p /root/Downloads/cross_compile
+cd /root/Downloads/cross_compile
+wget -O gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz "https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz?rev=1cb9c51b94f54940bdcccd791451cec3&hash=B380A59EA3DC5FDC0448CA6472BF6B512706F8EC"
+tar -xJf gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
+
+# 编译内核（由于zlib缺失,无法编译bpftool等，需要改动kernel.spec）
+cd /root/code/linux
+git am 0001-linux-build-kernel.spec-cross-compile-arm-rpm-kernel.patch
+export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+export ARCH=arm64
+time rpmbuild -ba --target=aarch64 --define "_host_cpu aarch64" --without=bpftool --without=perf --without=kvm_stat build/kernel.spec
+```
+
+###### zlib not found
+
+- https://www.zlib.net/
+- https://blog.csdn.net/qq_38232169/article/details/135398623
+
+```bash
+CROSS_PREFIX=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu- ./configure --prefix=/root/Downloads/cross_compile/usr/local
+make
+make install
+export PKG_CONFIG_PATH=/root/Downloads/cross_compile/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+export LD_LIBRARY_PATH=/root/Downloads/cross_compile/usr/local/lib:$LD_LIBRARY_PATH
+export CFLAGS="-I/root/Downloads/cross_compile/usr/local/include $CFLAGS"
+export LDFLAGS="-L/root/Downloads/cross_compile/usr/local/lib $LDFLAGS"
+```
+
+```bash
+export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+export ARCH=arm64
+time rpmbuild -ba --target=aarch64 --define "_host_cpu aarch64" build/kernel.spec
+```
+
+交叉编译bpftool、perf、kvm_stat还有问题，故暂时采用上一小节改动kernel.spec使用`rpmbuild -ba --target=aarch64 --define "_host_cpu aarch64" --without=bpftool --without=perf --without=kvm_stat build/kernel.spec`方式进行交叉编译。
 
 ## 内核模块
 

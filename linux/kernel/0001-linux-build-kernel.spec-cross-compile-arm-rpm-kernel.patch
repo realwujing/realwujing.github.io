@@ -1,0 +1,167 @@
+From ece1f8097eda46c26e1de963e5f1c4a3576f5185 Mon Sep 17 00:00:00 2001
+From: wujing <realwujing@qq.com>
+Date: Sat, 15 Feb 2025 00:39:22 +0800
+Subject: [PATCH] linux: build/kernel.spec: cross compile arm rpm kernel
+ package on x86
+
+1. Set up a cross-compilation environment
+mkdir -p /root/Downloads/cross_compile
+cd /root/Downloads/cross_compile
+wget -O gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz "https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz?rev=1cb9c51b94f54940bdcccd791451cec3&hash=B380A59EA3DC5FDC0448CA6472BF6B512706F8EC"
+tar -xJf gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
+
+2. Compile the kernel (modify kernel.spec due to missing zlib, bpftool compilation issues, etc.)
+cd /root/code/linux
+export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+export ARCH=arm64
+time rpmbuild -ba --target=aarch64 --define "_host_cpu aarch64" --without=bpftool --without=perf --without=kvm_stat build/kernel.spec
+
+Signed-off-by: wujing <realwujing@qq.com>
+Signed-off-by: QiLiang Yuan <yuanql9@chinatelecom.cn>
+---
+ build/kernel.spec | 29 +++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+diff --git a/build/kernel.spec b/build/kernel.spec
+index 443bc6e2165b..c1268697a2e3 100644
+--- a/build/kernel.spec
++++ b/build/kernel.spec
+@@ -5,6 +5,10 @@
+ %define with_kabichk 1
+ %endif
+ 
++%define with_bpftool %{?!_without_bpftool:1} %{?_without_bpftool:0}
++
++%define with_kvm_stat %{?!_without_kvm_stat:1} %{?_without_kvm_stat:0}
++
+ %define modsign_cmd %{SOURCE10}
+ 
+ %global Arch $(echo %{_host_cpu} | sed -e s/i.86/x86/ -e s/x86_64/x86/ -e s/aarch64.*/arm64/ -e s/loongarch64/loongarch/)
+@@ -205,11 +209,13 @@ language to use the interface to manipulate perf events.
+ # with_perf
+ %endif
+ 
++%if %{with_bpftool}
+ %package -n bpftool
+ Summary: Inspection and simple manipulation of eBPF programs and maps
+ %description -n bpftool
+ This package contains the bpftool, which allows inspection and simple
+ manipulation of eBPF programs and maps.
++%endif
+ 
+ %package source
+ Summary: the kernel source
+@@ -235,9 +241,11 @@ package or when debugging this package.\
+ %debuginfo_template -n kernel
+ %files -n kernel-debuginfo -f debugfiles.list
+ 
++%if %{with_bpftool}
+ %debuginfo_template -n bpftool
+ %files -n bpftool-debuginfo -f bpftool-debugfiles.list
+ %{expand:%%global _find_debuginfo_opts %{?_find_debuginfo_opts} -p '.*%{_sbindir}/bpftool.*(\.debug)?|XXX' -o bpftool-debugfiles.list}
++%endif
+ 
+ %debuginfo_template -n kernel-tools
+ %files -n kernel-tools-debuginfo -f kernel-tools-debugfiles.list
+@@ -328,6 +336,11 @@ find ../linux-%{KernelVer}-source -type f -name "\.*" -exec rm -rf {} \; >/dev/n
+ cp -a tools/perf tools/python3-perf
+ 
+ %build
++
++echo "with_bpftool value: %{with_bpftool}"
++echo "with_perf value: %{with_perf}"
++echo "with_kvm_stat value: %{with_kvm_stat}"
++
+ cd linux-%{KernelVer}
+ 
+ perl -p -i -e "s/^EXTRAVERSION.*/EXTRAVERSION = -%{release}.%{_target_cpu}/" Makefile
+@@ -405,10 +418,12 @@ make %{?_smp_mflags} man
+ popd
+ %endif
+ 
++%if %{with_bpftool}
+ # bpftool
+ pushd tools/bpf/bpftool
+ make
+ popd
++%endif
+ 
+ # cpupower
+ chmod +x tools/power/cpupower/utils/version-gen.sh
+@@ -443,10 +458,13 @@ popd
+ pushd tools/gpio/
+ make
+ popd
++
++%if %{with_kvm_stat}
+ # kvm
+ pushd tools/kvm/kvm_stat/
+ make %{?_smp_mflags} man
+ popd
++%endif
+ 
+ %install
+ %if 0%{?with_source}
+@@ -675,14 +693,19 @@ rm -rf %{buildroot}/usr/lib/perf/include/bpf/
+ 
+ # perf man pages (note: implicit rpm magic compresses them later)
+ install -d %{buildroot}/%{_mandir}/man1
++%if %{with_kvm_stat}
+ install -pm0644 tools/kvm/kvm_stat/kvm_stat.1 %{buildroot}/%{_mandir}/man1/
+ install -pm0644 tools/perf/Documentation/*.1 %{buildroot}/%{_mandir}/man1/
+ %endif
++%endif
+ 
++%if %{with_bpftool}
+ # bpftool
+ pushd tools/bpf/bpftool
+ make DESTDIR=%{buildroot} prefix=%{_prefix} bash_compdir=%{_sysconfdir}/bash_completion.d/ mandir=%{_mandir} install doc-install
+ popd
++%endif
++
+ # cpupower
+ make -C tools/power/cpupower DESTDIR=%{buildroot} libdir=%{_libdir} mandir=%{_mandir} CPUFREQ_BENCH=false install
+ rm -f %{buildroot}%{_libdir}/*.{a,la}
+@@ -725,10 +748,12 @@ popd
+ pushd tools/gpio
+ make DESTDIR=%{buildroot} install
+ popd
++%if %{with_kvm_stat}
+ # kvm
+ pushd tools/kvm/kvm_stat
+ make INSTALL_ROOT=%{buildroot} install-tools
+ popd
++%endif
+ 
+ %define __spec_install_post\
+ %{?__debug_package:%{__debug_install_post}}\
+@@ -890,8 +915,10 @@ fi
+ %{_bindir}/gpio-hammer
+ %{_bindir}/gpio-event-mon
+ %{_bindir}/gpio-watch
++%if %{with_kvm_stat}
+ %{_mandir}/man1/kvm_stat*
+ %{_bindir}/kvm_stat
++%endif
+ %{_libdir}/libcpupower.so.0
+ %{_libdir}/libcpupower.so.0.0.1
+ %license linux-%{KernelVer}/COPYING
+@@ -901,6 +928,7 @@ fi
+ %{_includedir}/cpufreq.h
+ %{_includedir}/cpuidle.h
+ 
++%if %{with_bpftool}
+ %files -n bpftool
+ %{_sbindir}/bpftool
+ %{_sysconfdir}/bash_completion.d/bpftool
+@@ -918,6 +946,7 @@ fi
+ %{_mandir}/man8/bpftool-struct_ops.8.gz
+ %{_mandir}/man7/bpf-helpers.7.gz
+ %license linux-%{KernelVer}/COPYING
++%endif
+ 
+ %if 0%{?with_source}
+ %files source
+-- 
+2.43.0
+
