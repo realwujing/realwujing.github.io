@@ -89,6 +89,44 @@
 
 - [2、openEuler社区版本生命周期管理规范（LTS+SP](https://www.openeuler.org/zh/other/lifecycle/)
 
+### wsl
+
+- https://github.com/microsoft/WSL2-Linux-Kernel
+- https://learn.microsoft.com/en-us/community/content/wsl-user-msft-kernel-v6
+- https://learn.microsoft.com/en-us/windows/wsl/wsl-config#configure-global-options-with-wslconfig
+- [SHA and HMAC algs using patches](https://github.com/smuellerDD/libkcapi/issues/85)
+
+    ```text
+    + sha512hmac ./vmlinuz-5.10.0-136.12.0.90.ctl3.x86_64
+    libkcapi - Error: Netlink error: cannot open netlink socket
+    libkcapi - Error: Netlink error: cannot open netlink socket
+    libkcapi - Error: NETLINK_CRYPTO: cannot obtain cipher information for hmac(sha512) (is required crypto_user.c patch missing? see documentation)
+    Allocation of hmac(sha512) cipher failed (ret=-93)
+    error: Bad exit status from /var/tmp/rpm-tmp.cDI4EA (%install)
+
+
+    RPM build errors:
+        line 162: It's not recommended to have unversioned Obsoletes: Obsoletes: kernel-tools-libs
+        line 177: It's not recommended to have unversioned Obsoletes: Obsoletes: kernel-tools-libs-devel
+        Bad exit status from /var/tmp/rpm-tmp.cDI4EA (%install)
+    ```
+
+    wsl2内核开启CONFIG_CRYPTO_USER可修复此bug:
+
+    ```bash
+    make menuconfig KCONFIG_CONFIG=Microsoft/config-wsl
+    CONFIG_CRYPTO_USER=y # 启用CONFIG_CRYPTO_USER
+    make -j$(nproc) KCONFIG_CONFIG=Microsoft/config-wsl
+    make modules_install headers_install
+    cp arch/x86/boot/bzImage /mnt/c/Users/17895/BzImage
+    ```
+
+    ```bash
+    # 编辑C:\Users\17895\.wslconfig
+    [wsl2]
+    kernel=C:\\Users\\17895\\bzImage
+    ```
+
 ### others
 
 - [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
