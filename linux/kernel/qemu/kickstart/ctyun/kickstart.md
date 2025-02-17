@@ -123,6 +123,23 @@ virt-install --virt-type kvm \
 --extra-args="console=ttyS0 inst.ks=file:/ks1.cfg"
 ```
 
+ctyunos-23.01-230117-aarch64:
+
+```bash
+virt-install --virt-type kvm \
+--initrd-inject=/yyf/yql/anaconda-ks-23.01.cfg \
+--name wujing-ctyunos-23.01-230117-aarch64 \
+--memory 8192 \
+--vcpus=64 \
+--location /yyf/yql/ctyunos-23.01-230117-aarch64-dvd.iso \
+--disk path=/yyf/yql/ctyunos-23.01-230117-aarch64.qcow2,size=128,device=disk,bus=virtio \
+--network network=default \
+--os-type=linux \
+--os-variant=centos7.0 \
+--graphics none \
+--extra-args="console=ttyS0 inst.ks=file:/anaconda-ks-23.01.cfg"
+```
+
 ### 4. 验证磁盘设备名称
 
 如果虚拟机创建成功后，你可以通过以下命令验证磁盘设备名称是否正确：
