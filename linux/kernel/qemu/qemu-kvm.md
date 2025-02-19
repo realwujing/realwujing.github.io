@@ -535,6 +535,30 @@ sudo mount -a
 - [<font color=Red>Ubuntu 20.04 物理机 QEMU-KVM + Virt-Manager 创建桥接模式的虚拟机</font>](https://www.cnblogs.com/whjblog/p/17213359.html)
 - [[Debian10]使用KVM虚拟机并配置桥接网络](https://www.cnblogs.com/DouglasLuo/p/12731591.html)
 
+### 使用 `virsh` 命令为虚拟机动态添加网络接口
+
+在虚拟化环境中，`virsh` 是一个常用的命令行工具，用于管理虚拟机。通过 `virsh attach-device` 命令，可以在虚拟机运行时动态添加设备，如网络接口。以下是一个简单的示例，展示如何通过 `nic.xml` 配置文件为虚拟机添加一个网络接口。
+
+1. **查看网络接口配置文件**：
+   使用 `cat` 命令查看 `nic.xml` 文件内容，该文件定义了一个类型为 `network` 的虚拟网络接口，源网络为 `default`，模型类型为 `virtio`。
+
+   ```bash
+   cat nic.xml
+   <interface type='network'>
+       <source network='default'/>
+       <model type='virtio'/>
+   </interface>
+   ```
+
+2. **动态添加网络接口**：
+   使用 `virsh attach-device` 命令将 `nic.xml` 中定义的网络接口动态添加到指定的虚拟机中。`vm-uuid` 是目标虚拟机的唯一标识符，`--live` 选项表示在虚拟机运行时进行添加。
+
+   ```bash
+   virsh attach-device vm-uuid nic.xml --live
+   ```
+
+通过这种方式，可以在不重启虚拟机的情况下，动态调整虚拟机的网络配置，提高系统的灵活性和可用性。
+
 ## 显示虚拟化
 
 - [QEMU显示虚拟化的几种选项](https://blog.csdn.net/tugouxp/article/details/134487575)
