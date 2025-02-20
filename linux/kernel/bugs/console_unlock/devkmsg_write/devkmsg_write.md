@@ -123,3 +123,25 @@
 [26112.445052] Starting crashdump kernel...
 [26112.445055] Bye!
 ```
+
+```bash
+./scripts/faddr2line /usr/lib/debug/lib/modules/5.10.0-136.12.0.90.ctl3.aarch64/vmlinux console_unlock+0x1b0/0x3e0
+console_unlock+0x1b0/0x3e0:
+arch_static_branch at /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.aarch64/linux-5.10.0-136.12.0.90.ctl3.aarch64/./arch/arm64/include/asm/jump_label.h:21
+(inlined by) arch_local_irq_restore at /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.aarch64/linux-5.10.0-136.12.0.90.ctl3.aarch64/./arch/arm64/include/asm/irqflags.h:132
+(inlined by) console_unlock at /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.aarch64/linux-5.10.0-136.12.0.90.ctl3.aarch64/kernel/printk/printk.c:2561
+```
+
+```c
+// vim kernel/printk/printk.c +2561
+2556         if (console_lock_spinning_disable_and_check()) {
+2557             printk_safe_exit_irqrestore(flags);
+2558             return;
+2559         }
+2560 
+2561         printk_safe_exit_irqrestore(flags);
+2562 
+2563         if (do_cond_resched)
+2564             cond_resched();
+2565     }
+```
