@@ -572,6 +572,10 @@ sudo mount -a
 - [KVM性能优化最佳实践](https://blog.csdn.net/allway2/article/details/102760738)
 - [KVM 虚拟化基本原理](https://www.toutiao.com/article/6862880595601523211)
 
+```bash
+ps -eLf | grep -i vm-uuid | awk '{print $2}' | xargs -I {} sh -c 'echo "==== PID: {} ===="; cat /proc/{}/stack'
+```
+
 ### ksm
 
 - [内存管理实战案例分析2：KSM和NUMA引发的虚拟机宕机](https://juejin.cn/post/7068991559689535525)
