@@ -497,15 +497,138 @@ context_switch()的调用分析如下：
 
 - （1） 互斥条件：一个资源每次只能被一个进程使用。
 
-- （2） 请求与保持条件：一个进程因请求资源而阻塞时，对已获得的资源保持不放。
+- （2） 请求与保持条件：进程在已经占有至少一个资源的情况下，又提出新的资源请求，而该请求的资源被其他进程占用，此时进程不会释放自己已占有的资源。
 
-- （3） 不剥夺条件:进程已获得的资源，在末使用完之前，不能强行剥夺。
+- （3） 不可抢占条件：进程已获得的资源，在末使用完之前，不能被其他进程抢占，只能由进程自己释放。
 
-- （4） 循环等待条件:若干进程之间形成一种头尾相接的循环等待资源关系。
+- （4） 循环等待条件：存在一组进程{P1, P2, ..., Pn}，其中P1等待P2占有的资源，P2等待P3占有的资源，……，Pn等待P1占有的资源，从而形成一个闭环等待。
 
 这四个条件是死锁的必要条件，只要系统发生死锁，这些条件必然成立，而只要上述条件之
 
 一不满足，就不会发生死锁。
+
+### demo
+
+下面是一个简单的 C 代码示例，演示如何在多线程环境下满足死锁的四个必要条件，导致死锁的发生。  
+
+#### **代码示例：**
+```c
+#include <stdio.h>
+#include <pthread.h>
+#include <unistd.h>
+
+pthread_mutex_t lockA;
+pthread_mutex_t lockB;
+
+void *thread1_func(void *arg) {
+    pthread_mutex_lock(&lockA);  // 线程1锁定资源A
+    printf("Thread 1: locked A\n");
+    sleep(1);  // 模拟某些操作
+
+    printf("Thread 1: trying to lock B\n");
+    pthread_mutex_lock(&lockB);  // 线程1等待资源B
+    printf("Thread 1: locked B\n");
+
+    pthread_mutex_unlock(&lockB);
+    pthread_mutex_unlock(&lockA);
+
+    return NULL;
+}
+
+void *thread2_func(void *arg) {
+    pthread_mutex_lock(&lockB);  // 线程2锁定资源B
+    printf("Thread 2: locked B\n");
+    sleep(1);  // 模拟某些操作
+
+    printf("Thread 2: trying to lock A\n");
+    pthread_mutex_lock(&lockA);  // 线程2等待资源A
+    printf("Thread 2: locked A\n");
+
+    pthread_mutex_unlock(&lockA);
+    pthread_mutex_unlock(&lockB);
+
+    return NULL;
+}
+
+int main() {
+    pthread_t t1, t2;
+
+    pthread_mutex_init(&lockA, NULL);
+    pthread_mutex_init(&lockB, NULL);
+
+    pthread_create(&t1, NULL, thread1_func, NULL);
+    pthread_create(&t2, NULL, thread2_func, NULL);
+
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL);
+
+    pthread_mutex_destroy(&lockA);
+    pthread_mutex_destroy(&lockB);
+
+    return 0;
+}
+```
+
+---
+
+#### **如何满足死锁的四个必要条件？**
+1. **互斥条件**  
+   - `pthread_mutex_t` 互斥锁保证了 `lockA` 和 `lockB` 资源一次只能被一个线程持有。
+
+2. **请求与保持条件**  
+   - 线程1获取 `lockA` 后，又请求 `lockB`，但 `lockB` 已被线程2持有。  
+   - 线程2获取 `lockB` 后，又请求 `lockA`，但 `lockA` 已被线程1持有。  
+   - 两个线程都持有资源并等待额外资源。
+
+3. **不可抢占条件**  
+   - 线程持有的锁不会被其他线程强制释放，只有线程自己释放。
+
+4. **循环等待条件**  
+   - 线程1持有 `lockA`，等待 `lockB`。  
+   - 线程2持有 `lockB`，等待 `lockA`。  
+   - 形成循环等待 `Thread1(A → B)` → `Thread2(B → A)`。
+
+---
+
+#### **运行结果（示例）**
+```sh
+Thread 1: locked A
+Thread 2: locked B
+Thread 1: trying to lock B
+Thread 2: trying to lock A
+```
+程序会卡住，两个线程互相等待对方释放资源，导致死锁。
+
+---
+
+#### **解决方案**
+**避免死锁的方法有：**
+1. **保持锁顺序一致**
+   - 让所有线程总是先锁 `lockA`，再锁 `lockB`：
+   ```c
+   pthread_mutex_lock(&lockA);
+   pthread_mutex_lock(&lockB);
+   ```
+   这样所有线程按相同顺序加锁，避免循环等待。
+
+2. **使用 `trylock()` 避免阻塞**
+   - `pthread_mutex_trylock()` 代替 `pthread_mutex_lock()`，如果获取不到锁，就不继续等待：
+   ```c
+   if (pthread_mutex_trylock(&lockB) == 0) {
+       // 获取锁成功
+   } else {
+       // 获取失败，避免死锁
+   }
+   ```
+
+3. **使用超时机制**
+   - `pthread_mutex_timedlock()` 设置超时时间，避免无限等待。
+
+---
+
+#### **总结**
+- **该代码通过两个线程竞争两个锁，形成了死锁**，符合死锁的四个必要条件。  
+- **解决死锁的方法**：改变加锁顺序、使用 `trylock()`、引入超时机制。
 
 ![内核互斥技术](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240327215739.png)
 
