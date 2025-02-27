@@ -682,7 +682,7 @@ tar -xJf gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
 
 # 编译内核（由于zlib缺失,无法编译bpftool等，需要改动kernel.spec）
 cd /root/code/linux
-git am 0001-linux-build-kernel.spec-cross-compile-arm-rpm-kernel.patch
+git cherry-pick 69478eae21ab # 69478eae21ab 在分支 ctkernel-lts-5.10/yuanql9/develop-cross-compile中
 export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
 export ARCH=arm64
 time rpmbuild -ba --target=aarch64 --define "_host_cpu aarch64" --without=bpftool --without=perf --without=kvm_stat build/kernel.spec
