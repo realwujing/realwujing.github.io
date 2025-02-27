@@ -1,0 +1,869 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="88.5 ltp 失败测试用例分析 2202 cpuhotplug03  https:&#x2F;&#x2F;blog.csdn.net&#x2F;maxg1206&#x2F;article&#x2F;details&#x2F;125600523  1.&#x2F;runltp -f cpuhotplug -s cpuhotplug03 12345678910111213141516[root@nm08-az2-compute-c8ne-10e8e92e209 se">
+<meta property="og:type" content="article">
+<meta property="og:title" content="88">
+<meta property="og:url" content="https://realwujing.github.io/linux/debug/ltp/88.5%20ltp%20%E5%A4%B1%E8%B4%A5%E6%B5%8B%E8%AF%95%E7%94%A8%E4%BE%8B%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="88.5 ltp 失败测试用例分析 2202 cpuhotplug03  https:&#x2F;&#x2F;blog.csdn.net&#x2F;maxg1206&#x2F;article&#x2F;details&#x2F;125600523  1.&#x2F;runltp -f cpuhotplug -s cpuhotplug03 12345678910111213141516[root@nm08-az2-compute-c8ne-10e8e92e209 se">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-02-27T09:44:12.000Z">
+<meta property="article:modified_time" content="2025-02-27T09:44:12.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="bpf">
+<meta property="article:tag" content="linux">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>88 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="88"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-02-27 09:44" pubdate>
+          2025年2月27日 上午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          7.5k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          63 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">88</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="ltp-失败测试用例分析">88.5 ltp 失败测试用例分析</h1>
+<h2 id="cpuhotplug03">2202 cpuhotplug03</h2>
+<ul>
+<li>https://blog.csdn.net/maxg1206/article/details/125600523</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">./runltp -f cpuhotplug -s cpuhotplug03<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@nm08-az2-compute-c8ne-10e8e92e209 secure]<span class="hljs-comment"># cat /proc/schedstat | grep cpu1 | head -n1</span><br>cpu1 0 0 0 0 0 0 629484338520 2428964558 213354 0 0 0 0 0 0 0<br>[root@nm08-az2-compute-c8ne-10e8e92e209 secure]<span class="hljs-comment">#</span><br>[root@nm08-az2-compute-c8ne-10e8e92e209 secure]<span class="hljs-comment">#</span><br>[root@nm08-az2-compute-c8ne-10e8e92e209 secure]<span class="hljs-comment">#</span><br>[root@nm08-az2-compute-c8ne-10e8e92e209 secure]<span class="hljs-comment"># echo 0 | tee /sys/devices/system/cpu/cpu1/online &amp;&amp; cat /sys/devices/system/cpu/cpu1/online</span><br>0<br>0<br>[root@nm08-az2-compute-c8ne-10e8e92e209 secure]<span class="hljs-comment"># echo 1 | tee /sys/devices/system/cpu/cpu1/online &amp;&amp; cat /sys/devices/system/cpu/cpu1/online</span><br>1<br>1<br>[root@nm08-az2-compute-c8ne-10e8e92e209 secure]<span class="hljs-comment"># cat /proc/schedstat | grep cpu1 | head -n1</span><br>cpu1 0 0 0 0 0 0 629495021305 2430847733 213385 0 0 0 0 0 0 0<br>[root@nm08-az2-compute-c8ne-10e8e92e209 secure]<span class="hljs-comment">#</span><br>[root@nm08-az2-compute-c8ne-10e8e92e209 secure]<span class="hljs-comment"># cat /proc/schedstat | grep cpu1 | head -n1</span><br>cpu1 0 0 0 0 0 0 629495044028 2430847733 213391 0 0 0 0 0 0 0<br></code></pre></td></tr></table></figure>
+<h2 id="cve-2017-15537">2248 cve-2017-15537</h2>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">./runltp -f cve -s cve-2017-15537<br></code></pre></td></tr></table></figure>
+<p>ptrace07.c:141: TBROK: PTRACE_SETREGSET failed with unexpected error:
+EFAULT (14)</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">126</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">127      * Old kernels simply masked out all the reserved bits in the xstate</span><br><span class="hljs-comment">128      * header (causing the PTRACE_SETREGSET command here to succeed), while</span><br><span class="hljs-comment">129      * new kernels will reject them (causing the PTRACE_SETREGSET command</span><br><span class="hljs-comment">130      * here to fail with EINVAL).  We accept either behavior, as neither</span><br><span class="hljs-comment">131      * behavior reliably tells us whether the real bug (which we test for</span><br><span class="hljs-comment">132      * below in either case) is present.</span><br><span class="hljs-comment"></span><br><span class="hljs-comment">133      */</span><br><span class="hljs-number">134</span>     TEST(ptrace(PTRACE_SETREGSET, pid, NT_X86_XSTATE, &amp;iov));<br><span class="hljs-number">135</span>     <span class="hljs-keyword">if</span> (TST_RET == <span class="hljs-number">0</span>) &#123;<br><span class="hljs-number">136</span>         tst_res(TINFO, <span class="hljs-string">&quot;PTRACE_SETREGSET with reserved bits succeeded&quot;</span>);<br><span class="hljs-number">137</span>     &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (TST_ERR == EINVAL) &#123;<br><span class="hljs-number">138</span>         tst_res(TINFO,<br><span class="hljs-number">139</span>             <span class="hljs-string">&quot;PTRACE_SETREGSET with reserved bits failed with EINVAL&quot;</span>);<br><span class="hljs-number">140</span>     &#125; <span class="hljs-keyword">else</span> &#123;<br><span class="hljs-number">141</span>         tst_brk(TBROK | TTERRNO,<br><span class="hljs-number">142</span>             <span class="hljs-string">&quot;PTRACE_SETREGSET failed with unexpected error&quot;</span>);<br><span class="hljs-number">143</span>     &#125;<br></code></pre></td></tr></table></figure>
+<h3 id="ltp-20240930">ltp-20240930</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">wget https://codeload.github.com/linux-test-project/ltp/tar.gz/refs/tags/20240930<br><br>tar -zxvf ltp-20240930.tar.gz<br><span class="hljs-built_in">cd</span> ltp-20240930<br>./build.sh -p /opt/ltp-20240930<br>make install<br><span class="hljs-built_in">cd</span> /opt/ltp-20240930<br><span class="hljs-built_in">export</span> LTP_TIMEOUT_MUL=3<br>./runltp -f cve -s cve-2017-15537<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/2248-cve-2017-15537.png" srcset="/img/loading.gif" lazyload
+alt="2248-cve-2017-15537" />
+<figcaption aria-hidden="true">2248-cve-2017-15537</figcaption>
+</figure>
+<h2 id="cve-2018-1000204">2273 cve-2018-1000204</h2>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">./runltp -f cve -s cve-2018-1000204<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">tst_test.c:1431: TINFO: Timeout per run is 0h 05m 00s<br>ioctl_sg01.c:81: TINFO: Found SCSI device /dev/sg0<br><br>Feb 25 09:16:12 nm08-az2-compute-c8ne-10e8e92e209 kernel: blk_update_request: operation not supported error, dev loop0, sector 524160 op 0x9:(WRITE_ZEROES) flags 0x800800 phys_seg 0 prio class 0<br>Feb 25 09:16:12 nm08-az2-compute-c8ne-10e8e92e209 kernel: blk_update_request: operation not supported error, dev loop0, sector 522 op 0x9:(WRITE_ZEROES) flags 0x800800 phys_seg 0 prio class 0<br>Feb 25 09:16:12 nm08-az2-compute-c8ne-10e8e92e209 kernel: blk_update_request: operation not supported error, dev loop0, sector 16906 op 0x9:(WRITE_ZEROES) flags 0x800800 phys_seg 0 prio class 0<br>Feb 25 09:16:12 nm08-az2-compute-c8ne-10e8e92e209 kernel: blk_update_request: operation not supported error, dev loop0, sector 32774 op 0x9:(WRITE_ZEROES) flags 0x800800 phys_seg 0 prio class 0<br>Feb 25 09:16:12 nm08-az2-compute-c8ne-10e8e92e209 kernel: blk_update_request: operation not supported error, dev loop0, sector 49674 op 0x9:(WRITE_ZEROES) flags 0x800800 phys_seg 0 prio class 0<br>Feb 25 09:16:12 nm08-az2-compute-c8ne-10e8e92e209 kernel: blk_update_request: operation not supported error, dev loop0, sector 65542 op 0x9:(WRITE_ZEROES) flags 0x800800 phys_seg 0 prio class 0<br>Feb 25 09:16:12 nm08-az2-compute-c8ne-10e8e92e209 kernel: blk_update_request: operation not supported error, dev loop0, sector 82442 op 0x9:(WRITE_ZEROES) flags 0x800800 phys_seg 0 prio class 0<br>Feb 25 09:16:12 nm08-az2-compute-c8ne-10e8e92e209 kernel: blk_update_request: operation not supported error, dev loop0, sector 98310 op 0x9:(WRITE_ZEROES) flags 0x800800 phys_seg 0 prio class 0<br>Feb 25 09:16:12 nm08-az2-compute-c8ne-10e8e92e209 kernel: blk_update_request: operation not supported error, dev loop0, sector 115210 op 0x9:(WRITE_ZEROES) flags 0x800800 phys_seg 0 prio class 0<br>Feb 25 09:16:12 nm08-az2-compute-c8ne-10e8e92e209 kernel: blk_update_request: operation not supported error, dev loop0, sector 131078 op 0x9:(WRITE_ZEROES) flags 0x800800 phys_seg 0 prio class<br></code></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim block/blk-core.c +1502</span><br><br><span class="hljs-number">1484</span> <span class="hljs-type">bool</span> <span class="hljs-title function_">blk_update_request</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> request *req, <span class="hljs-type">blk_status_t</span> error,</span><br><span class="hljs-params"><span class="hljs-number">1485</span>         <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> nr_bytes)</span><br>1486 &#123;<br><span class="hljs-number">1487</span>     <span class="hljs-type">int</span> total_bytes;<br><span class="hljs-number">1488</span> <br><span class="hljs-number">1489</span>     trace_block_rq_complete(req, blk_status_to_errno(error), nr_bytes);<br><span class="hljs-number">1490</span> <br><span class="hljs-number">1491</span>     <span class="hljs-keyword">if</span> (!req-&gt;bio)<br><span class="hljs-number">1492</span>         <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;<br><span class="hljs-number">1493</span> <br><span class="hljs-number">1494</span> <span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_BLK_DEV_INTEGRITY</span><br><span class="hljs-number">1495</span>     <span class="hljs-keyword">if</span> (blk_integrity_rq(req) &amp;&amp; req_op(req) == REQ_OP_READ &amp;&amp;<br><span class="hljs-number">1496</span>         error == BLK_STS_OK)<br><span class="hljs-number">1497</span>         req-&gt;q-&gt;integrity.profile-&gt;complete_fn(req, nr_bytes);<br><span class="hljs-number">1498</span> <span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br><span class="hljs-number">1499</span> <br><span class="hljs-number">1500</span>     <span class="hljs-keyword">if</span> (unlikely(error &amp;&amp; !blk_rq_is_passthrough(req) &amp;&amp;<br><span class="hljs-number">1501</span>              !(req-&gt;rq_flags &amp; RQF_QUIET)))<br><span class="hljs-number">1502</span>         print_req_error(req, error, __func__);<br><span class="hljs-number">1503</span> <br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash">error：<br>表示请求是否发生了错误。如果 error 为真，表示请求过程中出现了错误。<br><br>!blk_rq_is_passthrough(req)：<br>检查请求是否不是直通请求（passthrough request）。直通请求通常是直接传递给底层设备的请求，不需要在这里处理。如果 blk_rq_is_passthrough(req) 返回假，表示请求不是直通请求。<br><br>!(req-&gt;rq_flags &amp; RQF_QUIET)：<br>检查请求标志中是否没有设置 RQF_QUIET 标志。RQF_QUIET 标志表示请求应该静默处理，不打印错误信息。如果 !(req-&gt;rq_flags &amp; RQF_QUIET) 为真，表示请求没有设置静默标志。<br><br>只有当这三个条件都为真时，才会调用 print_req_error 函数打印请求的错误信息。<br></code></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim block/blk-core.c +244</span><br> <span class="hljs-number">235</span> <span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">print_req_error</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> request *req, <span class="hljs-type">blk_status_t</span> status,                                                                                                </span><br><span class="hljs-params"> <span class="hljs-number">236</span>         <span class="hljs-type">const</span> <span class="hljs-type">char</span> *caller)</span><br> 237 &#123;<br> <span class="hljs-number">238</span>     <span class="hljs-type">int</span> idx = (__force <span class="hljs-type">int</span>)status;<br> <span class="hljs-number">239</span> <br> <span class="hljs-number">240</span>     <span class="hljs-keyword">if</span> (WARN_ON_ONCE(idx &gt;= ARRAY_SIZE(blk_errors)))<br> <span class="hljs-number">241</span>         <span class="hljs-keyword">return</span>;<br> <span class="hljs-number">242</span> <br> <span class="hljs-number">243</span>     printk_ratelimited(KERN_ERR<br> <span class="hljs-number">244</span>         <span class="hljs-string">&quot;%s: %s error, dev %s, sector %llu op 0x%x:(%s) flags 0x%x &quot;</span><br> <span class="hljs-number">245</span>         <span class="hljs-string">&quot;phys_seg %u prio class %u\n&quot;</span>,<br> <span class="hljs-number">246</span>         caller, blk_errors[idx].name,<br> <span class="hljs-number">247</span>         req-&gt;rq_disk ? req-&gt;rq_disk-&gt;disk_name : <span class="hljs-string">&quot;?&quot;</span>,<br> <span class="hljs-number">248</span>         blk_rq_pos(req), req_op(req), blk_op_str(req_op(req)),<br> <span class="hljs-number">249</span>         req-&gt;cmd_flags &amp; ~REQ_OP_MASK,<br> <span class="hljs-number">250</span>         req-&gt;nr_phys_segments,<br> <span class="hljs-number">251</span>         IOPRIO_PRIO_CLASS(req-&gt;ioprio));<br> <span class="hljs-number">252</span> &#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;tracepoint:signal:signal_generate /args-&gt;sig == 9/ &#123; printf(&quot;Process %d %s send SIGNAL %d to process %d %s\n&quot;, pid, comm, args-&gt;sig, args-&gt;pid, args-&gt;comm); &#125;&#x27;</span><br>Attaching 1 probe...<br><br><br>Process 1710973 ioctl_sg01 send SIGNAL 9 to process 1710974 ioctl_sg01<br>Process 1718933 ioctl_sg01 send SIGNAL 9 to process 1718934 ioctl_sg01<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/2273-cve-2018-1000204.png" srcset="/img/loading.gif" lazyload
+alt="2273-cve-2018-1000204" />
+<figcaption aria-hidden="true">2273-cve-2018-1000204</figcaption>
+</figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">vim testcases/kernel/syscalls/ioctl/ioctl_sg01.c +109<br><br>将100替换成3<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs bash">./runltp -f cve -s cve-2018-1000204<br><br>Running tests.......<br>&lt;&lt;&lt;<span class="hljs-string">test_start&gt;&gt;&gt;</span><br><span class="hljs-string">tag=cve-2018-1000204 stime=1740474853</span><br><span class="hljs-string">cmdline=&quot;ioctl_sg01&quot;</span><br><span class="hljs-string">contacts=&quot;&quot;</span><br><span class="hljs-string">analysis=exit</span><br><span class="hljs-string">&lt;&lt;&lt;test_output&gt;&gt;&gt;</span><br><span class="hljs-string">incrementing stop</span><br><span class="hljs-string">tst_test.c:1860: TINFO: LTP version: 20240930</span><br><span class="hljs-string">tst_test.c:1864: TINFO: Tested kernel: 5.10.0-136.12.0.88.5.ctl3.x86_64 #1 SMP Sat Feb 22 10:42:11 UTC 2025 x86_64</span><br><span class="hljs-string">tst_test.c:1703: TINFO: Timeout per run is 1h 00m 30s</span><br><span class="hljs-string">ioctl_sg01.c:83: TINFO: Found SCSI device /dev/sg0</span><br><span class="hljs-string">ioctl_sg01.c:124: TPASS: Output buffer is empty, no data leaked</span><br><span class="hljs-string"></span><br><span class="hljs-string">Summary:</span><br><span class="hljs-string">passed   1</span><br><span class="hljs-string">failed   0</span><br><span class="hljs-string">broken   0</span><br><span class="hljs-string">skipped  0</span><br><span class="hljs-string">warnings 0</span><br><span class="hljs-string">&lt;&lt;&lt;execution_status&gt;&gt;&gt;</span><br><span class="hljs-string">initiation_status=&quot;ok&quot;</span><br><span class="hljs-string">duration=23 termination_type=exited termination_id=0 corefile=no</span><br><span class="hljs-string">cutime=215 cstime=2091</span><br><span class="hljs-string">&lt;&lt;&lt;test_end&gt;&gt;&gt;</span><br><span class="hljs-string">INFO: ltp-pan reported all tests PASS</span><br><span class="hljs-string">LTP Version: 20240930</span><br></code></pre></td></tr></table></figure>
+<h2 id="cpufreq_boost">2309 cpufreq_boost</h2>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash">./testcases/bin/cpufreq_boost<br><br>cpufreq_boost    0  TINFO  :  found <span class="hljs-string">&#x27;intel_pstate&#x27;</span> driver, sysfs knob <span class="hljs-string">&#x27;/sys/devices/system/cpu/intel_pstate/no_turbo&#x27;</span><br>cpufreq_boost    0  TWARN  :  cpufreq_boost.c:137: failed to <span class="hljs-built_in">set</span> FIFO <span class="hljs-built_in">sched</span> with max priority: errno=EPERM(1): Operation not permitted<br>cpufreq_boost    0  TINFO  :  maximum speed is 4000000 KHz<br>cpufreq_boost    0  TINFO  :  load CPU0 with boost enabled<br>cpufreq_boost    0  TINFO  :  elapsed time is 1359 ms<br>cpufreq_boost    0  TINFO  :  load CPU0 with boost disabled<br>cpufreq_boost    0  TINFO  :  elapsed time is 1573 ms<br>cpufreq_boost    1  TPASS  :  compare time spent with and without boost (-2%)<br></code></pre></td></tr></table></figure>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/debug/" class="category-chain-item">debug</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/debug/ltp/" class="category-chain-item">ltp</a>
+  
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/bpf/">#bpf</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>88</div>
+      <div>https://realwujing.github.io/linux/debug/ltp/88.5 ltp 失败测试用例分析/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年2月27日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/bugs/console_unlock/devkmsg_write/devkmsg_write/" title="devkmsg_write">
+                        <span class="hidden-mobile">devkmsg_write</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '9dc39cfaca9aa2cbd0afe4a0f1498455'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
