@@ -82,6 +82,8 @@ cat ~/.gitconfig
 
 ## 命令
 
+- [<font color=Red>git log --pretty=format 常用选项参数 【汇总】(比官方还全)</font>](https://www.cnblogs.com/wutou/p/17538388.html)
+
 - [<font color=Red>Git 不要只会 pull 和 push，试试这 5 条提高效率的命令</font>](https://mp.weixin.qq.com/s?__biz=MzU3NTgyODQ1Nw==&mid=2247522045&idx=2&sn=f97685dcac7470d9b8fc1990aba7a7a8&chksm=fd1fee7bca68676db0e438c67294cf0975958f9c1fbf04caeb25d3cafd5b64ac18f4d1003b7a&mpshare=1&scene=1&srcid=0319RvIZ2fucLHLShthVdegk&sharer_sharetime=1648042404990&sharer_shareid=2dfdf936388dba04865b3e883d5a3225&version=3.1.12.6001&platform=win#rd)
 - [如何在大型项目中使用Git子模块开发](https://juejin.cn/post/6844903746166587405)
 - [Git 各指令的本质，真是通俗易懂啊 (qq.com)](https://mp.weixin.qq.com/s/0g1RDnKaSw7WYPfcp_gmKw)
