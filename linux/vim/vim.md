@@ -93,6 +93,12 @@ vim .
 - [Linux——VIM学习选取多行（转）](https://blog.csdn.net/sinat_36053757/article/details/78183506)
 - [【Linux】Vim编辑器-批量注释与反注释](https://blog.csdn.net/xiajun07061225/article/details/8488210)
 
+### win11 wsl2 ctrl+v冲突
+
+在 Windows 11 下使用 Vim，如果在 Normal 模式下按 `Ctrl + v` 被系统拦截为“粘贴”操作，而不是进入 Vim 的视觉块模式（Visual Block Mode），这是因为终端或系统默认将 `Ctrl + v` 绑定为粘贴快捷键，覆盖了 Vim 的功能。
+
+- 在 Normal 模式下，按 `Ctrl + q` 代替 `Ctrl + v`，功能完全相同。
+
 ## 移动
 
 - [vim移动、定位命令与快捷键速查表(简练通俗)](https://blog.csdn.net/QQ245671051/article/details/53228752)
