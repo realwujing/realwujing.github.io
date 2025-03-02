@@ -6,6 +6,8 @@
 - [Linux内核调试方法](https://blog.csdn.net/u013253075/article/details/120569270)
 - [全面剖析Linux kernel的调试debug技术](https://zhuanlan.zhihu.com/p/543103513)
 - [内核earlyprintk选项](https://blog.csdn.net/sinat_20184565/article/details/111875638)
+- [<font color=Red>万字长文，汇总 Linux 内核调试的方法</font>](https://mp.weixin.qq.com/s/ztbnJNZcGJIMGbBe1TdEWA)
+  - ![内核printk和日志系统的总体结构](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/内核printk和日志系统的总体结构.png)
 
 ## fadd2line
 
