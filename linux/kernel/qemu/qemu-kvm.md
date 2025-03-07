@@ -601,6 +601,14 @@ ps -eLf | grep -i vm-uuid | awk '{print $2}' | xargs -I {} sh -c 'echo "==== PID
 - [QEMU monitor控制台使用详解](https://blog.csdn.net/qq_43523618/article/details/106278245)
 - [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
 
+导出压缩的内存快照:
+
+```bash
+virsh qemu-monitor-command vm-uuid --hmp "dump-guest-memory -z vmcore"
+```
+
+导出的vmcore默认存放在根目录下。
+
 ### x86_64下qemu虚拟x86_64
 
 - [<font color=Red>使用 VSCode + qemu 搭建 Linux 内核调试环境</font>](https://howardlau.me/programming/debugging-linux-kernel-with-vscode-qemu.html)
