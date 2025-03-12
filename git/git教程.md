@@ -181,6 +181,28 @@ git commit --amend --author="realwujing <realwujing@qq.com>"
 
 **注意**：强制推送会覆盖远程仓库的历史，可能影响其他协作者，因此应谨慎使用。
 
+### git-filter-repo
+
+安装 git-filter-repo:
+
+```bash
+sudo apt install git-filter-repo
+```
+
+批量在subject后面追加一行：
+
+```bash
+START_COMMIT="a96ff9987bcc"; git filter-repo --commit-callback 'msg_lines = commit.message.split(b"\n", 1); subject = msg_lines[0]; body = msg_lines[1] if len(msg_lines) > 1 else b""; new_body = b"\nCTKfeat: #74477\n\n" + body.strip() + b"\n" if body.strip() else b"\nCTKfeat: #74477\n"; commit.message = subject + b"\n" + new_body' --force --refs "$START_COMMIT^..HEAD"
+```
+
+---
+
+### 说明：
+1. **`START_COMMIT="a96ff9987bcc"`**: 定义起始提交。
+2. **`git filter-repo`**: 使用 `git filter-repo` 执行提交信息修改。
+3. **`--refs "$START_COMMIT^..HEAD"`**: 处理从 `a96ff9987bcc` 到 `HEAD` 之间的所有提交（包括 `a96ff9987bcc`）。
+4. **`--commit-callback`**: 修改提交信息，确保 `CTKfeat: #74477` 前后都有空行。
+
 ## 查看文件每次提交的diff
 
 - [Git 查看某个文件的修改记录](https://blog.csdn.net/sunshine_505/article/details/92795152)
