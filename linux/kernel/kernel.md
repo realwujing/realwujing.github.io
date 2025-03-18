@@ -273,12 +273,85 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 
 #### grub命令
 
+- [开机进入GRUB不要慌，命令行也可启动Linux](https://www.cnblogs.com/zztian/p/10289083.html)
 - [<font color=Red>GRUB 引导流程</font>](https://www.cnblogs.com/Link-Luck/p/9858869.html)
+
 - [<font color=Red>grub命令 – 交互式的管理GRUB引导程序</font>](https://www.linuxcool.com/grub)
 - [GRUB-一个多重操作系统启动管理器](https://www.baike.com/wikiid/7276828077877800951)
 - [<font color=Red>Linux系统启动管理</font>](http://c.biancheng.net/linux_tutorial/12/)
 - [如何手动安装(并配置)GRUB？](https://www.zhihu.com/question/610484788?utm_id=0)
 - [Linux中使用grub2-install重新生成引导程序](https://mp.weixin.qq.com/s/aP27bamroQeb27VZtMLJ9w)
+
+##### 开机进入GRUB修复
+
+- 使用`ls`命令列出分区：`(hd0),(hd1),(hd1,gpt3),(hd1,gpt2),(hd1,gpt1)`。
+- 检查发现`vmlinuz`和`initramfs`文件位于`(hd1,gpt2)`分区。
+- 查看`(hd0,gpt3)/etc/fstab`，确认根分区（`/`）挂载在`/dev/sda3`。
+- 最终目标：手动加载内核并启动系统。
+
+---
+
+1. **列出所有分区，确认文件位置**  
+   ```
+   grub> ls
+   (hd0),(hd1),(hd1,gpt3),(hd1,gpt2),(hd1,gpt1)
+   ```
+   检查`(hd1,gpt2)`分区，确认包含`vmlinuz`和`initramfs`文件：  
+   ```
+   grub> ls (hd1,gpt2)/
+   ```
+   假设输出显示`vmlinuz`和`initramfs`存在。
+
+2. **设置根分区为包含内核的分区**  
+   将GRUB的`root`变量设置为`(hd1,gpt2)`，因为内核文件在此分区：  
+   ```
+   grub> set root=(hd1,gpt2)
+   ```
+
+3. **查找真正的根分区挂载点**  
+   查看`(hd0,gpt3)`上的`/etc/fstab`文件，确认系统的根分区（`/`）：  
+   ```
+   grub> cat (hd0,gpt3)/etc/fstab
+   ```
+   输出显示`/dev/sda3`挂载到`/`，例如：  
+   ```
+   # / was on /dev/sda3 during installation
+   UUID=xxxx-xxxx-xxxx-xxxx /    ext4    defaults 0 1
+   ```
+
+4. **加载Linux内核**  
+   指定内核文件路径和根分区：  
+   ```
+   grub> linux /vmlinuz root=/dev/sda3 ro
+   ```
+   - `/vmlinuz` 是内核文件（假设位于`(hd1,gpt2)/vmlinuz`）。
+   - `root=/dev/sda3` 指定根分区。
+   - `ro` 表示以只读模式启动。
+
+5. **加载initramfs文件**  
+   指定初始内存盘文件：  
+   ```
+   grub> initrd /initramfs.img
+   ```
+   - `/initramfs.img` 是initramfs文件（假设位于`(hd1,gpt2)/initramfs.img`）。
+
+6. **启动系统**  
+   执行启动命令：  
+   ```
+   grub> boot
+   ```
+
+---
+
+##### 重新生成initramfs
+
+使用 dracut 生成系统中所有内核版本的 initramfs:
+
+```bash
+for kernel_version in $(ls /lib/modules/); do
+    dracut --force /boot/initramfs-${kernel_version}.img ${kernel_version}
+done
+```
 
 #### grub串口
 
