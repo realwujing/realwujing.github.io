@@ -623,6 +623,37 @@ done
 git am ../patchs/*.patch --reject
 ```
 
+### cherry-pick
+
+- [git cherry-pick 教程](https://www.ruanyifeng.com/blog/2020/04/git-cherry-pick.html)
+
+-x 在提交信息的末尾追加一行(cherry picked from commit ...)，方便以后查到这个提交是如何产生的:
+
+git cherry-pick -x <commit-id> 会在新提交的提交信息末尾自动追加一行 (cherry picked from commit <commit-id>)，记录这个提交是从哪个原始提交 cherry-pick 来的。
+
+-s，--signoff:
+
+git cherry-pick -s <commit-id> 或 git cherry-pick --signoff <commit-id> 会在新提交的提交信息末尾追加一行 Signed-off-by: <你的名字> <你的邮箱>，表示你认可或签署了这个提交。
+
+可以同时使用 -x 和 -s这两个选项来同时记录来源和签名：
+
+```bash
+git cherry-pick -x -s abc123
+```
+
+新提交的日志：
+
+```bash
+commit xyz789
+Author: Bob <bob@example.com>
+Date:   Wed Mar 19 13:00:00 2025 +0800
+
+    Fix login bug
+    
+    (cherry picked from commit abc123)
+    Signed-off-by: Alice <alice@example.com>
+```
+
 ## send-email
 
 - [提交内核补丁到Linux社区的步骤](https://www.cnblogs.com/gmpy/p/12200609.html)
