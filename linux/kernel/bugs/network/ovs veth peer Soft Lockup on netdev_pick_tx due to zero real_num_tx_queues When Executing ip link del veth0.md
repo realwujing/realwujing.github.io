@@ -8,7 +8,7 @@
 566h55CG5Yy65paw5p625p6E5rWL6K+V5rKf6YCaCgoyMDIy5bm0LeWFrOacieS6kS3otLXlt54t6LS15beeNC4wQVoxLea1i+ivlSAxMC4yNDYuMTE2LjEKCm9zLWRlcGxveQoKMTBlNjNlN2UxMQoKc3VkbyAtcwoKMTAuNjMuMi4xMQoKMTAuNjMuMi4xMgoKMTAuNjMuMi4xMwoKc3NoIHNlY3VyZUAxMC42My4yLjExIC1wIDEwMDAw
 ```
 
-## 复现步骤
+### 复现步骤
 
 在13设备上复现了一下，创建完网桥，网桥上的流量越大复现概率越高：
 
@@ -49,7 +49,6 @@ ip link del veth0
 ```
 
 在本地搭建的虚拟机上无法复现此bug，但是可以用来调试获取关键路径堆栈。
-
 
 ![vm_ip_link_del_veth0](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/vm_ip_link_del_veth0.png)
 
