@@ -24,7 +24,7 @@
 <meta property="og:description" content="network  你管这破玩意叫网络 22张图详解浏览器请求数据包如何到达web服务器（搞懂网络可以出师了） 网卡与Linux网络结构（上） 网卡与Linux网络结构（中） 网卡与Linux网络结构（下） 网卡与数据接收（上） 网卡与数据接收（中） 源码溯源：网卡队列超时机制 通俗理解数据中心CPU和GPU之后的第三颗关键芯片“DPU” 字节校招：TCP 和 UDP 可以同时绑定相同的端口吗？ 5">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2023-04-19T16:11:21.000Z">
-<meta property="article:modified_time" content="2025-03-21T10:02:01.000Z">
+<meta property="article:modified_time" content="2025-03-21T15:31:27.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="C++">
@@ -280,7 +280,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          6.8k 字
+          12k 字
         
       </span>
     
@@ -291,7 +291,7 @@
         
         
         
-          57 分钟
+          104 分钟
         
       </span>
     
@@ -334,7 +334,7 @@
               <p class="note note-info">
                 
                   
-                    本文最后更新于：2025年3月21日 上午
+                    本文最后更新于：2025年3月21日 下午
                   
                 
               </p>
@@ -936,6 +936,326 @@ ACK 或心跳包），认为数据包可能丢失。</li>
 工具可以查看），包括丢包统计信息，可用来辅助判断。</li>
 </ul></li>
 </ol>
+<h2 id="ovs-dpdk">ovs dpdk</h2>
+<h3
+id="dpdk在用户态收发包是怎么避开内核态的">dpdk在用户态收发包是怎么避开内核态的？</h3>
+<p>DPDK（Data Plane Development
+Kit）通过以下机制在用户态直接收发包，绕开内核态：</p>
+<h4 id="用户态驱动">1. <strong>用户态驱动</strong></h4>
+<p>DPDK使用用户态驱动（PMD）直接与网卡交互，避免了内核态和用户态之间的上下文切换。</p>
+<h4 id="轮询模式">2. <strong>轮询模式</strong></h4>
+<p>DPDK采用轮询模式（Poll
+Mode），持续检查网卡是否有新数据包到达，而不是依赖内核的中断机制，减少了中断处理的开销。</p>
+<h4 id="大页内存">3. <strong>大页内存</strong></h4>
+<p>DPDK使用大页内存（HugePages）来减少TLB（Translation Lookaside
+Buffer）未命中，提升内存访问效率。</p>
+<h4 id="零拷贝">4. <strong>零拷贝</strong></h4>
+<p>DPDK通过零拷贝技术，数据包直接从网卡DMA到用户态内存，无需经过内核缓冲区，减少了数据复制开销。</p>
+<h4 id="内存池">5. <strong>内存池</strong></h4>
+<p>DPDK使用预分配的内存池管理数据包缓冲区，避免了频繁的内存分配和释放操作。</p>
+<h4 id="网卡队列绑定">6. <strong>网卡队列绑定</strong></h4>
+<p>DPDK将网卡队列绑定到特定CPU核心，确保数据包处理在固定的CPU上进行，减少上下文切换和缓存失效。</p>
+<h4 id="绕过内核协议栈">7. <strong>绕过内核协议栈</strong></h4>
+<p>DPDK绕过内核网络协议栈，直接在用户态处理数据包，减少了内核协议栈的处理开销。</p>
+<h4 id="硬件加速">8. <strong>硬件加速</strong></h4>
+<p>DPDK利用网卡的硬件卸载功能（如校验和计算、TSO等），进一步减少CPU负担。</p>
+<h4 id="总结-1">总结</h4>
+<p>DPDK通过用户态驱动、轮询模式、大页内存、零拷贝、内存池、队列绑定、绕过内核协议栈和硬件加速等技术，实现了高效的用户态数据包处理，避免了内核态的开销。</p>
+<h3
+id="pmd一直不陷入内核态网卡是本机的物理网卡">pmd一直不陷入内核态？网卡是本机的物理网卡？</h3>
+<h4 id="用户态驱动pmd不陷入内核态">1.
+<strong>用户态驱动（PMD）不陷入内核态</strong></h4>
+<p>DPDK的用户态驱动（PMD）确实<strong>不陷入内核态</strong>，它通过以下方式直接与网卡交互：</p>
+<ul>
+<li><strong>直接访问硬件寄存器</strong>：PMD通过映射网卡的硬件寄存器到用户态空间，直接读写这些寄存器来控制网卡。</li>
+<li><strong>DMA（直接内存访问）</strong>：PMD配置网卡的DMA引擎，使数据包直接从网卡传输到用户态预分配的内存池中，无需内核介入。</li>
+<li><strong>轮询模式</strong>：PMD通过轮询网卡的接收和发送队列来检查数据包，而不是依赖内核的中断机制。</li>
+</ul>
+<p>因此，PMD完全运行在用户态，避免了内核态和用户态之间的上下文切换。</p>
+<hr />
+<h4 id="网卡是本机的物理网卡">2.
+<strong>网卡是本机的物理网卡</strong></h4>
+<p>DPDK主要支持<strong>本机的物理网卡</strong>，但也可以通过虚拟化技术（如SR-IOV）支持虚拟网卡。具体如下：</p>
+<ul>
+<li><strong>物理网卡</strong>：DPDK支持多种物理网卡（如Intel的82599、X710等），并通过PMD直接管理这些网卡。</li>
+<li><strong>虚拟网卡</strong>：在虚拟化环境中，DPDK可以通过SR-IOV（Single
+Root I/O
+Virtualization）技术将物理网卡虚拟化为多个虚拟功能（VF），并将这些VF直接分配给虚拟机使用。</li>
+<li><strong>虚拟设备</strong>：DPDK还支持一些虚拟设备（如vhost-user），用于与虚拟机或容器通信。</li>
+</ul>
+<hr />
+<h4 id="总结-2">总结</h4>
+<ul>
+<li><strong>PMD不陷入内核态</strong>：它通过直接访问硬件寄存器和DMA，完全运行在用户态。</li>
+<li><strong>网卡类型</strong>：DPDK主要支持本机物理网卡，但也支持虚拟化环境中的虚拟网卡。</li>
+</ul>
+<p>这种设计使得DPDK能够实现高性能的数据包处理，避免了传统内核网络协议栈的开销。</p>
+<h3
+id="pmd访问寄存器dma不需要调用系统调用">pmd访问寄存器、DMA不需要调用系统调用？</h3>
+<p>访问硬件寄存器和配置DMA通常需要<strong>特权操作</strong>（如访问I/O端口或映射物理内存），这些操作在传统情况下确实需要通过内核态的系统调用来完成。然而，DPDK通过以下机制避免了频繁的系统调用，实现了在用户态直接访问硬件资源：</p>
+<hr />
+<h4 id="内存映射memory-mapping">1. <strong>内存映射（Memory
+Mapping）</strong></h4>
+<p>DPDK使用<code>mmap</code>系统调用将网卡的硬件寄存器和DMA区域映射到用户态地址空间。这是一个<strong>一次性的操作</strong>：
+-
+在初始化阶段，DPDK通过<code>mmap</code>将网卡的寄存器空间和DMA缓冲区映射到用户态。
+-
+映射完成后，用户态程序可以直接访问这些内存区域，无需每次访问都调用系统调用。</p>
+<hr />
+<h4 id="uiouserspace-io或vfiovirtual-function-io">2.
+<strong>UIO（Userspace I/O）或VFIO（Virtual Function I/O）</strong></h4>
+<p>DPDK依赖于UIO或VFIO框架来实现用户态对硬件的访问： -
+<strong>UIO</strong>：通过内核模块将硬件寄存器和中断处理暴露给用户态。 -
+<strong>VFIO</strong>：更现代的方式，提供更安全的硬件访问机制，支持DMA和中断处理。</p>
+<p>这些框架在初始化阶段通过系统调用完成硬件资源的映射和配置，之后用户态程序可以直接访问硬件资源，无需频繁陷入内核态。</p>
+<hr />
+<h4 id="大页内存hugepages">3.
+<strong>大页内存（HugePages）</strong></h4>
+<p>DPDK使用大页内存来存储数据包缓冲区。大页内存通过<code>mmap</code>映射到用户态后，用户态程序可以直接访问这些内存区域，避免了频繁的内存分配和内核态切换。</p>
+<hr />
+<h4 id="dma配置">4. <strong>DMA配置</strong></h4>
+<p>DMA的配置通常需要特权操作，但DPDK在初始化阶段通过以下方式完成： -
+使用VFIO或UIO框架配置DMA引擎。 - 将DMA缓冲区映射到用户态内存。 -
+之后，用户态程序可以直接操作DMA缓冲区，无需每次DMA传输都调用系统调用。</p>
+<hr />
+<h4 id="轮询模式poll-mode">5. <strong>轮询模式（Poll
+Mode）</strong></h4>
+<p>DPDK使用轮询模式检查网卡的接收和发送队列，而不是依赖内核的中断机制。这种方式避免了频繁的中断处理和上下文切换。</p>
+<hr />
+<h4 id="总结-3">总结</h4>
+<ul>
+<li><strong>初始化阶段</strong>：DPDK通过<code>mmap</code>、UIO/VFIO等机制，将硬件寄存器和DMA区域映射到用户态地址空间。这些操作需要系统调用，但仅在初始化时完成。</li>
+<li><strong>运行时</strong>：映射完成后，用户态程序可以直接访问硬件寄存器和DMA缓冲区，无需频繁调用系统调用。</li>
+<li><strong>性能优势</strong>：通过减少系统调用和上下文切换，DPDK实现了高性能的数据包处理。</li>
+</ul>
+<p>因此，DPDK的设计目标是<strong>尽量减少运行时对内核态的依赖</strong>，而不是完全避免系统调用。</p>
+<h3
+id="dpdk哪些代码会仅在用户态执行哪些代码会导致陷入内核态举例说明">dpdk哪些代码会仅在用户态执行？哪些代码会导致陷入内核态？举例说明</h3>
+<p>在DPDK中，代码的执行分为<strong>用户态</strong>和<strong>内核态</strong>两部分。以下是具体的分类和示例：</p>
+<hr />
+<h4 id="仅在用户态执行的代码">1.
+<strong>仅在用户态执行的代码</strong></h4>
+<p>这些代码完全运行在用户态，不涉及内核态的切换。</p>
+<h5 id="示例">示例：</h5>
+<ul>
+<li><strong>数据包处理逻辑</strong>： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rte_mbuf</span> *<span class="hljs-title">pkts</span>[<span class="hljs-title">BURST_SIZE</span>];</span><br>    <span class="hljs-type">uint16_t</span> nb_rx = rte_eth_rx_burst(port_id, queue_id, pkts, BURST_SIZE);<br>    <span class="hljs-keyword">if</span> (nb_rx == <span class="hljs-number">0</span>) <span class="hljs-keyword">continue</span>;<br><br>    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> i = <span class="hljs-number">0</span>; i &lt; nb_rx; i++) &#123;<br>        process_packet(pkts[i]);  <span class="hljs-comment">// 用户态处理数据包</span><br>        rte_pktmbuf_free(pkts[i]);  <span class="hljs-comment">// 释放数据包缓冲区</span><br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>rte_eth_rx_burst</code>：从网卡队列中批量接收数据包。</li>
+<li><code>process_packet</code>：用户态的数据包处理逻辑。</li>
+<li><code>rte_pktmbuf_free</code>：释放数据包缓冲区。</li>
+</ul></li>
+<li><strong>内存池操作</strong>： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rte_mempool</span> *<span class="hljs-title">mp</span> =</span> rte_pktmbuf_pool_create(<span class="hljs-string">&quot;mbuf_pool&quot;</span>, NUM_MBUFS, MBUF_CACHE_SIZE, <span class="hljs-number">0</span>, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>rte_pktmbuf_pool_create</code>：创建内存池，用于分配数据包缓冲区。</li>
+</ul></li>
+<li><strong>队列操作</strong>： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rte_ring</span> *<span class="hljs-title">ring</span> =</span> rte_ring_create(<span class="hljs-string">&quot;msg_ring&quot;</span>, RING_SIZE, rte_socket_id(), RING_F_SP_ENQ | RING_F_SC_DEQ);<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>rte_ring_create</code>：创建无锁队列，用于线程间通信。</li>
+</ul></li>
+</ul>
+<hr />
+<h4 id="会导致陷入内核态的代码">2.
+<strong>会导致陷入内核态的代码</strong></h4>
+<p>这些代码涉及与内核的交互，需要通过系统调用或内核模块的支持。</p>
+<h5 id="示例-1">示例：</h5>
+<ul>
+<li><strong>初始化阶段的硬件资源映射</strong>： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> ret = rte_eal_init(argc, argv);<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>rte_eal_init</code>：初始化DPDK环境，包括映射硬件寄存器、配置大页内存等。这些操作需要通过<code>mmap</code>系统调用将硬件资源映射到用户态。</li>
+</ul></li>
+<li><strong>网卡配置</strong>： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c">ret = rte_eth_dev_configure(port_id, nb_rx_queue, nb_tx_queue, &amp;port_conf);<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>rte_eth_dev_configure</code>：配置网卡的接收和发送队列。在底层可能通过UIO/VFIO框架与内核交互。</li>
+</ul></li>
+<li><strong>中断处理</strong>： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c">rte_eth_dev_rx_intr_ctl(port_id, queue_id, RTE_EPOLL_PER_THREAD, <span class="hljs-number">1</span>);<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>rte_eth_dev_rx_intr_ctl</code>：配置网卡的中断处理。虽然DPDK主要使用轮询模式，但在某些场景下可能涉及中断处理，需要内核支持。</li>
+</ul></li>
+<li><strong>大页内存分配</strong>： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rte_memseg</span> *<span class="hljs-title">ms</span> =</span> rte_malloc_virt2memseg(ptr, <span class="hljs-literal">NULL</span>);<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>rte_malloc_virt2memseg</code>：将虚拟地址转换为大页内存段。底层依赖于<code>mmap</code>系统调用。</li>
+</ul></li>
+</ul>
+<hr />
+<h4 id="总结-4">3. <strong>总结</strong></h4>
+<ul>
+<li><strong>仅在用户态执行的代码</strong>：
+<ul>
+<li>数据包接收、处理和释放。</li>
+<li>内存池和队列的操作。</li>
+<li>用户态的业务逻辑。</li>
+</ul></li>
+<li><strong>会导致陷入内核态的代码</strong>：
+<ul>
+<li>硬件资源映射和初始化。</li>
+<li>网卡配置和中断处理。</li>
+<li>大页内存分配和管理。</li>
+</ul></li>
+</ul>
+<p>DPDK的设计目标是尽量减少运行时的内核态切换，大部分高性能数据路径代码都运行在用户态，只有在初始化和配置阶段才需要与内核交互。</p>
+<h3 id="dpdk在内核有对应的驱动吗">dpdk在内核有对应的驱动吗？</h3>
+<p>是的，DPDK
+在内核中确实有对应的驱动支持，但这些驱动的作用与传统内核网络协议栈的驱动不同。DPDK
+依赖的驱动主要用于<strong>将硬件资源暴露给用户态</strong>，而不是直接处理数据包。以下是
+DPDK 在内核中的驱动及其作用：</p>
+<hr />
+<h4 id="uiouserspace-io驱动">1. <strong>UIO（Userspace
+I/O）驱动</strong></h4>
+<p>UIO 是 DPDK
+最早使用的驱动框架，它的作用是将硬件资源（如网卡的寄存器、内存映射区域等）暴露给用户态程序。</p>
+<h5 id="主要功能">主要功能：</h5>
+<ul>
+<li><strong>硬件资源映射</strong>：将网卡的寄存器空间和 DMA
+区域映射到用户态地址空间。</li>
+<li><strong>中断处理</strong>：UIO
+驱动可以处理硬件中断，并将中断信息传递给用户态程序。</li>
+</ul>
+<h5 id="示例-2">示例：</h5>
+<ul>
+<li><code>igb_uio</code> 或 <code>uio_pci_generic</code> 是常用的 UIO
+驱动模块。</li>
+</ul>
+<h5 id="使用方式">使用方式：</h5>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">modprobe uio_pci_generic<br></code></pre></td></tr></table></figure>
+<hr />
+<h4 id="vfiovirtual-function-io驱动">2. <strong>VFIO（Virtual Function
+I/O）驱动</strong></h4>
+<p>VFIO 是一个更现代的驱动框架，支持更安全和灵活的硬件访问机制。DPDK
+通常优先使用 VFIO 而不是 UIO。</p>
+<h5 id="主要功能-1">主要功能：</h5>
+<ul>
+<li><strong>安全的硬件访问</strong>：VFIO 使用 IOMMU（Input-Output
+Memory Management
+Unit）来隔离用户态程序对硬件的访问，防止非法内存访问。</li>
+<li><strong>支持 SR-IOV</strong>：VFIO
+可以管理虚拟功能（VF），适用于虚拟化环境。</li>
+<li><strong>中断和 DMA 支持</strong>：VFIO 支持将中断和 DMA
+配置暴露给用户态程序。</li>
+</ul>
+<h5 id="示例-3">示例：</h5>
+<ul>
+<li><code>vfio-pci</code> 是常用的 VFIO 驱动模块。</li>
+</ul>
+<h5 id="使用方式-1">使用方式：</h5>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">modprobe vfio-pci<br></code></pre></td></tr></table></figure>
+<hr />
+<h4 id="dpdk-与内核驱动的关系">3. <strong>DPDK
+与内核驱动的关系</strong></h4>
+<ul>
+<li><strong>内核驱动的作用</strong>：
+<ul>
+<li>初始化硬件（如网卡）。</li>
+<li>将硬件资源（寄存器、内存区域、中断等）暴露给用户态。</li>
+<li>不参与数据包的处理（数据包处理完全由用户态程序完成）。</li>
+</ul></li>
+<li><strong>用户态程序的作用</strong>：
+<ul>
+<li>通过映射的硬件资源直接操作网卡。</li>
+<li>使用轮询模式接收和发送数据包。</li>
+<li>完全绕过内核网络协议栈。</li>
+</ul></li>
+</ul>
+<hr />
+<h4 id="与传统内核驱动的区别">4.
+<strong>与传统内核驱动的区别</strong></h4>
+<p>传统内核网络驱动（如
+<code>igb</code>、<code>ixgbe</code>）会直接处理数据包，并将数据包传递给内核网络协议栈。而
+DPDK 使用的驱动（如 <code>igb_uio</code> 或
+<code>vfio-pci</code>）只是将硬件资源暴露给用户态，数据包的处理完全由用户态程序完成。</p>
+<hr />
+<h4 id="总结-5">5. <strong>总结</strong></h4>
+<ul>
+<li>DPDK 在内核中有对应的驱动（如 <code>igb_uio</code> 或
+<code>vfio-pci</code>），但这些驱动的作用与传统内核驱动不同。</li>
+<li>内核驱动的主要任务是将硬件资源暴露给用户态，而不是处理数据包。</li>
+<li>数据包的处理完全由用户态程序完成，绕过了内核网络协议栈。</li>
+</ul>
+<p>通过这种设计，DPDK 实现了高性能的用户态网络数据包处理。</p>
+<h3 id="ovs也是运行在用户态">ovs也是运行在用户态？</h3>
+<p>是的，<strong>Open vSwitch (OVS)</strong> 的主要数据路径（fast
+path）运行在用户态，而控制路径（control
+path）则运行在内核态或用户态，具体取决于 OVS 的部署方式。以下是对 OVS
+架构的详细说明：</p>
+<hr />
+<h4 id="ovs-的架构">1. <strong>OVS 的架构</strong></h4>
+<p>OVS 分为两个主要部分： -
+<strong>用户态组件</strong>：负责高性能的数据包处理。 -
+<strong>内核态组件</strong>：负责与内核交互和管理。</p>
+<hr />
+<h4 id="用户态组件">2. <strong>用户态组件</strong></h4>
+<h5 id="ovs-用户态数据路径fast-path"><strong>OVS 用户态数据路径（fast
+path）</strong></h5>
+<ul>
+<li><strong>DPDK 加速模式</strong>：
+<ul>
+<li>当 OVS 使用 DPDK 时，数据包处理完全运行在用户态。</li>
+<li>OVS 通过 DPDK 的 PMD（Poll Mode
+Driver）直接与网卡交互，绕过内核网络协议栈。</li>
+<li>数据包的处理（如匹配流表、执行动作）完全在用户态完成。</li>
+</ul></li>
+<li><strong>内核加速模式</strong>：
+<ul>
+<li>当 OVS 不使用 DPDK
+时，数据包处理仍然主要运行在用户态，但部分操作可能依赖内核模块（如
+<code>openvswitch.ko</code>）。</li>
+</ul></li>
+</ul>
+<h5
+id="用户态组件的主要功能"><strong>用户态组件的主要功能</strong>：</h5>
+<ul>
+<li><strong>流表匹配</strong>：根据数据包的特征匹配流表项。</li>
+<li><strong>执行动作</strong>：根据流表项的指令执行动作（如转发、修改数据包等）。</li>
+<li><strong>与控制器通信</strong>：通过 OpenFlow 协议与 SDN
+控制器通信。</li>
+</ul>
+<hr />
+<h4 id="内核态组件">3. <strong>内核态组件</strong></h4>
+<h5
+id="内核模块openvswitch.ko"><strong>内核模块（<code>openvswitch.ko</code>）</strong></h5>
+<ul>
+<li>当 OVS 不使用 DPDK 时，内核模块负责以下任务：
+<ul>
+<li>将数据包从内核网络栈传递到用户态。</li>
+<li>处理部分控制路径逻辑（如端口管理、VLAN 配置等）。</li>
+<li>提供与内核网络栈的兼容性。</li>
+</ul></li>
+<li>当 OVS 使用 DPDK 时，内核模块的作用被最小化，甚至可以不加载。</li>
+</ul>
+<h5
+id="内核态组件的主要功能"><strong>内核态组件的主要功能</strong>：</h5>
+<ul>
+<li><strong>与硬件交互</strong>：在不使用 DPDK
+时，内核模块负责与网卡驱动交互。</li>
+<li><strong>管理端口和 VLAN</strong>：配置和管理虚拟交换机端口。</li>
+<li><strong>提供兼容性</strong>：支持传统的内核网络栈功能。</li>
+</ul>
+<hr />
+<h4 id="ovs-的两种模式">4. <strong>OVS 的两种模式</strong></h4>
+<h5 id="dpdk-加速模式"><strong>DPDK 加速模式</strong></h5>
+<ul>
+<li>数据路径完全运行在用户态。</li>
+<li>高性能，适合需要低延迟和高吞吐量的场景。</li>
+<li>依赖 DPDK 用户态驱动（如 <code>vfio-pci</code>）。</li>
+</ul>
+<h5 id="内核加速模式"><strong>内核加速模式</strong></h5>
+<ul>
+<li>数据路径主要运行在用户态，但部分操作依赖内核模块。</li>
+<li>性能较低，但兼容性更好。</li>
+<li>依赖内核模块（如 <code>openvswitch.ko</code>）。</li>
+</ul>
+<hr />
+<h4 id="总结-6">5. <strong>总结</strong></h4>
+<ul>
+<li><strong>OVS 的主要数据路径运行在用户态</strong>，无论是使用 DPDK
+还是内核加速模式。</li>
+<li>当使用 DPDK 时，OVS
+完全绕过内核网络栈，数据包处理完全在用户态完成。</li>
+<li>当不使用 DPDK 时，OVS
+仍然主要运行在用户态，但部分操作依赖内核模块。</li>
+<li>内核态组件主要用于管理和兼容性，而不是数据包处理。</li>
+</ul>
+<p>因此，OVS
+的设计目标是<strong>将高性能的数据路径放在用户态</strong>，同时通过内核模块提供兼容性和管理功能。</p>
 <h2 id="dns">dns</h2>
 <ul>
 <li><a
