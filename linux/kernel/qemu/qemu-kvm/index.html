@@ -24,7 +24,7 @@
 <meta property="og:description" content="qemu-kvm  虚拟化指南 Linux虚拟化 服务器虚拟化组件有哪些？ ubuntu18.04上搭建KVM虚拟机环境超完整过程 https:&#x2F;&#x2F;www.qemu.org&#x2F;docs&#x2F;master&#x2F;system&#x2F;invocation.html QEMU (简体中文) QEMU-KVM基本原理 Qemu&amp;KVM 第一篇（2） qemu kvm 相关知识 虚拟化技术 — 硬件辅助的虚拟化技术">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2024-04-02T16:13:41.000Z">
-<meta property="article:modified_time" content="2025-02-20T09:55:42.000Z">
+<meta property="article:modified_time" content="2025-03-21T09:30:05.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="qemu">
@@ -278,7 +278,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          15k 字
+          19k 字
         
       </span>
     
@@ -289,7 +289,7 @@
         
         
         
-          128 分钟
+          161 分钟
         
       </span>
     
@@ -332,7 +332,7 @@
               <p class="note note-info">
                 
                   
-                    本文最后更新于：2025年2月20日 上午
+                    本文最后更新于：2025年3月21日 上午
                   
                 
               </p>
@@ -723,6 +723,455 @@ target="_blank" rel="noopener" href="https://www.cnblogs.com/DouglasLuo/p/127315
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh attach-device vm-uuid nic.xml --live<br></code></pre></td></tr></table></figure></li>
 </ol>
 <p>通过这种方式，可以在不重启虚拟机的情况下，动态调整虚拟机的网络配置，提高系统的灵活性和可用性。</p>
+<h3 id="虚拟化类型对比">虚拟化类型对比</h3>
+<hr />
+<table>
+
+<thead>
+<tr class="header">
+<th><strong>虚拟化类型</strong></th>
+<th><strong>实现方式</strong></th>
+<th><strong>前端驱动名称</strong></th>
+<th><strong>后端驱动名称</strong></th>
+<th><strong>前端驱动位置</strong></th>
+<th><strong>后端驱动位置</strong></th>
+<th><strong>数据包是否经过 QEMU 转发</strong></th>
+<th><strong>控制信息</strong></th>
+<th><strong>控制信息是否经过 QEMU 转发</strong></th>
+<th><strong>数据包传递机制</strong></th>
+<th><strong>中断透传是否用到</strong></th>
+<th><strong>中断透传的实现方式</strong></th>
+<th><strong>是否使用 eventfd</strong></th>
+<th><strong>是否使用 ioeventfd</strong></th>
+<th><strong>是否使用 vring</strong></th>
+<th><strong>数据收发包机制</strong></th>
+<th><strong>数据收包链路</strong></th>
+<th><strong>数据发包链路</strong></th>
+<th><strong>是否使用 SR-IOV</strong></th>
+<th><strong>是否使用 IOMMU</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>全虚拟化</strong></td>
+<td><strong>纯软件模拟</strong></td>
+<td><code>virtio-net</code></td>
+<td>QEMU 用户空间模拟</td>
+<td>虚拟机内部</td>
+<td>物理机用户空间</td>
+<td>是</td>
+<td>virtio 配置、队列状态、事件通知</td>
+<td>是</td>
+<td>中断</td>
+<td>否</td>
+<td>中断由 QEMU 模拟，虚拟机通过虚拟中断机制接收中断信号。</td>
+<td>否</td>
+<td>否</td>
+<td>是</td>
+<td>中断</td>
+<td>物理网络 → 宿主机内核网络栈 → QEMU → vring → 虚拟机前端驱动 → Guest
+OS</td>
+<td>Guest OS → 虚拟机前端驱动 → vring → QEMU → 宿主机内核网络栈 →
+物理网络</td>
+<td>否</td>
+<td>否</td>
+</tr>
+<tr class="even">
+<td><strong>半虚拟化</strong></td>
+<td><strong>vhost-net</strong></td>
+<td><code>virtio-net</code></td>
+<td><code>vhost-net</code>（内核驱动）</td>
+<td>虚拟机内部</td>
+<td>物理机内核空间</td>
+<td>否</td>
+<td>virtio 配置、队列状态、事件通知</td>
+<td>是</td>
+<td>eventfd（事件驱动）</td>
+<td>否</td>
+<td>使用 eventfd 机制替代中断，虚拟机通过事件驱动机制接收通知。</td>
+<td>是</td>
+<td>是</td>
+<td>是</td>
+<td>eventfd + ioeventfd</td>
+<td>物理网络 → 宿主机内核网络栈 → vhost-net → vring → 虚拟机前端驱动 →
+Guest OS</td>
+<td>Guest OS → 虚拟机前端驱动 → vring → vhost-net → 宿主机内核网络栈 →
+物理网络</td>
+<td>否</td>
+<td>是</td>
+</tr>
+<tr class="odd">
+<td><strong>半虚拟化</strong></td>
+<td><strong>vhost-user</strong></td>
+<td><code>virtio-net</code></td>
+<td>vhost-user（用户空间，通常由 OVS + DPDK 管理）</td>
+<td>虚拟机内部</td>
+<td>物理机用户空间</td>
+<td>否</td>
+<td>virtio 配置、队列状态、事件通知</td>
+<td>否</td>
+<td>共享内存 + eventfd</td>
+<td>否</td>
+<td>使用 eventfd 机制替代中断，虚拟机通过事件驱动机制接收通知。</td>
+<td>是</td>
+<td>是</td>
+<td>是</td>
+<td>eventfd + ioeventfd</td>
+<td>物理网络 → OVS + DPDK → vhost-user → vring → 虚拟机前端驱动 → Guest
+OS</td>
+<td>Guest OS → 虚拟机前端驱动 → vring → vhost-user → OVS + DPDK →
+物理网络</td>
+<td>否</td>
+<td>是</td>
+</tr>
+<tr class="even">
+<td><strong>半虚拟化</strong></td>
+<td><strong>vDPA</strong></td>
+<td><code>virtio-net</code></td>
+<td><code>vdpa-net</code>（网络设备）<br><code>vdpa-blk</code>（块设备）</td>
+<td>虚拟机内部</td>
+<td>物理机硬件设备</td>
+<td>否</td>
+<td>virtio 配置、队列状态、事件通知</td>
+<td>否</td>
+<td>硬件加速（绕过软件栈）</td>
+<td>是</td>
+<td>硬件设备的中断直接传递给虚拟机，绕过宿主机的软件栈。</td>
+<td>否</td>
+<td>否</td>
+<td>是</td>
+<td>硬件中断</td>
+<td>物理网络 → 硬件设备 → vring → 虚拟机前端驱动 → Guest OS</td>
+<td>Guest OS → 虚拟机前端驱动 → vring → 硬件设备 → 物理网络</td>
+<td>是</td>
+<td>是</td>
+</tr>
+<tr class="odd">
+<td><strong>VFIO</strong></td>
+<td><strong>VFIO</strong></td>
+<td>硬件设备原生驱动（如
+<code>ixgbe</code>、<code>mlx5_core</code>）</td>
+<td><code>vfio-pci</code>（PCI
+设备）<br><code>vfio-platform</code>（平台设备）</td>
+<td>虚拟机内部</td>
+<td>物理机硬件设备</td>
+<td>否</td>
+<td>硬件设备配置、队列状态、事件通知</td>
+<td>否</td>
+<td>硬件中断（直接访问硬件）</td>
+<td>是</td>
+<td>硬件设备的中断直接传递给虚拟机，绕过宿主机的软件栈。</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+<td>硬件中断</td>
+<td>物理网络 → 硬件设备 → 虚拟机原生驱动 → Guest OS</td>
+<td>Guest OS → 虚拟机原生驱动 → 硬件设备 → 物理网络</td>
+<td>是</td>
+<td>是</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="eventfd中断对比">eventfd、中断对比</h3>
+<p><strong>eventfd</strong> 是一种高效的进程间通信机制，用于在 Linux
+内核和用户空间之间传递事件通知。在虚拟化环境中，<strong>eventfd</strong>
+被广泛用于替代传统的中断机制，以减少中断开销并提升性能。以下是
+<strong>eventfd</strong> 如何替代中断的详细说明：</p>
+<hr />
+<h4 id="传统中断机制的局限性">1.
+<strong>传统中断机制的局限性</strong></h4>
+<p>在传统的 virtio 实现中： - <strong>中断机制</strong>： -
+当虚拟机前端有数据包需要处理时，会触发一个中断通知后端驱动。 -
+后端驱动通过中断处理程序响应通知，并从 virtio 环（vring）中读取数据包。
+- <strong>问题</strong>： -
+<strong>高开销</strong>：中断机制涉及上下文切换和内核栈处理，开销较大。
+- <strong>低效</strong>：频繁的中断会导致 CPU 利用率下降，影响性能。</p>
+<hr />
+<h4 id="eventfd-的工作原理">2. <strong>eventfd 的工作原理</strong></h4>
+<p><strong>eventfd</strong>
+是一种基于文件描述符的事件通知机制，允许内核和用户空间之间高效地传递事件。它的核心思想是通过内存映射和事件通知替代传统的中断机制。</p>
+<h5 id="eventfd-的关键特性"><strong>eventfd 的关键特性</strong></h5>
+<ul>
+<li><strong>文件描述符</strong>：
+<ul>
+<li>eventfd 创建一个文件描述符，用于在内核和用户空间之间传递事件。</li>
+</ul></li>
+<li><strong>计数器</strong>：
+<ul>
+<li>eventfd 内部维护一个计数器，用于记录事件的数量。</li>
+</ul></li>
+<li><strong>通知机制</strong>：
+<ul>
+<li>当事件发生时，计数器递增，并通过文件描述符通知接收方。</li>
+</ul></li>
+<li><strong>高效性</strong>：
+<ul>
+<li>eventfd
+通过内存映射和事件驱动机制实现高效的事件通知，避免了传统中断的开销。</li>
+</ul></li>
+</ul>
+<hr />
+<h4 id="eventfd-在虚拟化中的应用">3. <strong>eventfd
+在虚拟化中的应用</strong></h4>
+<p>在虚拟化环境中，<strong>eventfd</strong>
+被用于替代传统的中断机制，具体流程如下：</p>
+<h5 id="数据包接收流程"><strong>数据包接收流程</strong></h5>
+<ol type="1">
+<li><strong>虚拟机前端</strong>：
+<ul>
+<li>虚拟机前端将数据包放入 vring 中。</li>
+<li>虚拟机前端通过写入 eventfd 文件描述符通知后端驱动有新数据包。</li>
+</ul></li>
+<li><strong>后端驱动</strong>：
+<ul>
+<li>后端驱动通过读取 eventfd 文件描述符接收通知。</li>
+<li>后端驱动从 vring 中读取数据包并进行处理。</li>
+</ul></li>
+</ol>
+<h5 id="数据包发送流程"><strong>数据包发送流程</strong></h5>
+<ol type="1">
+<li><strong>后端驱动</strong>：
+<ul>
+<li>后端驱动将数据包放入 vring 中。</li>
+<li>后端驱动通过写入 eventfd 文件描述符通知虚拟机前端有新数据包。</li>
+</ul></li>
+<li><strong>虚拟机前端</strong>：
+<ul>
+<li>虚拟机前端通过读取 eventfd 文件描述符接收通知。</li>
+<li>虚拟机前端从 vring 中读取数据包并传递给 Guest OS。</li>
+</ul></li>
+</ol>
+<hr />
+<h4 id="eventfd-替代中断的优势">4. <strong>eventfd
+替代中断的优势</strong></h4>
+<ul>
+<li><strong>减少中断开销</strong>：
+<ul>
+<li>eventfd
+通过内存映射和事件驱动机制替代传统的中断机制，减少了上下文切换和内核栈处理的开销。</li>
+</ul></li>
+<li><strong>高效事件通知</strong>：
+<ul>
+<li>eventfd 的计数器机制可以批量处理事件，减少了事件通知的频率。</li>
+</ul></li>
+<li><strong>低延迟</strong>：
+<ul>
+<li>eventfd 的事件通知机制延迟极低，适合高性能场景。</li>
+</ul></li>
+</ul>
+<hr />
+<h4 id="eventfd-与-ioeventfd-的关系">5. <strong>eventfd 与 ioeventfd
+的关系</strong></h4>
+<ul>
+<li><strong>eventfd</strong>：
+<ul>
+<li>用于通用的进程间事件通知。</li>
+</ul></li>
+<li><strong>ioeventfd</strong>：
+<ul>
+<li>是 eventfd 的一个变种，专门用于虚拟化环境中的高效事件通知。</li>
+<li>ioeventfd 通过内存映射触发事件，当虚拟机访问特定的 I/O
+地址时，会触发 ioeventfd 事件。</li>
+</ul></li>
+</ul>
+<h5 id="ioeventfd-的工作流程"><strong>ioeventfd 的工作流程</strong></h5>
+<ol type="1">
+<li><strong>注册 ioeventfd</strong>：
+<ul>
+<li>宿主机为虚拟机注册一个 ioeventfd，并将其映射到特定的 I/O 地址。</li>
+</ul></li>
+<li><strong>触发事件</strong>：
+<ul>
+<li>虚拟机访问该 I/O 地址时，会触发 ioeventfd 事件。</li>
+</ul></li>
+<li><strong>事件通知</strong>：
+<ul>
+<li>ioeventfd 事件通过 eventfd 文件描述符通知宿主机。</li>
+</ul></li>
+<li><strong>处理事件</strong>：
+<ul>
+<li>宿主机从 vring 中读取数据包并进行处理。</li>
+</ul></li>
+</ol>
+<hr />
+<h4 id="总结">6. <strong>总结</strong></h4>
+<ul>
+<li><strong>eventfd</strong>
+通过内存映射和事件驱动机制替代传统的中断机制，减少了中断开销并提升了性能。</li>
+<li>在虚拟化环境中，<strong>eventfd</strong> 和
+<strong>ioeventfd</strong> 被广泛用于高效的事件通知，适合高性能场景（如
+NFV、云计算）。</li>
+<li><strong>eventfd</strong>
+的优势包括减少中断开销、高效事件通知和低延迟。</li>
+</ul>
+<h3 id="sr-ioviommu对比">SR-IOV、IOMMU对比</h3>
+<p><strong>SR-IOV（Single Root I/O Virtualization）</strong> 和
+<strong>IOMMU（Input-Output Memory Management Unit）</strong>
+是两种不同的技术，尽管它们都用于虚拟化环境中提升 I/O
+性能，但它们的功能和应用场景有所不同。以下是它们的详细对比：</p>
+<hr />
+<h4 id="sr-iovsingle-root-io-virtualization">1. <strong>SR-IOV（Single
+Root I/O Virtualization）</strong></h4>
+<h5 id="定义"><strong>定义</strong></h5>
+<ul>
+<li>SR-IOV
+是一种硬件虚拟化技术，允许物理设备（如网卡、GPU）虚拟出多个虚拟功能（VF），每个
+VF 可以直接分配给虚拟机使用。</li>
+</ul>
+<h5 id="工作原理"><strong>工作原理</strong></h5>
+<ul>
+<li><strong>物理功能（PF）</strong>：
+<ul>
+<li>物理设备的完整功能，由宿主机管理。</li>
+</ul></li>
+<li><strong>虚拟功能（VF）</strong>：
+<ul>
+<li>物理设备虚拟出的多个独立功能，每个 VF 可以直接分配给虚拟机。</li>
+</ul></li>
+<li><strong>资源分配</strong>：
+<ul>
+<li>每个 VF 拥有独立的资源（如队列、内存），可以直接与虚拟机通信。</li>
+</ul></li>
+</ul>
+<h5 id="优点"><strong>优点</strong></h5>
+<ul>
+<li><strong>高性能</strong>：
+<ul>
+<li>虚拟机直接访问硬件设备，绕过宿主机的软件栈，性能极高。</li>
+</ul></li>
+<li><strong>资源隔离</strong>：
+<ul>
+<li>每个 VF 独立分配给虚拟机，资源隔离性好。</li>
+</ul></li>
+<li><strong>灵活性</strong>：
+<ul>
+<li>支持动态分配和回收 VF，资源利用率高。</li>
+</ul></li>
+</ul>
+<h5 id="应用场景"><strong>应用场景</strong></h5>
+<ul>
+<li>高性能虚拟化场景，如 NFV（网络功能虚拟化）、云计算。</li>
+</ul>
+<hr />
+<h4 id="iommuinput-output-memory-management-unit">2.
+<strong>IOMMU（Input-Output Memory Management Unit）</strong></h4>
+<h5 id="定义-1"><strong>定义</strong></h5>
+<ul>
+<li>IOMMU
+是一种硬件单元，用于管理设备对内存的访问，提供地址翻译和设备隔离功能。</li>
+</ul>
+<h5 id="工作原理-1"><strong>工作原理</strong></h5>
+<ul>
+<li><strong>地址翻译</strong>：
+<ul>
+<li>IOMMU
+将设备的物理地址转换为宿主机的物理地址，允许设备直接访问虚拟机的内存。</li>
+</ul></li>
+<li><strong>设备隔离</strong>：
+<ul>
+<li>IOMMU 确保设备只能访问分配给它的内存区域，防止设备越界访问。</li>
+</ul></li>
+<li><strong>DMA 重映射</strong>：
+<ul>
+<li>IOMMU 重映射设备的 DMA 请求，确保设备只能访问授权的内存区域。</li>
+</ul></li>
+</ul>
+<h5 id="优点-1"><strong>优点</strong></h5>
+<ul>
+<li><strong>安全性</strong>：
+<ul>
+<li>防止设备越界访问内存，提升系统安全性。</li>
+</ul></li>
+<li><strong>性能</strong>：
+<ul>
+<li>允许设备直接访问虚拟机的内存，减少内存复制开销。</li>
+</ul></li>
+<li><strong>兼容性</strong>：
+<ul>
+<li>支持多种设备和虚拟化方案。</li>
+</ul></li>
+</ul>
+<h5 id="应用场景-1"><strong>应用场景</strong></h5>
+<ul>
+<li>设备直通（如 VFIO）、虚拟化环境中的内存管理。</li>
+</ul>
+<hr />
+<h4 id="sr-iov-和-iommu-的区别">3. <strong>SR-IOV 和 IOMMU
+的区别</strong></h4>
+<table>
+
+<thead>
+<tr class="header">
+<th><strong>特性</strong></th>
+<th><strong>SR-IOV</strong></th>
+<th><strong>IOMMU</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>功能</strong></td>
+<td>硬件虚拟化，将物理设备虚拟为多个 VF。</td>
+<td>内存管理，提供地址翻译和设备隔离。</td>
+</tr>
+<tr class="even">
+<td><strong>主要目标</strong></td>
+<td>提升虚拟机的 I/O 性能。</td>
+<td>提升内存访问的安全性和效率。</td>
+</tr>
+<tr class="odd">
+<td><strong>硬件支持</strong></td>
+<td>需要支持 SR-IOV 的硬件设备（如网卡）。</td>
+<td>需要支持 IOMMU 的 CPU 和芯片组。</td>
+</tr>
+<tr class="even">
+<td><strong>资源分配</strong></td>
+<td>每个 VF 独立分配给虚拟机。</td>
+<td>设备直接访问虚拟机的内存。</td>
+</tr>
+<tr class="odd">
+<td><strong>性能优化</strong></td>
+<td>虚拟机直接访问硬件设备，绕过软件栈。</td>
+<td>减少内存复制开销，提升 DMA 效率。</td>
+</tr>
+<tr class="even">
+<td><strong>安全性</strong></td>
+<td>资源隔离性好，但主要关注性能。</td>
+<td>提供设备隔离，防止越界访问内存。</td>
+</tr>
+<tr class="odd">
+<td><strong>应用场景</strong></td>
+<td>高性能虚拟化（如 NFV、云计算）。</td>
+<td>设备直通（如 VFIO）、内存管理。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="sr-iov-和-iommu-的关系">4. <strong>SR-IOV 和 IOMMU
+的关系</strong></h4>
+<ul>
+<li><strong>SR-IOV</strong> 和 <strong>IOMMU</strong> 可以结合使用：
+<ul>
+<li>SR-IOV 提供硬件虚拟化功能，将物理设备虚拟为多个 VF。</li>
+<li>IOMMU 提供内存管理功能，确保设备只能访问授权的内存区域。</li>
+</ul></li>
+<li><strong>典型应用</strong>：
+<ul>
+<li>在 VFIO 方案中，SR-IOV 用于将物理设备虚拟为多个 VF，IOMMU
+用于管理设备对内存的访问。</li>
+</ul></li>
+</ul>
+<hr />
+<h4 id="总结-1">5. <strong>总结</strong></h4>
+<ul>
+<li><strong>SR-IOV</strong>
+是一种硬件虚拟化技术，用于将物理设备虚拟为多个 VF，提升虚拟机的 I/O
+性能。</li>
+<li><strong>IOMMU</strong>
+是一种内存管理技术，用于提供地址翻译和设备隔离，提升内存访问的安全性和效率。</li>
+<li><strong>SR-IOV</strong> 和 <strong>IOMMU</strong>
+可以结合使用，适用于高性能虚拟化场景（如 NFV、云计算）。</li>
+</ul>
 <h2 id="显示虚拟化">显示虚拟化</h2>
 <ul>
 <li><p><a
@@ -788,6 +1237,9 @@ monitor控制台使用详解</a></li>
 <li><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/518032838">如何退出 QEMU
 退出快捷键：Ctrl + a，然后按 x 键。</a></li>
 </ul>
+<p>导出压缩的内存快照:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">virsh qemu-monitor-command vm-uuid --hmp <span class="hljs-string">&quot;dump-guest-memory -z vmcore&quot;</span><br></code></pre></td></tr></table></figure>
+<p>导出的vmcore默认存放在根目录下。</p>
 <h3 id="x86_64下qemu虚拟x86_64">x86_64下qemu虚拟x86_64</h3>
 <ul>
 <li><p><a

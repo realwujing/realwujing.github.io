@@ -24,7 +24,7 @@
 <meta property="og:description" content="network  你管这破玩意叫网络 22张图详解浏览器请求数据包如何到达web服务器（搞懂网络可以出师了） 网卡与Linux网络结构（上） 网卡与Linux网络结构（中） 网卡与Linux网络结构（下） 网卡与数据接收（上） 网卡与数据接收（中） 源码溯源：网卡队列超时机制 通俗理解数据中心CPU和GPU之后的第三颗关键芯片“DPU” 字节校招：TCP 和 UDP 可以同时绑定相同的端口吗？ 5">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2023-04-19T16:11:21.000Z">
-<meta property="article:modified_time" content="2024-09-19T09:53:14.000Z">
+<meta property="article:modified_time" content="2025-03-21T09:46:08.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="C++">
@@ -280,7 +280,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          2.7k 字
+          6.1k 字
         
       </span>
     
@@ -291,7 +291,7 @@
         
         
         
-          23 分钟
+          51 分钟
         
       </span>
     
@@ -334,7 +334,7 @@
               <p class="note note-info">
                 
                   
-                    本文最后更新于：2024年9月19日 上午
+                    本文最后更新于：2025年3月21日 上午
                   
                 
               </p>
@@ -589,6 +589,199 @@ alt="http.host==&quot;www.baidu.com&quot;" />
 <figcaption aria-hidden="true">http.host=="www.baidu.com"</figcaption>
 </figure></li>
 </ul>
+<h2 id="收包">收包</h2>
+<p>网络数据包的接收过程通常分为<strong>硬中断（Hard
+IRQ）</strong>和<strong>软中断（Soft IRQ）</strong>两个阶段，这是 Linux
+网络栈中的典型处理方式，能有效提高性能和响应速度。让我们一步步解释这个流程：</p>
+<hr />
+<h3 id="硬中断阶段hard-irq">🌟 <strong>1. 硬中断阶段（Hard
+IRQ）</strong></h3>
+<p>硬中断由<strong>网卡（NIC, Network Interface
+Card）</strong>直接触发，处理过程如下：</p>
+<ol type="1">
+<li><strong>数据包到达网卡：</strong>
+<ul>
+<li>网卡收到网络数据包后，将数据存入网卡的<strong>接收环形缓冲区（RX
+Ring Buffer）</strong>。</li>
+</ul></li>
+<li><strong>触发硬中断：</strong>
+<ul>
+<li>网卡向 CPU 发送一个硬件中断信号（IRQ, Interrupt
+Request），通知系统“有新数据包需要处理了”。</li>
+</ul></li>
+<li><strong>硬中断处理程序（ISR, Interrupt Service Routine）：</strong>
+<ul>
+<li>CPU
+响应中断，执行网卡驱动程序的硬中断处理逻辑。硬中断处理程序通常做以下工作：
+<ul>
+<li><strong>禁用网卡中断</strong>（避免大量中断拖垮系统）。<br />
+</li>
+<li><strong>将数据包的描述符加入 NAPI 列表</strong>（NAPI, New API，是
+Linux 网络子系统的优化机制）。<br />
+</li>
+<li><strong>触发软中断（Soft
+IRQ）或轮询机制</strong>，让后续处理交给软中断来完成。</li>
+</ul></li>
+</ul></li>
+</ol>
+<p>硬中断要尽量短小精悍，只完成必要的工作，把大部分包处理逻辑交给软中断来做。</p>
+<hr />
+<h3 id="软中断阶段soft-irqnapi">⚙️ <strong>2. 软中断阶段（Soft
+IRQ/NAPI）</strong></h3>
+<p>软中断是由内核在合适的时机触发的，用来处理大量网络包时的性能瓶颈。流程如下：</p>
+<ol type="1">
+<li><strong>NAPI 轮询机制：</strong>
+<ul>
+<li>在硬中断阶段，网卡驱动程序会将网络接口添加到 NAPI
+列表，触发软中断处理逻辑。</li>
+</ul></li>
+<li><strong>处理数据包：</strong>
+<ul>
+<li>软中断（<code>NET_RX_SOFTIRQ</code>）开始执行，从网卡的 RX
+队列取出数据包：
+<ul>
+<li><strong>协议栈处理</strong>：解析以太网帧、IP 数据包、TCP/UDP
+协议等。<br />
+</li>
+<li><strong>分发到上层</strong>：根据数据包类型，将数据递交给相应的内核模块（如
+socket 层、iptables、防火墙等）。<br />
+</li>
+<li><strong>交给用户态</strong>：最终数据通过 <code>recv()</code>
+系统调用传递给用户态程序。</li>
+</ul></li>
+</ul></li>
+<li><strong>恢复中断：</strong>
+<ul>
+<li>数据包处理完成后，软中断会重新开启网卡中断，使得新的数据包到来时，能够再次触发硬中断。</li>
+</ul></li>
+</ol>
+<hr />
+<h3 id="为什么要分硬中断和软中断">📌
+<strong>为什么要分硬中断和软中断？</strong></h3>
+<ol type="1">
+<li><strong>减少中断风暴</strong>：如果每个数据包都触发硬中断，CPU
+会被中断淹没，导致性能下降。<br />
+</li>
+<li><strong>批量处理</strong>：软中断采用 NAPI
+机制，可以在一次软中断处理过程中批量收包，提升效率。<br />
+</li>
+<li><strong>更好的调度</strong>：软中断可以被内核调度器管控，避免影响其他关键任务的执行。</li>
+</ol>
+<p>如果你需要优化网络性能，还可以研究：<br />
+- <strong>RPS/RFS（Receive Packet Steering/Flow
+Steering）</strong>：多核场景下分散网络流量，减少单核瓶颈。<br />
+- <strong>XDP（eXpress Data
+Path）</strong>：在网卡驱动层快速处理或丢弃数据包，减少内核协议栈负担。</p>
+<p>如果想了解具体代码逻辑，可以看看 <code>net/core/dev.c</code> 文件中的
+<code>netif_receive_skb()</code>、<code>napi_poll()</code> 等函数。</p>
+<h2 id="发包">发包</h2>
+<h3 id="网络数据包的发送流程发包"><strong>📤
+网络数据包的发送流程（发包）</strong></h3>
+<p>网络数据包的发送也涉及<strong>软中断</strong>和<strong>硬中断</strong>，但与收包流程不同，主要由<strong>上层协议栈</strong>驱动发包，最终由<strong>网卡（NIC）</strong>负责数据的实际传输。整个流程如下：</p>
+<hr />
+<h2 id="用户态数据准备"><strong>1️⃣ 用户态数据准备</strong></h2>
+<p>在用户态，应用程序（如
+<code>ping</code>、<code>curl</code>、<code>iperf</code> 或自定义 socket
+程序）调用 <code>send()</code>、<code>write()</code> 等系统调用，向
+socket 发送数据： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c">send(sockfd, buffer, len, <span class="hljs-number">0</span>);<br></code></pre></td></tr></table></figure> 这时，数据进入 <strong>TCP/UDP
+层</strong> 进行处理。</p>
+<hr />
+<h2 id="内核协议栈处理"><strong>2️⃣ 内核协议栈处理</strong></h2>
+<p>当数据进入内核后，协议栈会依次处理它： ### <strong>（1）TCP/UDP
+处理</strong> - <strong>UDP</strong>：直接封装 IP 头，进入下一步（适用于
+DNS、VoIP、视频流等）。 - <strong>TCP</strong>： -
+拆分数据（MSS，最大报文段）。 - 计算 TCP 校验和。 - 维护 TCP
+发送队列（适用于重传、流控）。 - 进入 <strong>IP 层</strong>。</p>
+<h3 id="ip-层处理"><strong>（2）IP 层处理</strong></h3>
+<ul>
+<li>填充源 IP、目的 IP、TTL 等。</li>
+<li>计算 IP 校验和。</li>
+<li>进行
+<strong>路由查找</strong>（<code>fib_lookup()</code>），决定从哪个网卡发出。</li>
+</ul>
+<h3 id="以太网层处理"><strong>（3）以太网层处理</strong></h3>
+<ul>
+<li>根据 ARP 表查找目标 MAC 地址（如果是第一次发送，可能会先发送 ARP
+请求）。</li>
+<li>组装以太网帧（源 MAC、目的 MAC、协议类型）。</li>
+<li>数据包进入网卡 <strong>TX 队列</strong>。</li>
+</ul>
+<hr />
+<h2 id="软中断处理soft-irq-net_tx_softirq"><strong>3️⃣ 软中断处理（Soft
+IRQ / NET_TX_SOFTIRQ）</strong></h2>
+<ol type="1">
+<li><strong>进入 <code>dev_queue_xmit()</code></strong>
+<ul>
+<li>这个函数检查数据包并调用驱动层的
+<code>ndo_start_xmit()</code>，进入网卡队列。</li>
+<li>如果队列满了，可能会触发流控（TSO、GSO、Qdisc 等）。</li>
+</ul></li>
+<li><strong>队列调度（Qdisc, Queueing Discipline）</strong>
+<ul>
+<li>如果开启了 <code>tc</code> 流控（如
+<code>fq_codel</code>、<code>pfifo_fast</code>），数据可能会被重新排序。</li>
+<li>高速网卡可能会使用 <strong>TSO（TCP Segmentation
+Offload）</strong>，让网卡直接拆包，提高 CPU 效率。</li>
+</ul></li>
+</ol>
+<hr />
+<h2 id="硬中断触发hard-irq"><strong>4️⃣ 硬中断触发（Hard
+IRQ）</strong></h2>
+<p>数据包最终进入网卡的 <strong>发送环形缓冲区（TX Ring
+Buffer）</strong>，这时： 1. <strong>网卡触发硬中断</strong>（或 DMA
+直接传输）。 2. <strong>网卡驱动调用 <code>xmit_done()</code>
+释放已发送的 skb</strong>。 3.
+<strong>网卡将数据发送到物理链路（光纤、电缆、Wi-Fi）</strong>，数据包真正进入网络。</p>
+<hr />
+<h2 id="为什么发包时硬中断较少"><strong>⚡
+为什么发包时硬中断较少？</strong></h2>
+<p>相较于收包，<strong>发包通常不需要硬中断</strong>，原因如下： -
+<strong>TX 采用 DMA 直接传输</strong>，只需要在发送完成后通知 CPU。 -
+<strong>网卡队列（TX Queue）优化</strong>，减少 CPU 介入，提高吞吐量。 -
+<strong>GSO/TSO（大包卸载）</strong> 让网卡直接拆分 TCP
+包，提高效率。</p>
+<hr />
+<h2 id="总结"><strong>📌 总结</strong></h2>
+<table>
+
+<thead>
+<tr class="header">
+<th>过程</th>
+<th>触发方式</th>
+<th>关键函数</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>用户调用 <code>send()</code></strong></td>
+<td>用户态</td>
+<td><code>sys_sendto()</code></td>
+</tr>
+<tr class="even">
+<td><strong>协议栈处理</strong>（TCP/UDP/IP/MAC）</td>
+<td>软中断（NET_TX_SOFTIRQ）</td>
+<td><code>dev_queue_xmit()</code></td>
+</tr>
+<tr class="odd">
+<td><strong>进入网卡队列（TX Queue）</strong></td>
+<td>软中断</td>
+<td><code>ndo_start_xmit()</code></td>
+</tr>
+<tr class="even">
+<td><strong>网卡 DMA 传输</strong></td>
+<td>硬件</td>
+<td>DMA</td>
+</tr>
+<tr class="odd">
+<td><strong>发送完成通知（硬中断）</strong></td>
+<td>硬中断</td>
+<td><code>xmit_done()</code></td>
+</tr>
+</tbody>
+</table>
+<p>如果你关心具体的优化点，比如 <strong>XDP、TSO、GSO、RPS/RFS</strong>
+等，可以深入研究 <code>net/core/dev.c</code>、<code>drivers/net/</code>
+里的网卡驱动代码。</p>
 <h2 id="丢包">丢包</h2>
 <ul>
 <li><a
@@ -596,6 +789,79 @@ target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/vdW0L7nEdfrxSJ_9
 <li><a
 target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/eLO9NxH4XfRca-PP5VCtPQ">Linux内核网络丢包探秘，这些办法轻松搞定</a></li>
 </ul>
+<p>在网络收发包过程中，判断一个包是否丢失，通常依赖于协议层面的机制。不同协议有各自的处理方式，下面以常见的
+<strong>TCP</strong> 和 <strong>UDP</strong> 为例来解释：</p>
+<h3 id="tcp-层的丢包判断机制">🌐 <strong>TCP
+层的丢包判断机制：</strong></h3>
+<p>TCP 是可靠传输协议，内置了丢包检测机制，包括以下几种方法：</p>
+<ol type="1">
+<li><strong>确认机制（ACK）：</strong>
+<ul>
+<li>TCP 通信是基于序列号（Sequence Number）和确认号（Acknowledgment
+Number）来跟踪数据包的传输情况。</li>
+<li>发送方发送一个数据包后，期望接收方返回一个 ACK
+确认包。如果在设定的超时时间（RTO, Retransmission Timeout）内未收到
+ACK，发送方会认为该包可能丢失，触发重传机制。</li>
+</ul></li>
+<li><strong>超时重传（Timeout Retransmission）：</strong>
+<ul>
+<li>发送方为每个未确认的数据包启动一个定时器（RTO）。如果超时仍未收到
+ACK，发送方认为数据包已丢失，重新发送。</li>
+</ul></li>
+<li><strong>快速重传（Fast Retransmit）：</strong>
+<ul>
+<li>当接收方收到乱序的包时，会不断发送对最后正确接收的包的
+ACK（称为“冗余 ACK”）。如果发送方连续收到 3 个相同的冗余
+ACK，就会判断有数据包丢失，触发快速重传。</li>
+</ul></li>
+<li><strong>选择性确认（SACK, Selective Acknowledgment）：</strong>
+<ul>
+<li>接收方可以通过 SACK
+机制告知发送方哪些包已收到，哪些包未收到，从而让发送方仅重传丢失的部分。</li>
+</ul></li>
+</ol>
+<hr />
+<h3 id="udp-层的丢包判断机制">📩 <strong>UDP
+层的丢包判断机制：</strong></h3>
+<p>UDP
+是无连接、不可靠传输协议，本身不提供丢包检测机制。常见的做法包括：</p>
+<ol type="1">
+<li><strong>应用层序列号：</strong>
+<ul>
+<li>应用程序自行为每个 UDP
+包附加序列号，接收方通过序列号判断是否有丢包。</li>
+</ul></li>
+<li><strong>超时机制：</strong>
+<ul>
+<li>发送方在发送包后启动超时计时器，如果在一定时间内未收到预期的响应（如
+ACK 或心跳包），认为数据包可能丢失。</li>
+</ul></li>
+<li><strong>心跳机制（Heartbeat）：</strong>
+<ul>
+<li>定期发送探测包，检测链路状态。如果多次探测未响应，则认为有丢包或链路中断。</li>
+</ul></li>
+<li><strong>FEC（Forward Error Correction，前向纠错）：</strong>
+<ul>
+<li>使用冗余信息或校验码（如 Reed-Solomon
+编码）来检测并修复丢包，尤其在流媒体、VoIP 等场景常见。</li>
+</ul></li>
+</ol>
+<hr />
+<h3 id="底层机制链路层硬件">📊
+<strong>底层机制（链路层/硬件）：</strong></h3>
+<ol type="1">
+<li><strong>CRC 校验（循环冗余校验）：</strong>
+<ul>
+<li>每个数据包附带 CRC
+校验码，接收方对收到的包进行校验，发现错误则丢弃该包，依赖上层协议重传。</li>
+</ul></li>
+<li><strong>网卡统计：</strong>
+<ul>
+<li>网卡驱动程序维护收发包计数器（如
+<code>ifconfig</code>、<code>ethtool</code>
+工具可以查看），包括丢包统计信息，可用来辅助判断。</li>
+</ul></li>
+</ol>
 <h2 id="dns">dns</h2>
 <ul>
 <li><a
