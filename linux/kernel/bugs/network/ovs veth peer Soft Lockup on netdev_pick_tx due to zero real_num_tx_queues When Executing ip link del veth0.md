@@ -4,27 +4,9 @@
 
 ## 测试环境
 
-管理区新架构测试沟通
-
-2022年-公有云-贵州-贵州4.0AZ1-测试 10.246.116.1
-
-os-deploy
-
-10e63e7e11
-
-sudo -s
-
-10.63.2.11
-
-10.63.2.12
-
-10.63.2.13
-
-ssh secure@10.63.2.11 -p 10000
-
-scp -P 10000 kernel-5.10.0-136.12.0.88.f4e7ea49f7bd.ctl3.aarch64.rpm secure@10.63.2.13:~/wujing
-
-ctkernel-lts-5.10/yuanql9/bugfix-pr-veth-peer-soft-lockup
+```bash
+566h55CG5Yy65paw5p625p6E5rWL6K+V5rKf6YCaCgoyMDIy5bm0LeWFrOacieS6kS3otLXlt54t6LS15beeNC4wQVoxLea1i+ivlSAxMC4yNDYuMTE2LjEKCm9zLWRlcGxveQoKMTBlNjNlN2UxMQoKc3VkbyAtcwoKMTAuNjMuMi4xMQoKMTAuNjMuMi4xMgoKMTAuNjMuMi4xMwoKc3NoIHNlY3VyZUAxMC42My4yLjExIC1wIDEwMDAw
+```
 
 ## 复现步骤
 
@@ -40,6 +22,92 @@ ovs-vsctl del-port os_manage1 veth0
 ```
 
 ![openvswitch_dmesg](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/openvswitch_dmesg.png)
+
+### 本地搭建虚拟机狗酱轻量级复现环境
+
+参考复现脚本：
+
+```bash
+systemctl start openvswitch
+ovs-vsctl add-br os_manage
+ip link add name veth0 type veth peer name veth1
+ip link set veth0 up
+ip link set veth1 up
+ovs-vsctl del-port os_manage veth0
+ovs-vsctl add-port os_manage veth0
+ovs-vsctl show
+ip link set os_manage up
+ip addr add 192.168.10.1/24 dev veth0
+ip addr add 192.168.10.2/24 dev veth1
+ip addr show veth0
+ip addr show veth1
+ping 192.168.10.1 -I 192.168.10.2
+```
+
+```bash
+ip link del veth0
+```
+
+在本地搭建的虚拟机上无法复现此bug，但是可以用来调试获取关键路径堆栈。
+
+
+![vm_ip_link_del_veth0](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/vm_ip_link_del_veth0.png)
+
+```bash
+trace-cmd record -p function_graph -g veth_dellink ip link del veth0
+```
+
+```bash
+trace-cmd report > vm_ip_link_del_veth0.log
+```
+
+```bash
+vim vm_ip_link_del_veth0.log
+
+CPU 0 is empty
+CPU 1 is empty
+CPU 2 is empty
+CPU 3 is empty
+CPU 4 is empty
+CPU 5 is empty
+CPU 7 is empty
+cpus=8
+              ip-2541  [006]  5230.491361: funcgraph_entry:                   |  veth_dellink() {
+              ip-2541  [006]  5230.491883: funcgraph_entry:                   |    unregister_netdevice_queue() {
+              ip-2541  [006]  5230.491914: funcgraph_entry:                   |      rtnl_is_locked() {
+              ip-2541  [006]  5230.491916: funcgraph_entry:      + 56.464 us  |        mutex_is_locked();
+              ip-2541  [006]  5230.492126: funcgraph_exit:       ! 212.400 us |      }
+              ip-2541  [006]  5230.492173: funcgraph_exit:       ! 291.680 us |    }
+              ip-2541  [006]  5230.492182: funcgraph_entry:                   |    unregister_netdevice_queue() {
+              ip-2541  [006]  5230.492184: funcgraph_entry:                   |      rtnl_is_locked() {
+              ip-2541  [006]  5230.492185: funcgraph_entry:        1.456 us   |        mutex_is_locked();
+              ip-2541  [006]  5230.492188: funcgraph_exit:         4.496 us   |      }
+              ip-2541  [006]  5230.492190: funcgraph_exit:         7.936 us   |    }
+              ip-2541  [006]  5230.492200: funcgraph_exit:       # 1227.888 us |  }
+
+```
+
+```bash
+trace-cmd list -f | grep rtnl_dellink
+rtnl_dellinkprop
+rtnl_dellink
+```
+
+```bash
+trace-cmd record -p function_graph -g rtnl_dellink ip link del veth0
+```
+
+```bash
+trace-cmd report > vm_ip_link_del_veth0_rtnl_dellink.log
+```
+
+```bash
+trace-cmd record -p function_graph ping 192.168.10.1 -I 192.168.10.2
+```
+
+```bash
+trace-cmd report > vm_ping.log
+```
 
 ## 根因定位
 
@@ -606,7 +674,7 @@ index 7d787f91db92..0dcb9eb4d03e 100644
 @@ -672,4 +672,17 @@ static inline void print_hex_dump_debug(const char *prefix_str, int prefix_type,
  #define print_hex_dump_bytes(prefix_str, prefix_type, buf, len)        \
         print_hex_dump_debug(prefix_str, prefix_type, 16, 1, buf, len, true)
- 
+
 +// 自定义 MY_WARN 宏
 +#define MY_WARN(condition, dump_stack_flag, tag, fmt, ...)                     \
 +       do {                                                                   \
@@ -680,7 +748,7 @@ index 4d3851278303..f5991595b2d1 100644
  		if (hash >= qoffset)
  			hash -= qoffset;
 -		while (unlikely(hash >= qcount))
-+		
++
 +		while (unlikely(hash >= qcount)) {
 +			if (strncmp(dev->name, "veth", 4) == 0) {
 +				MY_WARN(1, 0, "veth_peer_soft_lockup",
@@ -699,7 +767,7 @@ index 4d3851278303..f5991595b2d1 100644
 +		}
  		return hash + qoffset;
  	}
- 
+
 ```
 
 ### 在remove_queue_kobjects中增加日志
@@ -714,7 +782,7 @@ index 989b3f7ee85f..d51d70f30fb1 100644
 @@ -1805,6 +1805,13 @@ static void remove_queue_kobjects(struct net_device *dev)
         net_rx_queue_update_kobjects(dev, real_rx, 0);
         netdev_queue_update_kobjects(dev, real_tx, 0);
- 
+
 +       if (strncmp(dev->name, "veth", 4) == 0) {
 +               MY_WARN(1, 1, "veth_peer_soft_lockup", "dev->name:%s, "
 +                       "dev->real_num_rx_queues: %d, dev->real_num_tx_queues:%d\n",
@@ -766,21 +834,21 @@ index 989b3f7ee85f..d51d70f30fb1 100644
 ```c
 10814 void unregister_netdevice_many(struct list_head *head)
 10815 {
-10816     struct net_device *dev, *tmp;                                                                                                                                                                                
+10816     struct net_device *dev, *tmp;
 10817     LIST_HEAD(close_head);
-10818 
+10818
 10819     BUG_ON(dev_boot_phase);
 10820     ASSERT_RTNL();
-10821 
+10821
 10822     if (list_empty(head))
 10823         return;
-10824 
+10824
 10825     list_for_each_entry_safe(dev, tmp, head, unreg_list) {
 10826         if (strncmp(dev->name, "veth", 4) == 0) {
 10827             MY_WARN(1, 0, "veth_peer_soft_lockup",
 10828 +-----  4 lines: "dev->name:%s, "--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 10832         }
-10833 
+10833
 10834         /* Some devices call without registering
 10835          * for initialization unwind. Remove those
 10836          * devices and proceed with the remaining.
@@ -788,7 +856,7 @@ index 989b3f7ee85f..d51d70f30fb1 100644
 10838         if (dev->reg_state == NETREG_UNINITIALIZED) {
 10839             pr_debug("unregister_netdevice: device %s/%p never was registered\n",
 10840                  dev->name, dev);
-10841 
+10841
 10842             WARN_ON(1);
 10843             list_del(&dev->unreg_list);
 10844             continue;
@@ -796,22 +864,22 @@ index 989b3f7ee85f..d51d70f30fb1 100644
 10846         dev->dismantle = true;
 10847         BUG_ON(dev->reg_state != NETREG_REGISTERED);
 10848     }
-10849 
+10849
 10850     /* If device is running, close it first. */
 10851     list_for_each_entry(dev, head, unreg_list)
 10852         list_add_tail(&dev->close_list, &close_head);
 10853     dev_close_many(&close_head, true);
-10854 
+10854
 10855     list_for_each_entry(dev, head, unreg_list) {
 10856         /* And unlink it from device chain. */
 10857         unlist_netdevice(dev);
-10858 
+10858
 10859         dev->reg_state = NETREG_UNREGISTERING;
 10860     }
 10861     flush_all_backlogs();
-10862 
+10862
 10863     synchronize_net();
-10864 
+10864
 10865     list_for_each_entry(dev, head, unreg_list) {
 10866         if (strncmp(dev->name, "veth", 4) == 0) {
 10867             MY_WARN(1, 0, "veth_peer_soft_lockup",
@@ -819,46 +887,46 @@ index 989b3f7ee85f..d51d70f30fb1 100644
 10872         }
 10873
 10874         struct sk_buff *skb = NULL;
-10875 
+10875
 10876         /* Shutdown queueing discipline. */
 10877         dev_shutdown(dev);
-10878 
+10878
 10879         dev_xdp_uninstall(dev);
-10880 
+10880
 10881         /* Notify protocols, that we are about to destroy
 10882          * this device. They should clean all the things.
 10883          */
 10884         call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
-10885 
+10885
 10886         if (!dev->rtnl_link_ops ||
 10887             dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
 10888             skb = rtmsg_ifinfo_build_skb(RTM_DELLINK, dev, ~0U, 0,
 10889                              GFP_KERNEL, NULL, 0);
-10890 
+10890
 10891         /*
 10892          *  Flush the unicast and multicast chains
 10893          */
 10894         dev_uc_flush(dev);
 10895         dev_mc_flush(dev);
-10896 
+10896
 10897         netdev_name_node_alt_flush(dev);
 10898         netdev_name_node_free(dev->name_node);
-10899 
+10899
 10900         if (dev->netdev_ops->ndo_uninit)
 10901             dev->netdev_ops->ndo_uninit(dev);
-10902 
+10902
 10903         if (skb)
 10904             rtmsg_ifinfo_send(skb, dev, GFP_KERNEL);
-10905 
+10905
 10906         /* Notifier chain MUST detach us all upper devices. */
 10907         WARN_ON(netdev_has_any_upper_dev(dev));
 10908         WARN_ON(netdev_has_any_lower_dev(dev));
-10909 
+10909
 10910         if (strncmp(dev->name, "veth", 4) == 0) {
 10911             MY_WARN(1, 0, "veth_peer_soft_lockup",
 10912 +-----  4 lines: "dev->name:%s, "------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 10916         }
-10917 
+10917
 10918         /* Remove entries from kobject tree */
 10919         netdev_unregister_kobject(dev);
 10920 #ifdef CONFIG_XPS
@@ -867,14 +935,14 @@ index 989b3f7ee85f..d51d70f30fb1 100644
 10923 #endif
 10924         cond_resched();
 10925     }
-10926 
+10926
 10927     synchronize_net();
-10928 
+10928
 10929     list_for_each_entry(dev, head, unreg_list) {
 10930         dev_put(dev);
 10931         net_set_todo(dev);
 10932     }
-10933 
+10933
 10934     list_del(head);
 10935 }
 10936 EXPORT_SYMBOL(unregister_netdevice_many);
@@ -882,125 +950,367 @@ index 989b3f7ee85f..d51d70f30fb1 100644
 
 ### synchronize_net
 
+```c
+10763 /**
+10764  *  synchronize_net -  Synchronize with packet receive processing    // 与数据包接收处理同步
+10765  *
+10766  *  Wait for packets currently being received to be done.           // 等待当前正在接收的数据包处理完成
+10767  *  Does not block later packets from starting.                    // 不阻止后续数据包开始处理
+10768  */
+10769 void synchronize_net(void)                                        // 定义 synchronize_net 函数
+10770 {
+10771     might_sleep();                                               // 可能引起睡眠（调度）
+10772     if (rtnl_is_locked())                                        // 如果 rtnl 锁已被锁定
+10773         synchronize_rcu_expedited();                             // 调用加速的 RCU 同步函数
+10774     else                                                         // 否则
+10775         synchronize_rcu();                                       // 调用普通的 RCU 同步函数
+10776 }
+10777 EXPORT_SYMBOL(synchronize_net);                                  // 导出 synchronize_net 符号供模块使用
+```
 
+在 Linux 内核中，`synchronize_rcu()` 和 `synchronize_rcu_expedited()` 都是用于 RCU (Read-Copy-Update) 同步的函数，但它们在实现方式和使用场景上有显著区别。以下是两者的详细对比：
 
-```bash
-systemctl start openvswitch
-ovs-vsctl add-br os_manage
-ip link add name veth0 type veth peer name veth1
-ip link set veth0 up
-ip link set veth1 up
-ovs-vsctl add-port os_manage veth0
-ovs-vsctl show
-ip link set os_manage up
-ip addr add 192.168.10.1/24 dev veth0
-ip addr add 192.168.10.2/24 dev veth1
-ip addr show veth0
-ip addr show veth1
-ping 192.168.10.1 -I 192.168.10.2
+#### 1. **定义与功能**
+- **`synchronize_rcu()`**
+  这是一个标准的 RCU 同步函数。它会等待所有现有的 RCU 读端临界区（read-side critical sections）完成，即等待所有 CPU 上正在使用 RCU 保护数据的读操作结束，然后才会返回。
+  - 它是“非侵入式”的，依赖于正常的调度和上下文切换来完成同步。
+
+- **`synchronize_rcu_expedited()`**
+  这是一个加速版本的 RCU 同步函数。与 `synchronize_rcu()` 类似，它也等待所有 RCU 读端临界区完成，但它会主动采取措施加快这个过程，而不是被动等待。
+  - 它是“侵入式”的，会强制触发调度或中断，以尽快完成同步。
+
+---
+
+#### 2. **实现机制**
+- **`synchronize_rcu()`**
+  - 依赖内核的自然调度（如上下文切换、时钟滴答等）来检测 RCU 的宽限期（grace period）结束。
+  - 通常会等待一个完整的宽限期，这可能需要较长时间，具体取决于系统的负载和调度情况。
+
+- **`synchronize_rcu_expedited()`**
+  - 通过发送 IPI (Inter-Processor Interrupt，处理器间中断) 到所有 CPU，强制每个 CPU 检查并退出当前的 RCU 读端临界区。
+  - 不依赖自然调度，而是主动干预系统运行，从而显著缩短宽限期的等待时间。
+
+---
+
+#### 3. **性能与开销**
+- **`synchronize_rcu()`**
+  - 开销较低，因为它不主动干扰系统的运行，只是被动等待。
+  - 但完成时间较长，尤其在系统负载较低或 CPU 很少切换上下文时。
+
+- **`synchronize_rcu_expedited()`**
+  - 开销较高，因为它会触发 IPI 和强制调度，可能干扰正在运行的任务。
+  - 完成时间短，适合需要快速同步的场景。
+
+---
+
+#### 4. **使用场景**
+- **`synchronize_rcu()`**
+  - 适用于对延迟不敏感的场景。
+  - 常见于不需要立即释放资源或对性能影响要求较低的代码路径。
+  - 例如，普通的内核模块卸载或资源清理。
+
+- **`synchronize_rcu_expedited()`**
+  - 适用于对延迟敏感的场景。
+  - 常见于需要快速完成同步的代码路径，例如网络子系统中频繁更新的数据结构（如路由表）或锁竞争较高的环境（如 RTNL 锁被持有时）。
+  - 在你的代码示例中，当 `rtnl_is_locked()` 为真时，使用 `synchronize_rcu_expedited()`，表明这是一个需要快速同步的场景。
+
+---
+
+#### 5. **典型区别总结**
+| 特性                | `synchronize_rcu()`         | `synchronize_rcu_expedited()` |
+|---------------------|-----------------------------|-------------------------------|
+| **同步速度**        | 较慢                       | 较快                         |
+| **系统开销**        | 低                         | 高                          |
+| **实现方式**        | 被动等待宽限期             | 主动触发 IPI 和调度          |
+| **适用场景**        | 延迟不敏感                 | 延迟敏感                    |
+| **侵入性**          | 非侵入式                   | 侵入式                      |
+
+---
+
+#### 6. **在你的代码中的上下文**
+在你提供的代码中：
+```c
+if (rtnl_is_locked())
+    synchronize_rcu_expedited();
+else
+    synchronize_rcu();
+```
+- 当 RTNL 锁被持有时（`rtnl_is_locked()` 为真），使用 `synchronize_rcu_expedited()`，因为这通常意味着当前处于一个关键路径（如网络配置更改），需要尽快完成同步以减少锁的持有时间。
+- 当 RTNL 锁未被持有时，使用 `synchronize_rcu()`，因为此时对同步的实时性要求较低，可以接受更长的等待时间以降低系统开销。
+
+### openvswitch
+
+当前基本上可以推断出跟rcu静默期有关，是否有某个skb在静默期期间处理出错？
+
+回头再去看看vmcore-dmesg.txt中有关openvswitch相关栈：
+
+```c
+[ 4394.186133] Call trace:                                    // 调用栈跟踪
+[ 4394.189985]  netdev_pick_tx+0x27c/0x294                   // 选择网络设备传输队列的函数（偏移0x27c，总大小0x294）
+[ 4394.195220]  netdev_core_pick_tx+0xdc/0x10c               // 核心网络设备选择传输队列的函数
+[ 4394.200796]  __dev_queue_xmit+0x104/0xac0                 // 将数据包放入设备传输队列的核心函数
+[ 4394.206192]  dev_queue_xmit+0x1c/0x30                     // 设备传输队列的封装函数
+[ 4394.211251]  ovs_vport_send+0xac/0x180 [openvswitch]      // Open vSwitch 虚拟端口发送数据包的函数
+[ 4394.217599]  do_output+0x60/0x160 [openvswitch]           // Open vSwitch 执行输出操作的函数
+[ 4394.223509]  do_execute_actions+0x868/0x880 [openvswitch] // Open vSwitch 执行流表动作的函数
+[ 4394.230277]  ovs_execute_actions+0x64/0xe0 [openvswitch]  // Open vSwitch 处理动作的封装函数
+[ 4394.236959]  ovs_dp_process_packet+0x9c/0x1e4 [openvswitch] // Open vSwitch 数据平面处理数据包的函数
+[ 4394.243899]  ovs_vport_receive+0x7c/0xec [openvswitch]    // Open vSwitch 虚拟端口接收数据包的函数
+[ 4394.250412]  netdev_port_receive+0xbc/0x17c [openvswitch] // Open vSwitch 网络设备端口接收数据包的函数
+[ 4394.257183]  netdev_frame_hook+0x2c/0x44 [openvswitch]    // Open vSwitch 网络设备帧处理钩子函数
+[ 4394.263673]  __netif_receive_skb_core+0x294/0xdd4         // 核心网络接口接收数据帧的函数
+[ 4394.269708]  __netif_receive_skb_list_core+0xa4/0x290     // 批量接收数据帧的核心函数
+[ 4394.276067]  __netif_receive_skb_list+0x120/0x1a0         // 批量接收数据帧的封装函数
+[ 4394.282053]  netif_receive_skb_list_internal+0xe4/0x1f0   // 内部批量接收数据帧的函数
+[ 4394.288538]  napi_complete_done+0x70/0x1f0                // NAPI（网络轮询）完成处理的函数
+[ 4394.293897]  hns3_nic_common_poll+0x104/0x220 [hns3]      // HNS3 网卡驱动的通用轮询函数（华为自研网卡）
+[ 4394.300093]  napi_poll+0xcc/0x264                         // NAPI 轮询处理函数
+[ 4394.304618]  net_rx_action+0xd4/0x21c                     // 网络接收软中断处理函数
+[ 4394.309463]  __do_softirq+0x130/0x358                     // 执行软中断的核心函数
+[ 4394.314284]  irq_exit+0x11c/0x13c                         // 退出中断处理的函数
+[ 4394.318740]  __handle_domain_irq+0x88/0xf0                // 处理域中断的函数
+[ 4394.323954]  gic_handle_irq+0x78/0x2c0                    // GIC（通用中断控制器）处理中断的函数
+[ 4394.328804]  el1_irq+0xb8/0x140                           // ARM64 异常级别1（EL1）中断处理函数
+[ 4394.333029]  arch_cpu_idle+0x18/0x40                      // CPU 空闲状态的架构特定函数
+[ 4394.337667]  default_idle_call+0x5c/0x1c0                 // 默认的 CPU 空闲调用函数
+[ 4394.342723]  cpuidle_idle_call+0x174/0x1b0                // CPU 空闲状态管理函数
+[ 4394.347853]  do_idle+0xc8/0x160                           // 执行 CPU 空闲状态的函数
+[ 4394.352025]  cpu_startup_entry+0x30/0xfc                  // CPU 启动入口函数
+[ 4394.356986]  secondary_start_kernel+0x158/0x1ec           // 次级 CPU 启动内核的函数
 ```
 
 ```bash
-ip link del veth0
-ovs-vsctl del-port os_manage veth0
+crash> dis -lsx ovs_vport_send+0xac
+dis: openvswitch: module source code is not available
 ```
 
-![vm_ip_link_del_veth0](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/vm_ip_link_del_veth0.png)
-
+仅加载openvswitch.ko，注意使用绝对路径：
 ```bash
-trace-cmd record -p function_graph -g veth_dellink ip link del veth0
-```
-
-```bash
-trace-cmd report > vm_ip_link_del_veth0.log
+mod -s openvswitch /lib/debug/lib/modules/5.10.0-136.12.0.88.ctl3.aarch64/kernel/net/openvswitch/openvswitch.ko-5.10.0-136.12.0.88.ctl3.aarch64.debug
 ```
 
 ```bash
-vim vm_ip_link_del_veth0.log
-
-CPU 0 is empty
-CPU 1 is empty
-CPU 2 is empty
-CPU 3 is empty
-CPU 4 is empty
-CPU 5 is empty
-CPU 7 is empty
-cpus=8
-              ip-2541  [006]  5230.491361: funcgraph_entry:                   |  veth_dellink() {
-              ip-2541  [006]  5230.491883: funcgraph_entry:                   |    unregister_netdevice_queue() {
-              ip-2541  [006]  5230.491914: funcgraph_entry:                   |      rtnl_is_locked() {
-              ip-2541  [006]  5230.491916: funcgraph_entry:      + 56.464 us  |        mutex_is_locked();
-              ip-2541  [006]  5230.492126: funcgraph_exit:       ! 212.400 us |      }
-              ip-2541  [006]  5230.492173: funcgraph_exit:       ! 291.680 us |    }
-              ip-2541  [006]  5230.492182: funcgraph_entry:                   |    unregister_netdevice_queue() {
-              ip-2541  [006]  5230.492184: funcgraph_entry:                   |      rtnl_is_locked() {
-              ip-2541  [006]  5230.492185: funcgraph_entry:        1.456 us   |        mutex_is_locked();
-              ip-2541  [006]  5230.492188: funcgraph_exit:         4.496 us   |      }
-              ip-2541  [006]  5230.492190: funcgraph_exit:         7.936 us   |    }
-              ip-2541  [006]  5230.492200: funcgraph_exit:       # 1227.888 us |  }
-
+crash> bt -l | grep openvswitch -A1
+#15 [ffff800012ab3640] ovs_vport_send at ffff8000098f95b8 [openvswitch]
+    /usr/src/debug/kernel-5.10.0-136.12.0.88.ctl3.aarch64/linux-5.10.0-136.12.0.88.ctl3.aarch64/net/openvswitch/vport.c: 507
+#16 [ffff800012ab3670] do_output at ffff8000098e47fc [openvswitch]
+    /usr/src/debug/kernel-5.10.0-136.12.0.88.ctl3.aarch64/linux-5.10.0-136.12.0.88.ctl3.aarch64/net/openvswitch/actions.c: 928
+#17 [ffff800012ab36b0] do_execute_actions at ffff8000098e66b4 [openvswitch]
+    /usr/src/debug/kernel-5.10.0-136.12.0.88.ctl3.aarch64/linux-5.10.0-136.12.0.88.ctl3.aarch64/net/openvswitch/actions.c: 1291
+#18 [ffff800012ab3830] ovs_execute_actions at ffff8000098e6b00 [openvswitch]
+    /usr/src/debug/kernel-5.10.0-136.12.0.88.ctl3.aarch64/linux-5.10.0-136.12.0.88.ctl3.aarch64/net/openvswitch/actions.c: 1591
+#19 [ffff800012ab3860] ovs_dp_process_packet at ffff8000098eaba8 [openvswitch]
+    /usr/src/debug/kernel-5.10.0-136.12.0.88.ctl3.aarch64/linux-5.10.0-136.12.0.88.ctl3.aarch64/net/openvswitch/datapath.c: 254
+#20 [ffff800012ab38e0] ovs_vport_receive at ffff8000098f949c [openvswitch]
+    /usr/src/debug/kernel-5.10.0-136.12.0.88.ctl3.aarch64/linux-5.10.0-136.12.0.88.ctl3.aarch64/net/openvswitch/vport.c: 452
+#21 [ffff800012ab3ae0] netdev_port_receive at ffff8000098fa03c [openvswitch]
+    /usr/src/debug/kernel-5.10.0-136.12.0.88.ctl3.aarch64/linux-5.10.0-136.12.0.88.ctl3.aarch64/net/openvswitch/vport-netdev.c: 51
+#22 [ffff800012ab3b10] netdev_frame_hook at ffff8000098fa128 [openvswitch]
+    /usr/src/debug/kernel-5.10.0-136.12.0.88.ctl3.aarch64/linux-5.10.0-136.12.0.88.ctl3.aarch64/net/openvswitch/vport-netdev.c: 65
+#23 [ffff800012ab3b20] __netif_receive_skb_core at ffff800010ae77f0
 ```
 
+### ovs_vport_send
+
+```c
+// vim vim net/openvswitch/vport.c +507
+
+473 void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto)
+474 {
+475     int mtu = vport->dev->mtu;
+476
+477     switch (vport->dev->type) {
+478     case ARPHRD_NONE:
+479         if (mac_proto == MAC_PROTO_ETHERNET) {
+480             skb_reset_network_header(skb);
+481             skb_reset_mac_len(skb);
+482             skb->protocol = htons(ETH_P_TEB);
+483         } else if (mac_proto != MAC_PROTO_NONE) {
+484             WARN_ON_ONCE(1);
+485             goto drop;
+486         }
+487         break;
+488     case ARPHRD_ETHER:
+489         if (mac_proto != MAC_PROTO_ETHERNET)
+490             goto drop;
+491         break;
+492     default:
+493         goto drop;
+494     }
+495
+496     if (unlikely(packet_length(skb, vport->dev) > mtu &&
+497              !skb_is_gso(skb))) {
+498         net_warn_ratelimited("%s: dropped over-mtu packet: %d > %d\n",
+499 +-----  2 lines: vport->dev->name,-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+501         vport->dev->stats.tx_errors++;
+502         goto drop;
+503     }
+504
+505     skb->dev = vport->dev;
+506     skb->tstamp = 0;
+507     vport->ops->send(skb);
+508     return;
+509
+510 drop:
+511     kfree_skb(skb);
+512 }
+```
+
+### do_output
+
+```c
+910 static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,  // 定义静态函数 do_output，处理数据包输出，参数包括数据路径、数据包、输出端口和流键
+911               struct sw_flow_key *key)                                        // 流键参数，用于标识数据流
+912 {
+913     struct vport *vport = ovs_vport_rcu(dp, out_port);                        // 获取输出端口对应的虚拟端口（vport），使用 RCU 安全访问
+915     if (likely(vport)) {                                                      // 如果虚拟端口存在（likely 表示大概率成立）
+916         u16 mru = OVS_CB(skb)->mru;                                           // 从数据包的控制块中获取最大接收单元（MRU）
+917         u32 cutlen = OVS_CB(skb)->cutlen;                                     // 从数据包的控制块中获取裁剪长度（cutlen）
+919         if (unlikely(cutlen > 0)) {                                           // 如果裁剪长度大于 0（unlikely 表示小概率事件）
+920             if (skb->len - cutlen > ovs_mac_header_len(key))                  // 如果数据包长度减去裁剪长度仍大于 MAC 头部长度
+921                 pskb_trim(skb, skb->len - cutlen);                           // 裁剪数据包到指定长度（去掉 cutlen 部分）
+922             else                                                              // 否则（裁剪后长度不足 MAC 头部长度）
+923                 pskb_trim(skb, ovs_mac_header_len(key));                      // 裁剪数据包到 MAC 头部长度
+924         }
+926         if (likely(!mru ||                                                    // 如果 MRU 为 0 或
+927                    (skb->len <= mru + vport->dev->hard_header_len))) {        // 数据包长度小于等于 MRU 加上设备头部长度（likely 表示大概率成立）
+928             ovs_vport_send(vport, skb, ovs_key_mac_proto(key));               // 通过虚拟端口发送数据包，使用流键中的 MAC 协议
+929         } else if (mru <= vport->dev->mtu) {                                  // 如果 MRU 不为 0 且小于等于设备的最大传输单元（MTU）
+930             struct net *net = read_pnet(&dp->net);                            // 获取数据路径的网络命名空间
+932             ovs_fragment(net, vport, skb, mru, key);                          // 对数据包进行分片处理
+933         } else {                                                              // 如果 MRU 超过 MTU
+934             kfree_skb(skb);                                                   // 释放数据包内存
+935         }
+936     } else {                                                                  // 如果虚拟端口不存在
+937         kfree_skb(skb);                                                       // 释放数据包内存
+938     }
+939 }
+```
+
+### 代码修复
+
+修复这个bug后尝试在上游社区找找有没有类似问题，结果发现上游2天前才修复。
+
+- <https://lkml.org/lkml/2025/3/17/1299>
+
+- <https://lore.kernel.org/bpf/20250317154537.3633540-3-florian.fainelli@broadcom.com/T/>
+
+- <https://lore.kernel.org/bpf/20250317154537.3633540-1-florian.fainelli@broadcom.com/>
+
+这里合入上游修复代码更妥当，虽然写法差不多:
 ```bash
-trace-cmd list -f | grep rtnl_dellink
-rtnl_dellinkprop
-rtnl_dellink
-```
-
-```bash
-trace-cmd record -p function_graph -g rtnl_dellink ip link del veth0
-```
-
-```bash
-trace-cmd report > vm_ip_link_del_veth0_rtnl_dellink.log
-```
-
-```bash
-trace-cmd record -p function_graph ping 192.168.10.1 -I 192.168.10.2
-```
-
-```bash
-trace-cmd report > vm_ping.log
-```
-
-```bash
-git push ctkernel-lts-5.10 HEAD:yuanql9/bugfix-pr-veth-peer-soft-lockup -f -u
-ba45ce8fe9eb (HEAD -> ctkernel-lts-5.10/yuanql9/bugfix-pr-veth-peer-soft-lockup, ctkernel-lts-5.10/yuanql9/bugfix-pr-veth-peer-soft-lockup) net/core/veth: avoid soft lockup
-```
-
-```bash
-bpftrace -e 'kprobe:skb_tx_hash /((struct net_device *)arg0)->name == "veth0"/ { printf("dev->num_tc: %d\n", ((struct net_device *)arg0)->num_tc); }'
-```
-
-```bash
-bpftrace -e 'kprobe:netdev_core_pick_tx /((struct net_device *)arg0)->name == "veth0"/ { printf("dev->num_tc: %d\n", ((struct net_device *)arg0)->num_tc); }'
-```
-
-```bash
-bpftrace -e 'kprobe:__dev_queue_xmit /((struct net_device *)((struct sk_buff *)arg0)->dev)->name == "veth0"/ { printf("dev->num_tc: %d\n", ((struct net_device *)((struct sk_buff *)arg0)->dev)->num_tc); }'
-```
-
-```bash
-bpftrace -e 'kprobe:__dev_queue_xmit /((struct net_device *)((struct sk_buff *)arg0)->dev)->name == "veth0"/ { printf("dev->num_tc: %d\n", ((struct net_device *)((struct sk_buff *)arg0)->dev)->num_tc); }'
-```
-
-- https://lkml.org/lkml/2025/3/17/1299
-
-- https://lore.kernel.org/bpf/20250317154537.3633540-3-florian.fainelli@broadcom.com/T/
-
-- https://lore.kernel.org/bpf/20250317154537.3633540-1-florian.fainelli@broadcom.com/
-
 b4 am -o - 20250317154537.3633540-1-florian.fainelli@broadcom.com | git am -3
+```
 
-CTKbug: #71585
+#### net: openvswitch: fix race on port output
 
-Signed-off-by: Qiliang Yuan <yuanql9@chinatelecom.cn>
+以下是 diff 文件中关键改动点添加中文注释后的结果：
 
-Reviewed-by: Menglong Dong <dongml2@chinatelecom.cn>
+```diff
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4d3851278303..3243e5992d99 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3183,6 +3183,7 @@ static u16 skb_tx_hash(const struct net_device *dev,
+        }
 
-d268c1f5cfc92eb5bb605f7365769aacd93be234
-4bbd360a5084d8f890f814327e1d9fbb1f0f6fa1
+        if (skb_rx_queue_recorded(skb)) {
++               WARN_ON_ONCE(qcount == 0);  // 增加警告：如果队列计数为 0，则触发一次性警告，提示潜在问题
+                hash = skb_get_rx_queue(skb);
+                if (hash >= qoffset)
+                        hash -= qoffset;
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 80fee9d118ee..a66b826e6711 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -912,7 +912,7 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
+ {
+        struct vport *vport = ovs_vport_rcu(dp, out_port);
 
+-       if (likely(vport)) {
++       if (likely(vport && netif_carrier_ok(vport->dev))) {  // 修改条件：不仅检查 vport 是否存在，还要确保设备载波状态正常
+                u16 mru = OVS_CB(skb)->mru;
+                u32 cutlen = OVS_CB(skb)->cutlen;
+```
+
+### 注释说明：
+1. **net/core/dev.c 中的改动**：
+   - 在 `+ WARN_ON_ONCE(qcount == 0);` 处添加注释，说明这是一个警告机制，用于在队列计数为 0 时提醒开发者可能存在异常情况，且警告只触发一次。
+
+2. **net/openvswitch/actions.c 中的改动**：
+   - 在 `+ if (likely(vport && netif_carrier_ok(vport->dev)))` 处添加注释，说明改动增强了条件检查，不仅要求虚拟端口存在，还要求设备载波状态（carrier）正常，以确保数据包只在网络接口可用时发送。
+
+#### openvswitch: fix lockup on tx to unregistering netdev with carrier
+
+以下是 diff 文件中关键改动点添加中文注释后的结果：
+
+```diff
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index a66b826e6711..a02ea493c269 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -912,7 +912,9 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
+ {
+        struct vport *vport = ovs_vport_rcu(dp, out_port);
+
+-       if (likely(vport && netif_carrier_ok(vport->dev))) {
++       if (likely(vport &&                           // 修改条件：检查 vport 是否存在
++                  netif_running(vport->dev) &&       // 增加检查：确保设备处于运行状态
++                  netif_carrier_ok(vport->dev))) {   // 保留检查：确保设备载波状态正常
+                u16 mru = OVS_CB(skb)->mru;
+                u32 cutlen = OVS_CB(skb)->cutlen;
+```
+
+### 注释说明：
+- 在 `+ if (likely(vport && netif_running(vport->dev) && netif_carrier_ok(vport->dev)))` 处添加注释，说明此次改动增强了条件判断：
+  1. `vport`：保留原有检查，确保虚拟端口存在。
+  2. `netif_running(vport->dev)`：新增检查，确保设备处于运行状态（即网络接口已启用）。
+  3. `netif_carrier_ok(vport->dev)`：保留原有检查，确保设备载波状态正常（即物理链接可用）。
+
+这些条件共同确保数据包只在虚拟端口存在且网络接口完全可用时进行处理，提升了代码的健壮性。
+
+### netif_carrier_ok
+
+```c
+4080 /**
+4081  *  netif_carrier_ok - test if carrier present                    // 测试设备是否具有载波
+4082  *  @dev: network device                                         // 参数：网络设备
+4083  *
+4084  * Check if carrier is present on device                        // 检查设备上是否存在载波
+4085  */
+4086 static inline bool netif_carrier_ok(const struct net_device *dev)  // 定义内联函数：检查网络设备的载波状态，参数为网络设备结构体指针
+4087 {
+4088     return !test_bit(__LINK_STATE_NOCARRIER, &dev->state);         // 返回值：检查设备状态中是否未设置 NOCARRIER 位，若未设置则返回 true，表示载波存在
+4089 }
+```
+
+#### 载波是啥？
+
+在计算机网络和通信领域，“载波”（carrier）通常指的是物理层中用于传输数据的信号状态，具体来说，它与网络设备的物理连接状态有关。在你提供的代码上下文（`netif_carrier_ok` 函数）中，“载波”是指网络接口（如网卡）的物理链路是否正常工作。
+
+##### 通俗解释
+想象一下，网络设备就像一台收音机，而“载波”就像是收音机接收到的无线电信号。如果收音机能接收到稳定的信号（载波存在），说明它可以正常工作；如果信号断了（没有载波），就没法接收数据了。在网络中，“载波”表示网线、光纤或其他物理介质是否正常连接并能传输数据。
+
+##### 技术定义
+在以太网等网络技术中，载波通常与以下概念相关：
+1. **物理层信号**：载波是网络设备检测到的物理信号，比如电信号（通过网线）或光信号（通过光纤）。如果设备能检测到这些信号，说明物理链路是通的。
+2. **链路状态**：在 Linux 内核中，`netif_carrier_ok` 函数通过检查设备的 `state`（状态位）中的 `__LINK_STATE_NOCARRIER` 位来判断载波是否存在。如果这个位被置位（值为 1），表示“没有载波”（no carrier），即物理链路断开；如果未置位（值为 0），表示“载波正常”（carrier OK），链路是连通的。
+
+##### 在代码中的含义
+在你提供的代码：
+```c
+return !test_bit(__LINK_STATE_NOCARRIER, &dev->state);
+```
+- `__LINK_STATE_NOCARRIER` 是一个标志位，表示“无载波状态”。
+- `test_bit` 检查这个标志位是否被置位。
+- `!` 取反逻辑：如果 `__LINK_STATE_NOCARRIER` 是 0（未置位），函数返回 `true`，表示载波存在；如果置位，返回 `false`，表示载波丢失。
+
+##### 现实例子
+1. **载波存在**：你把网线插进电脑，网卡灯亮起，网络正常工作，说明载波检测正常。
+2. **载波丢失**：网线被拔掉，或者交换机断电，网卡检测不到信号，载波状态变为“无载波”。
+
+##### 为什么重要？
+在网络编程（如 Open vSwitch 或 Linux 内核网络栈）中，检查载波状态可以避免向不可用的网络接口发送数据。比如，在前面的 `do_output` 函数中，增加了 `netif_carrier_ok` 检查，确保只有在链路正常时才处理数据包，从而提高效率和稳定性。
 
 ## https://lkml.org/lkml/2025/3/17/1299
 
@@ -1047,11 +1357,136 @@ d268c1f5cfc92eb5bb605f7365769aacd93be234
 ### 总结
 这个补丁修复了一个由于网络命名空间删除和数据包处理之间的竞争条件导致的内核问题。通过调整Open vSwitch的输出逻辑和添加防护措施，避免了CPU陷入无限循环的风险。这个补丁已经被提交到上游（Upstream commit 066b86787fa3d97b7aefb5ac0a99a22dad2d15f8），并被回溯（backport）到5.4版本的稳定内核分支。
 
-要生成你提供的输出，`bpftrace`语句需要追踪补丁中提到的关键内核函数（如`__dev_queue_xmit`、`netdev_core_pick_tx`、`dp_device_event`等），并提取相关的上下文信息（如设备名、发送队列数、CPU、进程ID、数据包地址等）。以下是一个可能的`bpftrace`脚本，能够生成类似你提供的输出。结合补丁和输出的上下文，我将推导一个合理的语句。
+这是一个非常有趣且技术性很强的问题！你在邮件中提到的补丁（[PATCH stable 5.4 1/2] net: openvswitch: fix race on port output）揭示了一个复杂的竞争条件（race condition），涉及到 Linux 内核网络栈、Open vSwitch (OVS) 和 RCU（Read-Copy-Update）机制的交互。你的疑问集中在“为什么在 `synchronize_net`（使用了 RCU 同步）之后仍然会出现问题”，这是一个值得深入探讨的地方。让我们逐步分析问题，并解答你的疑惑。
 
 ---
 
+## `synchronize_net` 已经提供了 RCU 同步，为什么步骤 7（设置 `real_num_tx_queues = 0`）之后、步骤 9（vport 删除完成）之前还会出错？
+
+---
+
+### RCU 和 `synchronize_net` 的作用
+` synchronize_net` 是 Linux 网络子系统中常用的同步原语，它基于 RCU，确保在某个点之后，所有使用 RCU 保护的读端 critical section 都已完成。具体来说：
+- **RCU 读端**：通过 `rcu_read_lock()` 和 `rcu_read_unlock()` 保护的代码段，通常用于访问网络设备的数据结构（如 `net_device` 或 OVS 的 vport）。
+- **RCU 写端**：通过 `synchronize_rcu()`（在网络中表现为 `synchronize_net`）等待所有读端完成，然后执行后续修改。
+
+在补丁描述的流程中：
+1. `unregister_netdevice_many_notify` 调用 `synchronize_net`，目的是确保所有正在访问设备（如 veth 或 vport）的 RCU 读端都完成后，才继续执行后续操作（如通知设备注销）。
+2. 理论上，`synchronize_net` 完成后，不应该有任何代码还在通过 RCU 访问已标记为 `NETREG_UNREGISTERING` 的设备。
+
+但问题出在：**数据包的发送路径并不完全受 RCU 的保护**，或者说，OVS 的设计中存在一个窗口期，导致数据包处理和设备注销的逻辑未能完全同步。
+
+---
+
+### 问题的根本原因：窗口期和数据包路径
+让我们仔细看看事件序列，结合你的疑问分析为何 `synchronize_net` 未能阻止问题：
+
+#### 事件序列（简化版）
+1. **命名空间删除触发注销**：
+   - 调用 `unregister_netdevice_many_notify`，将 veth 设备的状态设为 `NETREG_UNREGISTERING`。
+   - 执行 `synchronize_net`，等待 RCU 宽限期（grace period）结束。
+
+2. **通知和 OVS 处理**：
+   - `call_netdevice_notifiers` 触发 `NETDEV_UNREGISTER` 事件。
+   - OVS 的 `dp_device_event` 处理此事件，调用 `ovs_netdev_detach_dev`，移除 veth 的接收处理程序（rx_handlers），但 vport 的删除被放入后台任务队列（因为无法立即获取 `ovs_lock`）。
+
+3. **设备状态变更**：
+   - `netdev_unregister_kobject` 将 `real_num_tx_queues` 设为 0，表示设备不再有有效的发送队列。
+
+4. **数据包发送的竞争**：
+   - 在 vport 尚未从后台任务中完全删除之前，数据包仍可能通过 OVS 的数据路径（datapath）被转发到 veth 设备。
+   - 数据包进入 `dev_queue_xmit`，调用 `skb_tx_hash`。
+
+5. **无限循环**：
+   - `skb_tx_hash` 检查到 `skb_rx_queue_recorded(skb)` 为真（数据包记录了接收队列号），但 `real_num_tx_queues` 为 0，导致队列选择逻辑中的循环无法退出。
+
+#### 关键点：为什么 `synchronize_net` 没挡住？
+- **`synchronize_net` 的作用范围**：
+  - 它只保证在调用点之后，RCU 保护的读端（如通过 `rcu_dereference` 访问 `net_device` 的代码）不再看到旧数据。
+  - 但它无法阻止非 RCU 保护的逻辑继续运行，比如 OVS 数据路径中正在处理的数据包。
+
+- **OVS 数据路径的异步性**：
+  - OVS 的数据包处理（datapath）是高度并行的，通常由内核线程（如 `ovs-vswitchd` 或内核中的流表处理逻辑）驱动。
+  - 当 vport 仍在流表中（未被后台任务删除）时，数据包可能被转发到对应的 veth 设备，即使该设备已被标记为注销。
+  - `synchronize_net` 只同步了设备状态的变更（如 `NETREG_UNREGISTERING`），但没有直接影响 OVS 的流表更新或数据包转发逻辑。
+
+- **窗口期**：
+  - 在 `real_num_tx_queues` 被设为 0 后、vport 从流表中移除前，存在一个短暂的窗口期。
+  - 如果在此期间有数据包到达，OVS 会将其转发到 veth，而 `dev_queue_xmit` 并不知道设备已不可用，直接调用 `skb_tx_hash`，触发问题。
+
+---
+
+### `skb_tx_hash` 的问题
+补丁提到的问题发生在 `skb_tx_hash` 中。我们来看看这个函数（基于 Linux 5.4 的代码，可能略有简化）：
+```c
+static u16 skb_tx_hash(const struct net_device *dev, struct sk_buff *skb)
+{
+    u32 hash;
+
+    if (skb_rx_queue_recorded(skb)) {
+        hash = skb_get_rx_queue(skb);
+        while (unlikely(hash >= dev->real_num_tx_queues))
+            hash -= dev->real_num_tx_queues;
+        return hash;
+    }
+    /* 其他逻辑 */
+}
+```
+- **逻辑分析**：
+  - 如果 `skb_rx_queue_recorded(skb)` 为真，`hash` 被设置为数据包的接收队列号（`skb_get_rx_queue`）。
+  - `while` 循环试图将 `hash` 调整到 `real_num_tx_queues` 范围内。
+  - 当 `real_num_tx_queues` 为 0 时，`hash >= 0` 始终成立（假设 `hash` 是非负数），循环永远无法退出。
+
+- **为什么会这样？**
+  - `real_num_tx_queues` 被设为 0 表示设备已无发送能力，但 `skb_tx_hash` 没有对此做额外检查。
+  - 数据包仍被发送到这里，是因为 OVS 的数据路径没有及时感知到设备的注销状态。
+
+---
+
+### 补丁的修复思路
+补丁的标题是“fix race on port output”，具体内容可能涉及以下之一（需查看完整补丁代码确认）：
+1. **在 OVS 中提前阻止数据包转发**：
+   - 在 `ovs_netdev_detach_dev` 中，确保移除 rx_handlers 后立即阻止数据包到达 veth。
+2. **改进 `skb_tx_hash` 的健壮性**：
+   - 在 `real_num_tx_queues` 为 0 时，返回默认值或直接丢弃数据包。
+3. **同步 vport 删除**：
+   - 确保 vport 的移除不依赖后台任务，或者在 `synchronize_net` 后强制等待 vport 删除完成。
+
+从补丁的上下文看，最可能的修复是在 OVS 中加锁或同步机制，避免数据包在设备注销后仍被转发。
+
+---
+
+### 回答你的疑问
+> “这里有 `synchronize_net`，有 RCU，在步骤 7 之后、步骤 9 之前为什么会出错？”
+
+1. **`synchronize_net` 的局限性**：
+   - 它只同步了 RCU 读端的完成，但无法阻止 OVS 数据路径中的独立逻辑（如流表处理）继续运行。
+   - OVS 的 vport 删除被推迟到后台任务，导致流表中的 vport 引用在 `synchronize_net` 后仍有效。
+
+2. **RCU 未覆盖的范围**：
+   - 数据包的转发路径（OVS datapath -> `dev_queue_xmit`）不完全依赖 RCU 保护，可能直接访问设备结构。
+   - `real_num_tx_queues` 的修改是写端操作，而数据包处理是并发路径，未被强制同步。
+
+3. **窗口期的存在**：
+   - `synchronize_net` 完成后，设备状态已变更，但 OVS 的流表更新滞后，数据包仍可能命中旧的 vport 并触发问题。
+
+简单来说，`synchronize_net` 提供了部分同步，但 OVS 的设计（异步删除 vport）和 `skb_tx_hash` 的逻辑缺陷共同导致了这个竞争条件。
+
+---
+
+### 总结
+这个问题的根源在于：
+- **多层异步性**：设备注销（`real_num_tx_queues = 0`）和 vport 删除（后台任务）之间缺乏强同步。
+- **RCU 的局限**：`synchronize_net` 只保护了部分逻辑，未覆盖 OVS 数据路径的并发操作。
+- **代码健壮性不足**：`skb_tx_hash` 未处理 `real_num_tx_queues = 0` 的边缘情况。
+
+补丁的意义在于弥补这个窗口期，确保数据包不会在设备注销后仍被错误处理。希望这个分析解答了你的疑问！如果有完整的补丁代码，我可以进一步确认具体的修复方案。
+
 ## bpftrace (first word is function name)
+
+使用`bpftrace`语句需要追踪补丁中提到的关键内核函数（如`__dev_queue_xmit`、`netdev_core_pick_tx`、`dp_device_event`等），并提取相关的上下文信息（如设备名、发送队列数、CPU、进程ID、数据包地址等）。
+
+---
 
 ### 推导的`bpftrace`脚本
 
@@ -1177,29 +1612,9 @@ kprobe:netdev_core_pick_tx / ((struct net_device *)arg0)->real_num_tx_queues == 
 - `__dev_queue_xmit server: real_num_tx_queues: 1, cpu: 2, pid: 28024, tid: 28024, skb_addr: 0xffff9edb6f207000, reg_state: 1`
 - `broken device server: real_num_tx_queues: 0, cpu: 2, pid: 28024, tid: 28024`
 
-如果需要调整（例如添加更多字段或精简输出），可以根据具体需求修改脚本。
-
 ---
 
 ### 注意事项
 1. **内核版本**：脚本假设运行在Linux 5.4或类似版本，可能需要根据内核源码调整结构体字段。
 2. **性能开销**：追踪大量函数可能会影响系统性能，建议在测试环境使用。
 3. **安全性**：需要root权限运行`bpftrace`。
-
-
-
-kernel-5.10.0-136.12.0.86.ctl3.x86_64
-kernel-5.10.0-136.12.0.88.ctl3.x86_64
-kernel-5.10.0-136.12.0.88.1.ctl3.x86_64
-kernel-5.10.0-136.12.0.88.2.ctl3.x86_64
-kernel-5.10.0-136.12.0.88.3.ctl3.x86_64
-kernel-5.10.0-136.12.0.88.4.ctl3.x86_64
-kernel-5.10.0-136.12.0.90.ctl3.x86_64
-
-kernel-5.10.0-136.12.0.86.ctl3.aarch64
-kernel-5.10.0-136.12.0.88.ctl3.aarch64
-kernel-5.10.0-136.12.0.88.1.ctl3.aarch64
-kernel-5.10.0-136.12.0.88.2.ctl3.aarch64
-kernel-5.10.0-136.12.0.88.3.ctl3.aarch64
-kernel-5.10.0-136.12.0.88.4.ctl3.aarch64
-kernel-5.10.0-136.12.0.90.ctl3.aarch64
