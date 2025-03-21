@@ -24,7 +24,7 @@
 <meta property="og:description" content="network  你管这破玩意叫网络 22张图详解浏览器请求数据包如何到达web服务器（搞懂网络可以出师了） 网卡与Linux网络结构（上） 网卡与Linux网络结构（中） 网卡与Linux网络结构（下） 网卡与数据接收（上） 网卡与数据接收（中） 源码溯源：网卡队列超时机制 通俗理解数据中心CPU和GPU之后的第三颗关键芯片“DPU” 字节校招：TCP 和 UDP 可以同时绑定相同的端口吗？ 5">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2023-04-19T16:11:21.000Z">
-<meta property="article:modified_time" content="2025-03-21T09:46:08.000Z">
+<meta property="article:modified_time" content="2025-03-21T10:02:01.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="C++">
@@ -280,7 +280,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          6.1k 字
+          6.8k 字
         
       </span>
     
@@ -291,7 +291,7 @@
         
         
         
-          51 分钟
+          57 分钟
         
       </span>
     
@@ -589,13 +589,14 @@ alt="http.host==&quot;www.baidu.com&quot;" />
 <figcaption aria-hidden="true">http.host=="www.baidu.com"</figcaption>
 </figure></li>
 </ul>
-<h2 id="收包">收包</h2>
+<h2 id="收发包">收发包</h2>
 <p>网络数据包的接收过程通常分为<strong>硬中断（Hard
 IRQ）</strong>和<strong>软中断（Soft IRQ）</strong>两个阶段，这是 Linux
 网络栈中的典型处理方式，能有效提高性能和响应速度。让我们一步步解释这个流程：</p>
 <hr />
-<h3 id="硬中断阶段hard-irq">🌟 <strong>1. 硬中断阶段（Hard
-IRQ）</strong></h3>
+<h3 id="网络数据包的接收流程发包">网络数据包的接收流程（发包）</h3>
+<h4 id="硬中断阶段hard-irq">🌟 <strong>1. 硬中断阶段（Hard
+IRQ）</strong></h4>
 <p>硬中断由<strong>网卡（NIC, Network Interface
 Card）</strong>直接触发，处理过程如下：</p>
 <ol type="1">
@@ -626,8 +627,8 @@ IRQ）或轮询机制</strong>，让后续处理交给软中断来完成。</li>
 </ol>
 <p>硬中断要尽量短小精悍，只完成必要的工作，把大部分包处理逻辑交给软中断来做。</p>
 <hr />
-<h3 id="软中断阶段soft-irqnapi">⚙️ <strong>2. 软中断阶段（Soft
-IRQ/NAPI）</strong></h3>
+<h4 id="软中断阶段soft-irqnapi">⚙️ <strong>2. 软中断阶段（Soft
+IRQ/NAPI）</strong></h4>
 <p>软中断是由内核在合适的时机触发的，用来处理大量网络包时的性能瓶颈。流程如下：</p>
 <ol type="1">
 <li><strong>NAPI 轮询机制：</strong>
@@ -656,8 +657,8 @@ socket 层、iptables、防火墙等）。<br />
 </ul></li>
 </ol>
 <hr />
-<h3 id="为什么要分硬中断和软中断">📌
-<strong>为什么要分硬中断和软中断？</strong></h3>
+<h4 id="为什么要分硬中断和软中断">📌
+<strong>为什么要分硬中断和软中断？</strong></h4>
 <ol type="1">
 <li><strong>减少中断风暴</strong>：如果每个数据包都触发硬中断，CPU
 会被中断淹没，导致性能下降。<br />
@@ -674,32 +675,31 @@ Steering）</strong>：多核场景下分散网络流量，减少单核瓶颈。
 Path）</strong>：在网卡驱动层快速处理或丢弃数据包，减少内核协议栈负担。</p>
 <p>如果想了解具体代码逻辑，可以看看 <code>net/core/dev.c</code> 文件中的
 <code>netif_receive_skb()</code>、<code>napi_poll()</code> 等函数。</p>
-<h2 id="发包">发包</h2>
 <h3 id="网络数据包的发送流程发包"><strong>📤
 网络数据包的发送流程（发包）</strong></h3>
 <p>网络数据包的发送也涉及<strong>软中断</strong>和<strong>硬中断</strong>，但与收包流程不同，主要由<strong>上层协议栈</strong>驱动发包，最终由<strong>网卡（NIC）</strong>负责数据的实际传输。整个流程如下：</p>
 <hr />
-<h2 id="用户态数据准备"><strong>1️⃣ 用户态数据准备</strong></h2>
+<h4 id="用户态数据准备"><strong>1️⃣ 用户态数据准备</strong></h4>
 <p>在用户态，应用程序（如
 <code>ping</code>、<code>curl</code>、<code>iperf</code> 或自定义 socket
 程序）调用 <code>send()</code>、<code>write()</code> 等系统调用，向
 socket 发送数据： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c">send(sockfd, buffer, len, <span class="hljs-number">0</span>);<br></code></pre></td></tr></table></figure> 这时，数据进入 <strong>TCP/UDP
 层</strong> 进行处理。</p>
 <hr />
-<h2 id="内核协议栈处理"><strong>2️⃣ 内核协议栈处理</strong></h2>
-<p>当数据进入内核后，协议栈会依次处理它： ### <strong>（1）TCP/UDP
+<h4 id="内核协议栈处理"><strong>2️⃣ 内核协议栈处理</strong></h4>
+<p>当数据进入内核后，协议栈会依次处理它： ##### <strong>（1）TCP/UDP
 处理</strong> - <strong>UDP</strong>：直接封装 IP 头，进入下一步（适用于
 DNS、VoIP、视频流等）。 - <strong>TCP</strong>： -
 拆分数据（MSS，最大报文段）。 - 计算 TCP 校验和。 - 维护 TCP
 发送队列（适用于重传、流控）。 - 进入 <strong>IP 层</strong>。</p>
-<h3 id="ip-层处理"><strong>（2）IP 层处理</strong></h3>
+<h5 id="ip-层处理"><strong>（2）IP 层处理</strong></h5>
 <ul>
 <li>填充源 IP、目的 IP、TTL 等。</li>
 <li>计算 IP 校验和。</li>
 <li>进行
 <strong>路由查找</strong>（<code>fib_lookup()</code>），决定从哪个网卡发出。</li>
 </ul>
-<h3 id="以太网层处理"><strong>（3）以太网层处理</strong></h3>
+<h5 id="以太网层处理"><strong>（3）以太网层处理</strong></h5>
 <ul>
 <li>根据 ARP 表查找目标 MAC 地址（如果是第一次发送，可能会先发送 ARP
 请求）。</li>
@@ -707,8 +707,8 @@ DNS、VoIP、视频流等）。 - <strong>TCP</strong>： -
 <li>数据包进入网卡 <strong>TX 队列</strong>。</li>
 </ul>
 <hr />
-<h2 id="软中断处理soft-irq-net_tx_softirq"><strong>3️⃣ 软中断处理（Soft
-IRQ / NET_TX_SOFTIRQ）</strong></h2>
+<h4 id="软中断处理soft-irq-net_tx_softirq"><strong>3️⃣ 软中断处理（Soft
+IRQ / NET_TX_SOFTIRQ）</strong></h4>
 <ol type="1">
 <li><strong>进入 <code>dev_queue_xmit()</code></strong>
 <ul>
@@ -725,23 +725,23 @@ Offload）</strong>，让网卡直接拆包，提高 CPU 效率。</li>
 </ul></li>
 </ol>
 <hr />
-<h2 id="硬中断触发hard-irq"><strong>4️⃣ 硬中断触发（Hard
-IRQ）</strong></h2>
+<h4 id="硬中断触发hard-irq"><strong>4️⃣ 硬中断触发（Hard
+IRQ）</strong></h4>
 <p>数据包最终进入网卡的 <strong>发送环形缓冲区（TX Ring
 Buffer）</strong>，这时： 1. <strong>网卡触发硬中断</strong>（或 DMA
 直接传输）。 2. <strong>网卡驱动调用 <code>xmit_done()</code>
 释放已发送的 skb</strong>。 3.
 <strong>网卡将数据发送到物理链路（光纤、电缆、Wi-Fi）</strong>，数据包真正进入网络。</p>
 <hr />
-<h2 id="为什么发包时硬中断较少"><strong>⚡
-为什么发包时硬中断较少？</strong></h2>
+<h4 id="为什么发包时硬中断较少"><strong>⚡
+为什么发包时硬中断较少？</strong></h4>
 <p>相较于收包，<strong>发包通常不需要硬中断</strong>，原因如下： -
 <strong>TX 采用 DMA 直接传输</strong>，只需要在发送完成后通知 CPU。 -
 <strong>网卡队列（TX Queue）优化</strong>，减少 CPU 介入，提高吞吐量。 -
 <strong>GSO/TSO（大包卸载）</strong> 让网卡直接拆分 TCP
 包，提高效率。</p>
 <hr />
-<h2 id="总结"><strong>📌 总结</strong></h2>
+<h4 id="总结"><strong>📌 总结</strong></h4>
 <table>
 
 <thead>
@@ -782,6 +782,80 @@ Buffer）</strong>，这时： 1. <strong>网卡触发硬中断</strong>（或 D
 <p>如果你关心具体的优化点，比如 <strong>XDP、TSO、GSO、RPS/RFS</strong>
 等，可以深入研究 <code>net/core/dev.c</code>、<code>drivers/net/</code>
 里的网卡驱动代码。</p>
+<h3 id="收发包中的硬中断与软中断对比">🌟
+<strong>收发包中的硬中断与软中断对比</strong></h3>
+<table>
+
+<thead>
+<tr class="header">
+<th><strong>对比项</strong></th>
+<th><strong>硬中断（Hard IRQ）</strong> 🌩️</th>
+<th><strong>软中断（Soft IRQ）</strong> ⚙️</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>触发时机</strong></td>
+<td>由硬件事件触发（如网卡收到新数据包或发送完成）</td>
+<td>由内核调度或硬中断触发，批量处理网络事件</td>
+</tr>
+<tr class="even">
+<td><strong>优先级</strong></td>
+<td>高，立即打断 CPU 执行当前任务来响应</td>
+<td>较低，由内核调度器在合适时机运行</td>
+</tr>
+<tr class="odd">
+<td><strong>主要作用</strong></td>
+<td>快速响应硬件事件，通知系统有新包到达或传输完成</td>
+<td>批量处理网络数据包，减少中断次数，优化性能</td>
+</tr>
+<tr class="even">
+<td><strong>收包流程</strong></td>
+<td>1. 网卡收到数据包，触发硬中断<br>2. 将包放入 RX 队列<br>3.
+触发软中断来完成后续处理</td>
+<td>1. 轮询 RX 队列取包<br>2. 解析协议头（IP、TCP/UDP）<br>3.
+将数据交给上层协议或用户态</td>
+</tr>
+<tr class="odd">
+<td><strong>发包流程</strong></td>
+<td>1. 发送完成后触发硬中断<br>2. 通知内核释放发送缓冲区</td>
+<td>1. 将待发送数据放入 TX 队列<br>2. 由软中断驱动网卡取包发送</td>
+</tr>
+<tr class="even">
+<td><strong>处理内容</strong></td>
+<td>- 禁用中断避免风暴<br>- 通知软中断处理数据包</td>
+<td>- 批量收发包处理<br>- 协议栈解析、流控、负载均衡</td>
+</tr>
+<tr class="odd">
+<td><strong>执行时长</strong></td>
+<td>极短，避免长时间占用 CPU</td>
+<td>相对较长，批量处理多个包</td>
+</tr>
+<tr class="even">
+<td><strong>性能优化</strong></td>
+<td>- 减少中断频率（NAPI）<br>- 合并多包触发</td>
+<td>- 使用 NAPI 机制<br>- 启用 RPS/RFS、XDP 提升性能</td>
+</tr>
+<tr class="odd">
+<td><strong>瓶颈与挑战</strong></td>
+<td>过多硬中断会导致“中断风暴”，拖垮系统</td>
+<td>处理量大时易拖慢系统，需配合硬件卸载优化</td>
+</tr>
+<tr class="even">
+<td><strong>关键机制</strong></td>
+<td>- NAPI（New API）<br>- IRQ 禁用/使能机制</td>
+<td>- NAPI 轮询<br>- NET_RX_SOFTIRQ、NET_TX_SOFTIRQ</td>
+</tr>
+</tbody>
+</table>
+<p>总结：<br />
+-
+<strong>硬中断</strong>：负责快速响应硬件事件（如新包到达、发送完成），避免
+CPU 长时间被打断。<br />
+-
+<strong>软中断</strong>：负责批量处理收发包逻辑，减少中断次数，提高系统吞吐量。<br />
+- <strong>NAPI
+机制</strong>：结合硬、软中断的优点，通过轮询和批量处理机制，进一步优化高流量场景下的性能。</p>
 <h2 id="丢包">丢包</h2>
 <ul>
 <li><a
