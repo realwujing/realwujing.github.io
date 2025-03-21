@@ -1,10 +1,9 @@
 ---
 date: 2023/04/21 15:20:23
-updated: 2023/04/21 15:20:23
+updated: 2024/03/12 16:22:27
 ---
 
 ## markdown
-
 
 - [<font color=Red>Markdown 官方教程</font>](https://markdown.com.cn/)
 - [<font color=Red>Markdown代码块支持的语言</font>](https://www.jianshu.com/p/c2b75ff24c33)
@@ -39,3 +38,17 @@ updated: 2023/04/21 15:20:23
 - [VuePress搭建个人技术文档网站教程](https://segmentfault.com/a/1190000017055963)
 - [VuePress官方教程](https://vuepress.vuejs.org/zh/)
 - [一篇带你用 VuePress + Github Pages 搭建博客](https://github.com/mqyqingfeng/Blog/issues/235)
+
+## pdf
+
+福昕pdf编辑器v12是一款功能强大的PDF文件处理软件，可以对PDF文件进行阅读、编辑、转换等操作。要想永久激活该软件，需要输入激活码。激活码有以下几种123：
+
+23L2K-020ZK-MHTTN-AUCLD-QAACG-88Q58
+
+33F2K-0T0QB-J5VG0-GRF4F-C2U1A-Q6N17
+
+33S2K-0203I-RADTN-DCW46-3621P-NSU2O
+
+1118-1517-2860-1380-6669-1696
+
+激活码的输入方法是：运行并安装软件，安装完成后，点击“激活”，在永久授权下输入激活码，名称可以随意输入，然后点击“激活”123。
