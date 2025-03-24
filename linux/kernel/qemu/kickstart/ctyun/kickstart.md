@@ -1,5 +1,6 @@
 # kickstart
 
+使用kickstart自动安装ctyunos-22.06-230117-aarch64:
 ```bash
 virt-install --virt-type kvm \
 --initrd-inject=/mnt/sdd1/yql/anaconda-ks.cfg \
@@ -28,6 +29,7 @@ virt-install --virt-type kvm \
 
 在 `virt-install` 命令中，指定 `bus=scsi` 可以将虚拟磁盘配置为 SCSI 设备。以下是如何使用 `bus=scsi` 的示例：
 
+使用kickstart自动安装ctyunos-2-24.07-240716-rc2-aarch64:
 ```bash
 virt-install --virt-type kvm \
 --initrd-inject=/mnt/sdd1/yql/ks.cfg \
@@ -77,7 +79,7 @@ logvol /home  --fstype="xfs" --grow --size=500 --name=home --vgname=ctyunos_ctyu
 
 根据你的虚拟化环境和操作系统，选择合适的总线类型和配置，以确保磁盘设备名称符合你的需求。
 
-### /dev/vda
+## /dev/vda
 
 要在虚拟机中将 `wujing-zy-xfs.qcow2` 映像指定为 `/dev/sda`，你需要确保虚拟机中的磁盘设备名称与你在 Kickstart 文件中指定的设备名称一致。`virt-install` 默认情况下可能会使用 `vda` 或其他设备名称，因此你需要通过以下步骤进行配置：
 
@@ -92,6 +94,8 @@ logvol /home  --fstype="xfs" --grow --size=500 --name=home --vgname=ctyunos_ctyu
 ### 3. 使用 `virt-install` 创建虚拟机
 
 确保在虚拟机配置中设置正确的磁盘设备名称。你可以通过 `virt-install` 的 `--disk` 参数设置磁盘设备名称。下面是如何确保磁盘设备名称设置为 `sda` 的示例：
+
+使用kickstart自动安装ctyunos-2-24.07-240716-rc2-aarch64:
 
 ```bash
 virt-install --virt-type kvm \
@@ -108,23 +112,7 @@ virt-install --virt-type kvm \
 --extra-args="console=ttyS0 inst.ks=file:/ks1.cfg"
 ```
 
-```bash
-virt-install --virt-type kvm \
---initrd-inject=/mnt/sdd1/yql/ks1.cfg \
---name wujing-zy-xfs \
---memory 32768 \
---vcpus=64 \
---location /mnt/sdd1/yql/ctyunos-2-24.07-240716-rc2-aarch64-dvd.iso \
---disk path=/mnt/sdd1/yql/wujing-zy-xfs.qcow2,size=128 \
---network network=default \
---os-type=linux \
---os-variant=centos7.0 \
---graphics none \
---extra-args="console=ttyS0 inst.ks=file:/ks1.cfg"
-```
-
-ctyunos-23.01-230117-aarch64:
-
+使用kickstart自动安装ctyunos-23.01-230117-aarch64:
 ```bash
 virt-install --virt-type kvm \
 --initrd-inject=/yyf/yql/anaconda-ks-23.01.cfg \
@@ -132,12 +120,44 @@ virt-install --virt-type kvm \
 --memory 8192 \
 --vcpus=64 \
 --location /yyf/yql/ctyunos-23.01-230117-aarch64-dvd.iso \
---disk path=/yyf/yql/ctyunos-23.01-230117-aarch64.qcow2,size=128,device=disk,bus=virtio \
+--disk path=/yyf/yql/ctyunos-23.01-230117-aarch64.qcow2,size=256,device=disk,bus=virtio \
 --network network=default \
 --os-type=linux \
 --os-variant=centos7.0 \
 --graphics none \
 --extra-args="console=ttyS0 inst.ks=file:/anaconda-ks-23.01.cfg"
+```
+
+使用kickstart自动安装ctyunos-23.01-230117-x86_64:
+
+```bash
+virt-install --virt-type kvm \
+--initrd-inject=/inf/yql/anaconda-ks-23.01-amd.cfg \
+--name wujing-ctyunos-23.01-230117-x86_64-bak \
+--memory 32768 \
+--vcpus=64 \
+--location /inf/yql/ctyunos-23.01-230117-x86_64-dvd.iso \
+--disk path=/inf/yql/ctyunos-23.01-230117-x86_64-bak.qcow2,size=256,device=disk,bus=virtio \
+--network network=default \
+--os-type=linux \
+--os-variant=rhel7.0 \
+--graphics none \
+--extra-args="inst.stage2=hd:LABEL=ctyunos-23.01-x86_64 console=ttyS0 inst.ks=file:/anaconda-ks-23.01-amd.cfg"
+```
+
+手动安装ctyunos-23.01-230117-x86_64:
+```bash
+virt-install --virt-type kvm \
+--name wujing-ctyunos-23.01-230117-x86_64 \
+--memory 32768 \
+--vcpus=64 \
+--location /inf/yql/ctyunos-23.01-230117-x86_64-dvd.iso \
+--disk path=/inf/yql/ctyunos-23.01-230117-x86_64.qcow2,size=256,device=disk,bus=virtio  \
+--network network=default \
+--os-type=linux \
+--os-variant=rhel7.0 \
+--graphics none \
+--extra-args="inst.stage2=hd:LABEL=ctyunos-23.01-x86_64 console=ttyS0"
 ```
 
 ### 4. 验证磁盘设备名称
@@ -152,20 +172,18 @@ lsblk
 
 ### 5. 修改 Kickstart 文件
 
-确保你的 Kickstart 文件使用 `/dev/sda` 作为设备名称：
+确保你的 Kickstart 文件使用 `/dev/vda` 作为设备名称：
 
 ```bash
 # Disk partitioning information
-part /boot/efi --fstype="efi" --ondisk=sda --size=200 --fsoptions="umask=0077,shortname=winnt"
-part /boot --fstype="xfs" --ondisk=sda --size=1024
-part pv.156 --fstype="lvmpv" --ondisk=sda --size=129846
+part /boot/efi --fstype="efi" --ondisk=vda --size=200 --fsoptions="umask=0077,shortname=winnt"
+part /boot --fstype="xfs" --ondisk=vda --size=1024
+part pv.156 --fstype="lvmpv" --ondisk=vda --size=129846
 volgroup ctyunos_ctyunos --pesize=4096 pv.156
 logvol swap  --fstype="swap" --size=8064 --name=swap --vgname=ctyunos_ctyunos
 logvol /  --fstype="xfs" --grow --maxsize=51200 --size=1024 --name=root --vgname=ctyunos_ctyunos
 logvol /home  --fstype="xfs" --grow --size=500 --name=home --vgname=ctyunos_ctyunos
 ```
-
-通过上述步骤，你可以确保虚拟机磁盘设备名称与 Kickstart 文件中指定的一致。如果在虚拟机中出现其他设备名称（如 `vda`），则需要在 Kickstart 文件中相应地调整设备名称。
 
 ## virtio与scsi对比
 
