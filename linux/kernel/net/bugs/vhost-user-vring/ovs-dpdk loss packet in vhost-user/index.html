@@ -1,0 +1,905 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="ovs-dpdk loss packet in vhost-user ovs-dpdk观察vring 在host上观察到vring一直都是满的：  kvm统计中断注入 kvm:kvm_inj_virq：表示 KVM 向 guest 注入虚拟中断。 kvm:kvm_set_irq：表示设置某个中断请求（IRQ）。 kvm:kvm_exit 和 kvm:kvm_entry：用于追踪 VM Exit 和">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ovs-dpdk loss packet in vhost-user">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/net/bugs/vhost-user-vring/ovs-dpdk%20loss%20packet%20in%20vhost-user/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="ovs-dpdk loss packet in vhost-user ovs-dpdk观察vring 在host上观察到vring一直都是满的：  kvm统计中断注入 kvm:kvm_inj_virq：表示 KVM 向 guest 注入虚拟中断。 kvm:kvm_set_irq：表示设置某个中断请求（IRQ）。 kvm:kvm_exit 和 kvm:kvm_entry：用于追踪 VM Exit 和">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-03-28T21:38:45.000Z">
+<meta property="article:modified_time" content="2025-03-28T21:38:45.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="bpf">
+<meta property="article:tag" content="bcc">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>ovs-dpdk loss packet in vhost-user - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="ovs-dpdk loss packet in vhost-user"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-03-28 21:38" pubdate>
+          2025年3月28日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          4.7k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          40 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">ovs-dpdk loss packet in vhost-user</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="ovs-dpdk-loss-packet-in-vhost-user">ovs-dpdk loss packet in
+vhost-user</h1>
+<h2 id="ovs-dpdk观察vring">ovs-dpdk观察vring</h2>
+<p>在host上观察到vring一直都是满的： <img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/dpdk_vring.png" srcset="/img/loading.gif" lazyload
+alt="dpdk_vring" /></p>
+<h2 id="kvm统计中断注入">kvm统计中断注入</h2>
+<p>kvm:kvm_inj_virq：表示 KVM 向 guest 注入虚拟中断。
+kvm:kvm_set_irq：表示设置某个中断请求（IRQ）。 kvm:kvm_exit 和
+kvm:kvm_entry：用于追踪 VM Exit 和 Entry，可能与中断处理相关。
+irq:irq_handler_entry 和 irq:irq_handler_exit：追踪主机端的 IRQ
+处理，可能与 virtio-net 的中断相关。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-meta">#!/usr/bin/bpftrace</span><br><br>tracepoint:kvm:kvm_inj_virq &#123;<br>    @interrupts[args-&gt;irq] = count();<br>&#125;<br><br>END &#123;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;KVM 注入的中断统计:\n&quot;</span>);<br>    <span class="hljs-built_in">print</span>(@interrupts);<br>&#125;<br><br>kvm_inj_virq：这个跟踪点会在 KVM 注入虚拟中断时触发。<br>args-&gt;irq：表示注入的中断号（IRQ 向量）。<br>@interrupts：一个哈希表，用于按中断号统计注入次数。<br></code></pre></td></tr></table></figure>
+<h2 id="vm中软中断硬中断">vm中软中断、硬中断</h2>
+<h3 id="procinterrupts">/proc/interrupts</h3>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/vm_proc_interrupts.png" srcset="/img/loading.gif" lazyload
+alt="vm_proc_interrupts" />
+<figcaption aria-hidden="true">vm_proc_interrupts</figcaption>
+</figure>
+<h3 id="procsoftirqs">/proc/softirqs</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">/usr/share/bcc/tools/trace -tKU pick_next_task_idle<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/trace_pick_next_task_idle.png" srcset="/img/loading.gif" lazyload
+alt="trace_pick_next_task_idle" />
+<figcaption aria-hidden="true">trace_pick_next_task_idle</figcaption>
+</figure>
+<p>追踪pick_next_task_fair函数内部: <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo stap -ve <span class="hljs-string">&#x27;</span><br><span class="hljs-string">probe kernel.statement(&quot;pick_next_task_fair@kernel/sched/fair.c:*&quot;) &#123;</span><br><span class="hljs-string">    printf(&quot;%s\n&quot;, pp());</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">&#x27;</span> -DSTP_NO_BUILDID_CHECK<br></code></pre></td></tr></table></figure></p>
+<p>追踪 net_rx_action 实际耗时:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;</span><br><span class="hljs-string">kprobe:net_rx_action &#123; </span><br><span class="hljs-string">    @start[tid] = nsecs; </span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">kretprobe:net_rx_action /@start[tid]/ &#123; </span><br><span class="hljs-string">    @latency_us = hist((nsecs - @start[tid]) / 1000);  // 转换为微秒再生成直方图</span><br><span class="hljs-string">    delete(@start[tid]); </span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">interval:s:1 &#123;</span><br><span class="hljs-string">    print(@latency_us);</span><br><span class="hljs-string">    clear(@latency_us);</span><br><span class="hljs-string">&#125;&#x27;</span><br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;</span><br><span class="hljs-string">kretprobe:virtnet_poll &#123;</span><br><span class="hljs-string">    printf(&quot;time=%ld.%ld retval=%d cpu=%d pid=%d comm=%s\n&quot;, </span><br><span class="hljs-string">           nsecs / 1000, nsecs % 1000, </span><br><span class="hljs-string">           retval, cpu, pid, comm);</span><br><span class="hljs-string">    printf(&quot;stack:\n%s\n&quot;, kstack);</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">&#x27;</span><br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;</span><br><span class="hljs-string">kretprobe:virtnet_poll &#123;</span><br><span class="hljs-string">        printf(&quot;time=%ld.%ld retval=%d cpu=%d pid=%d comm=%s\n&quot;, </span><br><span class="hljs-string">                nsecs / 1000, nsecs % 1000,</span><br><span class="hljs-string">                retval, cpu, pid, comm);</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">&#x27;</span><br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;</span><br><span class="hljs-string">kprobe:virtnet_poll &#123;</span><br><span class="hljs-string">    printf(&quot;time=%ld.%ld cpu=%d pid=%d comm=%s\n&quot;, </span><br><span class="hljs-string">           nsecs / 1000, nsecs % 1000, </span><br><span class="hljs-string">           cpu, pid, comm);</span><br><span class="hljs-string">    printf(&quot;stack:\n%s\n&quot;, kstack);</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string"></span><br><span class="hljs-string">kretprobe:virtnet_poll &#123;</span><br><span class="hljs-string">        printf(&quot;time=%ld.%ld retval=%d cpu=%d pid=%d comm=%s\n&quot;, </span><br><span class="hljs-string">                nsecs / 1000, nsecs % 1000,</span><br><span class="hljs-string">                retval, cpu, pid, comm);</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">&#x27;</span><br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/kprobe_virtnet_poll.png" srcset="/img/loading.gif" lazyload
+alt="kprobe_virtnet_poll" />
+<figcaption aria-hidden="true">kprobe_virtnet_poll</figcaption>
+</figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash">stap -d kernel -ve <span class="hljs-string">&#x27;</span><br><span class="hljs-string">probe module(&quot;virtio_net&quot;).function(&quot;receive_buf&quot;) &#123;</span><br><span class="hljs-string">        printf(&quot;vq=%p name=%s index=%d, num_free=%d\n&quot;, </span><br><span class="hljs-string">                $rq-&gt;vq, </span><br><span class="hljs-string">                kernel_string($rq-&gt;vq-&gt;name),</span><br><span class="hljs-string">                $rq-&gt;vq-&gt;index,</span><br><span class="hljs-string">                $rq-&gt;vq-&gt;num_free</span><br><span class="hljs-string">                );</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">&#x27;</span> -DSTP_NO_BUILDID_CHECK<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/virtio_net_receive_buf.png" srcset="/img/loading.gif" lazyload
+alt="virtio_net_receive_buf" />
+<figcaption aria-hidden="true">virtio_net_receive_buf</figcaption>
+</figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/net/softnet_stat<br></code></pre></td></tr></table></figure>
+<ul>
+<li><p>第 1 列：CPU 编号。</p></li>
+<li><p>第 2 列：已处理的包数（若持续增长，说明轮询未完成）。</p></li>
+<li><p>第 3 列：time_squeeze 计数（因超时退出的次数）。</p></li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@mengjunz-node20-hc3 ~]<span class="hljs-comment"># cat /proc/net/softnet_stat</span><br>00b2b85e 00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000 00a8e14f 00000000<br>002923c4 00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000 0026a75e 00000000<br>00044858 00000000 0000017a 00000000 00000000 00000000 00000000 00000000 00000000 0001af31 00000000<br>00c051de 00000000 00000003 00000000 00000000 00000000 00000000 00000000 00000000 00b170d9 00000000<br>000f1032 00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000 000d5f66 00000000<br>00002bc7 00000000 000017d4 00000000 00000000 00000000 00000000 00000000 00000000 000004f5 00000000<br>008eb9b3 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00852e5b 00000000<br>008fa824 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 0086279b 00000000<br>[root@mengjunz-node20-hc3 ~]<span class="hljs-comment"># cat /proc/net/softnet_stat</span><br>00b30992 00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000 00a92dfe 00000000<br>002930d0 00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000 0026b3c7 00000000<br>00044858 00000000 0000017a 00000000 00000000 00000000 00000000 00000000 00000000 0001af31 00000000<br>00c09445 00000000 00000003 00000000 00000000 00000000 00000000 00000000 00000000 00b1aa8c 00000000<br>000f1038 00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000 000d5f6c 00000000<br>00002bc9 00000000 000017e0 00000000 00000000 00000000 00000000 00000000 00000000 000004f7 00000000<br>008f12db 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 0085824d 00000000<br>00900f39 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00868893 00000000<br>[root@mengjunz-node20-hc3 ~]<span class="hljs-comment"># cat /proc/net/softnet_stat</span><br>00b3471f 00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000 00a96804 00000000<br>002933f9 00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000 0026b6b4 00000000<br>00044861 00000000 0000017a 00000000 00000000 00000000 00000000 00000000 00000000 0001af35 00000000<br>00c0c10c 00000000 00000003 00000000 00000000 00000000 00000000 00000000 00000000 00b1d156 00000000<br>000f1038 00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000 000d5f6c 00000000<br>00002bca 00000000 000017e8 00000000 00000000 00000000 00000000 00000000 00000000 000004f8 00000000<br>008f59be 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 0085c4d7 00000000<br>00904a0b 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 0086bfe5 00000000<br></code></pre></td></tr></table></figure>
+<p>主要问题：仅 CPU 核5 的 time_squeeze
+缓慢增长，但无丢包或处理延迟。</p>
+<p>操作建议：暂不调优，持续监控；若增长加速或出现性能问题，再增大
+netdev_budget 或优化多队列。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/net/" class="category-chain-item">net</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/net/bugs/" class="category-chain-item">bugs</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/net/bugs/vhost-user-vring/" class="category-chain-item">vhost-user-vring</a>
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/bpf/">#bpf</a>
+      
+        <a href="/tags/bcc/">#bcc</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>ovs-dpdk loss packet in vhost-user</div>
+      <div>https://realwujing.github.io/linux/kernel/net/bugs/vhost-user-vring/ovs-dpdk loss packet in vhost-user/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年3月28日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/kernel/net/bugs/server2-99-101/dpu%20server2-99-101%E6%89%93%E6%B5%81%E5%8D%A1%E9%A1%BF/" title="dpu server2-99-101打流卡顿">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">dpu server2-99-101打流卡顿</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/task/bugs/ksmd/Kernel%20Thread%20ksmd%20Running%20on%20PMD%20Isolated%20Cores%20Causes%20High%20Latency%20in%20OVS%20Packet%20Processing/" title="Kernel Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS Packet Processing">
+                        <span class="hidden-mobile">Kernel Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS Packet Processing</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: 'd47c60ad6b366857299472a90ee4b79a'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

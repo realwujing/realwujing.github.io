@@ -1,0 +1,1145 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="Kernel Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS Packet Processing 内核线程ksmd跑到PMD核心，导致OVS报文延时大 perf sched  perf sched查看调度延迟与唤醒延迟  在物理机上查看隔离核心cpu 43 的时间片使用情况: 1perf sched reco">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kernel Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS Packet Processing">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/task/bugs/ksmd/Kernel%20Thread%20ksmd%20Running%20on%20PMD%20Isolated%20Cores%20Causes%20High%20Latency%20in%20OVS%20Packet%20Processing/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="Kernel Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS Packet Processing 内核线程ksmd跑到PMD核心，导致OVS报文延时大 perf sched  perf sched查看调度延迟与唤醒延迟  在物理机上查看隔离核心cpu 43 的时间片使用情况: 1perf sched reco">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-03-28T21:38:45.000Z">
+<meta property="article:modified_time" content="2025-03-28T21:38:45.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="HTML">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>Kernel Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS Packet Processing - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Kernel Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS Packet Processing"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-03-28 21:38" pubdate>
+          2025年3月28日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          40k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          332 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">Kernel Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS Packet Processing</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1
+id="kernel-thread-ksmd-running-on-pmd-isolated-cores-causes-high-latency-in-ovs-packet-processing">Kernel
+Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS
+Packet Processing</h1>
+<p>内核线程ksmd跑到PMD核心，导致OVS报文延时大</p>
+<h2 id="perf-sched">perf sched</h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/yiyeguzhou100/article/details/102809576">perf
+sched查看调度延迟与唤醒延迟</a></li>
+</ul>
+<p>在物理机上查看隔离核心cpu 43 的时间片使用情况:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">perf <span class="hljs-built_in">sched</span> record -C 43<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">perf <span class="hljs-built_in">sched</span> timehist<br></code></pre></td></tr></table></figure>
+<p>通过下图可以看到内核线程ksmd被周期性调度，每次运行时长12ms左右。</p>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240704154742.png" srcset="/img/loading.gif" lazyload
+alt="perf sched timehist" />
+<figcaption aria-hidden="true">perf sched timehist</figcaption>
+</figure>
+<h2 id="ksmd">ksmd</h2>
+<p>内核中的Kernel Samepage Merging
+(KSM)机制被设计用于合并相同的内存页，以节省物理内存。</p>
+<p>合并相同的内存页是Kernel Samepage Merging (KSM)
+的核心功能，其目的是通过检测并合并相同的内存页来减少物理内存的使用。这一机制特别适用于虚拟化环境，在这些环境中，多个虚拟机可能会运行相同的操作系统和应用程序，从而拥有大量相同的内存页。</p>
+<h3 id="ksmd内核参数">ksmd内核参数</h3>
+<p>ksmd是内核KSM机制的守护进程，它的相关信息可以在/sys/kernel/mm/ksm目录中找到。</p>
+<p>在<code>/sys/kernel/mm/ksm</code>目录中，您会找到以下文件，每个文件都有特定的功能和用途：</p>
+<ol type="1">
+<li><p><strong>full_scans</strong>：显示自KSM启动以来完成的完整扫描次数。</p></li>
+<li><p><strong>max_page_sharing</strong>：控制一个共享页面的最大引用次数。</p></li>
+<li><p><strong>merge_across_nodes</strong>：控制是否允许在不同NUMA节点之间合并页面。值为1表示允许，0表示不允许。</p></li>
+<li><p><strong>pages_shared</strong>：显示当前被共享的内存页数。</p></li>
+<li><p><strong>pages_sharing</strong>：显示当前有多少页在共享同一页。</p></li>
+<li><p><strong>pages_to_scan</strong>：控制每个扫描周期中KSM扫描的页数。</p></li>
+<li><p><strong>pages_unshared</strong>：显示当前未被共享的页数。</p></li>
+<li><p><strong>pages_volatile</strong>：显示当前不稳定的页数，这些页可能会被KSM合并。</p></li>
+<li><p><strong>run</strong>：控制KSM的运行状态。写入<code>0</code>停止KSM，写入<code>1</code>启动KSM。</p></li>
+<li><p><strong>sleep_millisecs</strong>：控制KSM扫描周期的时间间隔，以毫秒为单位。</p></li>
+<li><p><strong>stable_node_chains</strong>：显示稳定节点链的数量。</p></li>
+<li><p><strong>stable_node_chains_prune_millisecs</strong>：控制修剪稳定节点链的时间间隔，以毫秒为单位。</p></li>
+<li><p><strong>stable_node_dups</strong>：显示稳定节点的副本数量。</p></li>
+<li><p><strong>use_zero_pages</strong>：控制是否使用零页来合并空闲页。值为1表示使用，0表示不使用。</p></li>
+</ol>
+<h3 id="动态调整ksmd参数">动态调整ksmd参数</h3>
+<p><code>ksmd</code> 线程在以下情况下会被调度运行：</p>
+<h4 id="启动ksm后">启动KSM后</h4>
+<p>KSM通过将<code>/sys/kernel/mm/ksm/run</code>文件的值设置为<code>1</code>来启动。一旦启动，<code>ksmd</code>线程会按照配置开始周期性地扫描和合并内存页。</p>
+<h4 id="配置的扫描周期">配置的扫描周期</h4>
+<p><code>ksmd</code>线程的调度频率由<code>/sys/kernel/mm/ksm/sleep_millisecs</code>文件中配置的扫描周期决定。该文件的值是一个以毫秒为单位的时间间隔，表示<code>ksmd</code>线程在每次扫描之间的睡眠时间。例如：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 设置扫描周期为100毫秒</span><br><span class="hljs-built_in">echo</span> 100 | sudo <span class="hljs-built_in">tee</span> /sys/kernel/mm/ksm/sleep_millisecs<br></code></pre></td></tr></table></figure>
+<p>在这种配置下，<code>ksmd</code>线程会每隔100毫秒被调度运行一次，以扫描和合并内存页。</p>
+<h4 id="每次扫描的页数">每次扫描的页数</h4>
+<p><code>ksmd</code>线程在每次被调度运行时，会根据<code>/sys/kernel/mm/ksm/pages_to_scan</code>文件中配置的值来决定每次扫描的页数。例如：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 设置每次扫描的页数为256页</span><br><span class="hljs-built_in">echo</span> 256 | sudo <span class="hljs-built_in">tee</span> /sys/kernel/mm/ksm/pages_to_scan<br></code></pre></td></tr></table></figure>
+<p>这意味着每次<code>ksmd</code>线程被调度运行时，它将扫描256个内存页。</p>
+<h2 id="housekeeping_isolcpus_setup">housekeeping_isolcpus_setup</h2>
+<p>在grub中传入<code>isolcpus=</code>参数时，<code>kernel/sched/isolation.c</code>文件中的<code>housekeeping_isolcpus_setup</code>函数会被调用。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim kernel/sched/isolation.c +126</span><br><br><span class="hljs-number">126</span> <span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">housekeeping_isolcpus_setup</span><span class="hljs-params">(<span class="hljs-type">char</span> *str)</span>  <span class="hljs-comment">// 定义一个静态的初始化函数 housekeeping_isolcpus_setup ，接收一个字符指针参数</span><br>127 &#123;<br><span class="hljs-number">128</span>     <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> flags = <span class="hljs-number">0</span>;  <span class="hljs-comment">// 定义一个无符号整型变量 flags 并初始化为 0</span><br><span class="hljs-number">129</span><br><span class="hljs-number">130</span>     <span class="hljs-keyword">while</span> (<span class="hljs-built_in">isalpha</span>(*str)) &#123;  <span class="hljs-comment">// 当字符串指针所指字符为字母时进行循环</span><br><span class="hljs-number">131</span>         <span class="hljs-keyword">if</span> (!<span class="hljs-built_in">strncmp</span>(str, <span class="hljs-string">&quot;nohz,&quot;</span>, <span class="hljs-number">5</span>)) &#123;  <span class="hljs-comment">// 如果字符串开头为 &quot;nohz,&quot;</span><br><span class="hljs-number">132</span>             str += <span class="hljs-number">5</span>;  <span class="hljs-comment">// 字符串指针向后移动 5 个位置</span><br><span class="hljs-number">133</span>             flags |= HK_FLAG_TICK;  <span class="hljs-comment">// 对 flags 进行位或操作，设置相应标志位</span><br><span class="hljs-number">134</span>             <span class="hljs-keyword">continue</span>;  <span class="hljs-comment">// 继续下一次循环</span><br><span class="hljs-number">135</span>         &#125;<br><span class="hljs-number">136</span><br><span class="hljs-number">137</span>         <span class="hljs-keyword">if</span> (!<span class="hljs-built_in">strncmp</span>(str, <span class="hljs-string">&quot;domain,&quot;</span>, <span class="hljs-number">7</span>)) &#123;  <span class="hljs-comment">// 如果字符串开头为 &quot;domain,&quot;</span><br><span class="hljs-number">138</span>             str += <span class="hljs-number">7</span>;  <span class="hljs-comment">// 字符串指针向后移动 7 个位置</span><br><span class="hljs-number">139</span>             flags |= HK_FLAG_DOMAIN;  <span class="hljs-comment">// 对 flags 进行位或操作，设置相应标志位</span><br><span class="hljs-number">140</span>             <span class="hljs-keyword">continue</span>;  <span class="hljs-comment">// 继续下一次循环</span><br><span class="hljs-number">141</span>         &#125;<br><span class="hljs-number">142</span><br><span class="hljs-number">143</span>         pr_warn(<span class="hljs-string">&quot;isolcpus: Error, unknown flag\n&quot;</span>);  <span class="hljs-comment">// 打印警告信息</span><br><span class="hljs-number">144</span>         <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;  <span class="hljs-comment">// 返回 0</span><br><span class="hljs-number">145</span>     &#125;<br><span class="hljs-number">146</span><br><span class="hljs-number">147</span>     <span class="hljs-comment">/* Default behaviour for isolcpus without flags */</span>  <span class="hljs-comment">// 对于没有标志的 isolcpus 的默认行为</span><br><span class="hljs-number">148</span>     <span class="hljs-keyword">if</span> (!flags)  <span class="hljs-comment">// 如果 flags 为 0</span><br><span class="hljs-number">149</span>         flags |= HK_FLAG_DOMAIN;  <span class="hljs-comment">// 对 flags 进行位或操作，设置相应标志位</span><br><span class="hljs-number">150</span><br><span class="hljs-number">151</span>     <span class="hljs-keyword">return</span> housekeeping_setup(str, flags);  <span class="hljs-comment">// 返回 housekeeping_setup 函数的执行结果</span><br><span class="hljs-number">152</span> &#125;<br><span class="hljs-number">153</span> __setup(<span class="hljs-string">&quot;isolcpus=&quot;</span>, housekeeping_isolcpus_setup);  <span class="hljs-comment">// 定义一个设置项 &quot;isolcpus=&quot; ，关联处理函数 housekeeping_isolcpus_setup</span><br></code></pre></td></tr></table></figure>
+<h2 id="内核调度器">内核调度器</h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://www.cnblogs.com/tencent-cloud-native/p/14767478.html">Linux
+内核调度器源码分析 - 初始化</a></li>
+</ul>
+<p><code>ksmd</code>线程作为内核线程，由内核调度器进行调度。内核调度器会根据系统的整体负载和<code>ksmd</code>线程的优先级来决定何时运行<code>ksmd</code>线程。尽管<code>ksmd</code>线程的优先级通常较低，但在配置的扫描周期到达时，调度器会尝试调度它运行。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs c">start_kernel  <span class="hljs-comment">// 0号线程</span><br>    -&gt; sched_init <span class="hljs-comment">// 调度器初始化</span><br>        -&gt; init_sched_fair_class <span class="hljs-comment">// cfs_class初始化</span><br>    -&gt; reset_init<br>        -&gt; kernel_init  <span class="hljs-comment">// 1号线程, sched_normal</span><br>                -&gt; kernel_init_freeable<br>                        -&gt; wait_for_completion(&amp;kthreadd_done) <span class="hljs-comment">// Wait until kthreadd is all set-up.</span><br>                        -&gt; smp_init <span class="hljs-comment">// 多核初始化</span><br>                        -&gt; sched_init_smp <span class="hljs-comment">// 多核调度器初始化</span><br>                                -&gt; sched_init_domains<br>                                        -&gt; cpumask_and <span class="hljs-comment">// 排除isolated cpus</span><br>                                -&gt; init_sched_rt_class<br>                                -&gt; init_sched_vms_class<br>                                -&gt; init_sched_dl_class<br>                        -&gt; do_basic_setup<br>                                -&gt; do_initcalls<br>                                        -&gt; subsys_initcall(ksm_init)    <span class="hljs-comment">// ksmd, sched_normal</span><br>        -&gt; kthreadd  <span class="hljs-comment">// 2号线程，sched_normal</span><br>        -&gt; complete(&amp;kthreadd_done)<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">taskset -pc 2<br>pid 2<span class="hljs-string">&#x27;s current affinity list: 0-95</span><br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">taskset -pc 510<br>pid 510<span class="hljs-string">&#x27;s current affinity list: 0-95</span><br></code></pre></td></tr></table></figure>
+<h3 id="rest_init">rest_init</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim init/main.c +397</span><br><br><span class="hljs-number">397</span> <span class="hljs-type">static</span> noinline <span class="hljs-type">void</span> __ref <span class="hljs-title function_">rest_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span>  <span class="hljs-comment">// 定义静态内联函数 rest_init</span><br>398 &#123;<br><span class="hljs-number">399</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">task_struct</span> *<span class="hljs-title">tsk</span>;</span>  <span class="hljs-comment">// 定义任务结构体指针 tsk</span><br><span class="hljs-number">400</span>     <span class="hljs-type">int</span> pid;  <span class="hljs-comment">// 定义进程 ID 变量 pid</span><br><span class="hljs-number">401</span><br><span class="hljs-number">402</span>     rcu_scheduler_starting();  <span class="hljs-comment">// 启动 RCU 调度器</span><br><span class="hljs-number">403</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">404      * We need to spawn init first so that it obtains pid 1, however  // 我们首先需要生成 init 进程，以便它获得 PID 1，然而</span><br><span class="hljs-comment">405      * the init task will end up wanting to create kthreads, which, if  // init 任务最终会想要创建内核线程，如果</span><br><span class="hljs-comment">406      * we schedule it before we create kthreadd, will OOPS.  // 我们在创建 kthreadd 之前对其进行调度，将会出错</span><br><span class="hljs-comment">407      */</span><br><span class="hljs-number">408</span>     pid = kernel_thread(kernel_init, <span class="hljs-literal">NULL</span>, CLONE_FS);  <span class="hljs-comment">// 创建内核线程 kernel_init，并获取其进程 ID</span><br><span class="hljs-number">409</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">410      * Pin init on the boot CPU. Task migration is not properly working  // 将 init 固定在启动 CPU 上。任务迁移尚未正常工作</span><br><span class="hljs-comment">411      * until sched_init_smp() has been run. It will set the allowed  // 直到 sched_init_smp() 运行。将设置</span><br><span class="hljs-comment">412      * CPUs for init to the non isolated CPUs.  //  init 到非隔离的 CPU 上</span><br><span class="hljs-comment">413      */</span><br><span class="hljs-number">414</span>     rcu_read_lock();  <span class="hljs-comment">// 读取锁</span><br><span class="hljs-number">415</span>     tsk = find_task_by_pid_ns(pid, &amp;init_pid_ns);  <span class="hljs-comment">// 通过 PID 和命名空间查找任务</span><br><span class="hljs-number">416</span>     set_cpus_allowed_ptr(tsk, cpumask_of(smp_processor_id()));  <span class="hljs-comment">// 设置允许的 CPU 掩码</span><br><span class="hljs-number">417</span>     rcu_read_unlock();  <span class="hljs-comment">// 读取解锁</span><br><span class="hljs-number">418</span><br><span class="hljs-number">419</span>     numa_default_policy();  <span class="hljs-comment">// 设置 NUMA 默认策略</span><br><span class="hljs-number">420</span>     pid = kernel_thread(kthreadd, <span class="hljs-literal">NULL</span>, CLONE_FS | CLONE_FILES);  <span class="hljs-comment">// 创建 kthreadd 内核线程，并获取其进程 ID</span><br><span class="hljs-number">421</span>     rcu_read_lock();  <span class="hljs-comment">// 读取锁</span><br><span class="hljs-number">422</span>     kthreadd_task = find_task_by_pid_ns(pid, &amp;init_pid_ns);  <span class="hljs-comment">// 通过 PID 和命名空间查找 kthreadd 任务</span><br><span class="hljs-number">423</span>     rcu_read_unlock();  <span class="hljs-comment">// 读取解锁</span><br><span class="hljs-number">424</span><br><span class="hljs-number">425</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">426      * Enable might_sleep() and smp_processor_id() checks.  // 启用 might_sleep() 和 smp_processor_id() 检查</span><br><span class="hljs-comment">427      * They cannot be enabled earlier because with CONFIG_PREEMPT=y  // 它们不能更早启用，因为在 CONFIG_PREEMPT=y 时</span><br><span class="hljs-comment">428      * kernel_thread() would trigger might_sleep() splats. With  // kernel_thread() 会触发 might_sleep() 问题。在</span><br><span class="hljs-comment">429      * CONFIG_PREEMPT_VOLUNTARY=y the init task might have scheduled  // CONFIG_PREEMPT_VOLUNTARY=y 时，init 任务可能已经调度</span><br><span class="hljs-comment">430      * already, but it&#x27;s stuck on the kthreadd_done completion.  // 但它会卡在 kthreadd_done 完成处</span><br><span class="hljs-comment">431      */</span><br><span class="hljs-number">432</span>     system_state = SYSTEM_SCHEDULING;  <span class="hljs-comment">// 设置系统状态为 SYSTEM_SCHEDULING</span><br><span class="hljs-number">433</span><br><span class="hljs-number">434</span>     complete(&amp;kthreadd_done);  <span class="hljs-comment">// 完成 kthreadd_done 操作</span><br><span class="hljs-number">435</span><br><span class="hljs-number">436</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">437      * The boot idle thread must execute schedule()  // 启动空闲线程必须执行 schedule()</span><br><span class="hljs-comment">438      * at least once to get things moving:  // 至少一次以启动进程</span><br><span class="hljs-comment">439      */</span><br><span class="hljs-number">440</span>     schedule_preempt_disabled();  <span class="hljs-comment">// 执行调度，禁用抢占</span><br><span class="hljs-number">441</span>     <span class="hljs-comment">/* Call into cpu_idle with preempt disabled */</span>  <span class="hljs-comment">// 以禁用抢占的方式调用 cpu_idle</span><br><span class="hljs-number">442</span>     cpu_startup_entry(CPUHP_ONLINE);  <span class="hljs-comment">// CPU 启动入口</span><br><span class="hljs-number">443</span> &#125;<br></code></pre></td></tr></table></figure>
+<h4 id="sched_init_numa">sched_init_numa</h4>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">1385</span> <span class="hljs-type">void</span> <span class="hljs-title function_">sched_init_numa</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span>  <span class="hljs-comment">// 定义一个名为 sched_init_numa 的无返回值函数</span><br>1386 &#123;<br><span class="hljs-number">1387</span>     <span class="hljs-type">int</span> next_distance, curr_distance = node_distance(<span class="hljs-number">0</span>, <span class="hljs-number">0</span>);  <span class="hljs-comment">// 定义两个整型变量，curr_distance 并初始化为 node_distance(0, 0) 的返回值</span><br><span class="hljs-number">1388</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sched_domain_topology_level</span> *<span class="hljs-title">tl</span>;</span>  <span class="hljs-comment">// 定义一个指向结构体 sched_domain_topology_level 的指针</span><br><span class="hljs-number">1389</span>     <span class="hljs-type">int</span> level = <span class="hljs-number">0</span>;  <span class="hljs-comment">// 定义并初始化整型变量 level 为 0</span><br><span class="hljs-number">1390</span>     <span class="hljs-type">int</span> i, j, k;  <span class="hljs-comment">// 定义三个整型变量 i, j, k</span><br><span class="hljs-number">1391</span><br><span class="hljs-number">1392</span>     sched_domains_numa_distance = kzalloc(<span class="hljs-keyword">sizeof</span>(<span class="hljs-type">int</span>) * (nr_node_ids + <span class="hljs-number">1</span>), GFP_KERNEL);  <span class="hljs-comment">// 动态分配内存</span><br><span class="hljs-number">1393</span>     <span class="hljs-keyword">if</span> (!sched_domains_numa_distance)  <span class="hljs-comment">// 如果分配失败</span><br><span class="hljs-number">1394</span>         <span class="hljs-keyword">return</span>;  <span class="hljs-comment">// 直接返回</span><br><span class="hljs-number">1395</span><br><span class="hljs-number">1396</span>     <span class="hljs-comment">/* Includes NUMA identity node at level 0. */</span>  <span class="hljs-comment">// 包含在 0 级的 NUMA 标识节点</span><br><span class="hljs-number">1397</span>     sched_domains_numa_distance[level++] = curr_distance;  <span class="hljs-comment">// 为数组元素赋值并递增 level</span><br><span class="hljs-number">1398</span>     sched_domains_numa_levels = level;  <span class="hljs-comment">// 更新 sched_domains_numa_levels 的值</span><br><span class="hljs-number">1399</span><br><span class="hljs-number">1400</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1401      * O(nr_nodes^2) deduplicating selection sort -- in order to find the</span><br><span class="hljs-comment">1402      * unique distances in the node_distance() table.</span><br><span class="hljs-comment">1403      *</span><br><span class="hljs-comment">1404      * Assumes node_distance(0,j) includes all distances in</span><br><span class="hljs-comment">1405      * node_distance(i,j) in order to avoid cubic time.</span><br><span class="hljs-comment">1406      */</span><br><span class="hljs-number">1407</span>     next_distance = curr_distance;  <span class="hljs-comment">// 初始化 next_distance</span><br><span class="hljs-number">1408</span>     <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; nr_node_ids; i++) &#123;  <span class="hljs-comment">// 开始一个循环</span><br><span class="hljs-number">1409</span>         <span class="hljs-keyword">for</span> (j = <span class="hljs-number">0</span>; j &lt; nr_node_ids; j++) &#123;  <span class="hljs-comment">// 嵌套循环</span><br><span class="hljs-number">1410</span>             <span class="hljs-keyword">for</span> (k = <span class="hljs-number">0</span>; k &lt; nr_node_ids; k++) &#123;  <span class="hljs-comment">// 嵌套循环</span><br><span class="hljs-number">1411</span>                 <span class="hljs-type">int</span> distance = node_distance(i, k);  <span class="hljs-comment">// 获取距离值</span><br><span class="hljs-number">1412</span><br><span class="hljs-number">1413</span>                 <span class="hljs-keyword">if</span> (distance &gt; curr_distance &amp;&amp;  <span class="hljs-comment">// 条件判断</span><br><span class="hljs-number">1414</span>                     (distance &lt; next_distance ||  <span class="hljs-comment">// 条件判断</span><br><span class="hljs-number">1415</span>                      next_distance == curr_distance))<br><span class="hljs-number">1416</span>                     next_distance = distance;  <span class="hljs-comment">// 更新 next_distance</span><br><span class="hljs-number">1417</span><br><span class="hljs-number">1418</span>                 <span class="hljs-comment">/*</span><br><span class="hljs-comment">1419                  * While not a strong assumption it would be nice to know</span><br><span class="hljs-comment">1420                  * about cases where if node A is connected to B, B is not</span><br><span class="hljs-comment">1421                  * equally connected to A.</span><br><span class="hljs-comment">1422                  */</span><br><span class="hljs-number">1423</span>                 <span class="hljs-keyword">if</span> (sched_debug() &amp;&amp; node_distance(k, i)!= distance)  <span class="hljs-comment">// 条件判断</span><br><span class="hljs-number">1424</span>                     sched_numa_warn(<span class="hljs-string">&quot;Node-distance not symmetric&quot;</span>);  <span class="hljs-comment">// 调用警告函数</span><br><span class="hljs-number">1425</span><br><span class="hljs-number">1426</span>                 <span class="hljs-keyword">if</span> (sched_debug() &amp;&amp; i &amp;&amp;!find_numa_distance(distance))  <span class="hljs-comment">// 条件判断</span><br><span class="hljs-number">1427</span>                     sched_numa_warn(<span class="hljs-string">&quot;Node-0 not representative&quot;</span>);  <span class="hljs-comment">// 调用警告函数</span><br><span class="hljs-number">1428</span>             &#125;<br><span class="hljs-number">1429</span>             <span class="hljs-keyword">if</span> (next_distance!= curr_distance) &#123;  <span class="hljs-comment">// 条件判断</span><br><span class="hljs-number">1430</span>                 sched_domains_numa_distance[level++] = next_distance;  <span class="hljs-comment">// 赋值并递增 level</span><br><span class="hljs-number">1431</span>                 sched_domains_numa_levels = level;  <span class="hljs-comment">// 更新值</span><br><span class="hljs-number">1432</span>                 curr_distance = next_distance;  <span class="hljs-comment">// 更新 curr_distance</span><br><span class="hljs-number">1433</span>             &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">break</span>;  <span class="hljs-comment">// 否则退出循环</span><br><span class="hljs-number">1434</span>         &#125;<br><span class="hljs-number">1435</span><br><span class="hljs-number">1436</span>         <span class="hljs-comment">/*</span><br><span class="hljs-comment">1437          * In case of sched_debug() we verify the above assumption.</span><br><span class="hljs-comment">1438          */</span><br><span class="hljs-number">1439</span>         <span class="hljs-keyword">if</span> (!sched_debug())  <span class="hljs-comment">// 条件判断</span><br><span class="hljs-number">1440</span>             <span class="hljs-keyword">break</span>;  <span class="hljs-comment">// 退出循环</span><br><span class="hljs-number">1441</span>     &#125;<br><span class="hljs-number">1442</span><br><span class="hljs-number">1443</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1444      * &#x27;level&#x27; contains the number of unique distances</span><br><span class="hljs-comment">1445      *</span><br><span class="hljs-comment">1446      * The sched_domains_numa_distance[] array includes the actual distance</span><br><span class="hljs-comment">1447      * numbers.</span><br><span class="hljs-comment">1448      */</span><br><span class="hljs-number">1449</span><br><span class="hljs-number">1450</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1451      * Here, we should temporarily reset sched_domains_numa_levels to 0.</span><br><span class="hljs-comment">1452      * If it fails to allocate memory for array sched_domains_numa_masks[][],</span><br><span class="hljs-comment">1453      * the array will contain less then &#x27;level&#x27; members. This could be</span><br><span class="hljs-comment">1454      * dangerous when we use it to iterate array sched_domains_numa_masks[][]</span><br><span class="hljs-comment">1455      * in other functions.</span><br><span class="hljs-comment">1456      *</span><br><span class="hljs-comment">1457      * We reset it to &#x27;level&#x27; at the end of this function.</span><br><span class="hljs-comment">1458      */</span><br><span class="hljs-number">1459</span>     sched_domains_numa_levels = <span class="hljs-number">0</span>;  <span class="hljs-comment">// 暂时重置值</span><br><span class="hljs-number">1460</span><br><span class="hljs-number">1461</span>     sched_domains_numa_masks = kzalloc(<span class="hljs-keyword">sizeof</span>(<span class="hljs-type">void</span> *) * level, GFP_KERNEL);  <span class="hljs-comment">// 动态分配内存</span><br><span class="hljs-number">1462</span>     <span class="hljs-keyword">if</span> (!sched_domains_numa_masks)  <span class="hljs-comment">// 如果分配失败</span><br><span class="hljs-number">1463</span>         <span class="hljs-keyword">return</span>;  <span class="hljs-comment">// 直接返回</span><br><span class="hljs-number">1464</span><br><span class="hljs-number">1465</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1466      * Now for each level, construct a mask per node which contains all</span><br><span class="hljs-comment">1467      * CPUs of nodes that are that many hops away from us.</span><br><span class="hljs-comment">1468      */</span><br><span class="hljs-number">1469</span>     <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; level; i++) &#123;  <span class="hljs-comment">// 开始一个循环</span><br><span class="hljs-number">1470</span>         sched_domains_numa_masks[i] =  <span class="hljs-comment">// 为数组元素赋值</span><br><span class="hljs-number">1471</span>             kzalloc(nr_node_ids * <span class="hljs-keyword">sizeof</span>(<span class="hljs-type">void</span> *), GFP_KERNEL);  <span class="hljs-comment">// 动态分配内存</span><br><span class="hljs-number">1472</span>         <span class="hljs-keyword">if</span> (!sched_domains_numa_masks[i])  <span class="hljs-comment">// 如果分配失败</span><br><span class="hljs-number">1473</span>             <span class="hljs-keyword">return</span>;  <span class="hljs-comment">// 直接返回</span><br><span class="hljs-number">1474</span><br><span class="hljs-number">1475</span>         <span class="hljs-keyword">for</span> (j = <span class="hljs-number">0</span>; j &lt; nr_node_ids; j++) &#123;  <span class="hljs-comment">// 嵌套循环</span><br><span class="hljs-number">1476</span>             <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">cpumask</span> *<span class="hljs-title">mask</span> =</span> kzalloc(cpumask_size(), GFP_KERNEL);  <span class="hljs-comment">// 动态分配内存</span><br><span class="hljs-number">1477</span>             <span class="hljs-keyword">if</span> (!mask)  <span class="hljs-comment">// 如果分配失败</span><br><span class="hljs-number">1478</span>                 <span class="hljs-keyword">return</span>;  <span class="hljs-comment">// 直接返回</span><br><span class="hljs-number">1479</span><br><span class="hljs-number">1480</span>             sched_domains_numa_masks[i][j] = mask;  <span class="hljs-comment">// 赋值</span><br><span class="hljs-number">1481</span><br><span class="hljs-number">1482</span>             for_each_node(k) &#123;  <span class="hljs-comment">// 循环</span><br><span class="hljs-number">1483</span>                 <span class="hljs-keyword">if</span> (node_distance(j, k) &gt; sched_domains_numa_distance[i])  <span class="hljs-comment">// 条件判断</span><br><span class="hljs-number">1484</span>                     <span class="hljs-keyword">continue</span>;  <span class="hljs-comment">// 继续下一次循环</span><br><span class="hljs-number">1485</span><br><span class="hljs-number">1486</span>                 cpumask_or(mask, mask, cpumask_of_node(k));  <span class="hljs-comment">// 进行位或操作</span><br><span class="hljs-number">1487</span>             &#125;<br><span class="hljs-number">1488</span>         &#125;<br><span class="hljs-number">1489</span>     &#125;<br><span class="hljs-number">1490</span><br><span class="hljs-number">1491</span>     <span class="hljs-comment">/* Compute default topology size */</span>  <span class="hljs-comment">// 计算默认拓扑大小</span><br><span class="hljs-number">1492</span>     <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; sched_domain_topology[i].mask; i++);  <span class="hljs-comment">// 循环</span><br><span class="hljs-number">1493</span><br><span class="hljs-number">1494</span>     tl = kzalloc((i + level + <span class="hljs-number">1</span>) *  <span class="hljs-comment">// 动态分配内存</span><br><span class="hljs-number">1495</span>             <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> sched_domain_topology_level), GFP_KERNEL);  <span class="hljs-comment">// 动态分配内存</span><br><span class="hljs-number">1496</span>     <span class="hljs-keyword">if</span> (!tl)  <span class="hljs-comment">// 如果分配失败</span><br><span class="hljs-number">1497</span>         <span class="hljs-keyword">return</span>;  <span class="hljs-comment">// 直接返回</span><br><span class="hljs-number">1498</span><br><span class="hljs-number">1499</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1500      * Copy the default topology bits..</span><br><span class="hljs-comment">1501      */</span><br><span class="hljs-number">1502</span>     <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; sched_domain_topology[i].mask; i++)  <span class="hljs-comment">// 循环</span><br><span class="hljs-number">1503</span>         tl[i] = sched_domain_topology[i];  <span class="hljs-comment">// 赋值</span><br><span class="hljs-number">1504</span><br><span class="hljs-number">1505</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1506      * Add the NUMA identity distance, aka single NODE.</span><br><span class="hljs-comment">1507      */</span><br><span class="hljs-number">1508</span>     tl[i++] = (<span class="hljs-keyword">struct</span> sched_domain_topology_level)&#123;  <span class="hljs-comment">// 赋值</span><br><span class="hljs-number">1509</span>        .mask = sd_numa_mask,<br><span class="hljs-number">1510</span>        .numa_level = <span class="hljs-number">0</span>,<br><span class="hljs-number">1511</span>         SD_INIT_NAME(NODE)<br><span class="hljs-number">1512</span>     &#125;;<br><span class="hljs-number">1513</span><br><span class="hljs-number">1514</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1515      *.. and append &#x27;j&#x27; levels of NUMA goodness.</span><br><span class="hljs-comment">1516      */</span><br><span class="hljs-number">1517</span>     <span class="hljs-keyword">for</span> (j = <span class="hljs-number">1</span>; j &lt; level; i++, j++) &#123;  <span class="hljs-comment">// 循环</span><br><span class="hljs-number">1518</span>         tl[i] = (<span class="hljs-keyword">struct</span> sched_domain_topology_level)&#123;  <span class="hljs-comment">// 赋值</span><br><span class="hljs-number">1519</span>            .mask = sd_numa_mask,<br><span class="hljs-number">1520</span>            .sd_flags = cpu_numa_flags,<br><span class="hljs-number">1521</span>            .flags = SDTL_OVERLAP,<br><span class="hljs-number">1522</span>            .numa_level = j,<br><span class="hljs-number">1523</span>             SD_INIT_NAME(NUMA)<br><span class="hljs-number">1524</span>         &#125;;<br><span class="hljs-number">1525</span>     &#125;<br><span class="hljs-number">1526</span><br><span class="hljs-number">1527</span>     sched_domain_topology = tl;  <span class="hljs-comment">// 赋值</span><br><span class="hljs-number">1528</span><br><span class="hljs-number">1529</span>     sched_domains_numa_levels = level;  <span class="hljs-comment">// 更新值</span><br><span class="hljs-number">1530</span>     sched_max_numa_distance = sched_domains_numa_distance[level - <span class="hljs-number">1</span>];  <span class="hljs-comment">// 赋值</span><br><span class="hljs-number">1531</span><br><span class="hljs-number">1532</span>     init_numa_topology_type();  <span class="hljs-comment">// 调用函数</span><br><span class="hljs-number">1533</span> &#125;<br></code></pre></td></tr></table></figure>
+<h5 id="init_numa_topology_type">init_numa_topology_type</h5>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">1333</span> <span class="hljs-comment">/*</span><br><span class="hljs-comment">1334  * A system can have three types of NUMA topology:  // 一个系统可以有三种 NUMA 拓扑类型：</span><br><span class="hljs-comment">1335  * NUMA_DIRECT: all nodes are directly connected, or not a NUMA system  // NUMA_DIRECT：所有节点直接相连，或者不是 NUMA 系统</span><br><span class="hljs-comment">1336  * NUMA_GLUELESS_MESH: some nodes reachable through intermediary nodes  // NUMA_GLUELESS_MESH：一些节点通过中间节点可达</span><br><span class="hljs-comment">1337  * NUMA_BACKPLANE: nodes can reach other nodes through a backplane  // NUMA_BACKPLANE：节点可以通过背板到达其他节点</span><br><span class="hljs-comment">1338  *</span><br><span class="hljs-comment">1339  * The difference between a glueless mesh topology and a backplane  // 无胶网格拓扑和背板之间的区别</span><br><span class="hljs-comment">1340  * topology lies in whether communication between not directly  // 在于不直接</span><br><span class="hljs-comment">1341  * connected nodes goes through intermediary nodes (where programs  // 连接的节点之间的通信是否通过中间节点（程序</span><br><span class="hljs-comment">1342  * could run), or through backplane controllers. This affects  // 可以运行），还是通过背板控制器。这会影响</span><br><span class="hljs-comment">1343  * placement of programs.  // 程序的放置</span><br><span class="hljs-comment">1344  *</span><br><span class="hljs-comment">1345  * The type of topology can be discerned with the following tests:  // 拓扑类型可以通过以下测试来辨别</span><br><span class="hljs-comment">1346  * - If the maximum distance between any nodes is 1 hop, the system  // - 如果任意节点之间的最大距离为 1 跳，系统</span><br><span class="hljs-comment">1347  *   is directly connected.  // 是直接连接的</span><br><span class="hljs-comment">1348  * - If for two nodes A and B, located N &gt; 1 hops away from each other,  // - 如果对于两个节点 A 和 B，彼此距离 N &gt; 1 跳</span><br><span class="hljs-comment">1349  *   there is an intermediary node C, which is &lt; N hops away from both  // 存在一个中间节点 C，它距离 A 和 B 都小于 N 跳</span><br><span class="hljs-comment">1350  *   nodes A and B, the system is a glueless mesh.  // 系统是无胶网格</span><br><span class="hljs-comment">1351  */</span><br><span class="hljs-number">1352</span> <span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">init_numa_topology_type</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span>  <span class="hljs-comment">// 定义一个静态的无返回值函数 init_numa_topology_type</span><br>1353 &#123;<br><span class="hljs-number">1354</span>     <span class="hljs-type">int</span> a, b, c, n;  <span class="hljs-comment">// 定义四个整型变量 a, b, c, n</span><br><span class="hljs-number">1355</span><br><span class="hljs-number">1356</span>     n = sched_max_numa_distance;  <span class="hljs-comment">// 为 n 赋值</span><br><span class="hljs-number">1357</span><br><span class="hljs-number">1358</span>     <span class="hljs-keyword">if</span> (sched_domains_numa_levels &lt;= <span class="hljs-number">2</span>) &#123;  <span class="hljs-comment">// 如果条件成立</span><br><span class="hljs-number">1359</span>         sched_numa_topology_type = NUMA_DIRECT;  <span class="hljs-comment">// 赋值</span><br><span class="hljs-number">1360</span>         <span class="hljs-keyword">return</span>;  <span class="hljs-comment">// 返回</span><br><span class="hljs-number">1361</span>     &#125;<br><span class="hljs-number">1362</span><br><span class="hljs-number">1363</span>     for_each_online_node(a) &#123;  <span class="hljs-comment">// 开始循环</span><br><span class="hljs-number">1364</span>         for_each_online_node(b) &#123;  <span class="hljs-comment">// 嵌套循环</span><br><span class="hljs-number">1365</span>             <span class="hljs-comment">/* Find two nodes furthest removed from each other. */</span>  <span class="hljs-comment">// 找到彼此距离最远的两个节点</span><br><span class="hljs-number">1366</span>             <span class="hljs-keyword">if</span> (node_distance(a, b) &lt; n)  <span class="hljs-comment">// 如果条件成立</span><br><span class="hljs-number">1367</span>                 <span class="hljs-keyword">continue</span>;  <span class="hljs-comment">// 继续下一次循环</span><br><span class="hljs-number">1368</span><br><span class="hljs-number">1369</span>             <span class="hljs-comment">/* Is there an intermediary node between a and b? */</span>  <span class="hljs-comment">// a 和 b 之间是否存在中间节点？</span><br><span class="hljs-number">1370</span>             for_each_online_node(c) &#123;  <span class="hljs-comment">// 嵌套循环</span><br><span class="hljs-number">1371</span>                 <span class="hljs-keyword">if</span> (node_distance(a, c) &lt; n &amp;&amp;  <span class="hljs-comment">// 如果条件成立</span><br><span class="hljs-number">1372</span>                     node_distance(b, c) &lt; n) &#123;  <span class="hljs-comment">// 如果条件成立</span><br><span class="hljs-number">1373</span>                     sched_numa_topology_type =  <span class="hljs-comment">// 赋值</span><br><span class="hljs-number">1374</span>                             NUMA_GLUELESS_MESH;<br><span class="hljs-number">1375</span>                     <span class="hljs-keyword">return</span>;  <span class="hljs-comment">// 返回</span><br><span class="hljs-number">1376</span>                 &#125;<br><span class="hljs-number">1377</span>             &#125;<br><span class="hljs-number">1378</span><br><span class="hljs-number">1379</span>             sched_numa_topology_type = NUMA_BACKPLANE;  <span class="hljs-comment">// 赋值</span><br><span class="hljs-number">1380</span>             <span class="hljs-keyword">return</span>;  <span class="hljs-comment">// 返回</span><br><span class="hljs-number">1381</span>         &#125;<br><span class="hljs-number">1382</span>     &#125;<br><span class="hljs-number">1383</span> &#125;<br></code></pre></td></tr></table></figure>
+<h3 id="kernel_thread">kernel_thread</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim kernel/fork.c +2348</span><br><br><span class="hljs-number">2348</span> <span class="hljs-comment">/*</span><br><span class="hljs-comment">2349  * Create a kernel thread.</span><br><span class="hljs-comment">2350  */</span><br><span class="hljs-number">2351</span> <span class="hljs-type">pid_t</span> <span class="hljs-title function_">kernel_thread</span><span class="hljs-params">(<span class="hljs-type">int</span> (*fn)(<span class="hljs-type">void</span> *), <span class="hljs-type">void</span> *arg, <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags)</span><br>2352 &#123;<br><span class="hljs-number">2353</span>     <span class="hljs-keyword">return</span> _do_fork(flags|CLONE_VM|CLONE_UNTRACED, (<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span>)fn,<br><span class="hljs-number">2354</span>         (<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span>)arg, <span class="hljs-literal">NULL</span>, <span class="hljs-literal">NULL</span>, <span class="hljs-number">0</span>);<br><span class="hljs-number">2355</span> &#125;<br></code></pre></td></tr></table></figure>
+<h3 id="do_fork">_do_fork</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim kernel/fork.c +2257</span><br><br><span class="hljs-number">2257</span> <span class="hljs-comment">/*</span><br><span class="hljs-comment">2258  *  Ok, this is the main fork-routine.</span><br><span class="hljs-comment">2259  *</span><br><span class="hljs-comment">2260  * It copies the process, and if successful kick-starts</span><br><span class="hljs-comment">2261  * it and waits for it to finish using the VM if required.</span><br><span class="hljs-comment">2262  */</span><br><span class="hljs-number">2263</span> <span class="hljs-type">long</span> _do_fork(<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> clone_flags,<br><span class="hljs-number">2264</span>           <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> stack_start,<br><span class="hljs-number">2265</span>           <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> stack_size,<br><span class="hljs-number">2266</span>           <span class="hljs-type">int</span> __user *parent_tidptr,<br><span class="hljs-number">2267</span>           <span class="hljs-type">int</span> __user *child_tidptr,<br><span class="hljs-number">2268</span>           <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> tls)<br><span class="hljs-number">2269</span> &#123;<br><span class="hljs-number">2270</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">completion</span> <span class="hljs-title">vfork</span>;</span><br><span class="hljs-number">2271</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">pid</span> *<span class="hljs-title">pid</span>;</span><br><span class="hljs-number">2272</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">task_struct</span> *<span class="hljs-title">p</span>;</span><br><span class="hljs-number">2273</span>     <span class="hljs-type">int</span> trace = <span class="hljs-number">0</span>;<br><span class="hljs-number">2274</span>     <span class="hljs-type">long</span> nr;<br><span class="hljs-number">2275</span><br><span class="hljs-number">2276</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">2277      * Determine whether and which event to report to ptracer.  When</span><br><span class="hljs-comment">2278      * called from kernel_thread or CLONE_UNTRACED is explicitly</span><br><span class="hljs-comment">2279      * requested, no event is reported; otherwise, report if the event</span><br><span class="hljs-comment">2280      * for the type of forking is enabled.</span><br><span class="hljs-comment">2281      */</span><br><span class="hljs-number">2282</span>     <span class="hljs-keyword">if</span> (!(clone_flags &amp; CLONE_UNTRACED)) &#123;<br><span class="hljs-number">2283</span>         <span class="hljs-keyword">if</span> (clone_flags &amp; CLONE_VFORK)<br><span class="hljs-number">2284</span>             trace = PTRACE_EVENT_VFORK;<br><span class="hljs-number">2285</span>         <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> ((clone_flags &amp; CSIGNAL) != SIGCHLD)<br><span class="hljs-number">2286</span>             trace = PTRACE_EVENT_CLONE;<br><span class="hljs-number">2287</span>         <span class="hljs-keyword">else</span><br><span class="hljs-number">2288</span>             trace = PTRACE_EVENT_FORK;<br><span class="hljs-number">2289</span><br><span class="hljs-number">2290</span>         <span class="hljs-keyword">if</span> (likely(!ptrace_event_enabled(current, trace)))<br><span class="hljs-number">2291</span>             trace = <span class="hljs-number">0</span>;<br><span class="hljs-number">2292</span>     &#125;<br><span class="hljs-number">2293</span><br><span class="hljs-number">2294</span>     p = copy_process(clone_flags, stack_start, stack_size,<br><span class="hljs-number">2295</span>              child_tidptr, <span class="hljs-literal">NULL</span>, trace, tls, NUMA_NO_NODE);<br><span class="hljs-number">2296</span>     add_latent_entropy();<br><span class="hljs-number">2297</span><br><span class="hljs-number">2298</span>     <span class="hljs-keyword">if</span> (IS_ERR(p))<br><span class="hljs-number">2299</span>         <span class="hljs-keyword">return</span> PTR_ERR(p);<br><span class="hljs-number">2300</span><br><span class="hljs-number">2301</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">2302      * Do this prior waking up the new thread - the thread pointer</span><br><span class="hljs-comment">2303      * might get invalid after that point, if the thread exits quickly.</span><br><span class="hljs-comment">2304      */</span><br><span class="hljs-number">2305</span>     trace_sched_process_fork(current, p);<br><span class="hljs-number">2306</span><br><span class="hljs-number">2307</span>     pid = get_task_pid(p, PIDTYPE_PID);<br><span class="hljs-number">2308</span>     nr = pid_vnr(pid);<br><span class="hljs-number">2309</span><br><span class="hljs-number">2310</span>     <span class="hljs-keyword">if</span> (clone_flags &amp; CLONE_PARENT_SETTID)<br><span class="hljs-number">2311</span>         put_user(nr, parent_tidptr);<br><span class="hljs-number">2312</span><br><span class="hljs-number">2313</span>     <span class="hljs-keyword">if</span> (clone_flags &amp; CLONE_VFORK) &#123;<br><span class="hljs-number">2314</span>         p-&gt;vfork_done = &amp;vfork;<br><span class="hljs-number">2315</span>         init_completion(&amp;vfork);<br><span class="hljs-number">2316</span>         get_task_struct(p);<br><span class="hljs-number">2317</span>     &#125;<br><span class="hljs-number">2318</span><br><span class="hljs-number">2319</span>     wake_up_new_task(p);<br><span class="hljs-number">2320</span><br><span class="hljs-number">2321</span>     <span class="hljs-comment">/* forking complete and child started to run, tell ptracer */</span><br><span class="hljs-number">2322</span>     <span class="hljs-keyword">if</span> (unlikely(trace))<br><span class="hljs-number">2323</span>         ptrace_event_pid(trace, pid);<br><span class="hljs-number">2324</span><br><span class="hljs-number">2325</span>     <span class="hljs-keyword">if</span> (clone_flags &amp; CLONE_VFORK) &#123;<br><span class="hljs-number">2326</span>         <span class="hljs-keyword">if</span> (!wait_for_vfork_done(p, &amp;vfork))<br><span class="hljs-number">2327</span>             ptrace_event_pid(PTRACE_EVENT_VFORK_DONE, pid);<br><span class="hljs-number">2328</span>     &#125;<br><span class="hljs-number">2329</span><br><span class="hljs-number">2330</span>     put_pid(pid);<br><span class="hljs-number">2331</span>     <span class="hljs-keyword">return</span> nr;<br><span class="hljs-number">2332</span> &#125;<br></code></pre></td></tr></table></figure>
+<h3 id="wake_up_new_task">wake_up_new_task</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim kernel/sched/core.c +2420</span><br><br><span class="hljs-number">2420</span>  * wake_up_new_task - wake up a newly created task <span class="hljs-keyword">for</span> the first time.  <span class="hljs-comment">// wake_up_new_task - 首次唤醒新创建的任务</span><br><span class="hljs-number">2421</span>  *<br><span class="hljs-number">2422</span>  * This function will <span class="hljs-keyword">do</span> some initial scheduler statistics housekeeping  <span class="hljs-comment">// 此函数将进行一些初始的调度器统计维护工作</span><br><span class="hljs-number">2423</span>  * that must be done <span class="hljs-keyword">for</span> every newly created context, then <span class="hljs-built_in">puts</span> the task  <span class="hljs-comment">// 这些工作必须为每个新创建的上下文完成，然后将任务</span><br><span class="hljs-number">2424</span>  * on the runqueue and wakes it.  <span class="hljs-comment">// 放入运行队列并唤醒它</span><br><span class="hljs-number">2425</span>  */<br><span class="hljs-number">2426</span> <span class="hljs-type">void</span> <span class="hljs-title function_">wake_up_new_task</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> task_struct *p)</span>  <span class="hljs-comment">// 定义 wake_up_new_task 函数，参数为任务结构体指针 p</span><br>2427 &#123;  <span class="hljs-comment">// 函数体开始</span><br><span class="hljs-number">2428</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rq_flags</span> <span class="hljs-title">rf</span>;</span>  <span class="hljs-comment">// 定义 rq_flags 结构体变量 rf</span><br><span class="hljs-number">2429</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rq</span> *<span class="hljs-title">rq</span>;</span>  <span class="hljs-comment">// 定义 rq 结构体指针 rq</span><br><span class="hljs-number">2430</span><br><span class="hljs-number">2431</span>     raw_spin_lock_irqsave(&amp;p-&gt;pi_lock, rf.flags);  <span class="hljs-comment">// 上锁并保存中断状态</span><br><span class="hljs-number">2432</span>     p-&gt;state = TASK_RUNNING;  <span class="hljs-comment">// 设置任务状态为运行</span><br><span class="hljs-number">2433</span> <span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_SMP  <span class="hljs-comment">// 如果定义了 CONFIG_SMP</span></span><br><span class="hljs-number">2434</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">2435      * Fork balancing, do it here and not earlier because:  // 分叉平衡，在此处进行而不是更早，因为：</span><br><span class="hljs-comment">2436      *  - cpus_allowed can change in the fork path  // 在分叉路径中 cpus_allowed 可能会改变</span><br><span class="hljs-comment">2437      *  - any previously selected CPU might disappear through hotplug  // 任何先前选择的 CPU 可能因热插拔而消失</span><br><span class="hljs-comment">2438      *</span><br><span class="hljs-comment">2439      * Use __set_task_cpu() to avoid calling sched_class::migrate_task_rq,  // 使用 __set_task_cpu() 避免调用 sched_class::migrate_task_rq</span><br><span class="hljs-comment">2440      * as we&#x27;re not fully set-up yet.  // 因为我们还没有完全设置好</span><br><span class="hljs-comment">2441      */</span><br><span class="hljs-number">2442</span>     p-&gt;recent_used_cpu = task_cpu(p);  <span class="hljs-comment">// 设置最近使用的 CPU</span><br><span class="hljs-number">2443</span>     rseq_migrate(p);  <span class="hljs-comment">// 进行 rseq 迁移</span><br><span class="hljs-number">2444</span>     __set_task_cpu(p, select_task_rq(p, task_cpu(p), SD_BALANCE_FORK, <span class="hljs-number">0</span>));  <span class="hljs-comment">// 设置任务的 CPU</span><br><span class="hljs-number">2445</span> <span class="hljs-meta">#<span class="hljs-keyword">endif</span>  <span class="hljs-comment">// 结束 CONFIG_SMP 条件编译</span></span><br><span class="hljs-number">2446</span>     rq = __task_rq_lock(p, &amp;rf);  <span class="hljs-comment">// 锁定任务的运行队列</span><br><span class="hljs-number">2447</span>     update_rq_clock(rq);  <span class="hljs-comment">// 更新运行队列的时钟</span><br><span class="hljs-number">2448</span>     post_init_entity_util_avg(&amp;p-&gt;se);  <span class="hljs-comment">// 初始化实体的平均利用率</span><br><span class="hljs-number">2449</span><br><span class="hljs-number">2450</span>     activate_task(rq, p, ENQUEUE_NOCLOCK);  <span class="hljs-comment">// 激活任务</span><br><span class="hljs-number">2451</span>     p-&gt;on_rq = TASK_ON_RQ_QUEUED;  <span class="hljs-comment">// 设置任务在运行队列的状态</span><br><span class="hljs-number">2452</span>     trace_sched_wakeup_new(p);  <span class="hljs-comment">// 跟踪调度器的唤醒新任务</span><br><span class="hljs-number">2453</span>     check_preempt_curr(rq, p, WF_FORK);  <span class="hljs-comment">// 检查抢占当前任务</span><br><span class="hljs-number">2454</span> <span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_SMP  <span class="hljs-comment">// 如果定义了 CONFIG_SMP</span></span><br><span class="hljs-number">2455</span>     <span class="hljs-keyword">if</span> (p-&gt;sched_class-&gt;task_woken) &#123;  <span class="hljs-comment">// 如果任务的调度类有 task_woken 函数</span><br><span class="hljs-number">2456</span>         <span class="hljs-comment">/*</span><br><span class="hljs-comment">2457          * Nothing relies on rq-&gt;lock after this, so its fine to  // 在此之后没有依赖 rq-&gt;lock，所以可以</span><br><span class="hljs-comment">2458          * drop it.  // 释放它</span><br><span class="hljs-comment">2459          */</span><br><span class="hljs-number">2460</span>         rq_unpin_lock(rq, &amp;rf);  <span class="hljs-comment">// 解锁运行队列</span><br><span class="hljs-number">2461</span>         p-&gt;sched_class-&gt;task_woken(rq, p);  <span class="hljs-comment">// 调用调度类的 task_woken 函数</span><br><span class="hljs-number">2462</span>         rq_repin_lock(rq, &amp;rf);  <span class="hljs-comment">// 重新锁定运行队列</span><br><span class="hljs-number">2463</span>     &#125;<br><span class="hljs-number">2464</span> <span class="hljs-meta">#<span class="hljs-keyword">endif</span>  <span class="hljs-comment">// 结束 CONFIG_SMP 条件编译</span></span><br><span class="hljs-number">2465</span>     task_rq_unlock(rq, p, &amp;rf);  <span class="hljs-comment">// 解锁任务的运行队列</span><br><span class="hljs-number">2466</span> &#125;<br></code></pre></td></tr></table></figure>
+<h3 id="select_task_rq_fair">select_task_rq_fair</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">:cl<br>9 kernel/sched/core.c:2066: &lt;&lt;<span class="hljs-string">try_to_wake_up&gt;&gt; cpu = select_task_rq(p, p-&gt;wake_cpu, SD_BALANCE_WAKE, wake_flags);</span><br><span class="hljs-string">10 kernel/sched/core.c:2444: &lt;&lt;wake_up_new_task&gt;&gt; __set_task_cpu(p, select_task_rq(p, task_cpu(p), SD_BALANCE_FORK, 0));</span><br><span class="hljs-string">11 kernel/sched/core.c:2994: &lt;&lt;sched_exec&gt;&gt; dest_cpu = p-&gt;sched_class-&gt;select_task_rq(p, task_cpu(p), SD_BALANCE_EXEC, 0);</span><br></code></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim CTKernel/kernel/sched/fair.c +6437</span><br><br><span class="hljs-number">6424</span> <span class="hljs-comment">/*</span><br><span class="hljs-comment">6425  * select_task_rq_fair: 为具有设置“sd_flag”标志的域中的唤醒任务选择目标运行队列</span><br><span class="hljs-comment">6426  * 在实践中，这是 SD_BALANCE_WAKE、SD_BALANCE_FORK 或 SD_BALANCE_EXEC</span><br><span class="hljs-comment">6427  *</span><br><span class="hljs-comment">6428  * 通过选择最空闲组中的最空闲 CPU 来平衡负载，或者在某些条件下，如果域设置了 SD_WAKE_AFFINE，则选择空闲的兄弟 CPU</span><br><span class="hljs-comment">6429  *</span><br><span class="hljs-comment">6430  * 返回目标 CPU 编号</span><br><span class="hljs-comment">6431  *</span><br><span class="hljs-comment">6432  * 必须禁用抢占</span><br><span class="hljs-comment">6433  */</span><br><span class="hljs-number">6434</span> <span class="hljs-type">static</span> <span class="hljs-type">int</span>  <span class="hljs-comment">// 声明静态整型函数</span><br><span class="hljs-number">6435</span> select_task_rq_fair(<span class="hljs-keyword">struct</span> task_struct *p, <span class="hljs-type">int</span> prev_cpu, <span class="hljs-type">int</span> sd_flag, <span class="hljs-type">int</span> wake_flags)  <span class="hljs-comment">// 函数定义，接收任务结构体指针、前一个 CPU 编号、标志和唤醒标志</span><br><span class="hljs-number">6436</span> &#123;<br><span class="hljs-number">6437</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sched_domain</span> *<span class="hljs-title">tmp</span>, *<span class="hljs-title">sd</span> =</span> <span class="hljs-literal">NULL</span>;  <span class="hljs-comment">// 定义调度域结构体指针 tmp 和 sd，并初始化为 NULL</span><br><span class="hljs-number">6438</span>     <span class="hljs-type">int</span> cpu = smp_processor_id();  <span class="hljs-comment">// 获取当前 CPU 编号</span><br><span class="hljs-number">6439</span>     <span class="hljs-type">int</span> new_cpu = prev_cpu;  <span class="hljs-comment">// 新的 CPU 编号初始化为前一个 CPU 编号</span><br><span class="hljs-number">6440</span>     <span class="hljs-type">int</span> want_affine = <span class="hljs-number">0</span>;  <span class="hljs-comment">// 初始化是否想要亲和性为 0</span><br><span class="hljs-number">6441</span>     <span class="hljs-type">int</span> sync = (wake_flags &amp; WF_SYNC) &amp;&amp;!(current-&gt;flags &amp; PF_EXITING);  <span class="hljs-comment">// 根据条件计算同步标志</span><br><span class="hljs-number">6442</span><br><span class="hljs-number">6443</span>     <span class="hljs-keyword">if</span> (sd_flag &amp; SD_BALANCE_WAKE) &#123;  <span class="hljs-comment">// 如果标志包含 SD_BALANCE_WAKE</span><br><span class="hljs-number">6444</span>         record_wakee(p);  <span class="hljs-comment">// 记录唤醒的任务</span><br><span class="hljs-number">6445</span>         want_affine =!wake_wide(p) &amp;&amp;!wake_cap(p, cpu, prev_cpu)  <span class="hljs-comment">// 根据条件设置是否想要亲和性</span><br><span class="hljs-number">6446</span>                   &amp;&amp; cpumask_test_cpu(cpu, &amp;p-&gt;cpus_allowed);<br><span class="hljs-number">6447</span>     &#125;<br><span class="hljs-number">6448</span><br><span class="hljs-number">6449</span>     rcu_read_lock();  <span class="hljs-comment">// 读锁</span><br><span class="hljs-number">6450</span>     for_each_domain(cpu, tmp) &#123;  <span class="hljs-comment">// 遍历调度域</span><br><span class="hljs-number">6451</span>         <span class="hljs-keyword">if</span> (!(tmp-&gt;flags &amp; SD_LOAD_BALANCE))  <span class="hljs-comment">// 如果域没有负载均衡标志</span><br><span class="hljs-number">6452</span>             <span class="hljs-keyword">break</span>;  <span class="hljs-comment">// 跳出循环</span><br><span class="hljs-number">6453</span><br><span class="hljs-number">6454</span>         <span class="hljs-comment">/*</span><br><span class="hljs-comment">6455          * 如果“cpu”和“prev_cpu”都是这个域的一部分，</span><br><span class="hljs-comment">6456          * “cpu”是有效的 SD_WAKE_AFFINE 目标。</span><br><span class="hljs-comment">6457          */</span><br><span class="hljs-number">6458</span>         <span class="hljs-keyword">if</span> (want_affine &amp;&amp; (tmp-&gt;flags &amp; SD_WAKE_AFFINE) &amp;&amp;  <span class="hljs-comment">// 如果想要亲和性且域有相应标志</span><br><span class="hljs-number">6459</span>             cpumask_test_cpu(prev_cpu, sched_domain_span(tmp))) &#123;  <span class="hljs-comment">// 且前一个 CPU 在域范围内</span><br><span class="hljs-number">6460</span>             <span class="hljs-keyword">if</span> (cpu!= prev_cpu)  <span class="hljs-comment">// 如果当前 CPU 与前一个 CPU 不同</span><br><span class="hljs-number">6461</span>                 new_cpu = wake_affine(tmp, p, cpu, prev_cpu, sync);  <span class="hljs-comment">// 执行亲和性相关操作</span><br><span class="hljs-number">6462</span><br><span class="hljs-number">6463</span>             sd = <span class="hljs-literal">NULL</span>; <span class="hljs-comment">/* 优先选择 wake_affine 而不是平衡标志 */</span><br><span class="hljs-number">6464</span>             <span class="hljs-keyword">break</span>;  <span class="hljs-comment">// 跳出循环</span><br><span class="hljs-number">6465</span>         &#125;<br><span class="hljs-number">6466</span><br><span class="hljs-number">6467</span>         <span class="hljs-keyword">if</span> (tmp-&gt;flags &amp; sd_flag)  <span class="hljs-comment">// 如果域具有指定标志</span><br><span class="hljs-number">6468</span>             sd = tmp;  <span class="hljs-comment">// 赋值给 sd</span><br><span class="hljs-number">6469</span>         <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!want_affine)  <span class="hljs-comment">// 否则如果不想要亲和性</span><br><span class="hljs-number">6470</span>             <span class="hljs-keyword">break</span>;  <span class="hljs-comment">// 跳出循环</span><br><span class="hljs-number">6471</span>     &#125;<br><span class="hljs-number">6472</span><br><span class="hljs-number">6473</span>     <span class="hljs-keyword">if</span> (unlikely(sd)) &#123;  <span class="hljs-comment">// 如果不太可能出现的情况：sd 不为空</span><br><span class="hljs-number">6474</span>         <span class="hljs-comment">/* 慢路径 */</span><br><span class="hljs-number">6475</span>         new_cpu = find_idlest_cpu(sd, p, cpu, prev_cpu, sd_flag);  <span class="hljs-comment">// 查找最空闲的 CPU</span><br><span class="hljs-number">6476</span>     &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (sd_flag &amp; SD_BALANCE_WAKE) &#123; <span class="hljs-comment">/* XXX 总是？ */</span><br><span class="hljs-number">6477</span>         <span class="hljs-comment">/* 快路径 */</span><br><span class="hljs-number">6478</span><br><span class="hljs-number">6479</span>         new_cpu = select_idle_sibling(p, prev_cpu, new_cpu);  <span class="hljs-comment">// 选择空闲的兄弟 CPU</span><br><span class="hljs-number">6480</span><br><span class="hljs-number">6481</span>         <span class="hljs-keyword">if</span> (want_affine)  <span class="hljs-comment">// 如果想要亲和性</span><br><span class="hljs-number">6482</span>             current-&gt;recent_used_cpu = cpu;  <span class="hljs-comment">// 更新最近使用的 CPU</span><br><span class="hljs-number">6483</span>     &#125;<br><span class="hljs-number">6484</span>     rcu_read_unlock();  <span class="hljs-comment">// 读解锁</span><br><span class="hljs-number">6485</span><br><span class="hljs-number">6486</span>     <span class="hljs-keyword">return</span> new_cpu;  <span class="hljs-comment">// 返回新的 CPU 编号</span><br><span class="hljs-number">6487</span> &#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim CTKernel/include/linux/sched/topology.h +20</span><br><br><span class="hljs-number">20</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_LOAD_BALANCE     0x0001  <span class="hljs-comment">/* Do load balancing on this domain. */</span></span><br><span class="hljs-number">21</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_BALANCE_NEWIDLE  0x0002  <span class="hljs-comment">/* Balance when about to become idle */</span></span><br><span class="hljs-number">22</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_BALANCE_EXEC     0x0004  <span class="hljs-comment">/* Balance on exec */</span></span><br><span class="hljs-number">23</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_BALANCE_FORK     0x0008  <span class="hljs-comment">/* Balance on fork, clone */</span></span><br><span class="hljs-number">24</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_BALANCE_WAKE     0x0010  <span class="hljs-comment">/* Balance on wakeup */</span></span><br><span class="hljs-number">25</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_WAKE_AFFINE      0x0020  <span class="hljs-comment">/* Wake task to waking CPU */</span></span><br><span class="hljs-number">26</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_ASYM_CPUCAPACITY 0x0040  <span class="hljs-comment">/* Groups have different max cpu capacities */</span></span><br><span class="hljs-number">27</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_SHARE_CPUCAPACITY    0x0080  <span class="hljs-comment">/* Domain members share cpu capacity */</span></span><br><span class="hljs-number">28</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_SHARE_POWERDOMAIN    0x0100  <span class="hljs-comment">/* Domain members share power domain */</span></span><br><span class="hljs-number">29</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_SHARE_PKG_RESOURCES  0x0200  <span class="hljs-comment">/* Domain members share cpu pkg resources */</span></span><br><span class="hljs-number">30</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_SERIALIZE        0x0400  <span class="hljs-comment">/* Only a single load balancing instance */</span></span><br><span class="hljs-number">31</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_ASYM_PACKING     0x0800  <span class="hljs-comment">/* Place busy groups earlier in the domain */</span></span><br><span class="hljs-number">32</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_PREFER_SIBLING   0x1000  <span class="hljs-comment">/* Prefer to place tasks in a sibling domain */</span></span><br><span class="hljs-number">33</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_OVERLAP      0x2000  <span class="hljs-comment">/* sched_domains of this level overlap */</span></span><br><span class="hljs-number">34</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> SD_NUMA         0x4000  <span class="hljs-comment">/* cross-node balancing */</span></span><br></code></pre></td></tr></table></figure>
+<h3 id="select_idle_sibling">select_idle_sibling</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">6258</span> <span class="hljs-comment">/*</span><br><span class="hljs-comment">6259  * Try and locate an idle core/thread in the LLC cache domain.  // 尝试在 LLC 缓存域中定位一个空闲的核心/线程</span><br><span class="hljs-comment">6260  */</span><br><span class="hljs-number">6261</span> <span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">select_idle_sibling</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> task_struct *p, <span class="hljs-type">int</span> prev, <span class="hljs-type">int</span> target)</span>  <span class="hljs-comment">// 定义一个静态函数 select_idle_sibling ，接收任务结构体指针、两个整型参数</span><br>6262 &#123;<br><span class="hljs-number">6263</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sched_domain</span> *<span class="hljs-title">sd</span>;</span>  <span class="hljs-comment">// 定义一个调度域结构体指针</span><br><span class="hljs-number">6264</span>     <span class="hljs-type">int</span> i, recent_used_cpu;  <span class="hljs-comment">// 定义两个整型变量</span><br><span class="hljs-number">6265</span><br><span class="hljs-number">6266</span>     <span class="hljs-keyword">if</span> (available_idle_cpu(target))  <span class="hljs-comment">// 如果目标 CPU 可用且空闲</span><br><span class="hljs-number">6267</span>         <span class="hljs-keyword">return</span> target;  <span class="hljs-comment">// 返回目标 CPU</span><br><span class="hljs-number">6268</span><br><span class="hljs-number">6269</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">6270      * If the previous CPU is cache affine and idle, don&#x27;t be stupid:  // 如果前一个 CPU 与缓存相关且空闲，别犯傻</span><br><span class="hljs-comment">6271      */</span><br><span class="hljs-number">6272</span>     <span class="hljs-keyword">if</span> (prev!= target &amp;&amp; cpus_share_cache(prev, target) &amp;&amp; available_idle_cpu(prev))  <span class="hljs-comment">// 如果前一个 CPU 满足条件</span><br><span class="hljs-number">6273</span>         <span class="hljs-keyword">return</span> prev;  <span class="hljs-comment">// 返回前一个 CPU</span><br><span class="hljs-number">6274</span><br><span class="hljs-number">6275</span>     <span class="hljs-comment">/* Check a recently used CPU as a potential idle candidate: */</span>  <span class="hljs-comment">// 检查最近使用的 CPU 作为潜在的空闲候选</span><br><span class="hljs-number">6276</span>     recent_used_cpu = p-&gt;recent_used_cpu;  <span class="hljs-comment">// 获取最近使用的 CPU</span><br><span class="hljs-number">6277</span>     <span class="hljs-keyword">if</span> (recent_used_cpu!= prev &amp;&amp;  <span class="hljs-comment">// 如果最近使用的 CPU 满足条件</span><br><span class="hljs-number">6278</span>         recent_used_cpu!= target &amp;&amp;<br><span class="hljs-number">6279</span>         cpus_share_cache(recent_used_cpu, target) &amp;&amp;<br><span class="hljs-number">6280</span>         available_idle_cpu(recent_used_cpu) &amp;&amp;<br><span class="hljs-number">6281</span>         cpumask_test_cpu(p-&gt;recent_used_cpu, &amp;p-&gt;cpus_allowed)) &#123;<br><span class="hljs-number">6282</span>         <span class="hljs-comment">/*</span><br><span class="hljs-comment">6283          * Replace recent_used_cpu with prev as it is a potential</span><br><span class="hljs-comment">6284          * candidate for the next wake:  // 因为前一个 CPU 是潜在的候选，所以替换最近使用的 CPU</span><br><span class="hljs-comment">6285          */</span><br><span class="hljs-number">6286</span>         p-&gt;recent_used_cpu = prev;  <span class="hljs-comment">// 进行替换</span><br><span class="hljs-number">6287</span>         <span class="hljs-keyword">return</span> recent_used_cpu;  <span class="hljs-comment">// 返回最近使用的 CPU</span><br><span class="hljs-number">6288</span>     &#125;<br><span class="hljs-number">6289</span><br><span class="hljs-number">6290</span>     sd = rcu_dereference(per_cpu(sd_llc, target));  <span class="hljs-comment">// 获取与目标 CPU 相关的调度域</span><br><span class="hljs-number">6291</span>     <span class="hljs-keyword">if</span> (!sd)  <span class="hljs-comment">// 如果获取失败</span><br><span class="hljs-number">6292</span>         <span class="hljs-keyword">return</span> target;  <span class="hljs-comment">// 返回目标 CPU</span><br><span class="hljs-number">6293</span><br><span class="hljs-number">6294</span>     i = select_idle_core(p, sd, target);  <span class="hljs-comment">// 执行一个选择空闲核心的操作</span><br><span class="hljs-number">6295</span>     <span class="hljs-keyword">if</span> ((<span class="hljs-type">unsigned</span>)i &lt; nr_cpumask_bits)  <span class="hljs-comment">// 如果结果满足条件</span><br><span class="hljs-number">6296</span>         <span class="hljs-keyword">return</span> i;  <span class="hljs-comment">// 返回结果</span><br><span class="hljs-number">6297</span><br><span class="hljs-number">6298</span>     i = select_idle_cpu(p, sd, target);  <span class="hljs-comment">// 执行一个选择空闲 CPU 的操作</span><br><span class="hljs-number">6299</span>     <span class="hljs-keyword">if</span> ((<span class="hljs-type">unsigned</span>)i &lt; nr_cpumask_bits)  <span class="hljs-comment">// 如果结果满足条件</span><br><span class="hljs-number">6300</span>         <span class="hljs-keyword">return</span> i;  <span class="hljs-comment">// 返回结果</span><br><span class="hljs-number">6301</span><br><span class="hljs-number">6302</span>     i = select_idle_smt(p, sd, target);  <span class="hljs-comment">// 执行一个选择空闲 SMT 的操作</span><br><span class="hljs-number">6303</span>     <span class="hljs-keyword">if</span> ((<span class="hljs-type">unsigned</span>)i &lt; nr_cpumask_bits)  <span class="hljs-comment">// 如果结果满足条件</span><br><span class="hljs-number">6304</span>         <span class="hljs-keyword">return</span> i;  <span class="hljs-comment">// 返回结果</span><br><span class="hljs-number">6305</span><br><span class="hljs-number">6306</span>     <span class="hljs-keyword">return</span> target;  <span class="hljs-comment">// 否则返回目标 CPU</span><br><span class="hljs-number">6307</span> &#125;<br></code></pre></td></tr></table></figure>
+<h3 id="kthreadd">kthreadd</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim kernel/kthread.c +569</span><br><br><span class="hljs-number">569</span> <span class="hljs-type">int</span> <span class="hljs-title function_">kthreadd</span><span class="hljs-params">(<span class="hljs-type">void</span> *unused)</span>  <span class="hljs-comment">// 定义 kthreadd 函数，参数为 void 指针 unused</span><br>570 &#123;<br><span class="hljs-number">571</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">task_struct</span> *<span class="hljs-title">tsk</span> =</span> current;  <span class="hljs-comment">// 获取当前任务结构体指针并赋值给 tsk</span><br><span class="hljs-number">572</span><br><span class="hljs-number">573</span>     <span class="hljs-comment">/* Setup a clean context for our children to inherit. */</span>  <span class="hljs-comment">// 为子进程设置一个干净的上下文以供继承</span><br><span class="hljs-number">574</span>     set_task_comm(tsk, <span class="hljs-string">&quot;kthreadd&quot;</span>);  <span class="hljs-comment">// 设置任务的名称为 &quot;kthreadd&quot;</span><br><span class="hljs-number">575</span>     ignore_signals(tsk);  <span class="hljs-comment">// 忽略信号</span><br><span class="hljs-number">576</span>     set_cpus_allowed_ptr(tsk, cpu_all_mask);  <span class="hljs-comment">// 设置允许的 CPU</span><br><span class="hljs-number">577</span>     set_mems_allowed(node_states[N_MEMORY]);  <span class="hljs-comment">// 设置允许的内存</span><br><span class="hljs-number">578</span><br><span class="hljs-number">579</span>     current-&gt;flags |= PF_NOFREEZE;  <span class="hljs-comment">// 设置当前进程的标志位 PF_NOFREEZE</span><br><span class="hljs-number">580</span>     cgroup_init_kthreadd();  <span class="hljs-comment">// 初始化 cgroup 相关的 kthreadd</span><br><span class="hljs-number">581</span><br><span class="hljs-number">582</span>     <span class="hljs-keyword">for</span> (;;) &#123;  <span class="hljs-comment">// 无限循环</span><br><span class="hljs-number">583</span>         set_current_state(TASK_INTERRUPTIBLE);  <span class="hljs-comment">// 设置当前状态为可中断等待</span><br><span class="hljs-number">584</span>         <span class="hljs-keyword">if</span> (list_empty(&amp;kthread_create_list))  <span class="hljs-comment">// 如果 kthread_create_list 为空</span><br><span class="hljs-number">585</span>             schedule();  <span class="hljs-comment">// 进行调度</span><br><span class="hljs-number">586</span>         __set_current_state(TASK_RUNNING);  <span class="hljs-comment">// 设置当前状态为运行</span><br><span class="hljs-number">587</span><br><span class="hljs-number">588</span>         spin_lock(&amp;kthread_create_lock);  <span class="hljs-comment">// 加自旋锁</span><br><span class="hljs-number">589</span>         <span class="hljs-keyword">while</span> (!list_empty(&amp;kthread_create_list)) &#123;  <span class="hljs-comment">// 当 kthread_create_list 不为空时</span><br><span class="hljs-number">590</span>             <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">kthread_create_info</span> *<span class="hljs-title">create</span>;</span>  <span class="hljs-comment">// 定义 kthread_create_info 结构体指针 create</span><br><span class="hljs-number">591</span><br><span class="hljs-number">592</span>             create = list_entry(kthread_create_list.next,  <span class="hljs-comment">// 获取列表中的元素</span><br><span class="hljs-number">593</span>                         <span class="hljs-keyword">struct</span> kthread_create_info, <span class="hljs-built_in">list</span>);  <span class="hljs-comment">// 并将其赋值给 create</span><br><span class="hljs-number">594</span>             list_del_init(&amp;create-&gt;<span class="hljs-built_in">list</span>);  <span class="hljs-comment">// 从列表中删除并初始化</span><br><span class="hljs-number">595</span>             spin_unlock(&amp;kthread_create_lock);  <span class="hljs-comment">// 释放自旋锁</span><br><span class="hljs-number">596</span><br><span class="hljs-number">597</span>             create_kthread(create);  <span class="hljs-comment">// 创建线程</span><br><span class="hljs-number">598</span><br><span class="hljs-number">599</span>             spin_lock(&amp;kthread_create_lock);  <span class="hljs-comment">// 加自旋锁</span><br><span class="hljs-number">600</span>         &#125;  <span class="hljs-comment">// 结束内层 while 循环</span><br><span class="hljs-number">601</span>         spin_unlock(&amp;kthread_create_lock);  <span class="hljs-comment">// 释放自旋锁</span><br><span class="hljs-number">602</span>     &#125;  <span class="hljs-comment">// 结束无限 for 循环</span><br><span class="hljs-number">603</span><br><span class="hljs-number">604</span>     <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;  <span class="hljs-comment">// 返回 0</span><br><span class="hljs-number">605</span> &#125;<br></code></pre></td></tr></table></figure>
+<h3 id="create_kthread">create_kthread</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">271</span> <span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">create_kthread</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> kthread_create_info *create)</span>  <span class="hljs-comment">// 定义静态函数 create_kthread，参数为 kthread_create_info 结构体指针</span><br>272 &#123;<br><span class="hljs-number">273</span>     <span class="hljs-type">int</span> pid;  <span class="hljs-comment">// 定义进程 ID 变量</span><br><span class="hljs-number">274</span><br><span class="hljs-number">275</span> <span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_NUMA  <span class="hljs-comment">// 如果定义了 CONFIG_NUMA</span></span><br><span class="hljs-number">276</span>     current-&gt;pref_node_fork = create-&gt;node;  <span class="hljs-comment">// 设置当前进程的偏好节点为传入的节点</span><br><span class="hljs-number">277</span> <span class="hljs-meta">#<span class="hljs-keyword">endif</span>  <span class="hljs-comment">// 结束 CONFIG_NUMA 条件编译</span></span><br><span class="hljs-number">278</span>     <span class="hljs-comment">/* We want our own signal handler (we take no signals by default). */</span>  <span class="hljs-comment">// 我们想要自己的信号处理程序（默认不接收信号）</span><br><span class="hljs-number">279</span>     pid = kernel_thread(kthread, create, CLONE_FS | CLONE_FILES | SIGCHLD);  <span class="hljs-comment">// 创建内核线程，并获取进程 ID</span><br><span class="hljs-number">280</span>     <span class="hljs-keyword">if</span> (pid &lt; <span class="hljs-number">0</span>) &#123;  <span class="hljs-comment">// 如果进程 ID 小于 0</span><br><span class="hljs-number">281</span>         <span class="hljs-comment">/* If user was SIGKILLed, I release the structure. */</span>  <span class="hljs-comment">// 如果用户被 SIGKILL 信号终止，释放结构</span><br><span class="hljs-number">282</span>         <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">completion</span> *<span class="hljs-title">done</span> =</span> xchg(&amp;create-&gt;done, <span class="hljs-literal">NULL</span>);  <span class="hljs-comment">// 交换并获取完成变量</span><br><span class="hljs-number">283</span>         __se           <span class="hljs-title function_">tate</span><span class="hljs-params">(TASK_RUNNING)</span>;  <span class="hljs-comment">// 设置任务状态为运行</span><br><span class="hljs-number">284</span>         <span class="hljs-keyword">if</span> (!done) &#123;  <span class="hljs-comment">// 如果完成变量为空</span><br><span class="hljs-number">285</span>             kfree(create);  <span class="hljs-comment">// 释放创建信息结构体的内存</span><br><span class="hljs-number">286</span>             <span class="hljs-keyword">return</span>;  <span class="hljs-comment">// 返回</span><br><span class="hljs-number">287</span>         &#125;<br><span class="hljs-number">288</span>         create-&gt;result = ERR_PTR(pid);  <span class="hljs-comment">// 设置创建结果为错误指针</span><br><span class="hljs-number">289</span>         complete(done);  <span class="hljs-comment">// 完成操作</span><br><span class="hljs-number">290</span>     &#125;<br><span class="hljs-number">291</span> &#125;<br></code></pre></td></tr></table></figure>
+<h3 id="ksm_init">ksm_init</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim mm/ksm.c +3172</span><br><br><span class="hljs-number">3172</span> <span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">ksm_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>3173 &#123;<br><span class="hljs-number">3174</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">task_struct</span> *<span class="hljs-title">ksm_thread</span>;</span><br><span class="hljs-number">3175</span>     <span class="hljs-type">int</span> err;<br><span class="hljs-number">3176</span><br><span class="hljs-number">3177</span>     <span class="hljs-comment">/* The correct value depends on page size and endianness */</span><br><span class="hljs-number">3178</span>     zero_checksum = calc_checksum(ZERO_PAGE(<span class="hljs-number">0</span>));<br><span class="hljs-number">3179</span>     <span class="hljs-comment">/* Default to false for backwards compatibility */</span><br><span class="hljs-number">3180</span>     ksm_use_zero_pages = <span class="hljs-literal">false</span>;<br><span class="hljs-number">3181</span><br><span class="hljs-number">3182</span>     err = ksm_slab_init();<br><span class="hljs-number">3183</span>     <span class="hljs-keyword">if</span> (err)<br><span class="hljs-number">3184</span>         <span class="hljs-keyword">goto</span> out;<br><span class="hljs-number">3185</span><br><span class="hljs-number">3186</span>     ksm_thread = kthread_run(ksm_scan_thread, <span class="hljs-literal">NULL</span>, <span class="hljs-string">&quot;ksmd&quot;</span>);<br><span class="hljs-number">3187</span>     <span class="hljs-keyword">if</span> (IS_ERR(ksm_thread)) &#123;<br><span class="hljs-number">3188</span>         pr_err(<span class="hljs-string">&quot;ksm: creating kthread failed\n&quot;</span>);<br><span class="hljs-number">3189</span>         err = PTR_ERR(ksm_thread);<br><span class="hljs-number">3190</span>         <span class="hljs-keyword">goto</span> out_free;<br><span class="hljs-number">3191</span>     &#125;<br><span class="hljs-number">3192</span><br><span class="hljs-number">3193</span> <span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_SYSFS</span><br><span class="hljs-number">3194</span>     err = sysfs_create_group(mm_kobj, &amp;ksm_attr_group);<br><span class="hljs-number">3195</span>     <span class="hljs-keyword">if</span> (err) &#123;<br><span class="hljs-number">3196</span>         pr_err(<span class="hljs-string">&quot;ksm: register sysfs failed\n&quot;</span>);<br><span class="hljs-number">3197</span>         kthread_stop(ksm_thread);<br><span class="hljs-number">3198</span>         <span class="hljs-keyword">goto</span> out_free;<br><span class="hljs-number">3199</span>     &#125;<br><span class="hljs-number">3200</span> <span class="hljs-meta">#<span class="hljs-keyword">else</span></span><br><span class="hljs-number">3201</span>     ksm_run = KSM_RUN_MERGE;    <span class="hljs-comment">/* no way for user to start it */</span><br><span class="hljs-number">3202</span><br><span class="hljs-number">3203</span> <span class="hljs-meta">#<span class="hljs-keyword">endif</span> <span class="hljs-comment">/* CONFIG_SYSFS */</span></span><br><span class="hljs-number">3204</span><br><span class="hljs-number">3205</span> <span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_MEMORY_HOTREMOVE</span><br><span class="hljs-number">3206</span>     <span class="hljs-comment">/* There is no significance to this priority 100 */</span><br><span class="hljs-number">3207</span>     hotplug_memory_notifier(ksm_memory_callback, <span class="hljs-number">100</span>);<br><span class="hljs-number">3208</span> <span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br><span class="hljs-number">3209</span>     <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br><span class="hljs-number">3210</span><br><span class="hljs-number">3211</span> out_free:<br><span class="hljs-number">3212</span>     ksm_slab_free();<br><span class="hljs-number">3213</span> out:<br><span class="hljs-number">3214</span>     <span class="hljs-keyword">return</span> err;<br><span class="hljs-number">3215</span> &#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim include/linux/kthread.h +34</span><br><br><span class="hljs-number">34</span> <span class="hljs-comment">/**</span><br><span class="hljs-comment">35  * kthread_run - create and wake a thread.</span><br><span class="hljs-comment">36  * @threadfn: the function to run until signal_pending(current).</span><br><span class="hljs-comment">37  * @data: data ptr for @threadfn.</span><br><span class="hljs-comment">38  * @namefmt: printf-style name for the thread.</span><br><span class="hljs-comment">39  *</span><br><span class="hljs-comment">40  * Description: Convenient wrapper for kthread_create() followed by</span><br><span class="hljs-comment">41  * wake_up_process().  Returns the kthread or ERR_PTR(-ENOMEM).</span><br><span class="hljs-comment">42  */</span><br><span class="hljs-number">43</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> kthread_run(threadfn, data, namefmt, ...)              \</span><br><span class="hljs-meta">44 (&#123;                                     \</span><br><span class="hljs-meta">45     struct task_struct *__k                        \</span><br><span class="hljs-meta">46         = kthread_create(threadfn, data, namefmt, ## __VA_ARGS__); \</span><br><span class="hljs-meta">47     <span class="hljs-keyword">if</span> (!IS_ERR(__k))                          \</span><br><span class="hljs-meta">48         wake_up_process(__k);                      \</span><br><span class="hljs-meta">49     __k;                                   \</span><br><span class="hljs-meta">50 &#125;)</span><br></code></pre></td></tr></table></figure>
+<h3 id="kthread_create">kthread_create</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim include/linux/kthread.h +14</span><br><br><span class="hljs-number">14</span> <span class="hljs-comment">/**</span><br><span class="hljs-comment">15  * kthread_create - create a kthread on the current node</span><br><span class="hljs-comment">16  * @threadfn: the function to run in the thread</span><br><span class="hljs-comment">17  * @data: data pointer for @threadfn()</span><br><span class="hljs-comment">18  * @namefmt: printf-style format string for the thread name</span><br><span class="hljs-comment">19  * @arg...: arguments for @namefmt.</span><br><span class="hljs-comment">20  *</span><br><span class="hljs-comment">21  * This macro will create a kthread on the current node, leaving it in</span><br><span class="hljs-comment">22  * the stopped state.  This is just a helper for kthread_create_on_node();</span><br><span class="hljs-comment">23  * see the documentation there for more details.</span><br><span class="hljs-comment">24  */</span><br><span class="hljs-number">25</span> <span class="hljs-meta">#<span class="hljs-keyword">define</span> kthread_create(threadfn, data, namefmt, arg...) \</span><br><span class="hljs-meta">26     kthread_create_on_node(threadfn, data, NUMA_NO_NODE, namefmt, ##arg)</span><br></code></pre></td></tr></table></figure>
+<h3 id="kthread_create_on_node">kthread_create_on_node</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// kernel/kthread.c +357</span><br><br><span class="hljs-number">357</span> <span class="hljs-comment">/**</span><br><span class="hljs-comment">358  * kthread_create_on_node - create a kthread.</span><br><span class="hljs-comment">359  * @threadfn: the function to run until signal_pending(current).</span><br><span class="hljs-comment">360  * @data: data ptr for @threadfn.</span><br><span class="hljs-comment">361  * @node: task and thread structures for the thread are allocated on this node</span><br><span class="hljs-comment">362  * @namefmt: printf-style name for the thread.</span><br><span class="hljs-comment">363  *</span><br><span class="hljs-comment">364  * Description: This helper function creates and names a kernel</span><br><span class="hljs-comment">365  * thread.  The thread will be stopped: use wake_up_process() to start</span><br><span class="hljs-comment">366  * it.  See also kthread_run().  The new thread has SCHED_NORMAL policy and</span><br><span class="hljs-comment">368  *</span><br><span class="hljs-comment">369  * If thread is going to be bound on a particular cpu, give its node</span><br><span class="hljs-comment">370  * in @node, to get NUMA affinity for kthread stack, or else give NUMA_NO_NODE.</span><br><span class="hljs-comment">371  * When woken, the thread will run @threadfn() with @data as its</span><br><span class="hljs-comment">372  * argument. @threadfn() can either call do_exit() directly if it is a</span><br><span class="hljs-comment">373  * standalone thread for which no one will call kthread_stop(), or</span><br><span class="hljs-comment">374  * return when &#x27;kthread_should_stop()&#x27; is true (which means</span><br><span class="hljs-comment">375  * kthread_stop() has been called).  The return value should be zero</span><br><span class="hljs-comment">376  * or a negative error number; it will be passed to kthread_stop().</span><br><span class="hljs-comment">377  *</span><br><span class="hljs-comment">378  * Returns a task_struct or ERR_PTR(-ENOMEM) or ERR_PTR(-EINTR).</span><br><span class="hljs-comment">379  */</span><br><span class="hljs-number">380</span> <span class="hljs-keyword">struct</span> task_struct *<span class="hljs-title function_">kthread_create_on_node</span><span class="hljs-params">(<span class="hljs-type">int</span> (*threadfn)(<span class="hljs-type">void</span> *data),</span><br><span class="hljs-params"><span class="hljs-number">381</span>                        <span class="hljs-type">void</span> *data, <span class="hljs-type">int</span> node,</span><br><span class="hljs-params"><span class="hljs-number">382</span>                        <span class="hljs-type">const</span> <span class="hljs-type">char</span> namefmt[],</span><br><span class="hljs-params"><span class="hljs-number">383</span>                        ...)</span><br>384 &#123;<br><span class="hljs-number">385</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">task_struct</span> *<span class="hljs-title">task</span>;</span><br><span class="hljs-number">386</span>     va_list args;<br><span class="hljs-number">387</span><br><span class="hljs-number">388</span>     va_start(args, namefmt);<br><span class="hljs-number">389</span>     task = __kthread_create_on_node(threadfn, data, node, namefmt, args);<br><span class="hljs-number">390</span>     va_end(args);<br><span class="hljs-number">391</span><br><span class="hljs-number">392</span>     <span class="hljs-keyword">return</span> task;<br><span class="hljs-number">393</span> &#125;<br><span class="hljs-number">394</span> EXPORT_SYMBOL(kthread_create_on_node);<br></code></pre></td></tr></table></figure>
+<h3 id="kthread_create_on_node-1">__kthread_create_on_node</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">293</span> <span class="hljs-type">static</span> __printf(<span class="hljs-number">4</span>, <span class="hljs-number">0</span>)<br><span class="hljs-number">294</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">task_struct</span> *__<span class="hljs-title">kthread_create_on_node</span>(<span class="hljs-title">int</span> (*<span class="hljs-title">threadfn</span>)(<span class="hljs-title">void</span> *<span class="hljs-title">data</span>),</span><br><span class="hljs-class">295                             <span class="hljs-title">void</span> *<span class="hljs-title">data</span>, <span class="hljs-title">int</span> <span class="hljs-title">node</span>,</span><br><span class="hljs-class">296                             <span class="hljs-title">const</span> <span class="hljs-title">char</span> <span class="hljs-title">namefmt</span>[],</span><br><span class="hljs-class">297                             <span class="hljs-title">va_list</span> <span class="hljs-title">args</span>)</span><br><span class="hljs-class">298 &#123;</span><br><span class="hljs-number">299</span>     DECLARE_COMPLETION_ONSTACK(done);<br><span class="hljs-number">300</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">task_struct</span> *<span class="hljs-title">task</span>;</span><br><span class="hljs-number">301</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">kthread_create_info</span> *<span class="hljs-title">create</span> =</span> kmalloc(<span class="hljs-keyword">sizeof</span>(*create),<br><span class="hljs-number">302</span>                              GFP_KERNEL);<br><span class="hljs-number">303</span><br><span class="hljs-number">304</span>     <span class="hljs-keyword">if</span> (!create)<br><span class="hljs-number">305</span>         <span class="hljs-keyword">return</span> ERR_PTR(-ENOMEM);<br><span class="hljs-number">306</span>     create-&gt;threadfn = threadfn;<br><span class="hljs-number">307</span>     create-&gt;data = data;<br><span class="hljs-number">308</span>     create-&gt;node = node;<br><span class="hljs-number">309</span>     create-&gt;done = &amp;done;<br><span class="hljs-number">310</span><br><span class="hljs-number">311</span>     spin_lock(&amp;kthread_create_lock);<br><span class="hljs-number">312</span>     list_add_tail(&amp;create-&gt;<span class="hljs-built_in">list</span>, &amp;kthread_create_list);<br><span class="hljs-number">313</span>     spin_unlock(&amp;kthread_create_lock);<br><span class="hljs-number">314</span><br><span class="hljs-number">315</span>     wake_up_process(kthreadd_task);<br><span class="hljs-number">316</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">317      * Wait for completion in killable state, for I might be chosen by</span><br><span class="hljs-comment">318      * the OOM killer while kthreadd is trying to allocate memory for</span><br><span class="hljs-comment">319      * new kernel thread.</span><br><span class="hljs-comment">320      */</span><br><span class="hljs-number">321</span>     <span class="hljs-keyword">if</span> (unlikely(wait_for_completion_killable(&amp;done))) &#123;<br><span class="hljs-number">322</span>         <span class="hljs-comment">/*</span><br><span class="hljs-comment">323          * If I was SIGKILLed before kthreadd (or new kernel thread)</span><br><span class="hljs-comment">324          * calls complete(), leave the cleanup of this structure to</span><br><span class="hljs-comment">325          * that thread.</span><br><span class="hljs-comment">326          */</span><br><span class="hljs-number">327</span>         <span class="hljs-keyword">if</span> (xchg(&amp;create-&gt;done, <span class="hljs-literal">NULL</span>))<br><span class="hljs-number">328</span>             <span class="hljs-keyword">return</span> ERR_PTR(-EINTR);<br><span class="hljs-number">329</span>         <span class="hljs-comment">/*</span><br><span class="hljs-comment">330          * kthreadd (or new kernel thread) will call complete()</span><br><span class="hljs-comment">331          * shortly.</span><br><span class="hljs-comment">332          */</span><br><span class="hljs-number">333</span>         wait_for_completion(&amp;done);<br><span class="hljs-number">334</span>     &#125;<br><span class="hljs-number">335</span>     task = create-&gt;result;<br><span class="hljs-number">336</span>     <span class="hljs-keyword">if</span> (!IS_ERR(task)) &#123;<br><span class="hljs-number">337</span>         <span class="hljs-type">static</span> <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sched_param</span> <span class="hljs-title">param</span> =</span> &#123; .sched_priority = <span class="hljs-number">0</span> &#125;;<br><span class="hljs-number">338</span>         <span class="hljs-type">char</span> name[TASK_COMM_LEN];<br><span class="hljs-number">339</span><br><span class="hljs-number">340</span>         <span class="hljs-comment">/*</span><br><span class="hljs-comment">341          * task is already visible to other tasks, so updating</span><br><span class="hljs-comment">342          * COMM must be protected.</span><br><span class="hljs-comment">343          */</span><br><span class="hljs-number">344</span>         vsnprintf(name, <span class="hljs-keyword">sizeof</span>(name), namefmt, args);<br><span class="hljs-number">345</span>         set_task_comm(task, name);<br><span class="hljs-number">346</span>         <span class="hljs-comment">/*</span><br><span class="hljs-comment">347          * root may have changed our (kthreadd&#x27;s) priority or CPU mask.</span><br><span class="hljs-comment">348          * The kernel thread should not inherit these properties.</span><br><span class="hljs-comment">349          */</span><br><span class="hljs-number">350</span>         sched_setscheduler_nocheck(task, SCHED_NORMAL, &amp;param);<br><span class="hljs-number">351</span>         set_cpus_allowed_ptr(task, cpu_all_mask);<br><span class="hljs-number">352</span>     &#125;<br><span class="hljs-number">353</span>     kfree(create);<br><span class="hljs-number">354</span>     <span class="hljs-keyword">return</span> task;<br></code></pre></td></tr></table></figure>
+<h3 id="wake_up_process">wake_up_process</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">2141</span> <span class="hljs-comment">/**</span><br><span class="hljs-comment">2142  * wake_up_process - Wake up a specific process</span><br><span class="hljs-comment">2143  * @p: The process to be woken up.</span><br><span class="hljs-comment">2144  *</span><br><span class="hljs-comment">2145  * Attempt to wake up the nominated process and move it to the set of runnable</span><br><span class="hljs-comment">2146  * processes.</span><br><span class="hljs-comment">2147  *</span><br><span class="hljs-comment">2148  * Return: 1 if the process was woken up, 0 if it was already running.</span><br><span class="hljs-comment">2149  *</span><br><span class="hljs-comment">2150  * This function executes a full memory barrier before accessing the task state.</span><br><span class="hljs-comment">2151  */</span><br><span class="hljs-number">2152</span> <span class="hljs-type">int</span> <span class="hljs-title function_">wake_up_process</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> task_struct *p)</span><br>2153 &#123;<br><span class="hljs-number">2154</span>     <span class="hljs-keyword">return</span> try_to_wake_up(p, TASK_NORMAL, <span class="hljs-number">0</span>);<br><span class="hljs-number">2155</span> &#125;<br><span class="hljs-number">2156</span> EXPORT_SYMBOL(wake_up_process);<br></code></pre></td></tr></table></figure>
+<h3 id="try_to_wake_up">try_to_wake_up</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">1959</span> <span class="hljs-comment">/**</span><br><span class="hljs-comment">1960  * try_to_wake_up - wake up a thread</span><br><span class="hljs-comment">1961  * @p: the thread to be awakened</span><br><span class="hljs-comment">1962  * @state: the mask of task states that can be woken</span><br><span class="hljs-comment">1963  * @wake_flags: wake modifier flags (WF_*)</span><br><span class="hljs-comment">1964  *</span><br><span class="hljs-comment">1965  * If (@state &amp; @p-&gt;state) @p-&gt;state = TASK_RUNNING.</span><br><span class="hljs-comment">1966  *</span><br><span class="hljs-comment">1967  * If the task was not queued/runnable, also place it back on a runqueue.</span><br><span class="hljs-comment">1968  *</span><br><span class="hljs-comment">1969  * Atomic against schedule() which would dequeue a task, also see</span><br><span class="hljs-comment">1970  * set_current_state().</span><br><span class="hljs-comment">1971  *</span><br><span class="hljs-comment">1972  * This function executes a full memory barrier before accessing the task</span><br><span class="hljs-comment">1973  * state; see set_current_state().</span><br><span class="hljs-comment">1974  *</span><br><span class="hljs-comment">1975  * Return: %true if @p-&gt;state changes (an actual wakeup was done),</span><br><span class="hljs-comment">1976  *     %false otherwise.</span><br><span class="hljs-comment">1977  */</span><br><span class="hljs-number">1978</span> <span class="hljs-type">static</span> <span class="hljs-type">int</span><br><span class="hljs-number">1979</span> try_to_wake_up(<span class="hljs-keyword">struct</span> task_struct *p, <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> state, <span class="hljs-type">int</span> wake_flags)<br><span class="hljs-number">1980</span> &#123;<br><span class="hljs-number">1981</span>     <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags;<br><span class="hljs-number">1982</span>     <span class="hljs-type">int</span> cpu, success = <span class="hljs-number">0</span>;<br><span class="hljs-number">1983</span><br><span class="hljs-number">1984</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1985      * If we are going to wake up a thread waiting for CONDITION we</span><br><span class="hljs-comment">1986      * need to ensure that CONDITION=1 done by the caller can not be</span><br><span class="hljs-comment">1987      * reordered with p-&gt;state check below. This pairs with mb() in</span><br><span class="hljs-comment">1988      * set_current_state() the waiting thread does.</span><br><span class="hljs-comment">1989      */</span><br><span class="hljs-number">1990</span>     raw_spin_lock_irqsave(&amp;p-&gt;pi_lock, flags);<br><span class="hljs-number">1991</span>     smp_mb__after_spinlock();<br><span class="hljs-number">1992</span>     <span class="hljs-keyword">if</span> (!(p-&gt;state &amp; state))<br><span class="hljs-number">1993</span>         <span class="hljs-keyword">goto</span> out;<br><span class="hljs-number">1994</span><br><span class="hljs-number">1995</span>     trace_sched_waking(p);<br><span class="hljs-number">1996</span><br><span class="hljs-number">1997</span>     <span class="hljs-comment">/* We&#x27;re going to change -&gt;state: */</span><br><span class="hljs-number">1998</span>     success = <span class="hljs-number">1</span>;<br><span class="hljs-number">1999</span>     cpu = task_cpu(p);<br><span class="hljs-number">2000</span><br><span class="hljs-number">2001</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">2002      * Ensure we load p-&gt;on_rq _after_ p-&gt;state, otherwise it would</span><br><span class="hljs-comment">2003      * be possible to, falsely, observe p-&gt;on_rq == 0 and get stuck</span><br><span class="hljs-comment">2004      * in smp_cond_load_acquire() below.</span><br><span class="hljs-comment">2005      *</span><br><span class="hljs-comment">2006      * sched_ttwu_pending()         try_to_wake_up()</span><br><span class="hljs-comment">2007      *   STORE p-&gt;on_rq = 1           LOAD p-&gt;state</span><br><span class="hljs-comment">2008      *   UNLOCK rq-&gt;lock</span><br><span class="hljs-comment">2009      *</span><br><span class="hljs-comment">2010      * __schedule() (switch to task &#x27;p&#x27;)</span><br><span class="hljs-comment">2011      *   LOCK rq-&gt;lock            smp_rmb();</span><br><span class="hljs-comment">2012      *   smp_mb__after_spinlock();</span><br><span class="hljs-comment">2013      *   UNLOCK rq-&gt;lock</span><br><span class="hljs-comment">2014      *</span><br><span class="hljs-comment">2015      * [task p]</span><br><span class="hljs-comment">2016      *   STORE p-&gt;state = UNINTERRUPTIBLE     LOAD p-&gt;on_rq</span><br><span class="hljs-comment">2017      *</span><br><span class="hljs-comment">2018      * Pairs with the LOCK+smp_mb__after_spinlock() on rq-&gt;lock in</span><br><span class="hljs-comment">2019      * __schedule().  See the comment for smp_mb__after_spinlock().</span><br><span class="hljs-comment">2020      */</span><br><span class="hljs-number">2021</span>     smp_rmb();<br><span class="hljs-number">2022</span>     <span class="hljs-keyword">if</span> (p-&gt;on_rq &amp;&amp; ttwu_remote(p, wake_flags))<br><span class="hljs-number">2023</span>         <span class="hljs-keyword">goto</span> stat;<br><span class="hljs-number">2024</span><br><span class="hljs-number">2025</span> <span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_SMP</span><br><span class="hljs-number">2026</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">2027      * Ensure we load p-&gt;on_cpu _after_ p-&gt;on_rq, otherwise it would be</span><br><span class="hljs-comment">2028      * possible to, falsely, observe p-&gt;on_cpu == 0.</span><br><span class="hljs-comment">2029      *</span><br><span class="hljs-comment">2030      * One must be running (-&gt;on_cpu == 1) in order to remove oneself</span><br><span class="hljs-comment">2031      * from the runqueue.</span><br><span class="hljs-comment">2032      *</span><br><span class="hljs-comment">2033      * __schedule() (switch to task &#x27;p&#x27;)    try_to_wake_up()</span><br><span class="hljs-comment">2034      *   STORE p-&gt;on_cpu = 1          LOAD p-&gt;on_rq</span><br><span class="hljs-comment">2035      *   UNLOCK rq-&gt;lock</span><br><span class="hljs-comment">2036      *</span><br><span class="hljs-comment">2037      * __schedule() (put &#x27;p&#x27; to sleep)</span><br><span class="hljs-comment">2038      *   LOCK rq-&gt;lock            smp_rmb();</span><br><span class="hljs-comment">2039      *   smp_mb__after_spinlock();</span><br><span class="hljs-comment">2040      *   STORE p-&gt;on_rq = 0           LOAD p-&gt;on_cpu</span><br><span class="hljs-comment">2041      *</span><br><span class="hljs-comment">2042      * Pairs with the LOCK+smp_mb__after_spinlock() on rq-&gt;lock in</span><br><span class="hljs-comment">2043      * __schedule().  See the comment for smp_mb__after_spinlock().</span><br><span class="hljs-comment">2044      */</span><br><span class="hljs-number">2045</span>     smp_rmb();<br><span class="hljs-number">2046</span><br><span class="hljs-number">2047</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">2048      * If the owning (remote) CPU is still in the middle of schedule() with</span><br><span class="hljs-comment">2049      * this task as prev, wait until its done referencing the task.</span><br><span class="hljs-comment">2050      *</span><br><span class="hljs-comment">2051      * Pairs with the smp_store_release() in finish_task().</span><br><span class="hljs-comment">2052      *</span><br><span class="hljs-comment">2053      * This ensures that tasks getting woken will be fully ordered against</span><br><span class="hljs-comment">2054      * their previous state and preserve Program Order.</span><br><span class="hljs-comment">2055      */</span><br><span class="hljs-number">2056</span>     smp_cond_load_acquire(&amp;p-&gt;on_cpu, !VAL);<br><span class="hljs-number">2057</span><br><span class="hljs-number">2058</span>     p-&gt;sched_contributes_to_load = !!task_contributes_to_load(p);<br><span class="hljs-number">2059</span>     p-&gt;state = TASK_WAKING;<br><span class="hljs-number">2060</span><br><span class="hljs-number">2061</span>     <span class="hljs-keyword">if</span> (p-&gt;in_iowait) &#123;<br><span class="hljs-number">2062</span>         delayacct_blkio_end(p);<br><span class="hljs-number">2063</span>         <span class="hljs-type">atomic_dec</span>(&amp;task_rq(p)-&gt;nr_iowait);<br><span class="hljs-number">2064</span>     &#125;<br><span class="hljs-number">2065</span><br><span class="hljs-number">2066</span>     cpu = select_task_rq(p, p-&gt;wake_cpu, SD_BALANCE_WAKE, wake_flags);<br><span class="hljs-number">2067</span>     <span class="hljs-keyword">if</span> (task_cpu(p) != cpu) &#123;<br><span class="hljs-number">2068</span>         wake_flags |= WF_MIGRATED;<br><span class="hljs-number">2069</span>         psi_ttwu_dequeue(p);<br><span class="hljs-number">2070</span>         set_task_cpu(p, cpu);<br><span class="hljs-number">2071</span>     &#125;<br><span class="hljs-number">2072</span><br><span class="hljs-number">2073</span> <span class="hljs-meta">#<span class="hljs-keyword">else</span> <span class="hljs-comment">/* CONFIG_SMP */</span></span><br><span class="hljs-number">2074</span><br><span class="hljs-number">2075</span>     <span class="hljs-keyword">if</span> (p-&gt;in_iowait) &#123;<br><span class="hljs-number">2076</span>         delayacct_blkio_end(p);<br><span class="hljs-number">2077</span>         <span class="hljs-type">atomic_dec</span>(&amp;task_rq(p)-&gt;nr_iowait);<br><span class="hljs-number">2078</span>     &#125;<br><span class="hljs-number">2079</span><br><span class="hljs-number">2080</span> <span class="hljs-meta">#<span class="hljs-keyword">endif</span> <span class="hljs-comment">/* CONFIG_SMP */</span></span><br><span class="hljs-number">2081</span><br><span class="hljs-number">2082</span>     ttwu_queue(p, cpu, wake_flags);<br><span class="hljs-number">2083</span> stat:<br><span class="hljs-number">2084</span>     ttwu_stat(p, cpu, wake_flags);<br><span class="hljs-number">2085</span> out:<br><span class="hljs-number">2086</span>     raw_spin_unlock_irqrestore(&amp;p-&gt;pi_lock, flags);<br><span class="hljs-number">2087</span><br><span class="hljs-number">2088</span>     <span class="hljs-keyword">return</span> success;<br><span class="hljs-number">2089</span> &#125;<br></code></pre></td></tr></table></figure>
+<h3 id="修复方案">修复方案</h3>
+<h4 id="bug复现">bug复现</h4>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17210964434930.png" srcset="/img/loading.gif" lazyload
+alt="bug复现" />
+<figcaption aria-hidden="true">bug复现</figcaption>
+</figure>
+<h5 id="号进程">0号进程</h5>
+<p>查看系统初始化smp多核心前0号进程位于哪个cpu上:</p>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17210958842048.png" srcset="/img/loading.gif" lazyload
+alt="0号进程跑在0号cpu上" />
+<figcaption aria-hidden="true">0号进程跑在0号cpu上</figcaption>
+</figure>
+<h5 id="ksmd-1">ksmd</h5>
+<p>从/var/log/messages中查看ksmd被调度到隔离核心上的日志:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">grep <span class="hljs-string">&#x27;p-&gt;comm:ksmd&#x27;</span> /var/log/messages -inr --color &gt; ksmd.log<br>vim ksmd.log<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_1721096169123.png" srcset="/img/loading.gif" lazyload
+alt="ksmd.log" />
+<figcaption aria-hidden="true">ksmd.log</figcaption>
+</figure>
+<h5 id="kthreadd-1">kthreadd</h5>
+<p>从/var/log/messages中查看kthreadd被调度到隔离核心上的日志:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">grep <span class="hljs-string">&#x27;p-&gt;comm:kthreadd&#x27;</span> /var/log/messages -inr --color &gt; kthreadd.log<br>vim kthreadd.log<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240716171657.png" srcset="/img/loading.gif" lazyload
+alt="vim kthreadd.log" />
+<figcaption aria-hidden="true">vim kthreadd.log</figcaption>
+</figure>
+<h4 id="关键代码">关键代码</h4>
+<p>上方日志代码位置参见下图。</p>
+<h5 id="select_task_rq_fair-1">select_task_rq_fair</h5>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">vim kernel/sched/fair.c +6554<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_1721096242880.png" srcset="/img/loading.gif" lazyload
+alt="select_task_rq_fair" />
+<figcaption aria-hidden="true">select_task_rq_fair</figcaption>
+</figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">vim -t select_idle_sibling<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17210965521554.png" srcset="/img/loading.gif" lazyload
+alt="select_idle_sibling" />
+<figcaption aria-hidden="true">select_idle_sibling</figcaption>
+</figure>
+<h5 id="select_idle_smt">select_idle_smt</h5>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240716210803.png" srcset="/img/loading.gif" lazyload
+alt="select_idle_smt" />
+<figcaption aria-hidden="true">select_idle_smt</figcaption>
+</figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240716210654.png" srcset="/img/loading.gif" lazyload
+alt="select_idle_smt" />
+<figcaption aria-hidden="true">select_idle_smt</figcaption>
+</figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim -t select_idle_smt</span><br><span class="hljs-number">6170</span> <span class="hljs-comment">/*</span><br><span class="hljs-comment">6171  * Scan the local SMT mask for idle CPUs.</span><br><span class="hljs-comment">6172  */</span><br><span class="hljs-number">6173</span> <span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">select_idle_smt</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> task_struct *p, <span class="hljs-keyword">struct</span> sched_domain *sd, <span class="hljs-type">int</span> target)</span><br>6174 &#123;<br><span class="hljs-number">6175</span>     <span class="hljs-type">int</span> cpu;<br><span class="hljs-number">6176</span><br><span class="hljs-number">6177</span>     <span class="hljs-keyword">if</span> (!static_branch_likely(&amp;sched_smt_present))<br><span class="hljs-number">6178</span>         <span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br><span class="hljs-number">6179</span><br><span class="hljs-number">6180</span>     for_each_cpu(cpu, cpu_smt_mask(target)) &#123;<br><span class="hljs-number">6181</span>         <span class="hljs-keyword">if</span> (!cpumask_test_cpu(cpu, &amp;p-&gt;cpus_allowed))<br><span class="hljs-number">6182</span>             <span class="hljs-keyword">continue</span>;<br><span class="hljs-number">6183</span>         <span class="hljs-keyword">if</span> (available_idle_cpu(cpu))<br><span class="hljs-number">6184</span>             <span class="hljs-keyword">return</span> cpu;<br><span class="hljs-number">6185</span>     &#125;<br><span class="hljs-number">6186</span><br><span class="hljs-number">6187</span>     <span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br><span class="hljs-number">6188</span> &#125;<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/0cff1eb9f04c3af1d19cddf9496e27e.jpg" srcset="/img/loading.gif" lazyload
+alt="select_idle_smt" />
+<figcaption aria-hidden="true">select_idle_smt</figcaption>
+</figure>
+<h4 id="修改源码修复bug">修改源码修复bug</h4>
+<p>改一行代码，隔离cpu的时候可以不考虑超线程逻辑，可修复此问题:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs bash">git show HEAD<br>commit a90c573c74f55930f3b770ec67d7a84528e8dac8 (HEAD -&gt; master)<br>Author: QiLiang Yuan &lt;yuanql9@chinatelecom.cn&gt;<br>Date:   Thu Jul 18 23:18:24 2024 +0800<br><br>    <span class="hljs-built_in">sched</span>/fair: Fix wrong cpu selecting from isolated domain<br><br>    Signed-off-by: QiLiang Yuan &lt;yuanql9@chinatelecom.cn&gt;<br><br>diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c<br>index f58f13545450..30f32641a45c 100644<br>--- a/kernel/sched/fair.c<br>+++ b/kernel/sched/fair.c<br>@@ -6178,7 +6178,7 @@ static int select_idle_smt(struct task_struct *p, struct sched_domain *sd, int t<br>                <span class="hljs-built_in">return</span> -1;<br><br>        for_each_cpu(cpu, cpu_smt_mask(target)) &#123;<br>-               <span class="hljs-keyword">if</span> (!cpumask_test_cpu(cpu, &amp;p-&gt;cpus_allowed))<br>+               <span class="hljs-keyword">if</span> (!cpumask_test_cpu(cpu, &amp;p-&gt;cpus_allowed) || !cpumask_test_cpu(cpu, sched_domain_span(sd)))<br>                        <span class="hljs-built_in">continue</span>;<br>                <span class="hljs-keyword">if</span> (available_idle_cpu(cpu))<br>                        <span class="hljs-built_in">return</span> cpu;<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17213092884379.png" srcset="/img/loading.gif" lazyload
+alt="sched_domain_span" />
+<figcaption aria-hidden="true">sched_domain_span</figcaption>
+</figure>
+<p>历史上select_idle_smt、cpumask_test_cpu(cpu,
+sched_domain_span(sd))多次删除再合入，最近一次在6个月前:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">log</span> -S <span class="hljs-string">&#x27;cpumask_test_cpu(cpu, sched_domain_span(sd))&#x27;</span> --oneline kernel/sched/fair.c<br><br>8aeaffef8c6e <span class="hljs-built_in">sched</span>/fair: Take the scheduling domain into account <span class="hljs-keyword">in</span> select_idle_smt()<br>3e6efe87cd5c <span class="hljs-built_in">sched</span>/fair: Remove redundant check <span class="hljs-keyword">in</span> select_idle_smt()<br>3e8c6c9aac42 <span class="hljs-built_in">sched</span>/fair: Remove task_util from effective utilization <span class="hljs-keyword">in</span> feec()<br>c722f35b513f <span class="hljs-built_in">sched</span>/fair: Bring back select_idle_smt(), but differently<br>6cd56ef1df39 <span class="hljs-built_in">sched</span>/fair: Remove select_idle_smt()<br>df3cb4ea1fb6 <span class="hljs-built_in">sched</span>/fair: Fix wrong cpu selecting from isolated domain<br></code></pre></td></tr></table></figure>
+<p>进一步使用git show 查看上述所有commit的具体内容：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">log</span> -S <span class="hljs-string">&#x27;cpumask_test_cpu(cpu, sched_domain_span(sd))&#x27;</span> --oneline kernel/sched/fair.c | awk &#123;<span class="hljs-string">&#x27;print $1&#x27;</span>&#125; | xargs git show &gt; sched_domain_span.log<br></code></pre></td></tr></table></figure>
+<h4 id="不修改源码避开此bug">不修改源码避开此bug</h4>
+<h5 id="隔离核心考虑超线程调度域">隔离核心考虑超线程调度域</h5>
+<p>查看逻辑cpu0的超线程调度域下的兄弟节点：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /sys/devices/system/cpu/cpu0/topology/thread_siblings_list<br>76<br></code></pre></td></tr></table></figure>
+<p>从下图可以看出<code>isolcpus=1-75,77-151</code>的时候ksmd不会被调度上去。</p>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17212691514223.png" srcset="/img/loading.gif" lazyload
+alt="企业微信截图_17212691514223" />
+<figcaption aria-hidden="true">企业微信截图_17212691514223</figcaption>
+</figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17212686898314.png" srcset="/img/loading.gif" lazyload
+alt="企业微信截图_17212686898314" />
+<figcaption aria-hidden="true">企业微信截图_17212686898314</figcaption>
+</figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_17212686615589.png" srcset="/img/loading.gif" lazyload
+alt="企业微信截图_17212686615589" />
+<figcaption aria-hidden="true">企业微信截图_17212686615589</figcaption>
+</figure>
+<h4 id="手动将ksmd迁走">手动将ksmd迁走</h4>
+<p>此方案适用于线上不停机的情况，可直接将ksmd迁至非隔离核心上。</p>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/ask/sof/108318424/answer/119151179">PF_NO_SETAFFINITY校验值</a></li>
+</ul>
+<p>在内核源码中查看PF_NO_SETAFFINITY定义：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#linux/sched.h</span><br><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> PF_NO_SETAFFINITY 0x04000000        <span class="hljs-comment">/* Userland is not allowed to meddle with cpus_allowed */</span></span><br></code></pre></td></tr></table></figure>
+<p>在物理机上查看ksmd进程号：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">ps aux | grep -i ksmd<br>root         510 11.1  0.0      0     0 ?        RN   Jan19 26874:37 [ksmd]<br>root     1979672  0.0  0.0 213952  1600 pts/16   S+   16:13   0:00 grep -i ksmd<br><br>进一步查看ksmd进程的状态：<br><br>```bash<br>[root@gzinf-kunpeng-55e235e17e57 yql]<span class="hljs-comment"># cat /proc/510/stat</span><br>510 (ksmd) S 2 0 0 0 -1 2097216 0 0 0 0 3 161248078 0 0 25 5 1 0 13 0 0 18446744073709551615 0 0 0 0 0 0 0 2147483647 0 1 0 0 17 69 0 0 0 0 0 0 0 0 0 0 0 0 0<br></code></pre></td></tr></table></figure>
+<p>查看ksmd进程的标志位（flags）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gzinf-kunpeng-55e235e17e57 yql]<span class="hljs-comment"># flags=$(cut -f 9 -d &#x27; &#x27; /proc/510/stat)</span><br></code></pre></td></tr></table></figure>
+<p>查看ksmd进程的标志位（flags）是否包含PF_NO_SETAFFINITY（0x04000000）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gzinf-kunpeng-55e235e17e57 yql]<span class="hljs-comment"># echo $(($flags &amp; 0x40000000))</span><br>0<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240704161455.png" srcset="/img/loading.gif" lazyload
+alt="20240704161455" />
+<figcaption aria-hidden="true">20240704161455</figcaption>
+</figure>
+<p>可以看到ksmd进程的标志位（flags）不包含PF_NO_SETAFFINITY（0x04000000）。故可以通过taskset或者cgroups设置ksmd的cpu亲和性，将起绑定到非客户虚拟机所在的cpu上。</p>
+<p>将ksmd的亲和性设置为10号cpu:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">taskset -pc 10 510<br></code></pre></td></tr></table></figure>
+<p>将ksmd的亲和性设置为非隔离核心:</p>
+<p>此场景需要刨去超线程调度域下的兄弟节点，假设0号逻辑cpu、76号逻辑cpu位于同一个物理cpu上，即0号逻辑cpu跟76号逻辑cpu是一个超线程调度域下的兄弟节点。假设0号逻辑cpu是隔离核心，那设置ksmd亲核心的时候需要排除掉掉76号逻辑cpu。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">taskset -pc 0-63 510<br></code></pre></td></tr></table></figure>
+<p>通过上述两步即可将ksmd从隔离的cpu上迁走，同时保障ksmd不会再被调度到隔离核心上。</p>
+<h5 id="cicd运维一键迁">cicd运维一键迁</h5>
+<p>已经打成了rpm包，安装ksmd-taskset.rpm包即可一键迁移，详细步骤可以参考<a
+href="#ksmd-taskset打包说明">ksmd-taskset打包说明</a>。</p>
+<h6 id="stress-ng压测">stress-ng压测</h6>
+<p><a target="_blank" rel="noopener" href="https://github.com/ColinIanKing/stress-ng"
+class="uri">https://github.com/ColinIanKing/stress-ng</a></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">clone</span> https://github.com/ColinIanKing/stress-ng.git<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> stress-ng<br>make<br>make install<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">stress-ng --<span class="hljs-built_in">timeout</span> 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802115921.png" srcset="/img/loading.gif" lazyload
+alt="stress-ng --timeout 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110" />
+<figcaption aria-hidden="true">stress-ng --timeout 10m --cpu 110 --vm 20
+--vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful
+--mmap-mergeable --mmaphuge 25 --sock 110</figcaption>
+</figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">stress-ng --<span class="hljs-built_in">timeout</span> 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110 --ksm<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240802120305.png" srcset="/img/loading.gif" lazyload
+alt="stress-ng --timeout 10m --cpu 110 --vm 20 --vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful --mmap-mergeable --mmaphuge 25 --sock 110 --ksm" />
+<figcaption aria-hidden="true">stress-ng --timeout 10m --cpu 110 --vm 20
+--vm-bytes 16G --vm-madvise mergeable --mmap 110 --mmap-stressful
+--mmap-mergeable --mmaphuge 25 --sock 110 --ksm</figcaption>
+</figure>
+<p>实测将ksmd迁移到非隔离核心没有太大影响，从pidstat结果来看ksmd消耗了整体cpu占比为0.19%。</p>
+<h2 id="总结">总结</h2>
+<p>下一个发行版合修复源码。</p>
+<p>线上机器通过设置kpatch方式进行热修复，通过设置ksmd的cpu亲和性，将其绑定到非客户虚拟机所在的cpu上。</p>
+<p>进一步可以通过调整ksmd参数来提高虚拟机的性能。</p>
+<h2 id="more">More</h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://www.cnblogs.com/hellokitty2/p/15750931.html">调度器24—CFS任务选核</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/2411277">为什么会出现cpu使用率偶数核比奇数核高</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.jianshu.com/p/2c4cb7ac6546">Linux多核系统的负载均衡策略</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.cnblogs.com/tencent-cloud-native/p/14767478.html">Linux
+内核调度器源码分析 - 初始化</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.toutiao.com/article/7078965304440816135">干货｜CPU可运行进程队列的负载均衡</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.toutiao.com/article/7297075872626917926">图解Linux内核调度系统</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.toutiao.com/article/7312702483451789859">带你认识CPU缓存</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.toutiao.com/article/6865188405366653454">CPU中的L1，L2和L3缓存之间的区别：缓存是如何工作的？</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/vnbbnc-jHJRJvoZVCKSgGQ">多线程时如何使用CPU缓存？</a></li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/task/" class="category-chain-item">task</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/task/bugs/" class="category-chain-item">bugs</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/task/bugs/ksmd/" class="category-chain-item">ksmd</a>
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/HTML/">#HTML</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Kernel Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS Packet Processing</div>
+      <div>https://realwujing.github.io/linux/kernel/task/bugs/ksmd/Kernel Thread ksmd Running on PMD Isolated Cores Causes High Latency in OVS Packet Processing/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年3月28日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/kernel/net/bugs/vhost-user-vring/ovs-dpdk%20loss%20packet%20in%20vhost-user/" title="ovs-dpdk loss packet in vhost-user">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">ovs-dpdk loss packet in vhost-user</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/task/bugs/ksmd/stress-ng-help/" title="stress-ng-help">
+                        <span class="hidden-mobile">stress-ng-help</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '47d7cc40d85d31f39bcbea989f785ea9'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
