@@ -1,4 +1,4 @@
-# linux-kernel
+# Linux Kernel Quick Guide
 
 理解Linux内核是一项复杂而深刻的任务，因为它涉及到操作系统的核心功能。以下是对你提到的几个关键方面的详细解释：
 
