@@ -1,0 +1,1249 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="Linux网络收包与epoll协作机制 1. 整体架构图 graph TD     %% 硬件层     A[网卡接收数据包 - 硬件中断信号] --&gt;|触发IRQ信号| B[DMA引擎启动 - 数据写入ring buffer]     B --&gt;|完成数据传输| C[网卡发出硬中断 - 调用注册的ISR]      %% 内核硬中断层     C --&gt;|通过中断向量| D[硬">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux网络收包与epoll协作机制">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/net/Linux%E7%BD%91%E7%BB%9C%E6%94%B6%E5%8C%85%E4%B8%8Eepoll%E5%8D%8F%E4%BD%9C%E6%9C%BA%E5%88%B6/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="Linux网络收包与epoll协作机制 1. 整体架构图 graph TD     %% 硬件层     A[网卡接收数据包 - 硬件中断信号] --&gt;|触发IRQ信号| B[DMA引擎启动 - 数据写入ring buffer]     B --&gt;|完成数据传输| C[网卡发出硬中断 - 调用注册的ISR]      %% 内核硬中断层     C --&gt;|通过中断向量| D[硬">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-03-28T19:06:58.000Z">
+<meta property="article:modified_time" content="2025-03-28T19:06:58.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="qemu">
+<meta property="article:tag" content="linux">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>Linux网络收包与epoll协作机制 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Linux网络收包与epoll协作机制"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-03-28 19:06" pubdate>
+          2025年3月28日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          11k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          93 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">Linux网络收包与epoll协作机制</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="linux网络收包与epoll协作机制">Linux网络收包与epoll协作机制</h1>
+<h2 id="整体架构图">1. 整体架构图</h2>
+<pre><code class=" mermaid">graph TD
+    %% 硬件层
+    A[网卡接收数据包 - 硬件中断信号] --&gt;|触发IRQ信号| B[DMA引擎启动 - 数据写入ring buffer]
+    B --&gt;|完成数据传输| C[网卡发出硬中断 - 调用注册的ISR]
+
+    %% 内核硬中断层
+    C --&gt;|通过中断向量| D[硬中断处理开始 - do_IRQ]
+    D --&gt;|保存上下文| E[执行网卡驱动ISR - ack中断]
+    E --&gt;|网卡支持NAPI时调度| E1[调用NAPI - napi_schedule]
+    E --&gt;|未调度NAPI| E2[未调用NAPI - 直接触发软中断]
+    E1 --&gt;|设置软中断标志| F[触发软中断 - raise_softirq NET_RX_SOFTIRQ]
+    E2 --&gt; F
+    E1:::note --&gt;|NAPI状态允许时调用| E1
+    E2:::note --&gt;|网卡不支持NAPI时| E2
+
+    %% 软中断调度层
+    F --&gt;|硬中断退出| G[检查软中断 - do_softirq]
+    G --&gt;|高负载时调度| H[调用ksoftirqd - 软中断守护进程]
+    G --&gt;|直接处理| I[执行软中断 - NET_RX_SOFTIRQ]
+    H --&gt;|延迟执行| I
+
+    %% 软中断控制
+    I --&gt;|启用底半部机制| J[启用底半部 - local_bh_enable]
+    J --&gt;|硬中断未调用时调度| J0[调用NAPI - napi_schedule]
+    J:::note --&gt;|可能触发do_softirq| J
+
+    %% NAPI机制
+    subgraph NAPI机制
+        J0 --&gt;|执行轮询| K[处理数据包 - netif_receive_skb]
+        J0:::note --&gt;|硬中断未调用或新数据包到达时| J0
+        K:::note --&gt;|NAPI轮询执行| K
+    end
+
+    %% 内核协议层
+    K --&gt;|数据包上行| M[网络协议栈处理 - ip_rcv -&gt; tcp_v4_rcv]
+    M --&gt;|分配内存| N[数据包入队列 - sk_buff分配]
+    N --&gt;|数据入Socket| O[Socket缓冲区就绪 - sk-&gt;sk_receive_queue]
+    O --&gt;|通知事件| P[sock_def_readable - 通知事件可用]
+
+    %% epoll 核心机制
+    P --&gt;|分发事件| Q[ep_poll_callback - 处理就绪事件]
+    
+    subgraph epoll内部机制
+        Q --&gt;|通过fd查询| R[红黑树查询 - rb_tree_find]
+        Q --&gt;|检查状态| S[检查epitem - ep_events_available]
+        R --&gt;|找到epitem| T[加入rdllist - list_add_tail]
+        S --&gt;|状态通过| T
+        T --&gt;|更新计数| U[更新计数 - ep-&gt;rdllist.count++]
+        U --&gt;|唤醒| V[唤醒epoll_wait - wake_up ep-&gt;wq]
+        R:::note --&gt;|查找fd对应的epitem| R
+        S:::note --&gt;|epitem包含fd和事件| S
+        T:::note --&gt;|epitem加入就绪链表| T
+        V:::note --&gt;|唤醒用户态等待进程| V
+    end
+
+    %% 上下文切换与唤醒
+    V --&gt;|通知调度器| V1[调度器重新调度 - schedule]
+    V1 --&gt;|恢复用户态上下文| V2[系统调用返回 - 从内核态返回]
+
+    %% 用户态与内核态交互
+    subgraph 用户态与内核态交互
+        V2 --&gt;|返回就绪fd| W[epoll_wait返回 - 用户态获取fd列表]
+        W --&gt;|处理就绪事件| W1[用户态处理 - 检查fd事件]
+        W1 --&gt;|发起读取| X[用户态发起read - sys_read]
+        X --&gt;|内核读取数据| Y[内核检查缓冲区 - copy_to_user]
+        Y --&gt;|数据返回| Z[数据返回用户空间 - 完成读取]
+    end
+
+    %% 分组与层级
+    subgraph 硬件层
+        A --&gt; B --&gt; C
+    end
+    subgraph 内核硬中断层
+        D --&gt; E --&gt; E1 --&gt; F
+        E --&gt; E2 --&gt; F
+    end
+    subgraph 软中断调度层
+        F --&gt; G --&gt; H --&gt; I
+    end
+    subgraph 软中断控制
+        I --&gt; J --&gt; J0
+    end
+    subgraph 内核协议层
+        K --&gt; M --&gt; N --&gt; O
+    end
+    subgraph 内核Socket层
+        O --&gt; P
+    end
+    subgraph epoll内部机制
+        Q --&gt; R --&gt; S --&gt; T --&gt; U --&gt; V
+    end
+
+    %% 样式定义
+    classDef hardware fill:#f9f9f9,stroke:#666,stroke-width:1px
+    classDef hardirq fill:#e6ffe6,stroke:#006600,stroke-width:2px
+    classDef softirq fill:#e6f3ff,stroke:#333,stroke-width:2px
+    classDef napi fill:#e6fff3,stroke:#006633,stroke-width:2px
+    classDef socket fill:#fff0e6,stroke:#cc3300,stroke-width:2px
+    classDef epoll fill:#f2e6ff,stroke:#660066,stroke-width:2px
+    classDef user fill:#fff3e6,stroke:#ff6600,stroke-width:2px
+    classDef note fill:none,stroke:none
+
+    class A,B,C hardware
+    class D,E,E1,E2,F hardirq
+    class G,H,I softirq
+    class J,J0 softirq
+    class K napi
+    class M,N,O,P socket
+    class Q,R,S,T,U,V epoll
+    class V1,V2 epoll
+    class W,W1,X,Y,Z user
+</code></pre>
+<hr />
+<p>基于你提供的 Markdown 图、Linux 5.10 内核代码以及 virtio-net
+驱动，我将对内容进行补充和完善，重点补充硬件层、中断处理层、协议栈处理、epoll
+事件触发等部分的细节，并结合 virtio-net
+驱动的实现补充相关代码和说明。同时，我会确保内容与 Linux 5.10
+内核版本保持一致，并与 Markdown 图的流程保持逻辑一致。</p>
+<hr />
+<h2 id="详细处理流程">2. 详细处理流程</h2>
+<h3 id="硬件层处理">2.1 硬件层处理</h3>
+<h4 id="网卡收包">1. <strong>网卡收包</strong></h4>
+<ul>
+<li><strong>PHY芯片处理物理信号（电/光转换）</strong>：
+<ul>
+<li>PHY（物理层）芯片负责将物理信号（电信号或光信号）转换为数字信号，完成信号的调制与解调。</li>
+<li>在 virtio-net 驱动中，由于 virtio
+是虚拟化设备，物理层信号处理由宿主机的 virtio 后端（例如
+QEMU）模拟，virtio-net 驱动直接与虚拟化的 virtqueue 交互。</li>
+</ul></li>
+<li><strong>MAC层进行CRC校验和帧过滤</strong>：
+<ul>
+<li>MAC（介质访问控制）层负责帧的完整性校验（CRC）和地址过滤（例如检查目标
+MAC 地址是否匹配）。</li>
+<li>virtio-net 支持虚拟化的 MAC 地址过滤，具体由
+<code>virtio_net_hdr</code> 结构中的元数据完成校验和过滤。</li>
+</ul></li>
+<li><strong>支持特性</strong>：
+<ul>
+<li><strong>RSS（多队列）</strong>：virtio-net
+支持多队列（<code>VIRTIO_NET_F_MQ</code> 特性），通过
+<code>struct virtio_net_config</code> 中的
+<code>max_virtqueue_pairs</code> 配置多队列数量，数据包分发到不同
+virtqueue。</li>
+<li><strong>Checksum Offload</strong>：virtio-net
+支持校验和卸载（<code>VIRTIO_NET_F_CSUM</code>），通过
+<code>virtio_net_hdr</code> 的 <code>flags</code>
+字段指示是否需要校验和计算。</li>
+<li><strong>TSO/GSO</strong>：支持 TCP
+分段卸载（<code>VIRTIO_NET_F_GUEST_TSO4</code> 和
+<code>VIRTIO_NET_F_GUEST_TSO6</code>）和通用分段卸载（<code>VIRTIO_NET_F_GSO</code>），减少
+CPU 分段开销。</li>
+</ul></li>
+</ul>
+<h4 id="dma传输">2. <strong>DMA传输</strong></h4>
+<ul>
+<li><strong>virtio-net 的 DMA 传输</strong>：
+<ul>
+<li>virtio-net 使用 virtqueue 机制实现数据传输，virtqueue
+是一个环形缓冲区（<code>struct vring</code>），由前端（Guest）和后端（Host）共享。</li>
+<li>数据包通过 <code>struct vring_desc</code>
+描述符传输，描述符包含数据缓冲区的物理地址、长度和状态。</li>
+<li>代码示例（基于 Linux 5.10
+内核，<code>drivers/net/virtio_net.c</code>）： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">virtio_net_hdr_v1</span> &#123;</span><br>    __u8 flags;         <span class="hljs-comment">// 校验和标志</span><br>    __u8 gso_type;      <span class="hljs-comment">// 分段卸载类型</span><br>    __le16 hdr_len;     <span class="hljs-comment">// 头部长度</span><br>    __le16 gso_size;    <span class="hljs-comment">// 分段大小</span><br>    __le16 csum_start;  <span class="hljs-comment">// 校验和计算起始位置</span><br>    __le16 csum_offset; <span class="hljs-comment">// 校验和偏移</span><br>    __le16 num_buffers; <span class="hljs-comment">// 缓冲区数量</span><br>&#125;;<br><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">receive_queue</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">virtqueue</span> *<span class="hljs-title">vq</span>;</span> <span class="hljs-comment">// 接收 virtqueue</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">napi_struct</span> <span class="hljs-title">napi</span>;</span> <span class="hljs-comment">// NAPI 实例</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">page</span> *<span class="hljs-title">pages</span>;</span> <span class="hljs-comment">// 预分配页面</span><br>    <span class="hljs-comment">/* ... */</span><br>&#125;;<br></code></pre></td></tr></table></figure></li>
+<li><strong>直接写入预分配的环形缓冲区</strong>：
+<ul>
+<li>virtio-net 驱动通过 <code>virtqueue_add_inbuf</code>
+将预分配的缓冲区（<code>struct page</code> 或
+<code>struct sk_buff</code>）加入接收队列（<code>receive_queue</code> 的
+<code>vq</code>）。</li>
+<li>后端（Host）通过 DMA
+将数据包写入这些缓冲区，完成后通知前端（Guest）通过中断。</li>
+</ul></li>
+<li><strong>零拷贝关键</strong>：
+<ul>
+<li>virtio-net 使用共享内存（virtqueue）实现零拷贝，数据直接从 Host 写入
+Guest 的内存，避免 CPU 参与数据搬运。</li>
+<li>关键函数：<code>virtqueue_get_buf</code> 从 virtqueue
+获取已填充的数据缓冲区。</li>
+</ul></li>
+</ul></li>
+</ul>
+<h4 id="补充virtio-net-驱动初始化">补充：virtio-net 驱动初始化</h4>
+<ul>
+<li>virtio-net 驱动初始化时会协商特性并分配
+virtqueue（<code>drivers/net/virtio_net.c</code>）： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">virtnet_probe</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> virtio_device *vdev)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">net_device</span> *<span class="hljs-title">dev</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">virtnet_info</span> *<span class="hljs-title">vi</span>;</span><br>    <span class="hljs-type">int</span> i;<br><br>    dev = alloc_etherdev_mq(<span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> virtnet_info), VIRTIO_NET_VQ_MAX);<br>    vi = netdev_priv(dev);<br>    vi-&gt;vdev = vdev;<br>    vdev-&gt;priv = vi;<br><br>    <span class="hljs-comment">// 协商特性</span><br>    virtio_cread_le(vdev, <span class="hljs-keyword">struct</span> virtio_net_config, max_virtqueue_pairs, &amp;vi-&gt;max_queue_pairs);<br>    <span class="hljs-keyword">if</span> (virtio_has_feature(vdev, VIRTIO_NET_F_MQ))<br>        vi-&gt;curr_queue_pairs = min(vi-&gt;max_queue_pairs, num_online_cpus());<br><br>    <span class="hljs-comment">// 初始化接收和发送 virtqueue</span><br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; vi-&gt;curr_queue_pairs; i++) &#123;<br>        vi-&gt;rq[i].vq = virtio_find_single_vq(vdev, virtnet_rx_vq_callback, <span class="hljs-string">&quot;rx&quot;</span>);<br>        vi-&gt;sq[i].vq = virtio_find_single_vq(vdev, virtnet_tx_vq_callback, <span class="hljs-string">&quot;tx&quot;</span>);<br>    &#125;<br><br>    <span class="hljs-comment">// 启用 NAPI</span><br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; vi-&gt;curr_queue_pairs; i++)<br>        napi_enable(&amp;vi-&gt;rq[i].napi);<br><br>    <span class="hljs-keyword">return</span> register_netdev(dev);<br>&#125;<br></code></pre></td></tr></table></figure></li>
+</ul>
+<hr />
+<h3 id="中断处理层">2.2 中断处理层</h3>
+<h4 id="硬中断处理">1. <strong>硬中断处理</strong></h4>
+<ul>
+<li><strong>virtio-net 的硬中断处理</strong>：
+<ul>
+<li>virtio-net 驱动通过 virtio 设备的 <code>struct virtio_device</code>
+注册中断处理程序（<code>virtio_config_ops-&gt;set_vq_handler</code>）。</li>
+<li>硬中断由 Host 触发（通过 <code>virtio_device-&gt;isr</code>），调用
+<code>virtnet_interrupt</code> 处理。</li>
+<li>代码示例（<code>drivers/net/virtio_net.c</code>）：
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">irqreturn_t</span> <span class="hljs-title function_">virtnet_interrupt</span><span class="hljs-params">(<span class="hljs-type">int</span> irq, <span class="hljs-type">void</span> *opaque)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">virtnet_info</span> *<span class="hljs-title">vi</span> =</span> opaque;<br>    <span class="hljs-type">int</span> i;<br><br>    <span class="hljs-comment">// 检查中断状态</span><br>    <span class="hljs-keyword">if</span> (virtio_read_isr(vi-&gt;vdev)) &#123;<br>        <span class="hljs-comment">// 禁用后续硬中断</span><br>        virtio_config_ops-&gt;disable_vq(vi-&gt;vdev);<br><br>        <span class="hljs-comment">// 遍历所有接收队列</span><br>        <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; vi-&gt;curr_queue_pairs; i++) &#123;<br>            <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">receive_queue</span> *<span class="hljs-title">rq</span> =</span> &amp;vi-&gt;rq[i];<br>            <span class="hljs-comment">// 调度 NAPI</span><br>            <span class="hljs-keyword">if</span> (virtqueue_get_buf(rq-&gt;vq, &amp;len))<br>                napi_schedule(&amp;rq-&gt;napi);<br>        &#125;<br><br>        <span class="hljs-comment">// 触发软中断</span><br>        raise_softirq(NET_RX_SOFTIRQ);<br>        <span class="hljs-keyword">return</span> IRQ_HANDLED;<br>    &#125;<br>    <span class="hljs-keyword">return</span> IRQ_NONE;<br>&#125;<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li><strong>标记数据到达，调度 NAPI</strong>：
+<ul>
+<li>virtio-net 在硬中断中调用 <code>napi_schedule</code> 调度 NAPI
+轮询，禁用后续硬中断。</li>
+<li>时间要求：&lt;100μs（硬中断处理需快速完成，避免影响系统响应）。</li>
+</ul></li>
+<li><strong>优化手段</strong>：
+<ul>
+<li><strong>中断合并</strong>：virtio-net
+支持中断合并（<code>VIRTIO_F_EVENT_IDX</code> 特性），通过
+<code>virtqueue_enable_cb_delayed</code>
+延迟中断通知，减少中断频率。</li>
+</ul></li>
+</ul>
+<h4 id="软中断处理">2. <strong>软中断处理</strong></h4>
+<ul>
+<li><strong>批量处理数据包</strong>：
+<ul>
+<li>软中断通过
+<code>net_rx_action</code>（<code>net/core/dev.c</code>）执行 NAPI
+轮询，调用 <code>virtnet_poll</code> 处理数据包。</li>
+<li>代码示例（<code>drivers/net/virtio_net.c</code>）：
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">virtnet_poll</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> napi_struct *napi, <span class="hljs-type">int</span> budget)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">receive_queue</span> *<span class="hljs-title">rq</span> =</span> container_of(napi, <span class="hljs-keyword">struct</span> receive_queue, napi);<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">virtnet_info</span> *<span class="hljs-title">vi</span> =</span> rq-&gt;vq-&gt;vdev-&gt;priv;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> len, received = <span class="hljs-number">0</span>;<br><br>    <span class="hljs-comment">// 从 virtqueue 获取数据包</span><br>    <span class="hljs-keyword">while</span> (received &lt; budget &amp;&amp; virtqueue_get_buf(rq-&gt;vq, &amp;len)) &#123;<br>        <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sk_buff</span> *<span class="hljs-title">skb</span> =</span> virtnet_build_skb(rq, len);<br>        <span class="hljs-keyword">if</span> (!skb)<br>            <span class="hljs-keyword">continue</span>;<br><br>        <span class="hljs-comment">// 提交给协议栈</span><br>        napi_gro_receive(napi, skb);<br>        received++;<br>    &#125;<br><br>    <span class="hljs-comment">// 如果处理完所有数据包，退出轮询模式</span><br>    <span class="hljs-keyword">if</span> (received &lt; budget) &#123;<br>        napi_complete_done(napi, received);<br>        virtqueue_enable_cb(rq-&gt;vq);<br>    &#125;<br><br>    <span class="hljs-keyword">return</span> received;<br>&#125;<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li><strong>时间要求</strong>：&lt;1ms（软中断处理需高效，避免影响其他任务）。</li>
+<li><strong>优化手段</strong>：
+<ul>
+<li><strong>GRO/LRO</strong>：virtio-net 支持 GRO（Generic Receive
+Offload，<code>VIRTIO_NET_F_GUEST_GRO</code>），通过
+<code>napi_gro_receive</code> 合并数据包，减少协议栈开销。</li>
+</ul></li>
+</ul>
+<h4 id="补充中断处理表">补充：中断处理表</h4>
+<table>
+
+<thead>
+<tr class="header">
+<th>中断类型</th>
+<th>处理内容</th>
+<th>时间要求</th>
+<th>优化手段</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>硬中断</td>
+<td>标记数据到达，调度NAPI</td>
+<td>&lt;100μs</td>
+<td>中断合并（<code>VIRTIO_F_EVENT_IDX</code>）</td>
+</tr>
+<tr class="even">
+<td>软中断</td>
+<td>批量处理数据包（<code>virtnet_poll</code>）</td>
+<td>&lt;1ms</td>
+<td>GRO/LRO（<code>napi_gro_receive</code>）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="协议栈处理">2.3 协议栈处理</h3>
+<h4 id="virtio-net-数据包提交">1. <strong>virtio-net
+数据包提交</strong></h4>
+<ul>
+<li>virtio-net 在 <code>virtnet_poll</code> 中通过
+<code>napi_gro_receive</code> 将数据包提交给协议栈，调用
+<code>netif_receive_skb</code>。</li>
+<li>代码示例（<code>net/core/dev.c</code>）： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">netif_receive_skb</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> sk_buff *skb)</span><br>&#123;<br>    <span class="hljs-comment">// 进入协议栈</span><br>    <span class="hljs-keyword">return</span> __netif_receive_skb(skb);<br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __netif_receive_skb(<span class="hljs-keyword">struct</span> sk_buff *skb)<br>&#123;<br>    <span class="hljs-comment">// 确定协议类型（IPv4、IPv6 等）</span><br>    <span class="hljs-type">int</span> protocol = eth_type_trans(skb, skb-&gt;dev);<br>    <span class="hljs-comment">// 调用协议栈处理函数</span><br>    <span class="hljs-keyword">return</span> ip_rcv(skb, skb-&gt;dev, protocol);<br>&#125;<br></code></pre></td></tr></table></figure></li>
+</ul>
+<h4 id="协议栈处理流程">2. <strong>协议栈处理流程</strong></h4>
+<ul>
+<li><strong>流程</strong>： <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">netif_receive_skb()<br>  → ip_rcv() <br>    → tcp_v4_rcv() <br>      → tcp_queue_rcv() <br>        → sock_def_readable()<br></code></pre></td></tr></table></figure></li>
+<li><strong>详细说明</strong>：
+<ul>
+<li><code>ip_rcv</code>（<code>net/ipv4/ip_input.c</code>）：处理 IPv4
+数据包，校验 IP 头部，调用 <code>tcp_v4_rcv</code>。</li>
+<li><code>tcp_v4_rcv</code>（<code>net/ipv4/tcp_ipv4.c</code>）：处理
+TCP 数据包，查找对应的 socket（<code>sk</code>），调用
+<code>tcp_queue_rcv</code>。</li>
+<li><code>tcp_queue_rcv</code>（<code>net/ipv4/tcp_input.c</code>）：将数据包加入
+socket 接收队列（<code>sk-&gt;sk_receive_queue</code>）。</li>
+<li><code>sock_def_readable</code>（<code>net/core/sock.c</code>）：通知
+socket 可读，触发 epoll 事件。</li>
+</ul></li>
+</ul>
+<h4 id="补充virtio-net-的-gro-支持">补充：virtio-net 的 GRO 支持</h4>
+<ul>
+<li>virtio-net 在 <code>virtnet_poll</code> 中使用
+<code>napi_gro_receive</code> 支持
+GRO，合并多个数据包为一个大包，减少协议栈处理开销。</li>
+<li>代码示例（<code>drivers/net/virtio_net.c</code>）：
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> sk_buff *<span class="hljs-title function_">virtnet_build_skb</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> receive_queue *rq, <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> len)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sk_buff</span> *<span class="hljs-title">skb</span> =</span> napi_get_frags(&amp;rq-&gt;napi);<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">virtio_net_hdr_v1</span> *<span class="hljs-title">hdr</span>;</span><br><br>    <span class="hljs-comment">// 填充 virtio 头部</span><br>    hdr = skb_vnet_hdr(skb);<br>    <span class="hljs-keyword">if</span> (hdr-&gt;flags &amp; VIRTIO_NET_HDR_F_NEEDS_CSUM)<br>        skb_checksum_help(skb);<br><br>    <span class="hljs-comment">// 设置数据长度</span><br>    skb_put(skb, len);<br>    <span class="hljs-keyword">return</span> skb;<br>&#125;<br></code></pre></td></tr></table></figure></li>
+</ul>
+<hr />
+<h3 id="epoll-事件触发">2.4 epoll 事件触发</h3>
+<h4 id="回调链">1. <strong>回调链</strong></h4>
+<ul>
+<li><strong>virtio-net 的 socket 通知</strong>：
+<ul>
+<li>virtio-net 的数据包最终通过 <code>sock_def_readable</code> 通知
+socket 可读，触发 epoll 事件。</li>
+<li>代码示例（<code>net/core/sock.c</code>）： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">sock_def_readable</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> sock *sk)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">socket_wq</span> *<span class="hljs-title">wq</span>;</span><br><br>    rcu_read_lock();<br>    wq = rcu_dereference(sk-&gt;sk_wq);<br>    <span class="hljs-keyword">if</span> (wq_has_sleeper(wq))<br>        wake_up_interruptible_sync_poll(&amp;wq-&gt;wait, EPOLLIN);<br>    sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);<br>    rcu_read_unlock();<br>&#125;<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li><strong>epoll 回调</strong>：
+<ul>
+<li><code>wake_up_interruptible_sync_poll</code> 唤醒等待队列，触发
+<code>ep_poll_callback</code>。</li>
+<li>代码示例（<code>fs/eventpoll.c</code>）： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">ep_poll_callback</span><span class="hljs-params">(<span class="hljs-type">wait_queue_entry_t</span> *wait, <span class="hljs-type">unsigned</span> mode, <span class="hljs-type">int</span> sync, <span class="hljs-type">void</span> *key)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">epitem</span> *<span class="hljs-title">epi</span> =</span> container_of(wait, <span class="hljs-keyword">struct</span> epitem, wait);<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">eventpoll</span> *<span class="hljs-title">ep</span> =</span> epi-&gt;ep;<br><br>    <span class="hljs-comment">// 检查事件</span><br>    <span class="hljs-keyword">if</span> (ep_events_available(epi)) &#123;<br>        <span class="hljs-comment">// 加入就绪链表</span><br>        list_add_tail(&amp;epi-&gt;rdllink, &amp;ep-&gt;rdllist);<br>        ep-&gt;rdllist.count++;<br>        <span class="hljs-comment">// 唤醒 epoll_wait</span><br>        wake_up(&amp;ep-&gt;wq);<br>    &#125;<br><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>;<br>&#125;<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+</ul>
+<h4 id="数据结构">2. <strong>数据结构</strong></h4>
+<ul>
+<li><strong>virtio-net 的 socket 和 epoll 关联</strong>：
+<ul>
+<li>virtio-net 的 socket（<code>struct sock</code>）通过
+<code>sk-&gt;sk_wq</code> 关联到 epoll 的等待队列。</li>
+<li><code>struct eventpoll</code> 和 <code>struct epitem</code> 的定义与
+Markdown 中一致： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">eventpoll</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rb_root_cached</span> <span class="hljs-title">rbr</span>;</span>    <span class="hljs-comment">// 红黑树根</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_head</span> <span class="hljs-title">rdllist</span>;</span>     <span class="hljs-comment">// 就绪链表</span><br>    <span class="hljs-type">wait_queue_head_t</span> wq;         <span class="hljs-comment">// 等待队列</span><br>    <span class="hljs-comment">/* ... */</span><br>&#125;;<br><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">epitem</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rb_node</span> <span class="hljs-title">rbn</span>;</span>           <span class="hljs-comment">// 红黑树节点</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_head</span> <span class="hljs-title">rdllink</span>;</span>     <span class="hljs-comment">// 就绪链表节点</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">epoll_filefd</span> <span class="hljs-title">ffd</span>;</span>      <span class="hljs-comment">// 监听的文件描述符</span><br>    <span class="hljs-comment">/* ... */</span><br>&#125;;<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+</ul>
+<h4 id="补充virtio-net-的-epoll-集成">补充：virtio-net 的 epoll
+集成</h4>
+<ul>
+<li>virtio-net 的 socket 事件通过 <code>sock_def_readable</code> 触发
+epoll 回调，最终由 <code>epoll_wait</code> 返回给用户态。</li>
+<li>流程图中的 epoll
+内部机制（红黑树查询、加入就绪链表、唤醒等待队列）与 virtio-net
+的数据包处理无缝衔接。</li>
+</ul>
+<hr />
+<h2 id="性能优化参数">3. 性能优化参数</h2>
+<h4 id="补充virtio-net-相关调优">补充：virtio-net 相关调优</h4>
+<ul>
+<li><strong>virtio-net 多队列调优</strong>： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 查看 virtio-net 队列数</span><br>ethtool -l eth0<br><br><span class="hljs-comment"># 设置队列数（需要支持 VIRTIO_NET_F_MQ）</span><br>ethtool -L eth0 combined 8<br></code></pre></td></tr></table></figure></li>
+<li><strong>virtio-net 中断合并</strong>：
+<ul>
+<li>virtio-net 支持 <code>VIRTIO_F_EVENT_IDX</code>，通过
+<code>ethtool</code> 设置中断合并： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ethtool -C eth0 rx-usecs 100<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li><strong>virtio-net GRO/TSO 启用</strong>：
+<ul>
+<li>确保 virtio-net 启用 GRO 和 TSO： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">ethtool -K eth0 gro on<br>ethtool -K eth0 tso on<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="性能对比数据">4. 性能对比数据</h2>
+<h4 id="补充virtio-net-性能数据">补充：virtio-net 性能数据</h4>
+<ul>
+<li>测试环境：Linux 5.10, 32核CPU, virtio-net（100Gbps 虚拟网卡）。</li>
+<li>补充 virtio-net 的性能数据（假设测试结果）： | 连接数 | epoll延迟 |
+吞吐量(Gbps) | 内存占用(MB) |
+|----------|-----------|--------------|--------------| | 10,000 | 0.05ms
+| 80 | 2.5 | | 100,000 | 0.07ms | 90 | 25 | | 1,000,000| 0.15ms | 95 |
+250 |</li>
+</ul>
+<hr />
+<h2 id="典型问题排查">5. 典型问题排查</h2>
+<h4 id="补充virtio-net-相关排查">补充：virtio-net 相关排查</h4>
+<ul>
+<li><strong>丢包分析</strong>：
+<ul>
+<li>检查 virtio-net 的 virtqueue 统计： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /sys/class/net/eth0/statistics/rx_drops<br><span class="hljs-built_in">cat</span> /sys/class/net/eth0/statistics/rx_missed_errors<br></code></pre></td></tr></table></figure></li>
+<li>检查 virtqueue 是否满： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// 调试代码：检查 virtqueue 可用描述符</span><br><span class="hljs-type">int</span> avail = virtqueue_get_avail_size(vq);<br><span class="hljs-keyword">if</span> (avail == <span class="hljs-number">0</span>)<br>    pr_err(<span class="hljs-string">&quot;virtqueue full, dropping packets\n&quot;</span>);<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li><strong>延迟分析</strong>：
+<ul>
+<li>检查 virtio-net 的中断分布： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/interrupts | grep virtio<br></code></pre></td></tr></table></figure></li>
+<li>检查 virtqueue 处理延迟： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">perf record -e <span class="hljs-string">&#x27;virtio:*&#x27;</span> -a <span class="hljs-built_in">sleep</span> 10<br>perf report<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="最佳实践建议">6. 最佳实践建议</h2>
+<h4 id="补充virtio-net-最佳实践">补充：virtio-net 最佳实践</h4>
+<ul>
+<li><strong>启用多队列</strong>：
+<ul>
+<li>确保 virtio-net 启用多队列，并与 CPU 核心数匹配：
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ethtool -L eth0 combined $(<span class="hljs-built_in">nproc</span>)<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li><strong>调整 virtqueue 大小</strong>：
+<ul>
+<li>增加 virtqueue 大小以减少丢包（通过 QEMU 参数）：
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">qemu-system-x86_64 -device virtio-net-pci,netdev=net0,queues=8,queue_size=1024<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li><strong>启用 GRO/TSO</strong>：
+<ul>
+<li>确保 GRO 和 TSO 启用，减少协议栈开销： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ethtool -K eth0 gro on tso on<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="附录内核关键代码位置">附录：内核关键代码位置</h2>
+<h4 id="补充virtio-net-相关代码">补充：virtio-net 相关代码</h4>
+<ul>
+<li><strong>virtio-net 驱动</strong>：
+<ul>
+<li><code>drivers/net/virtio_net.c</code>：主驱动实现，包括
+<code>virtnet_probe</code>、<code>virtnet_poll</code> 等。</li>
+<li><code>include/uapi/linux/virtio_net.h</code>：virtio-net
+协议定义（<code>struct virtio_net_hdr_v1</code> 等）。</li>
+</ul></li>
+<li><strong>virtio 核心</strong>：
+<ul>
+<li><code>drivers/virtio/virtio.c</code>：virtio 设备初始化。</li>
+<li><code>drivers/virtio/virtio_ring.c</code>：virtqueue
+实现（<code>virtqueue_add_inbuf</code>、<code>virtqueue_get_buf</code>
+等）。</li>
+</ul></li>
+</ul>
+<hr />
+<h3 id="总结">总结</h3>
+<p>通过结合 Linux 5.10 内核代码和 virtio-net
+驱动，补充了硬件层、中断处理层、协议栈处理和 epoll
+事件触发的细节，添加了 virtio-net 的代码示例和调优建议。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/net/" class="category-chain-item">net</a>
+  
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/qemu/">#qemu</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Linux网络收包与epoll协作机制</div>
+      <div>https://realwujing.github.io/linux/kernel/net/Linux网络收包与epoll协作机制/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年3月28日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/kernel/bugs/network/ovs-veth-peer/ovs%20veth%20peer%20Soft%20Lockup%20on%20netdev_pick_tx%20due%20to%20zero%20real_num_tx_queues%20When%20Executing%20ip%20link%20del%20veth0/" title="ovs veth peer Soft Lockup on netdev_pick_tx due to zero real_num_tx_queues When Executing ip link del veth0">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">ovs veth peer Soft Lockup on netdev_pick_tx due to zero real_num_tx_queues When Executing ip link del veth0</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/net/network/" title="network">
+                        <span class="hidden-mobile">network</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '29ee0b34575c07e0cabd7e5ad98e524c'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
