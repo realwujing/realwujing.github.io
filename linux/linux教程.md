@@ -426,6 +426,7 @@ sudo update-alternatives --config python
 ### lsof
 
 - [技术|Linux 命令神器：lsof 入门](https://linux.cn/article-4099-1.html)
+- [一切皆文件 – Linux lsof 妙用技巧](https://www.toutiao.com/article/7487163678207410723)
 
 使用-c查看指定的命令正在使用的文件和网络连接:
 
