@@ -45,7 +45,7 @@ args->irq：表示注入的中断号（IRQ 向量）。
 
 追踪pick_next_task_fair函数内部:
 ```bash
-sudo stap -ve '
+stap -ve '
 probe kernel.statement("pick_next_task_fair@kernel/sched/fair.c:*") {
     printf("%s\n", pp());
 }
