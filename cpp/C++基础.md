@@ -41,6 +41,7 @@
 - [预处理命令使用详解#if、#endif、#undef、#ifdef、#else、#elif - 蓝海人 - 博客园 (cnblogs.com)](https://www.cnblogs.com/lanhaicode/p/10546514.html)
 - [与c++握手言和：define宏定义遇上expected primary-expression before ' ' taken](https://blog.csdn.net/sinat_28752257/article/details/84989928)
 - [#pragma once用法总结](https://www.cnblogs.com/acec/p/14674448.html)
+- [<font color=Red>卧槽！C 语言宏定义原来可以玩出这些花样？高手必看！</font>](https://mp.weixin.qq.com/s/793bb2lbto3OT97hc4WwTQ)
 
 ### const、define
 
