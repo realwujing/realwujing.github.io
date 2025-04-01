@@ -1537,6 +1537,83 @@ MSI（Message Signaled Interrupts）和 MSI-X 是现代设备使用的中断机�
 - [FT2000+ openEuler 20.03 LTS SP3 yum install qemu手动创建虚拟机 图形界面安装openEuler 20.03系统](https://blog.csdn.net/hknaruto/article/details/130154674)
 - [解决qemu-system-aarch64 Guest has not initialized the display (yet)](https://blog.csdn.net/hknaruto/article/details/127515804)
 
+## 内存虚拟化
+
+假设给vm分配6GB内存，qemu kvm初始化的时候是直接将6GB内存全部通过EPT页表初始化好吗？
+
+在使用 QEMU/KVM 虚拟化技术为虚拟机（VM）分配 6GB 内存时，KVM 并不在初始化时直接将全部 6GB 内存通过扩展页表（EPT，Extended Page Table）完全映射或分配好。实际的内存分配和 EPT 页表的初始化过程是动态的，依赖于宿主机的内存管理机制和 VM 的实际使用情况。以下是详细的解释：
+
+---
+
+### 1. **EPT 的作用**
+- **EPT 是啥**：EPT 是 Intel VT-x 技术中的硬件辅助分页机制，用于将 VM 的客户物理地址（Guest Physical Address, GPA）映射到宿主机的真实物理地址（Host Physical Address, HPA）。它类似于传统页表，但专为虚拟化设计，减少了软件层（如 VMM）的开销。
+- **初始化时机**：EPT 页表由 KVM 在 VM 启动时创建，但具体内容的填充是按需进行的，而不是一次性将全部 6GB 内存映射好。
+
+---
+
+### 2. **内存分配的机制**
+- **QEMU 的角色**：
+  - 当你通过 QEMU 指定 `-m 6G` 为 VM 分配 6GB 内存时，QEMU 只是告诉 KVM 这个 VM 的内存上限是 6GB。它会在用户空间分配一个虚拟内存区域（Virtual Memory Area, VMA），但这只是地址空间的预留，不会立即占用物理内存。
+  - QEMU 通过 `mmap` 或类似系统调用为 VM 预留 6GB 的虚拟地址空间，并将其注册到 KVM。
+
+- **KVM 的角色**：
+  - KVM 在内核态接管内存管理。它通过 `kvm_vcpu` 和 `kvm_mmu` 模块初始化 VM 的内存管理单元（MMU），包括 EPT。
+  - KVM 并不直接分配 6GB 的物理内存，而是依赖宿主机的页面分配机制（即按需分配，demand paging）。
+
+- **宿主机的按需分配**：
+  - 现代操作系统（如 Linux）使用“懒分配”（lazy allocation）策略。VM 的 6GB 内存只是逻辑上的承诺，实际物理页面只有在 VM 访问对应地址时才会分配。
+  - 当 VM 的 vCPU 尝试访问某个 GPA 时，如果对应的 EPT 条目尚未映射，就会触发 EPT Violation（类似于页面故障），KVM 捕获此异常并分配物理页面。
+
+---
+
+### 3. **EPT 初始化过程**
+- **启动时的 EPT**：
+  - VM 启动时，KVM 会为每个 vCPU 创建一个空的 EPT 页表结构（根表，如 PML4），但不会预先填充所有 6GB 内存的映射。
+  - EPT 的条目（映射 GPA 到 HPA）是动态填充的，只有当 VM 实际访问某个内存区域时，KVM 才会：
+    1. 分配宿主物理页面。
+    2. 更新 EPT，将 GPA 映射到新分配的 HPA。
+    3. 返回控制权给 vCPU，继续执行。
+
+- **内存填充的触发**：
+  - 例如，VM 的 Guest OS（假设是 Linux）在启动时会初始化自己的页表并访问内存，这会触发 EPT Violation。
+  - KVM 捕获后分配物理页面，填充 EPT，逐步构建完整的映射。
+
+---
+
+### 4. **实际内存占用**
+- **初始化时的占用**：
+  - 在 VM 刚启动时，即使指定了 6GB 内存，实际占用的宿主物理内存可能只有几 MB（例如，Guest OS 的内核代码、初始数据结构等）。
+  - 你可以用 `top` 或 `free -m` 查看宿主机的内存使用情况，QEMU 进程的 RES（驻留内存）远低于 6GB。
+
+- **动态增长**：
+  - 随着 VM 运行并访问更多内存（例如加载应用、分配缓冲区），EPT 映射会逐渐扩展，物理内存占用增加，直到接近 6GB（如果 VM 全部使用）。
+
+---
+
+### 5. **例外情况：预分配内存**
+- **默认行为可以改变**：
+  - 如果你在 QEMU 启动时加上 `-mem-prealloc` 参数，QEMU 会强制在初始化时将 6GB 内存全部分配并锁定（通过 `mlock`），这时 EPT 会被预先填充完整的映射。
+  - 这种方式会立即占用宿主机的 6GB 物理内存，适用于需要避免页面故障延迟的场景（如实时系统），但会增加启动时间和宿主机内存压力。
+
+- **Huge Pages**：
+  - 如果使用大页（Huge Pages，如 2MB 或 1GB），EPT 的初始化会基于大页粒度，可能减少页表条目数，但分配仍按需进行，除非启用预分配。
+
+---
+
+### 6. **从你的场景推测**
+- 你的 `fio` 测试分配了 10GB 文件（`-size=10G`），但运行时只写了约 3.6GB（`io=3600MiB`）。这表明：
+  - VM 的 Guest OS 只为实际写入的部分分配了内存，EPT 映射也只覆盖了这部分。
+  - 如果 VM 配置了 6GB 内存，剩余未使用的内存不会触发 EPT 初始化。
+
+---
+
+### 结论
+- **默认情况**：QEMU/KVM 初始化时不会直接将 6GB 内存全部通过 EPT 页表映射好。EPT 的创建是动态的，按需分配，只有 VM 访问的内存区域才会被映射。
+- **例外**：使用 `-mem-prealloc` 或类似选项时，会预分配并初始化整个 6GB 的 EPT 映射，但这不是默认行为。
+- **验证方法**：
+  - 启动 VM 后，检查宿主机的 `free -m` 和 QEMU 进程的内存占用。
+  - 使用 `perf kvm stat` 或 `kvm_stat` 查看 EPT Violation 的频率，确认按需分配的动态过程。
+
 ## KVM性能优化
 
 - [KVM性能优化最佳实践](https://blog.csdn.net/allway2/article/details/102760738)
