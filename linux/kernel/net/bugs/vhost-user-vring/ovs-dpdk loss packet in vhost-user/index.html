@@ -24,7 +24,7 @@
 <meta property="og:description" content="ovs-dpdk loss packet in vhost-user ovs-dpdk观察vring 在host上观察到vring一直都是满的：  kvm统计中断注入 kvm:kvm_inj_virq：表示 KVM 向 guest 注入虚拟中断。 kvm:kvm_set_irq：表示设置某个中断请求（IRQ）。 kvm:kvm_exit 和 kvm:kvm_entry：用于追踪 VM Exit 和">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-03-28T21:53:17.000Z">
-<meta property="article:modified_time" content="2025-03-28T21:53:17.000Z">
+<meta property="article:modified_time" content="2025-04-01T09:49:19.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="bpf">
 <meta property="article:tag" content="bcc">
@@ -326,6 +326,14 @@
             <!-- SEO header -->
             <h1 style="display: none">ovs-dpdk loss packet in vhost-user</h1>
             
+              <p class="note note-info">
+                
+                  
+                    本文最后更新于：2025年4月1日 上午
+                  
+                
+              </p>
+            
             
               <div class="markdown-body">
                 
@@ -358,7 +366,7 @@ src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/trace_pick_next_task_idl
 alt="trace_pick_next_task_idle" />
 <figcaption aria-hidden="true">trace_pick_next_task_idle</figcaption>
 </figure>
-<p>追踪pick_next_task_fair函数内部: <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo stap -ve <span class="hljs-string">&#x27;</span><br><span class="hljs-string">probe kernel.statement(&quot;pick_next_task_fair@kernel/sched/fair.c:*&quot;) &#123;</span><br><span class="hljs-string">    printf(&quot;%s\n&quot;, pp());</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">&#x27;</span> -DSTP_NO_BUILDID_CHECK<br></code></pre></td></tr></table></figure></p>
+<p>追踪pick_next_task_fair函数内部: <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">stap -ve <span class="hljs-string">&#x27;</span><br><span class="hljs-string">probe kernel.statement(&quot;pick_next_task_fair@kernel/sched/fair.c:*&quot;) &#123;</span><br><span class="hljs-string">    printf(&quot;%s\n&quot;, pp());</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">&#x27;</span> -DSTP_NO_BUILDID_CHECK<br></code></pre></td></tr></table></figure></p>
 <p>追踪 net_rx_action 实际耗时:</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;</span><br><span class="hljs-string">kprobe:net_rx_action &#123; </span><br><span class="hljs-string">    @start[tid] = nsecs; </span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">kretprobe:net_rx_action /@start[tid]/ &#123; </span><br><span class="hljs-string">    @latency_us = hist((nsecs - @start[tid]) / 1000);  // 转换为微秒再生成直方图</span><br><span class="hljs-string">    delete(@start[tid]); </span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">interval:s:1 &#123;</span><br><span class="hljs-string">    print(@latency_us);</span><br><span class="hljs-string">    clear(@latency_us);</span><br><span class="hljs-string">&#125;&#x27;</span><br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">bpftrace -e <span class="hljs-string">&#x27;</span><br><span class="hljs-string">kretprobe:virtnet_poll &#123;</span><br><span class="hljs-string">    printf(&quot;time=%ld.%ld retval=%d cpu=%d pid=%d comm=%s\n&quot;, </span><br><span class="hljs-string">           nsecs / 1000, nsecs % 1000, </span><br><span class="hljs-string">           retval, cpu, pid, comm);</span><br><span class="hljs-string">    printf(&quot;stack:\n%s\n&quot;, kstack);</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">&#x27;</span><br></code></pre></td></tr></table></figure>
