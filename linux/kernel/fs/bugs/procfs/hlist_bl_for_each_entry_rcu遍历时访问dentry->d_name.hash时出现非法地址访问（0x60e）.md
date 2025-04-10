@@ -1,4 +1,6 @@
-# BUG: kernel NULL pointer dereference, address: 000000000000060e
+# hlist_bl_for_each_entry_rcu遍历时访问dentry->d_name.hash时出现非法地址访问（0x60e）
+
+BUG: kernel NULL pointer dereference, address: 000000000000060e
 
 - [linux 线程内核栈内存溢出导致系统崩溃 关键内存问题定位](https://zhuanlan.zhihu.com/p/13843033554)
 - [一文读懂 | Linux 中的各种栈：进程栈 线程栈 内核栈 中断栈](https://cloud.tencent.com/developer/article/2168474)
