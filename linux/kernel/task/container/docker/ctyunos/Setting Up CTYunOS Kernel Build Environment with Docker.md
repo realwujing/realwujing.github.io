@@ -101,7 +101,7 @@ gpgcheck=0
 
 ```bash
 yum makecache
-yum install dnf-plugins-core git bash-completion -y
+yum install dnf-plugins-core git bash-completion rpm-build rpmdevtools -y
 cd /root/code/linux
 git checkout openeuler-4-19/release-0068.y
 yum-builddep build/spec/kernel.spec -y
@@ -131,8 +131,21 @@ fi
 for dir in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do
     rm -rf /root/rpmbuild/"$dir"/*
 done
+```
 
-mkdir -p /root/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+生成标准 RPM 构建目录结构:
+```bash
+rpmdev-setuptree
+```
+
+这会生成如下目录结构：
+```bash
+/root/rpmbuild/
+    ├── BUILD
+    ├── RPMS
+    ├── SOURCES
+    ├── SPECS
+    └── SRPMS
 ```
 
 ### 交叉编译
