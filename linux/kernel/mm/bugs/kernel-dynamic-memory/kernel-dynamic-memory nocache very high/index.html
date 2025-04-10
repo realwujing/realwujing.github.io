@@ -1,0 +1,2316 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="kernel-dynamic-memory nocache very high 环境 内存占用过高，怀疑有10 GB内存丢失。 12[root@gz03-SDK-server-10e50e63e22 secure]# uname -aLinux gz03-SDK-server-10e50e63e22 3.10.0-957.el7.x86_64 #1 SMP Thu Nov 8 23:39:32 U">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kernel-dynamic-memory nocache very high">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/mm/bugs/kernel-dynamic-memory/kernel-dynamic-memory%20nocache%20very%20high/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="kernel-dynamic-memory nocache very high 环境 内存占用过高，怀疑有10 GB内存丢失。 12[root@gz03-SDK-server-10e50e63e22 secure]# uname -aLinux gz03-SDK-server-10e50e63e22 3.10.0-957.el7.x86_64 #1 SMP Thu Nov 8 23:39:32 U">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-04-10T16:20:53.000Z">
+<meta property="article:modified_time" content="2025-04-10T16:20:53.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="namespace">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>kernel-dynamic-memory nocache very high - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="kernel-dynamic-memory nocache very high"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-04-10 16:20" pubdate>
+          2025年4月10日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          37k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          311 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">kernel-dynamic-memory nocache very high</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="kernel-dynamic-memory-nocache-very-high">kernel-dynamic-memory
+nocache very high</h1>
+<h2 id="环境">环境</h2>
+<p>内存占用过高，怀疑有10 GB内存丢失。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gz03-SDK-server-10e50e63e22 secure]<span class="hljs-comment"># uname -a</span><br>Linux gz03-SDK-server-10e50e63e22 3.10.0-957.el7.x86_64 <span class="hljs-comment">#1 SMP Thu Nov 8 23:39:32 UTC 2018 x86_64 x86_64 x86_64 GNU/Linux</span><br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gz03-SDK-server-10e50e63e22 secure]<span class="hljs-comment"># cat /etc/os-release</span><br>NAME=<span class="hljs-string">&quot;CentOS Linux&quot;</span><br>VERSION=<span class="hljs-string">&quot;7 (Core)&quot;</span><br>ID=<span class="hljs-string">&quot;centos&quot;</span><br>ID_LIKE=<span class="hljs-string">&quot;rhel fedora&quot;</span><br>VERSION_ID=<span class="hljs-string">&quot;7&quot;</span><br>PRETTY_NAME=<span class="hljs-string">&quot;CentOS Linux 7 (Core)&quot;</span><br>ANSI_COLOR=<span class="hljs-string">&quot;0;31&quot;</span><br>CPE_NAME=<span class="hljs-string">&quot;cpe:/o:centos:centos:7&quot;</span><br>HOME_URL=<span class="hljs-string">&quot;https://www.centos.org/&quot;</span><br>BUG_REPORT_URL=<span class="hljs-string">&quot;https://bugs.centos.org/&quot;</span><br><br>CENTOS_MANTISBT_PROJECT=<span class="hljs-string">&quot;CentOS-7&quot;</span><br>CENTOS_MANTISBT_PROJECT_VERSION=<span class="hljs-string">&quot;7&quot;</span><br>REDHAT_SUPPORT_PRODUCT=<span class="hljs-string">&quot;centos&quot;</span><br>REDHAT_SUPPORT_PRODUCT_VERSION=<span class="hljs-string">&quot;7&quot;</span><br></code></pre></td></tr></table></figure>
+<h2 id="根因定位">根因定位</h2>
+<h3 id="free--h">free -h</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gz03-SDK-server-10e50e63e22 secure]<span class="hljs-comment"># free -h</span><br>              total        used        free      shared  buff/cache   available<br>Mem:            31G         23G        5.3G        1.0G        2.0G        5.8G<br>Swap:            0B          0B          0B<br></code></pre></td></tr></table></figure>
+<h3 id="top">top</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gz03-SDK-server-10e50e63e22 secure]<span class="hljs-comment"># top</span><br>top - 15:16:17 up 240 days, 16:59,  1 user,  load average: 0.00, 0.05, 0.05<br>Tasks: 422 total,   1 running, 421 sleeping,   0 stopped,   0 zombie<br>%Cpu(s):  0.1 us,  0.1 sy,  0.0 ni, 99.8 <span class="hljs-built_in">id</span>,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st<br>KiB Mem : 32761856 total,  5595952 free, 25024292 used,  2141612 buff/cache<br>KiB Swap:        0 total,        0 free,        0 used.  6071504 avail Mem<br><br>    PID USER      PR  NI    VIRT    RES    SHR S  %CPU %MEM     TIME+ COMMAND<br>      1 root      20   0 1080916 889928   1736 S   0.0  2.7 215:42.26 systemd<br>  88707 root      20   0 3717704 387888   6328 S   0.0  1.2   0:59.11 uwsgi<br>  88698 root      20   0 3739964 169808   6316 S   0.0  0.5   0:27.72 uwsgi<br> 264328 root      20   0  755228 161684   3000 S   3.0  0.5   1999:43 titanagent<br>  88697 root      20   0 3713292 140496   6312 S   0.0  0.4   0:20.30 uwsgi<br>  88699 root      20   0 3712568 132564   6236 S   0.0  0.4   0:09.40 uwsgi<br> 427892 root      20   0 3714128  90012   6324 S   0.0  0.3   0:29.36 uwsgi<br> 432638 root      20   0 3712864  75784   6316 S   0.0  0.2   0:32.84 uwsgi<br> 430059 root      20   0 3712328  75384   6312 S   0.0  0.2   0:33.01 uwsgi<br> 442099 root      20   0 3713412  75236   6316 S   0.0  0.2   0:33.49 uwsgi<br> 431569 root      20   0 3712448  75024   6324 S   0.0  0.2   0:31.07 uwsgi<br> 435775 root      20   0 3712332  74780   6324 S   0.0  0.2   0:32.13 uwsgi<br> 450706 root      20   0 3712448  74568   6316 S   0.0  0.2   0:26.77 uwsgi<br> 426368 root      20   0 3712340  74556   6324 S   0.0  0.2   0:25.44 uwsgi<br> 429462 root      20   0 3712912  74496   6324 S   0.0  0.2   0:31.80 uwsgi<br> 427636 root      20   0 3712352  74488   6324 S   0.0  0.2   0:27.87 uwsgi<br> 428704 root      20   0 3713132  74264   6304 S   0.0  0.2   0:30.53 uwsgi<br> 424777 root      20   0 3712644  73920   6324 S   0.0  0.2   0:22.61 uwsgi<br> 426223 root      20   0 3711940  73060   6324 S   0.0  0.2   0:24.35 uwsgi<br> 423904 root      20   0 3712632  72284   6324 S   0.0  0.2   0:22.62 uwsgi<br>  11945 root      20   0  913036  50804   8312 S   0.0  0.2   1848:42 telegraf<br>  40299 root      20   0 2452284  38236   7076 S   0.0  0.1  20:36.14 dockerd<br>  84662 root      20   0   55092  36380   9660 S   0.0  0.1   0:46.21 uwsgi<br>  87040 998       20   0   39528  29124    752 S   0.0  0.1   1:54.56 nginx<br>  87042 998       20   0   39404  28788    668 S   0.0  0.1   0:02.01 nginx<br>  87048 998       20   0   39404  28788    668 S   0.0  0.1   0:10.02 nginx<br>  87053 998       20   0   39404  28788    668 S   0.0  0.1   0:01.92 nginx<br>  87060 998       20   0   39404  28788    668 S   0.0  0.1   0:16.18 nginx<br>  87062 998       20   0   39404  28788    668 S   0.0  0.1   0:17.94 nginx<br>  87067 998       20   0   39404  28304    308 S   0.0  0.1   0:01.96 nginx<br>  87072 998       20   0   39404  28304    308 S   0.0  0.1   0:11.70 nginx<br>3689400 nginx     20   0   75060  27852    240 S   0.0  0.1   7:33.00 nginx<br>3689401 nginx     20   0   75060  27844    232 S   0.0  0.1   7:27.37 nginx<br>  30084 root      20   0 2792044  26672   4176 S   0.0  0.1  36:55.66 containerd<br>   5677 root      20   0   55848  18380  17992 S   0.0  0.1  30:51.40 systemd-journal<br>3402461 root      20   0  787500  14000  11848 S   0.0  0.0   3:02.01 rsyslogd<br>  83054 root      20   0   38688  13932  12956 S   0.0  0.0   0:05.77 systemd-journal<br>  11944 root      20   0  717708  11980   3964 S   0.0  0.0  63:21.16 eAgent<br>  11950 root      20   0  573816  11776    620 S   0.0  0.0  64:48.91 tuned<br>  90821 root      20   0  719620  11488   3828 S   0.0  0.0  57:09.81 vnet-proxy<br>  11942 root      20   0  728600   9628   2804 S   0.0  0.0  29:47.50 monitor_exporte<br>  10934 polkitd   20   0  612472   8780   1004 S   0.0  0.0   8:19.54 polkitd<br>  82993 root      20   0   23052   7224   4988 S   0.0  0.0   0:06.80 systemd<br>  67000 haproxy   20   0  736924   7216    128 S   0.3  0.0 619:39.23 haproxy<br>  82972 root      20   0  712376   7124   4468 S   0.0  0.0   0:35.95 containerd-shim<br>  83662 root      20   0   30060   4956   3352 S   0.0  0.0   0:00.68 systemd-udevd<br> 496355 root      20   0  115772   4672   3616 S   0.0  0.0   0:00.00 sshd<br>  83695 systemd+  20   0   18908   4400   3472 S   0.0  0.0   0:00.23 systemd-network<br>  11094 root      20   0  271792   4320   1200 S   0.0  0.0 377:14.87 vmtoolsd<br> 496387 root      20   0  218212   4196   3140 S   0.0  0.0   0:00.00 sudo<br></code></pre></td></tr></table></figure>
+<h3 id="smem--wk">smem -wk</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gz03-SDK-server-10e50e63e22 secure]<span class="hljs-comment"># smem -wk</span><br>Area                           Used      Cache   Noncache<br>firmware/hardware                 0          0          0<br>kernel image                      0          0          0<br>kernel dynamic memory         22.6G       1.7G      21.0G<br>userspace memory               3.1G      99.8M       3.0G<br>free memory                    5.5G       5.5G          0<br></code></pre></td></tr></table></figure>
+<p><code>smem -wk</code>
+是一个用于查看系统内存使用情况的命令，输出结果概要如下：</p>
+<ol type="1">
+<li><strong>各区域内存分布</strong>：
+<ul>
+<li><code>kernel dynamic memory</code>：内核动态内存占用
+<strong>22.6G</strong>（缓存 1.7G + 非缓存 21.0G）</li>
+<li><code>userspace memory</code>：用户空间程序占用
+<strong>3.1G</strong>（缓存 99.8M + 非缓存 3.0G）</li>
+<li><code>free memory</code>：剩余可用内存
+<strong>5.5G</strong>（全部为缓存）</li>
+</ul></li>
+<li><strong>关键指标</strong>：
+<ul>
+<li><strong>总内存</strong> ≈ 22.6G + 3.1G + 5.5G =
+<strong>31.2G</strong>（假设为32G物理内存）</li>
+<li><strong>内核占用较高</strong>（21G非缓存），可能处理大量内核态任务。</li>
+<li><strong>用户空间内存</strong>较少，系统可能主要运行内核服务。</li>
+</ul></li>
+<li><strong>选项作用</strong>：
+<ul>
+<li><code>-w</code>：显示更宽的输出格式（含完整分类）。</li>
+<li><code>-k</code>：显示带单位的缩写后缀（例如 KB、MB 等）。</li>
+</ul></li>
+</ol>
+<h3 id="smem--s-rss--rtk">smem -s rss -rtk</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gz03-SDK-server-10e50e63e22 secure]<span class="hljs-comment"># smem -s rss -rtk</span><br>  PID User     Command                         Swap      USS      PSS      RSS<br>    1 root     /usr/lib/systemd/systemd --        0   868.5M   868.6M   869.1M<br>88707 root     /bin/uwsgi --ini /opt/sdk_p        0   365.8M   366.6M   381.9M<br>88698 root     /bin/uwsgi --ini /opt/sdk_p        0   155.2M   156.0M   171.3M<br>264328 root     ./titanagent -d -b /etc/tit        0   158.5M   158.6M   159.3M<br>88697 root     /bin/uwsgi --ini /opt/sdk_p        0   127.3M   128.1M   143.3M<br>88699 root     /bin/uwsgi --ini /opt/sdk_p        0   119.4M   120.3M   135.6M<br>427892 root     /bin/uwsgi --ini /opt/sdk_p        0    78.0M    78.8M    94.1M<br>442099 root     /bin/uwsgi --ini /opt/sdk_p        0    63.6M    64.4M    79.7M<br>432638 root     /bin/uwsgi --ini /opt/sdk_p        0    63.5M    64.3M    79.5M<br>430059 root     /bin/uwsgi --ini /opt/sdk_p        0    63.3M    64.1M    79.3M<br>431569 root     /bin/uwsgi --ini /opt/sdk_p        0    63.1M    63.9M    79.2M<br>428704 root     /bin/uwsgi --ini /opt/sdk_p        0    63.0M    63.8M    79.0M<br>429462 root     /bin/uwsgi --ini /opt/sdk_p        0    62.8M    63.6M    78.8M<br>427636 root     /bin/uwsgi --ini /opt/sdk_p        0    62.7M    63.5M    78.7M<br>426368 root     /bin/uwsgi --ini /opt/sdk_p        0    62.6M    63.4M    78.7M<br>435775 root     /bin/uwsgi --ini /opt/sdk_p        0    62.2M    63.0M    78.3M<br>450706 root     /bin/uwsgi --ini /opt/sdk_p        0    62.0M    62.8M    78.1M<br>424777 root     /bin/uwsgi --ini /opt/sdk_p        0    61.7M    62.5M    77.8M<br>426223 root     /bin/uwsgi --ini /opt/sdk_p        0    61.3M    62.1M    77.3M<br>423904 root     /bin/uwsgi --ini /opt/sdk_p        0    61.1M    61.9M    77.2M<br>11945 root     /opt/app/telegraf/telegraf         0    52.9M    52.9M    52.9M<br>40299 root     /usr/bin/dockerd -H fd:// -        0    39.7M    39.7M    39.7M<br>84662 root     /bin/uwsgi --ini /opt/sdk_p        0    19.8M    21.4M    35.5M<br>87040 998      nginx: worker proces               0    26.9M    27.1M    28.4M<br>87060 998      nginx: worker proces               0    26.7M    26.9M    28.2M<br>87062 998      nginx: worker proces               0    26.7M    26.9M    28.2M<br>87053 998      nginx: worker proces               0    26.7M    26.8M    28.2M<br>87048 998      nginx: worker proces               0    26.7M    26.8M    28.2M<br>87042 998      nginx: worker proces               0    26.7M    26.8M    28.2M<br>87067 998      nginx: worker proces               0    26.6M    26.7M    27.9M<br>87072 998      nginx: worker proces               0    26.6M    26.7M    27.9M<br>30084 root     /usr/bin/containerd                0    27.4M    27.4M    27.4M<br>3689401 nginx    nginx: worker proces               0    26.2M    26.5M    27.2M<br>3689400 nginx    nginx: worker proces               0    26.2M    26.5M    27.2M<br> 5677 root     /usr/lib/systemd/systemd-jo        0     5.1M     9.9M    17.9M<br>3402461 root     /usr/sbin/rsyslogd -n              0     4.5M     8.0M    13.7M<br>83054 root     /usr/lib/systemd/systemd-jo        0     9.1M    10.3M    13.7M<br>11944 root     /data/web/eAgent/eAgent -p         0    13.1M    13.1M    13.1M<br>11950 root     /usr/bin/python2 -Es /usr/s        0    11.1M    11.4M    12.0M<br>90821 root     /usr/bin/vnet-proxy -conf /        0    11.8M    11.8M    11.8M<br>11942 root     /opt/app/monitor_exporter/m        0    10.5M    10.5M    10.5M<br>507468 root     python /bin/smem -s rss -rt        0     8.3M     8.6M     9.7M<br>10934 polkitd  /usr/lib/polkit-1/polkitd -        0     8.5M     8.6M     9.0M<br>67000 haproxy  /usr/sbin/haproxy -Ws -f /e        0     6.5M     6.9M     7.6M<br>82972 root     /usr/bin/containerd-shim-ru        0     7.5M     7.5M     7.5M<br>82993 root     /usr/sbin/init                     0     3.6M     4.2M     7.1M<br>83662 root     /usr/lib/systemd/systemd-ud        0     2.0M     2.4M     5.1M<br>496355 root     sshd: secure [priv]                0     1.1M     2.4M     4.6M<br>83695 systemd-network /usr/lib/systemd/systemd-ne        0     1.2M     1.7M     4.5M<br>86007 root     /usr/lib/systemd/systemd-lo        0     1.0M     1.5M     4.2M<br>11094 root     /usr/sbin/vmtoolsd                 0     3.8M     3.8M     4.2M<br>496387 root     sudo -s                            0     2.1M     2.7M     4.1M<br>84796 root     sshd: /usr/sbin/sshd -D [li        0     1.9M     2.2M     3.8M<br>82957 root     /usr/bin/docker-proxy -prot        0     1.7M     2.3M     3.2M<br>82950 root     /usr/bin/docker-proxy -prot        0     1.6M     2.2M     3.1M<br>496357 secure   sshd: secure@pts/1                 0   604.0K     1.3M     2.4M<br>84388 991      /usr/bin/dbus-daemon --syst        0     1.1M     1.2M     2.2M<br>496388 root     /bin/bash                          0   504.0K   987.0K     2.1M<br>496361 secure   -bash                              0   448.0K   935.0K     2.1M<br> 5698 root     /usr/lib/systemd/systemd-ud        0     1.4M     1.4M     1.7M<br>12117 root     /usr/sbin/keepalived -D -d         0   260.0K   584.0K     1.6M<br>11132 root     /usr/lib/vmware-vgauth/VGAu        0     1.4M     1.4M     1.4M<br>86326 root     /usr/sbin/crond -n                 0   416.0K   470.0K     1.3M<br>12116 root     /usr/sbin/keepalived -D -d         0   260.0K   559.0K     1.3M<br>10944 dbus     /usr/bin/dbus-daemon --syst        0     1.0M     1.0M     1.3M<br>10943 root     /usr/lib/systemd/systemd-lo        0   880.0K   907.0K     1.2M<br>10946 ntp      /usr/sbin/ntpd -u ntp:ntp -        0   804.0K   847.0K     1.2M<br>12115 root     /usr/sbin/keepalived -D -d         0   100.0K   413.0K     1.2M<br>264334 root     titan_monitor -p 264328 -l         0   744.0K   773.0K     1.1M<br>87030 root     nginx: master process /usr/        0   152.0K   236.0K     1.1M<br>11991 root     /usr/sbin/haproxy -Ws -f /e        0   212.0K   628.0K     1.0M<br>12112 root     sshd: /usr/sbin/sshd -f /et        0   664.0K   733.0K     1.0M<br>10909 root     /sbin/auditd                       0   712.0K   729.0K  1008.0K<br>11007 root     /usr/sbin/crond -n                 0   688.0K   704.0K  1004.0K<br>3689399 root     nginx: master process /usr/        0   160.0K   418.0K   988.0K<br>86484 root     /sbin/agetty -o -p -- \u --        0   176.0K   209.0K   836.0K<br>10942 root     /usr/sbin/irqbalance --fore        0   428.0K   440.0K   628.0K<br>90820 root     /bin/sh -c <span class="hljs-built_in">env</span> GOTRACEBACK=        0   224.0K   224.0K   228.0K<br>-------------------------------------------------------------------------------<br>   78 10                                          0     3.1G     3.2G     3.5G<br></code></pre></td></tr></table></figure>
+<p>这个 <code>smem</code>
+命令用于统计系统中各个进程的内存占用情况，并按内存使用量降序排列。以下是关键点解析：</p>
+<hr />
+<h4 id="命令参数"><strong>1. 命令参数</strong></h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">smem -s rss -rtk<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>-s rss</code>：按 <strong>RSS（常驻内存）</strong>
+降序排序</li>
+<li><code>-r</code>：反向排序（此处与 <code>-t</code>
+配合实际为降序）</li>
+<li><code>-t</code>：显示汇总行（最后一行）</li>
+<li><code>-k</code>：显示带单位的缩写后缀（例如 KB、MB 等）</li>
+</ul>
+<hr />
+<h4 id="关键字段"><strong>2. 关键字段</strong></h4>
+<table>
+
+<thead>
+<tr class="header">
+<th>字段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>PID</strong></td>
+<td>进程 ID</td>
+</tr>
+<tr class="even">
+<td><strong>User</strong></td>
+<td>进程所属用户</td>
+</tr>
+<tr class="odd">
+<td><strong>Command</strong></td>
+<td>进程命令（可能截断）</td>
+</tr>
+<tr class="even">
+<td><strong>Swap</strong></td>
+<td>进程使用的 Swap 内存（全为 0，说明未启用 Swap）</td>
+</tr>
+<tr class="odd">
+<td><strong>USS</strong></td>
+<td>进程独占物理内存（不共享部分）</td>
+</tr>
+<tr class="even">
+<td><strong>PSS</strong></td>
+<td>实际物理内存占用（USS + 共享内存按比例分配）</td>
+</tr>
+<tr class="odd">
+<td><strong>RSS</strong></td>
+<td>常驻内存（含共享内存，可能重复计算）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="重点进程分析"><strong>3. 重点进程分析</strong></h4>
+<ol type="1">
+<li><strong>高内存进程</strong>：
+<ul>
+<li><code>systemd</code>（PID 1）：<strong>869MB
+RSS</strong>（系统主进程）</li>
+<li>多个 <code>uwsgi</code> 进程：每个约 <strong>70-380MB
+RSS</strong>（Python Web 服务）</li>
+<li><code>titanagent</code>：<strong>159MB
+RSS</strong>（可能是自定义服务）</li>
+<li><code>nginx</code> worker：每个约 <strong>28MB RSS</strong>（Web
+服务）</li>
+</ul></li>
+<li><strong>其他服务</strong>：
+<ul>
+<li><code>telegraf</code>（监控）：<strong>53MB RSS</strong></li>
+<li><code>dockerd</code>：<strong>40MB RSS</strong></li>
+<li><code>containerd</code>：<strong>27MB RSS</strong></li>
+</ul></li>
+<li><strong>汇总</strong>（最后一行）：
+<ul>
+<li><strong>78 个进程</strong>，总计占用 <strong>3.5GB
+RSS</strong>（含共享内存重复计算）</li>
+</ul></li>
+</ol>
+<hr />
+<h4 id="内存类型对比"><strong>4. 内存类型对比</strong></h4>
+<ul>
+<li><strong>RSS</strong>（3.5G） &gt; <strong>PSS</strong>（3.2G） &gt;
+<strong>USS</strong>（3.1G）<br />
+说明系统中存在较多共享内存（如 <code>uwsgi</code>/<code>nginx</code>
+可能共享库）。</li>
+</ul>
+<hr />
+<h4 id="优化建议"><strong>5. 优化建议</strong></h4>
+<ol type="1">
+<li><strong>检查 <code>uwsgi</code> 进程</strong>：
+<ul>
+<li>多个同类进程占用较高（总计约
+2GB+），确认是否需优化配置或减少实例数。</li>
+</ul></li>
+<li><strong>监控 <code>systemd</code></strong>：
+<ul>
+<li>主进程占用 869MB，检查是否有异常服务依赖。</li>
+</ul></li>
+<li><strong>共享内存</strong>：
+<ul>
+<li>若需精确统计内存压力，应以 <strong>PSS</strong> 为准（3.2G
+更真实）。</li>
+</ul></li>
+</ol>
+<hr />
+<h4 id="扩展命令"><strong>6. 扩展命令</strong></h4>
+<ul>
+<li>按 <strong>PSS</strong> 排序（更真实）： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">smem -s pss -tk -p<br></code></pre></td></tr></table></figure></li>
+<li>按用户统计： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">smem -u -k<br></code></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="smem--m--s-pss--rtk">smem -m -s pss -rtk</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br><span class="line">240</span><br><span class="line">241</span><br><span class="line">242</span><br><span class="line">243</span><br><span class="line">244</span><br><span class="line">245</span><br><span class="line">246</span><br><span class="line">247</span><br><span class="line">248</span><br><span class="line">249</span><br><span class="line">250</span><br><span class="line">251</span><br><span class="line">252</span><br><span class="line">253</span><br><span class="line">254</span><br><span class="line">255</span><br><span class="line">256</span><br><span class="line">257</span><br><span class="line">258</span><br><span class="line">259</span><br><span class="line">260</span><br><span class="line">261</span><br><span class="line">262</span><br><span class="line">263</span><br><span class="line">264</span><br><span class="line">265</span><br><span class="line">266</span><br><span class="line">267</span><br><span class="line">268</span><br><span class="line">269</span><br><span class="line">270</span><br><span class="line">271</span><br><span class="line">272</span><br><span class="line">273</span><br><span class="line">274</span><br><span class="line">275</span><br><span class="line">276</span><br><span class="line">277</span><br><span class="line">278</span><br><span class="line">279</span><br><span class="line">280</span><br><span class="line">281</span><br><span class="line">282</span><br><span class="line">283</span><br><span class="line">284</span><br><span class="line">285</span><br><span class="line">286</span><br><span class="line">287</span><br><span class="line">288</span><br><span class="line">289</span><br><span class="line">290</span><br><span class="line">291</span><br><span class="line">292</span><br><span class="line">293</span><br><span class="line">294</span><br><span class="line">295</span><br><span class="line">296</span><br><span class="line">297</span><br><span class="line">298</span><br><span class="line">299</span><br><span class="line">300</span><br><span class="line">301</span><br><span class="line">302</span><br><span class="line">303</span><br><span class="line">304</span><br><span class="line">305</span><br><span class="line">306</span><br><span class="line">307</span><br><span class="line">308</span><br><span class="line">309</span><br><span class="line">310</span><br><span class="line">311</span><br><span class="line">312</span><br><span class="line">313</span><br><span class="line">314</span><br><span class="line">315</span><br><span class="line">316</span><br><span class="line">317</span><br><span class="line">318</span><br><span class="line">319</span><br><span class="line">320</span><br><span class="line">321</span><br><span class="line">322</span><br><span class="line">323</span><br><span class="line">324</span><br><span class="line">325</span><br><span class="line">326</span><br><span class="line">327</span><br><span class="line">328</span><br><span class="line">329</span><br><span class="line">330</span><br><span class="line">331</span><br><span class="line">332</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gz03-SDK-server-10e50e63e22 secure]<span class="hljs-comment"># smem -m -s pss -rtk</span><br>Map                                       PIDs   AVGPSS      PSS<br>&lt;anonymous&gt;                                 78    26.3M     2.0G<br>[heap]                                      73    14.4M     1.0G<br>/usr/bin/dockerd                             1    20.6M    20.6M<br>/usr/bin/containerd                          1    14.5M    14.5M<br>/run/log/journal/8db494489b22414a8f3baba     2     6.3M    12.5M<br>/dev/zero                                   31   368.0K    11.2M<br>/run/log/journal/d92103d7ffe243ff8b086ee     1     8.7M     8.7M<br>/opt/app/telegraf/telegraf                   1     8.5M     8.5M<br>/usr/lib64/python2.7/site-packages/crypt    18   353.0K     6.2M<br>/usr/lib64/libpython2.7.so.1.0              21   263.0K     5.4M<br>/usr/lib64/python2.7/site-packages/lxml/    18   292.0K     5.1M<br>/usr/bin/containerd-shim-runc-v2             1     4.6M     4.6M<br>/data/web/eAgent/eAgent                      1     4.4M     4.4M<br>/usr/bin/vnet-proxy                          1     4.0M     4.0M<br>/opt/app/monitor_exporter/monitor_export     1     3.1M     3.1M<br>/usr/lib64/libcrypto.so.1.1.1f              34    78.0K     2.6M<br>/usr/lib64/libcrypto.so.1.0.2k              15   171.0K     2.5M<br>/usr/lib/systemd/systemd                     2     1.2M     2.4M<br>[stack]                                     78    30.0K     2.3M<br>/usr/bin/docker-proxy                        2     1.0M     2.0M<br>/usr/lib/systemd/libsystemd-shared-243.s     5   403.0K     2.0M<br>/usr/lib64/libc-2.17.so                     36    50.0K     1.8M<br>/usr/lib64/libc-2.28.so                     37    34.0K     1.2M<br>/usr/sbin/sshd                               4   228.0K   913.0K<br>/usr/lib64/libkrb5.so.3.3                   15    59.0K   898.0K<br>/usr/sbin/nginx                             12    66.0K   797.0K<br>/usr/bin/bash                                3   264.0K   792.0K<br>/usr/bin/uwsgi                              19    41.0K   790.0K<br>/titan/agent/plugin/libAuditMonitor.so       1   748.0K   748.0K<br>/titan/agent/plugin/libRadar.so              1   732.0K   732.0K<br>/usr/lib64/python2.7/site-packages/_cffi    18    35.0K   630.0K<br>/usr/lib/systemd/systemd-logind              2   302.0K   604.0K<br>/usr/sbin/rsyslogd                           1   556.0K   556.0K<br>/titan/agent/plugin/libLogWatcher.so         1   532.0K   532.0K<br>/usr/sbin/haproxy                            2   258.0K   516.0K<br>/usr/lib/systemd/systemd-udevd               2   252.0K   504.0K<br>/titan/agent/plugin/libDiting.so             1   504.0K   504.0K<br>/usr/lib64/libxml2.so.2.9.10                19    24.0K   458.0K<br>/usr/lib64/python2.7/site-packages/nacl/    18    25.0K   450.0K<br>/usr/lib64/libssl.so.1.1.1f                 33    13.0K   433.0K<br>/usr/lib64/python2.7/lib-dynload/_io.so     20    21.0K   432.0K<br>/usr/lib64/python2.7/site-packages/lxml/    18    23.0K   414.0K<br>/usr/lib/systemd/systemd-journald            2   200.0K   400.0K<br>/usr/libexec/sudo/sudoers.so                 1   396.0K   396.0K<br>/usr/lib/systemd/systemd-networkd            1   384.0K   384.0K<br>/usr/lib64/ld-2.17.so                       36    10.0K   382.0K<br>/usr/lib/vmware-tools/lib64/libcrypto.so     2   180.0K   360.0K<br>/usr/bin/dbus-daemon                         2   174.0K   348.0K<br>/usr/lib64/libgio-2.0.so.0.5600.1            2   170.0K   340.0K<br>/usr/lib64/libssl.so.1.0.2k                 10    33.0K   332.0K<br>/usr/lib64/libmount.so.1.1.0                 8    39.0K   317.0K<br>/usr/lib/vmware-tools/lib64/libvmtools.s     1   300.0K   300.0K<br>/usr/lib64/libpthread-2.17.so               32     9.0K   298.0K<br>/usr/lib64/libglib-2.0.so.0.5600.1           5    59.0K   296.0K<br>/usr/lib64/libselinux.so.1                  31     9.0K   292.0K<br>/usr/lib64/ld-2.28.so                       37     7.0K   278.0K<br>/usr/lib64/libgcrypt.so.20.2.6               7    39.0K   273.0K<br>/usr/lib64/python2.7/site-packages/lxml/    18    15.0K   270.0K<br>/usr/lib64/libdbus-1.so.3.19.11              1   264.0K   264.0K<br>/titan/agent/plugin/libFileMonitor.so        1   252.0K   252.0K<br>/usr/sbin/ntpd                               1   244.0K   244.0K<br>/usr/lib64/python2.7/lib-dynload/itertoo    21    11.0K   244.0K<br>/usr/lib/vmware-tools/lib64/libglib-2.0.     2   118.0K   236.0K<br>/usr/lib64/libpthread-2.28.so               36     6.0K   232.0K<br>/usr/lib64/libnss_files-2.17.so             27     8.0K   231.0K<br>/usr/lib64/security/pam_systemd.so           2   112.0K   224.0K<br>/usr/lib64/python2.7/lib-dynload/termios    18    12.0K   216.0K<br>/usr/lib64/libblkid.so.1.1.0                 9    24.0K   216.0K<br>/usr/lib64/libdbus-1.so.3.14.14              2   106.0K   212.0K<br>/usr/lib64/libgssapi_krb5.so.2.2            15    14.0K   210.0K<br>/usr/lib64/libdl-2.17.so                    32     6.0K   210.0K<br>/usr/lib64/libm-2.17.so                     19    10.0K   202.0K<br>/usr/lib64/librt-2.28.so                    25     8.0K   200.0K<br>/usr/lib64/liblzma.so.5.2.2                 15    13.0K   196.0K<br>/usr/lib64/libsystemd.so.0.6.0               7    27.0K   191.0K<br>/usr/lib64/libtinfo.so.5.9                   3    61.0K   184.0K<br>/usr/lib64/libm-2.28.so                     33     5.0K   181.0K<br>/usr/lib64/libaudit.so.1.0.0                15    11.0K   177.0K<br>/usr/lib64/libsystemd.so.0.27.0              2    86.0K   172.0K<br>/usr/lib64/libgobject-2.0.so.0.5600.1        2    86.0K   172.0K<br>/usr/lib64/libunistring.so.2.1.0             5    34.0K   170.0K<br>/usr/lib64/libpcre.so.1.2.0                 26     6.0K   162.0K<br>/usr/sbin/keepalived                         3    52.0K   157.0K<br>/usr/lib64/librt-2.17.so                    22     7.0K   156.0K<br>/usr/lib64/libgcc_s-4.8.5-20150702.so.1     16     9.0K   156.0K<br>/usr/lib64/libnss3.so                        4    38.0K   152.0K<br>/usr/lib64/python2.7/lib-dynload/operato    21     7.0K   148.0K<br>/usr/lib64/python2.7/lib-dynload/_ctypes    20     7.0K   148.0K<br>/usr/lib64/libgcrypt.so.11.8.2               8    18.0K   148.0K<br>/usr/lib64/libk5crypto.so.3.1               15     9.0K   146.0K<br>/usr/lib64/libdevmapper.so.1.02              6    23.0K   141.0K<br>/usr/lib64/python2.7/lib-dynload/datetim    20     6.0K   139.0K<br>/usr/lib64/python2.7/lib-dynload/_socket    20     6.0K   139.0K<br>/usr/lib64/libexpat.so.1.6.11                1   136.0K   136.0K<br>/usr/lib64/libdw-0.172.so                    9    15.0K   136.0K<br>/usr/lib64/libcap-ng.so.0.0.0               16     8.0K   134.0K<br>/usr/lib64/python2.7/lib-dynload/_collec    21     6.0K   132.0K<br>/titan/agent/titan_monitor                   1   132.0K   132.0K<br>/usr/lib64/libnss_myhostname.so.2           19     6.0K   128.0K<br>/usr/lib64/libz.so.1.2.7                    21     5.0K   125.0K<br>/usr/lib/vmware-tools/plugins64/vmsvc/li     1   124.0K   124.0K<br>/usr/bin/sudo                                1   124.0K   124.0K<br>/usr/lib64/libcryptsetup.so.12.6.0           5    23.0K   115.0K<br>/usr/lib64/libnssutil3.so                    4    28.0K   114.0K<br>/usr/lib64/libseccomp.so.2.5.0               5    22.0K   113.0K<br>/var/lib/containerd/io.containerd.metada     1   112.0K   112.0K<br>/usr/lib64/libattr.so.1.1.0                 17     6.0K   110.0K<br>/usr/sbin/crond                              2    54.0K   108.0K<br>/usr/lib64/libresolv-2.17.so                18     5.0K   107.0K<br>/usr/lib64/python2.7/lib-dynload/_json.s    19     5.0K   106.0K<br>/usr/lib64/python2.7/lib-dynload/_functo    21     4.0K   104.0K<br>/usr/lib64/libkrb5support.so.0.1            15     6.0K   104.0K<br>/usr/lib/vmware-tools/sbin64/vmtoolsd        1   100.0K   100.0K<br>/usr/lib/vmware-tools/lib64/libDeployPkg     1   100.0K   100.0K<br>/usr/lib/vmware-tools/bin64/appLoader        1   100.0K   100.0K<br>/usr/lib/vmware-tools/lib64/libpcre.so.1     2    48.0K    96.0K<br>/usr/lib64/libcap.so.2.22                   15     6.0K    94.0K<br>/usr/libexec/sudo/libsudo_util.so.0.0.0      1    92.0K    92.0K<br>/usr/lib64/libmozjs-17.0.so                  1    92.0K    92.0K<br>/usr/lib/vmware-tools/lib64/libgobject-2     1    92.0K    92.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    92.0K    92.0K<br>/usr/lib64/python2.7/site-packages/.libs    18     5.0K    90.0K<br>/usr/lib64/libuuid.so.1.3.0                 29     3.0K    88.0K<br>/usr/lib64/libcom_err.so.2.1                15     5.0K    88.0K<br>/usr/lib/vmware-tools/lib64/libssl.so.1.     2    44.0K    88.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    88.0K    88.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    88.0K    88.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    88.0K    88.0K<br>/usr/lib64/liblz4.so.1.9.2                   7    12.0K    87.0K<br>/usr/lib64/libpam.so.0.83.1                  6    14.0K    85.0K<br>/usr/lib64/libnspr4.so                       5    17.0K    85.0K<br>/usr/lib64/libgpg-error.so.0.29.0            7    12.0K    84.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    84.0K    84.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    84.0K    84.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    84.0K    84.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    84.0K    84.0K<br>/usr/lib64/libkmod.so.2.3.5                  5    16.0K    83.0K<br>/usr/lib64/python2.7/lib-dynload/_ssl.so    20     4.0K    80.0K<br>/usr/lib64/libstdc++.so.6.0.19               2    40.0K    80.0K<br>/usr/lib64/libpcap.so.1.9.1                  5    16.0K    80.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    80.0K    80.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    80.0K    80.0K<br>/usr/lib64/libsepol.so.1                     6    13.0K    78.0K<br>/usr/lib64/libelf-0.172.so                  12     6.0K    78.0K<br>/usr/lib64/python2.7/lib-dynload/_struct    21     3.0K    76.0K<br>/usr/lib64/libldap-2.4.so.2.10.7             1    76.0K    76.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    76.0K    76.0K<br>/usr/lib64/python2.7/site-packages/crypt    18     4.0K    72.0K<br>/usr/lib64/python2.7/site-packages/bcryp    18     4.0K    72.0K<br>/usr/lib64/libssl3.so                        1    72.0K    72.0K<br>/usr/lib64/libpcre2-8.so.0.10.0             17     4.0K    72.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    72.0K    72.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    72.0K    72.0K<br>/usr/lib64/libbz2.so.1.0.6                  12     5.0K    70.0K<br>/usr/lib64/liblz4.so.1.7.5                   8     8.0K    68.0K<br>/usr/lib64/libkeyutils.so.1.5               14     4.0K    68.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    68.0K    68.0K<br>/usr/lib64/libutil-2.17.so                  10     6.0K    66.0K<br>/usr/sbin/auditd                             1    64.0K    64.0K<br>/usr/lib64/libgpg-error.so.0.10.0            8     8.0K    64.0K<br>/usr/lib64/libgcc_s-7.3.0-20190804.so.1     35     1.0K    64.0K<br>/usr/lib64/libdl-2.28.so                    36     1.0K    64.0K<br>/usr/lib/polkit-1/polkitd                    1    64.0K    64.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    64.0K    64.0K<br>/usr/lib/locale/locale-archive               8     7.0K    63.0K<br>/usr/lib64/libnetsnmp.so.31.0.2              3    20.0K    61.0K<br>/usr/lib64/python2.7/lib-dynload/stropmo    21     2.0K    60.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    60.0K    60.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    60.0K    60.0K<br>/usr/sbin/agetty                             1    56.0K    56.0K<br>/usr/lib64/python2.7/lib-dynload/cPickle    20     2.0K    56.0K<br>/usr/lib64/libudev.so.1.6.2                  2    28.0K    56.0K<br>/usr/lib64/libsmime3.so                      1    56.0K    56.0K<br>/usr/lib64/liblzma.so.5.2.5                 26     2.0K    56.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    56.0K    56.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    56.0K    56.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    56.0K    56.0K<br>/usr/lib64/libudev.so.1.6.15                 5    11.0K    55.0K<br>/usr/lib64/libjson-c.so.5.1.0                5    11.0K    55.0K<br>/usr/lib64/libfreebl3.so                    13     4.0K    55.0K<br>/usr/lib64/libcrypt-2.17.so                 13     4.0K    55.0K<br>/usr/lib64/libstdc++.so.6.0.24               9     6.0K    54.0K<br>/usr/lib64/python2.7/site-packages/_dbus     1    52.0K    52.0K<br>/usr/lib64/python2.7/lib-dynload/_locale    21     2.0K    52.0K<br>/usr/lib64/python2.7/lib-dynload/_heapq.    21     2.0K    52.0K<br>/usr/lib64/libresolv-2.28.so                20     2.0K    52.0K<br>/titan/agent/plugin/libLogCollector.so       1    52.0K    52.0K<br>/run/log/journal/8db494489b22414a8f3baba     1    52.0K    52.0K<br>/usr/lib64/security/pam_unix.so              3    16.0K    50.0K<br>/usr/lib64/libnss_files-2.28.so             34     1.0K    50.0K<br>/usr/lib64/libnsl-2.17.so                    7     7.0K    50.0K<br>/usr/lib64/libcap.so.2.32                    5     9.0K    49.0K<br>/usr/lib64/python2.7/lib-dynload/timemod    21     2.0K    48.0K<br>/usr/lib64/libz.so.1.2.11                   34     1.0K    48.0K<br>/usr/lib64/libshellaudit.so                  3    16.0K    48.0K<br>/usr/lib64/libip4tc.so.2.0.0                 5     9.0K    45.0K<br>/usr/lib64/libidn2.so.0.3.7                  5     9.0K    45.0K<br>/usr/lib64/libattr.so.1.1.2448               5     9.0K    45.0K<br>/usr/lib64/libacl.so.1.1.2253                5     9.0K    45.0K<br>/usr/lib64/libpolkit-gobject-1.so.0.0.0      1    44.0K    44.0K<br>/usr/lib/vmware-tools/plugins64/vmsvc/li     1    44.0K    44.0K<br>/usr/sbin/irqbalance                         1    40.0K    40.0K<br>/usr/lib64/python2.7/lib-dynload/math.so    20     2.0K    40.0K<br>/usr/lib64/libargon2.so.1                    5     8.0K    40.0K<br>/usr/lib/vmware-tools/lib64/libxml2.so.2     1    40.0K    40.0K<br>/usr/lib64/libnetsnmpmibs.so.31.0.2          3    13.0K    39.0K<br>/usr/lib64/python2.7/site-packages/gi/_g     1    36.0K    36.0K<br>/usr/lib64/python2.7/lib-dynload/grpmodu    21     1.0K    36.0K<br>/usr/lib64/python2.7/lib-dynload/arraymo    19     1.0K    36.0K<br>/usr/lib64/perl5/CORE/libperl.so             3    12.0K    36.0K<br>/usr/lib64/libpam.so.0.85.1                  3    12.0K    36.0K<br>/usr/lib64/libexpat.so.1.6.0                 3    12.0K    36.0K<br>/usr/lib64/libdb-5.3.so                      3    12.0K    36.0K<br>/usr/lib/vmware-tools/lib64/libvmtoolsd.     1    36.0K    36.0K<br>/usr/lib64/security/pam_namespace.so         2    16.0K    32.0K<br>/usr/lib64/security/pam_limits.so            3    10.0K    32.0K<br>/usr/lib64/rsyslog/imuxsock.so               1    32.0K    32.0K<br>/usr/lib64/python2.7/lib-dynload/selectm    20     1.0K    32.0K<br>/usr/lib64/python2.7/lib-dynload/_hashli    20     1.0K    32.0K<br>/usr/lib64/libkmod.so.2.2.10                 2    16.0K    32.0K<br>/usr/lib64/libffi.so.6.0.1                   2    16.0K    32.0K<br>/usr/lib64/libcrack.so.2.9.0                 3    10.0K    32.0K<br>/usr/lib/vmware-tools/lib64/libdnet.so.1     1    32.0K    32.0K<br>/usr/lib64/libplc4.so                        5     6.0K    30.0K<br>/usr/lib64/libacl.so.1.1.0                   6     5.0K    30.0K<br>/usr/lib64/rsyslog/imudp.so                  1    28.0K    28.0K<br>/usr/lib64/rsyslog/imjournal.so              1    28.0K    28.0K<br>/usr/lib64/libsasl2.so.3.0.0                 1    28.0K    28.0K<br>/usr/lib64/libfastjson.so.4.0.0              1    28.0K    28.0K<br>/usr/lib64/gconv/gconv-modules.cache         5     5.0K    28.0K<br>/usr/lib64/libplds4.so                       5     5.0K    26.0K<br>/usr/lib64/security/pam_env.so               3     8.0K    25.0K<br>/usr/lib64/security/pam_succeed_if.so        3     8.0K    24.0K<br>/usr/lib64/security/pam_selinux.so           2    12.0K    24.0K<br>/usr/lib64/security/pam_keyinit.so           3     8.0K    24.0K<br>/usr/lib64/rsyslog/lmnet.so                  1    24.0K    24.0K<br>/usr/lib64/python2.7/lib-dynload/fcntlmo    20     1.0K    24.0K<br>/usr/lib64/python2.7/lib-dynload/bz2.so     19     1.0K    24.0K<br>/usr/lib64/python2.7/lib-dynload/_random    20     1.0K    24.0K<br>/usr/lib64/libpwquality.so.1.0.2             3     8.0K    24.0K<br>/usr/lib64/liblber-2.4.so.2.10.7             1    24.0K    24.0K<br>/usr/lib/vmware-tools/plugins64/common/l     1    24.0K    24.0K<br>/usr/lib64/security/pam_tally2.so            1    20.0K    20.0K<br>/usr/lib64/security/pam_pwquality.so         3     6.0K    20.0K<br>/usr/lib64/security/pam_permit.so            3     6.0K    20.0K<br>/usr/lib64/security/pam_localuser.so         3     6.0K    20.0K<br>/usr/lib64/security/pam_lastlog.so           2    10.0K    20.0K<br>/usr/lib64/security/pam_deny.so              3     6.0K    20.0K<br>/usr/lib64/python2.7/lib-dynload/zlibmod    19     1.0K    20.0K<br>/usr/lib64/python2.7/lib-dynload/cString    20     1.0K    20.0K<br>/usr/lib64/python2.7/lib-dynload/_multip    19     1.0K    20.0K<br>/usr/lib64/libkeyutils.so.1.10               1    20.0K    20.0K<br>/usr/lib/vmware-tools/plugins64/vmsvc/li     1    20.0K    20.0K<br>/usr/bin/python2.7                           2    10.0K    20.0K<br>/usr/lib64/security/pam_faildelay.so         3     6.0K    19.0K<br>/usr/lib64/librpm.so.3.2.2                   3     6.0K    18.0K<br>/usr/lib64/libnl-3.so.200.23.0               3     6.0K    18.0K<br>/usr/lib64/security/pam_sepermit.so          2     8.0K    16.0K<br>/usr/lib64/security/pam_loginuid.so          2     8.0K    16.0K<br>/usr/lib64/python2.7/lib-dynload/binasci    20        0    16.0K<br>/usr/lib64/libpam_misc.so.0.82.0             2     8.0K    16.0K<br>/usr/lib64/libgmodule-2.0.so.0.5600.1        2     8.0K    16.0K<br>/usr/lib64/libfipscheck.so.1.2.1             1    16.0K    16.0K<br>/usr/lib64/libestr.so.0.0.0                  1    16.0K    16.0K<br>/usr/lib64/libcrypt.so.1.1.0                29        0    16.0K<br>/usr/lib/vmware-tools/plugins64/vmsvc/li     1    16.0K    16.0K<br>/usr/lib/vmware-tools/plugins64/common/l     1    16.0K    16.0K<br>/usr/lib/vmware-tools/lib64/libz.so.1/li     2     8.0K    16.0K<br>/usr/lib/vmware-tools/lib64/libxmlsec1.s     1    16.0K    16.0K<br>/usr/lib/vmware-tools/lib64/libxmlsec1-o     1    16.0K    16.0K<br>/usr/lib/vmware-tools/lib64/libiconv.so.     2     8.0K    16.0K<br>/usr/lib64/libnetsnmpagent.so.31.0.2         3     5.0K    15.0K<br>/usr/lib64/libwrap.so.0.7.6                  4     3.0K    14.0K<br>/var/lib/docker/volumes/metadata.db          1    12.0K    12.0K<br>/usr/lib64/security/pam_nologin.so           2     6.0K    12.0K<br>/usr/lib64/security/pam_cracklib.so          1    12.0K    12.0K<br>/usr/lib64/python2.7/lib-dynload/unicode    19        0    12.0K<br>/usr/lib64/python2.7/lib-dynload/pyexpat     1    12.0K    12.0K<br>/usr/lib64/python2.7/lib-dynload/_bisect    19        0    12.0K<br>/usr/lib64/libutil-2.28.so                  20        0    12.0K<br>/usr/lib64/librpmio.so.3.2.2                 3     4.0K    12.0K<br>/usr/lib64/libopts.so.25.15.0                1    12.0K    12.0K<br>/usr/lib64/libnss_dns-2.28.so               19        0    12.0K<br>/usr/lib/vmware-tools/plugins64/vmsvc/li     1    12.0K    12.0K<br>/usr/lib64/libnl-genl-3.so.200.23.0          3     3.0K    11.0K<br>/usr/lib64/liblua-5.1.so                     3     3.0K     9.0K<br>/usr/lib64/python2.7/site-packages/marku    19        0     8.0K<br>/usr/lib64/python2.7/site-packages/_dbus     1     8.0K     8.0K<br>/usr/lib64/libpcreposix.so.0.0.1             2     4.0K     8.0K<br>/usr/lib64/libnuma.so.1                      1     8.0K     8.0K<br>/usr/lib64/libgthread-2.0.so.0.5600.1        1     8.0K     8.0K<br>/usr/lib64/libgirepository-1.0.so.1.0.0      1     8.0K     8.0K<br>/usr/lib64/libffi.so.7.1.0                  19        0     8.0K<br>/usr/lib64/libdbus-glib-1.so.2.2.2           1     8.0K     8.0K<br>/usr/lib64/libbz2.so.1.0.8                  19        0     8.0K<br>/usr/lib64/libauparse.so.0.0.0               1     8.0K     8.0K<br>/usr/lib/vmware-tools/plugins64/vmsvc/li     1     8.0K     8.0K<br>/usr/lib/vmware-tools/plugins64/vmsvc/li     1     8.0K     8.0K<br>/usr/lib/vmware-tools/lib64/libhgfs.so/l     1     8.0K     8.0K<br>/usr/lib/vmware-tools/lib64/libffi.so.6/     2     4.0K     8.0K<br>/usr/lib/vmware-tools/lib64/libVGAuthSer     1     8.0K     8.0K<br>/run/systemd/journal/kernel-seqnum           2     4.0K     8.0K<br>/usr/lib64/libxtables.so.10.0.0              3     2.0K     6.0K<br>/usr/lib64/libsensors.so.4.4.0               3     2.0K     6.0K<br>/usr/lib64/libpopt.so.0.0.0                  3     2.0K     6.0K<br>/usr/lib64/libip6tc.so.0.1.0                 3     2.0K     6.0K<br>/usr/lib64/libip4tc.so.0.1.0                 3     2.0K     6.0K<br>/var/titanagent/dns_shmem                    1     4.0K     4.0K<br>/usr/lib/vmware-tools/lib64/libmspack.so     1     4.0K     4.0K<br>/usr/lib/vmware-tools/lib64/libgthread-2     1     4.0K     4.0K<br>/usr/lib/vmware-tools/lib64/libgmodule-2     1     4.0K     4.0K<br>/titan/agent/titanagent                      1     4.0K     4.0K<br>/etc/udev/hwdb.bin                           2     2.0K     4.0K<br>[vsyscall]                                  78        0        0<br>[vdso]                                      78        0        0<br>/var/lib/docker/buildkit/snapshots.db        1        0        0<br>/var/lib/docker/buildkit/metadata_v2.db      1        0        0<br>/var/lib/docker/buildkit/containerdmeta.     1        0        0<br>/var/lib/docker/buildkit/cache.db            1        0        0<br>/usr/lib64/libunwind.so.8.0.1                9        0        0<br>/usr/lib64/libprofiler.so.0.5.0              9        0        0<br>/usr/lib64/girepository-1.0/GLib-2.0.typ     1        0        0<br>/usr/lib/vmware-tools/icu/icudt44l.dat       1        0        0<br>/usr/lib/modules/3.10.0-957.el7.x86_64/m     1        0        0<br>/usr/lib/modules/3.10.0-957.el7.x86_64/m     1        0        0<br>/usr/lib/modules/3.10.0-957.el7.x86_64/m     1        0        0<br>/usr/lib/modules/3.10.0-957.el7.x86_64/m     1        0        0<br>/[aio]                                       8        0        0<br>-----------------------------------------------------------------<br>328                                       2997   132.8M     3.2G<br></code></pre></td></tr></table></figure>
+<p>这个 <code>smem -m -s pss -rtk</code> 命令是用来分析 Linux
+系统内存使用情况的工具，下面是对命令和输出的解释：</p>
+<h4 id="命令解释">命令解释：</h4>
+<ul>
+<li><code>smem</code>：内存统计工具，可以显示实际内存使用情况</li>
+<li><code>-m</code>：按内存映射（memory mappings）分组显示</li>
+<li><code>-s pss</code>：按 PSS（Proportional Set Size）排序</li>
+<li><code>-r</code>：反向排序（从大到小）</li>
+<li><code>-t</code>：显示总计</li>
+<li><code>-k</code>：以 KB 为单位显示（默认），但实际输出中显示的是
+MB/GB</li>
+</ul>
+<h4 id="输出解释">输出解释：</h4>
+<p>输出分为三列： 1. <strong>Map</strong>：内存映射的文件或区域名称 2.
+<strong>PIDs</strong>：使用该映射的进程数量 3.
+<strong>AVGPSS</strong>：平均每个进程的 PSS 4. <strong>PSS</strong>：总
+PSS（ Proportional Set Size，按共享比例计算的实际内存使用量）</p>
+<h4 id="关键信息">关键信息：</h4>
+<ol type="1">
+<li><strong>匿名内存</strong>（anonymous）占用最多：
+<ul>
+<li>78 个进程共享</li>
+<li>平均每个进程 26.3MB</li>
+<li>总共 2.0GB</li>
+</ul></li>
+<li><strong>[heap]</strong> 堆内存：
+<ul>
+<li>73 个进程共享</li>
+<li>总共 1.0GB</li>
+</ul></li>
+<li><strong>重要进程</strong>：
+<ul>
+<li>dockerd：20.6MB</li>
+<li>containerd：14.5MB</li>
+<li>telegraf：8.5MB</li>
+</ul></li>
+<li><strong>总计</strong>（最后一行）：
+<ul>
+<li>328 个不同的内存映射</li>
+<li>2997 个进程</li>
+<li>平均每个进程 132.8MB</li>
+<li>总内存使用 3.2GB</li>
+</ul></li>
+</ol>
+<h4 id="pss-说明">PSS 说明：</h4>
+<p>PSS（Proportional Set Size）是更准确的内存统计方式： -
+私有内存：全部计入 - 共享内存：按共享进程数平分计入 - 比 RSS（Resident
+Set Size）更能反映实际内存使用</p>
+<h4 id="常见映射类型">常见映射类型：</h4>
+<ul>
+<li><code>&lt;anonymous&gt;</code>：匿名映射（如程序堆、栈等）</li>
+<li><code>[heap]</code>：进程堆内存</li>
+<li><code>[stack]</code>：进程栈内存</li>
+<li><code>[vdso]</code>：虚拟动态共享对象</li>
+<li>文件路径：共享库或内存映射文件</li>
+</ul>
+<h3 id="procmeminfo">/proc/meminfo</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gz03-SDK-server-10e50e63e22 secure]<span class="hljs-comment"># cat /proc/meminfo</span><br>MemTotal:       32761856 kB<br>MemFree:         5752900 kB<br>MemAvailable:    6140044 kB<br>Buffers:              48 kB<br>Cached:          1756500 kB<br>SwapCached:            0 kB<br>Active:          3502352 kB<br>Inactive:        1411756 kB<br>Active(anon):    3172812 kB<br>Inactive(anon):  1085016 kB<br>Active(file):     329540 kB<br>Inactive(file):   326740 kB<br>Unevictable:           0 kB<br>Mlocked:               0 kB<br>SwapTotal:             0 kB<br>SwapFree:              0 kB<br>Dirty:                28 kB<br>Writeback:             0 kB<br>AnonPages:       3157792 kB<br>Mapped:           101528 kB<br>Shmem:           1100268 kB<br>Slab:             295756 kB<br>SReclaimable:      98300 kB<br>SUnreclaim:       197456 kB<br>KernelStack:       27600 kB<br>PageTables:        23808 kB<br>NFS_Unstable:          0 kB<br>Bounce:                0 kB<br>WritebackTmp:          0 kB<br>CommitLimit:    16380928 kB<br>Committed_AS:   12744344 kB<br>VmallocTotal:   34359738367 kB<br>VmallocUsed:      231068 kB<br>VmallocChunk:   34359310332 kB<br>HardwareCorrupted:     0 kB<br>AnonHugePages:      4096 kB<br>CmaTotal:              0 kB<br>CmaFree:               0 kB<br>HugePages_Total:       0<br>HugePages_Free:        0<br>HugePages_Rsvd:        0<br>HugePages_Surp:        0<br>Hugepagesize:       2048 kB<br>DirectMap4k:     3018560 kB<br>DirectMap2M:    30535680 kB<br>DirectMap1G:     2097152 kB<br></code></pre></td></tr></table></figure>
+<p>以下是标记后的 <code>/proc/meminfo</code>
+数据解析，<strong>右侧标注每项的作用及是否明确占用物理内存</strong>：</p>
+<hr />
+<h4 id="procmeminfo-详细解析"><strong><code>/proc/meminfo</code>
+详细解析</strong></h4>
+<table>
+
+<thead>
+<tr class="header">
+<th>指标</th>
+<th>值 (KB)</th>
+<th><strong>作用与物理内存分配情况</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>MemTotal</strong></td>
+<td>32761856</td>
+<td><strong>总物理内存</strong>（32GB），硬件实际容量。</td>
+</tr>
+<tr class="even">
+<td><strong>MemFree</strong></td>
+<td>5752900</td>
+<td><strong>完全空闲内存</strong>（未分配，可立即使用）。✅
+<strong>未占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>MemAvailable</strong></td>
+<td>6140044</td>
+<td><strong>系统实际可用内存</strong>（含可回收缓存）。✅
+<strong>未完全占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Buffers</strong></td>
+<td>48</td>
+<td><strong>块设备缓存</strong>（如磁盘读写缓冲）。⚠️
+<strong>可回收</strong>，不算占用。</td>
+</tr>
+<tr class="odd">
+<td><strong>Cached</strong></td>
+<td>1756500</td>
+<td><strong>文件缓存</strong>（加速文件访问）。⚠️
+<strong>可回收</strong>，不算占用。</td>
+</tr>
+<tr class="even">
+<td><strong>SwapCached</strong></td>
+<td>0</td>
+<td><strong>交换缓存</strong>（未启用 Swap，无数据）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Active</strong></td>
+<td>3502352</td>
+<td><strong>活跃内存</strong>（近期被访问）。含
+<code>Active(anon)</code> 和 <code>Active(file)</code>。</td>
+</tr>
+<tr class="even">
+<td><strong>Inactive</strong></td>
+<td>1411756</td>
+<td><strong>非活跃内存</strong>（可能被回收）。含
+<code>Inactive(anon)</code> 和 <code>Inactive(file)</code>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Active(anon)</strong></td>
+<td>3172812</td>
+<td><strong>活跃匿名页</strong>（如进程堆、栈）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Inactive(anon)</strong></td>
+<td>1085016</td>
+<td><strong>非活跃匿名页</strong>（可能被回收）。⚠️
+<strong>暂占用，但可释放</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Active(file)</strong></td>
+<td>329540</td>
+<td><strong>活跃文件缓存</strong>（如被频繁读写的文件）。⚠️
+<strong>可回收</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Inactive(file)</strong></td>
+<td>326740</td>
+<td><strong>非活跃文件缓存</strong>（如未使用的文件缓存）。⚠️
+<strong>可回收</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Unevictable</strong></td>
+<td>0</td>
+<td><strong>不可回收内存</strong>（如锁定的用户空间内存）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Mlocked</strong></td>
+<td>0</td>
+<td><strong>用户空间锁定内存</strong>（防止被交换）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>SwapTotal</strong></td>
+<td>0</td>
+<td><strong>Swap 空间总量</strong>（未启用）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>SwapFree</strong></td>
+<td>0</td>
+<td><strong>空闲 Swap 空间</strong>（未启用）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Dirty</strong></td>
+<td>28</td>
+<td><strong>待写入磁盘的脏页</strong>。⚠️
+<strong>暂占用，写入后释放</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Writeback</strong></td>
+<td>0</td>
+<td><strong>正在回写磁盘的内存</strong>。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>AnonPages</strong></td>
+<td>3157792</td>
+<td><strong>已映射的匿名内存</strong>（如进程堆、栈）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Mapped</strong></td>
+<td>101528</td>
+<td><strong>文件映射到内存</strong>（如动态库）。⚠️
+<strong>部分可回收</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Shmem</strong></td>
+<td>1100268</td>
+<td><strong>共享内存</strong>（如 <code>tmpfs</code>、IPC）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Slab</strong></td>
+<td>295756</td>
+<td><strong>内核对象缓存</strong>（如 dentry、inode）。含
+<code>SReclaimable</code>（可回收）和
+<code>SUnreclaim</code>（不可回收）。</td>
+</tr>
+<tr class="odd">
+<td><strong>SReclaimable</strong></td>
+<td>98300</td>
+<td><strong>可回收 Slab</strong>（如文件系统缓存）。⚠️
+<strong>可回收</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>SUnreclaim</strong></td>
+<td>197456</td>
+<td><strong>不可回收 Slab</strong>（如网络栈、驱动占用）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>KernelStack</strong></td>
+<td>27600</td>
+<td><strong>内核栈</strong>（每个线程的内核态栈）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>PageTables</strong></td>
+<td>23808</td>
+<td><strong>页表映射</strong>（虚拟内存管理）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>NFS_Unstable</strong></td>
+<td>0</td>
+<td><strong>NFS 不稳定页</strong>（等待提交）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Bounce</strong></td>
+<td>0</td>
+<td><strong>缓冲高地址内存</strong>（旧硬件兼容）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>WritebackTmp</strong></td>
+<td>0</td>
+<td><strong>FUSE 临时回写缓存</strong>。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>CommitLimit</strong></td>
+<td>16380928</td>
+<td><strong>系统允许的提交内存上限</strong>（无 Swap 时为
+<code>MemTotal/2</code>）。📊 <strong>统计值，非占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Committed_AS</strong></td>
+<td>12744344</td>
+<td><strong>已提交的虚拟内存</strong>（可能未全部映射物理内存）。📊
+<strong>统计值，非占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>VmallocTotal</strong></td>
+<td>34359738367</td>
+<td><strong>虚拟地址空间总量</strong>（理论值）。📊
+<strong>统计值，非占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>VmallocUsed</strong></td>
+<td>231068</td>
+<td><strong>已用虚拟地址空间</strong>（如内核模块）。⚠️
+<strong>部分占用物理内存</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>VmallocChunk</strong></td>
+<td>34359310332</td>
+<td><strong>最大连续虚拟地址空间</strong>。📊
+<strong>统计值，非占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>HardwareCorrupted</strong></td>
+<td>0</td>
+<td><strong>硬件损坏内存</strong>（被内核标记为不可用）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>AnonHugePages</strong></td>
+<td>4096</td>
+<td><strong>透明大页（THP）匿名内存</strong>。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>CmaTotal</strong></td>
+<td>0</td>
+<td><strong>连续内存分配器（CMA）预留</strong>。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>CmaFree</strong></td>
+<td>0</td>
+<td><strong>空闲 CMA 内存</strong>。🚫 <strong>无占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>HugePages_Total</strong></td>
+<td>0</td>
+<td><strong>大页内存总量</strong>（未配置）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>HugePages_Free</strong></td>
+<td>0</td>
+<td><strong>空闲大页内存</strong>（未配置）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Hugepagesize</strong></td>
+<td>2048</td>
+<td><strong>单个大页大小</strong>（2MB）。📊
+<strong>静态信息，非占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>DirectMap4k</strong></td>
+<td>3018560</td>
+<td><strong>4KB 直接映射内存</strong>（内核线性映射）。📊
+<strong>统计值，非独立占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>DirectMap2M</strong></td>
+<td>30535680</td>
+<td><strong>2MB 直接映射内存</strong>（内核大页映射）。📊
+<strong>统计值，非独立占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>DirectMap1G</strong></td>
+<td>2097152</td>
+<td><strong>1GB 直接映射内存</strong>（内核巨页映射）。📊
+<strong>统计值，非独立占用</strong>。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="物理内存占用分类总结"><strong>物理内存占用分类总结</strong></h4>
+<table>
+
+<thead>
+<tr class="header">
+<th><strong>类别</strong></th>
+<th><strong>包含字段</strong></th>
+<th><strong>是否明确占用物理内存</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>用户进程占用</strong></td>
+<td><code>AnonPages</code> + <code>Shmem</code> +
+<code>Mapped</code>（部分）</td>
+<td>✅ <strong>是</strong></td>
+</tr>
+<tr class="even">
+<td><strong>内核占用</strong></td>
+<td><code>SUnreclaim</code> + <code>KernelStack</code> +
+<code>PageTables</code> + <code>VmallocUsed</code>（部分）</td>
+<td>✅ <strong>是</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>可回收内存</strong></td>
+<td><code>Cached</code> + <code>Buffers</code> +
+<code>SReclaimable</code> + <code>Active(file)</code> +
+<code>Inactive(file)</code></td>
+<td>❌ <strong>否</strong></td>
+</tr>
+<tr class="even">
+<td><strong>空闲内存</strong></td>
+<td><code>MemFree</code></td>
+<td>❌ <strong>否</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>统计/预留值</strong></td>
+<td><code>MemTotal</code>、<code>DirectMap*</code>、<code>CommitLimit</code>
+等</td>
+<td>❌ <strong>否</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="关键结论"><strong>关键结论</strong></h4>
+<ol type="1">
+<li><strong>明确占用物理内存</strong>的字段：
+<ul>
+<li><code>AnonPages</code>（进程匿名内存）<br />
+</li>
+<li><code>Shmem</code>（共享内存/tmpfs）<br />
+</li>
+<li><code>SUnreclaim</code>（不可回收 Slab）<br />
+</li>
+<li><code>KernelStack</code>（内核栈）<br />
+</li>
+<li><code>PageTables</code>（页表）<br />
+</li>
+<li><code>AnonHugePages</code>（透明大页）</li>
+</ul></li>
+<li><strong>总和计算</strong>：
+<ul>
+<li><strong>用户进程</strong> ≈
+<code>AnonPages (3157792) + Shmem (1100268)</code> ≈
+<strong>4.26GB</strong><br />
+</li>
+<li><strong>内核</strong> ≈
+<code>SUnreclaim (197456) + KernelStack (27600) + PageTables (23808)</code>
+≈ <strong>248MB</strong><br />
+</li>
+<li><strong>总计</strong> ≈
+<strong>4.51GB</strong>（实际可能更高，需结合内核动态分配）。</li>
+</ul></li>
+<li><strong>其余内存</strong>（如
+<code>Cached</code>、<code>MemFree</code>）为<strong>可回收或空闲</strong>，<strong>不视为占用</strong>。
+<ul>
+<li><strong>缓存/可回收内存</strong>：约 <strong>1.85GB</strong><br />
+</li>
+<li><strong>空闲内存</strong>：约 <strong>5.75GB</strong><br />
+</li>
+</ul></li>
+<li><strong>剩余内存用途</strong>：可能被内核动态管理或未显式统计（如
+<code>smem</code> 中的 <code>kernel dynamic memory</code> 21GB
+非缓存部分）。</li>
+</ol>
+<blockquote>
+<p>📌 <strong>注意</strong>：若 <code>smem</code> 显示内核占用 21GB
+非缓存，而 <code>meminfo</code> 未明确统计，可能是内核预留内存（如
+DMA、驱动占用等），需结合具体系统用途分析。</p>
+</blockquote>
+<h3 id="numastat--m">numastat -m</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gz03-SDK-server-10e50e63e22 secure]<span class="hljs-comment"># numastat -m</span><br><br>Per-node system memory usage (<span class="hljs-keyword">in</span> MBs):<br>                          Node 0           Total<br>                 --------------- ---------------<br>MemTotal                32767.43        32767.43<br>MemFree                  5612.25         5612.25<br>MemUsed                 27155.17        27155.17<br>Active                   3429.36         3429.36<br>Inactive                 1377.34         1377.34<br>Active(anon)             3104.48         3104.48<br>Inactive(anon)           1059.59         1059.59<br>Active(file)              324.88          324.88<br>Inactive(file)            317.75          317.75<br>Unevictable                 0.00            0.00<br>Mlocked                     0.00            0.00<br>Dirty                       0.13            0.13<br>Writeback                   0.00            0.00<br>FilePages                1717.17         1717.17<br>Mapped                     99.20           99.20<br>AnonPages                3089.93         3089.93<br>Shmem                    1074.48         1074.48<br>KernelStack                26.98           26.98<br>PageTables                 22.70           22.70<br>NFS_Unstable                0.00            0.00<br>Bounce                      0.00            0.00<br>WritebackTmp                0.00            0.00<br>Slab                      289.02          289.02<br>SReclaimable               96.02           96.02<br>SUnreclaim                193.00          193.00<br>AnonHugePages               4.00            4.00<br>HugePages_Total             0.00            0.00<br>HugePages_Free              0.00            0.00<br>HugePages_Surp              0.00            0.00<br></code></pre></td></tr></table></figure>
+<p>以下是 <strong><code>numastat -m</code></strong>
+命令输出的详细解析，在原始数据右侧标注每项的作用及是否明确占用物理内存：</p>
+<hr />
+<h4 id="numastat--m-内存统计解析"><strong><code>numastat -m</code>
+内存统计解析</strong></h4>
+<table>
+
+<thead>
+<tr class="header">
+<th>指标</th>
+<th>值 (MB)</th>
+<th><strong>作用与物理内存分配情况</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>MemTotal</strong></td>
+<td>32767.43</td>
+<td><strong>总物理内存</strong>（32GB），硬件实际容量。</td>
+</tr>
+<tr class="even">
+<td><strong>MemFree</strong></td>
+<td>5612.25</td>
+<td><strong>完全空闲内存</strong>（未分配，可立即使用）。✅
+<strong>未占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>MemUsed</strong></td>
+<td>27155.17</td>
+<td><strong>已使用内存</strong>（含缓存、内核、用户进程）。⚠️
+<strong>包含可回收部分</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Active</strong></td>
+<td>3429.36</td>
+<td><strong>活跃内存</strong>（近期被访问）。含
+<code>Active(anon)</code> 和 <code>Active(file)</code>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Inactive</strong></td>
+<td>1377.34</td>
+<td><strong>非活跃内存</strong>（可能被回收）。含
+<code>Inactive(anon)</code> 和 <code>Inactive(file)</code>。</td>
+</tr>
+<tr class="even">
+<td><strong>Active(anon)</strong></td>
+<td>3104.48</td>
+<td><strong>活跃匿名页</strong>（如进程堆、栈）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Inactive(anon)</strong></td>
+<td>1059.59</td>
+<td><strong>非活跃匿名页</strong>（可能被回收）。⚠️
+<strong>暂占用，但可释放</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Active(file)</strong></td>
+<td>324.88</td>
+<td><strong>活跃文件缓存</strong>（如频繁读写的文件）。⚠️
+<strong>可回收</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Inactive(file)</strong></td>
+<td>317.75</td>
+<td><strong>非活跃文件缓存</strong>（如未使用的文件缓存）。⚠️
+<strong>可回收</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Unevictable</strong></td>
+<td>0.00</td>
+<td><strong>不可回收内存</strong>（如锁定的用户空间内存）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Mlocked</strong></td>
+<td>0.00</td>
+<td><strong>用户空间锁定内存</strong>（防止被交换）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>Dirty</strong></td>
+<td>0.13</td>
+<td><strong>待写入磁盘的脏页</strong>。⚠️
+<strong>暂占用，写入后释放</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Writeback</strong></td>
+<td>0.00</td>
+<td><strong>正在回写磁盘的内存</strong>。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>FilePages</strong></td>
+<td>1717.17</td>
+<td><strong>文件缓存</strong>（加速文件访问）。⚠️
+<strong>可回收</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Mapped</strong></td>
+<td>99.20</td>
+<td><strong>文件映射到内存</strong>（如动态库）。⚠️
+<strong>部分可回收</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>AnonPages</strong></td>
+<td>3089.93</td>
+<td><strong>已映射的匿名内存</strong>（如进程堆、栈）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Shmem</strong></td>
+<td>1074.48</td>
+<td><strong>共享内存</strong>（如 <code>tmpfs</code>、IPC）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>KernelStack</strong></td>
+<td>26.98</td>
+<td><strong>内核栈</strong>（每个线程的内核态栈）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>PageTables</strong></td>
+<td>22.70</td>
+<td><strong>页表映射</strong>（虚拟内存管理）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>NFS_Unstable</strong></td>
+<td>0.00</td>
+<td><strong>NFS 不稳定页</strong>（等待提交）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Bounce</strong></td>
+<td>0.00</td>
+<td><strong>缓冲高地址内存</strong>（旧硬件兼容）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>WritebackTmp</strong></td>
+<td>0.00</td>
+<td><strong>FUSE 临时回写缓存</strong>。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>Slab</strong></td>
+<td>289.02</td>
+<td><strong>内核对象缓存</strong>（如 dentry、inode）。含
+<code>SReclaimable</code> 和 <code>SUnreclaim</code>。</td>
+</tr>
+<tr class="even">
+<td><strong>SReclaimable</strong></td>
+<td>96.02</td>
+<td><strong>可回收 Slab</strong>（如文件系统缓存）。⚠️
+<strong>可回收</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>SUnreclaim</strong></td>
+<td>193.00</td>
+<td><strong>不可回收 Slab</strong>（如网络栈、驱动占用）。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>AnonHugePages</strong></td>
+<td>4.00</td>
+<td><strong>透明大页（THP）匿名内存</strong>。✅
+<strong>明确占用物理内存</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>HugePages_Total</strong></td>
+<td>0.00</td>
+<td><strong>大页内存总量</strong>（未配置）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="even">
+<td><strong>HugePages_Free</strong></td>
+<td>0.00</td>
+<td><strong>空闲大页内存</strong>（未配置）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+<tr class="odd">
+<td><strong>HugePages_Surp</strong></td>
+<td>0.00</td>
+<td><strong>超额大页内存</strong>（未配置）。🚫
+<strong>无占用</strong>。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4
+id="物理内存占用分类总结-1"><strong>物理内存占用分类总结</strong></h4>
+<table>
+
+<thead>
+<tr class="header">
+<th><strong>类别</strong></th>
+<th><strong>包含字段</strong></th>
+<th><strong>是否明确占用物理内存</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>用户进程占用</strong></td>
+<td><code>AnonPages</code> + <code>Shmem</code> +
+<code>Mapped</code>（部分）</td>
+<td>✅ <strong>是</strong></td>
+</tr>
+<tr class="even">
+<td><strong>内核占用</strong></td>
+<td><code>SUnreclaim</code> + <code>KernelStack</code> +
+<code>PageTables</code></td>
+<td>✅ <strong>是</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>可回收内存</strong></td>
+<td><code>FilePages</code> + <code>Active(file)</code> +
+<code>Inactive(file)</code> + <code>SReclaimable</code></td>
+<td>❌ <strong>否</strong></td>
+</tr>
+<tr class="even">
+<td><strong>空闲内存</strong></td>
+<td><code>MemFree</code></td>
+<td>❌ <strong>否</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>统计/预留值</strong></td>
+<td><code>MemTotal</code>、<code>HugePages_*</code> 等</td>
+<td>❌ <strong>否</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="关键结论-1"><strong>关键结论</strong></h4>
+<ol type="1">
+<li><p><strong>明确占用物理内存</strong>的字段：</p>
+<ul>
+<li><code>AnonPages</code>（进程匿名内存）<br />
+</li>
+<li><code>Shmem</code>（共享内存/tmpfs）<br />
+</li>
+<li><code>SUnreclaim</code>（不可回收 Slab）<br />
+</li>
+<li><code>KernelStack</code>（内核栈）<br />
+</li>
+<li><code>PageTables</code>（页表）<br />
+</li>
+<li><code>AnonHugePages</code>（透明大页）</li>
+</ul></li>
+<li><p><strong>总和计算</strong>：</p>
+<ul>
+<li><strong>用户进程</strong> ≈
+<code>AnonPages (3089.93) + Shmem (1074.48)</code> ≈
+<strong>4.16GB</strong><br />
+</li>
+<li><strong>内核</strong> ≈
+<code>SUnreclaim (193.00) + KernelStack (26.98) + PageTables (22.70)</code>
+≈ <strong>242.68MB</strong><br />
+</li>
+<li><strong>总计</strong> ≈
+<strong>4.4GB</strong>（实际可能更高，需结合内核动态分配）。</li>
+</ul></li>
+<li><p><strong>其余内存</strong>（如
+<code>FilePages</code>、<code>MemFree</code>）为<strong>可回收或空闲</strong>，<strong>不视为占用</strong>。</p></li>
+<li><p><strong>NUMA 节点</strong>：</p>
+<ul>
+<li>当前仅 <strong>Node 0</strong> 有数据，说明系统为单节点（无 NUMA
+跨节点访问问题）。</li>
+</ul></li>
+</ol>
+<blockquote>
+<p>📌 <strong>注意</strong>：若与 <code>smem</code> 或
+<code>/proc/meminfo</code>
+数据冲突，可能是统计口径差异（如内核预留内存未完全显示）。</p>
+</blockquote>
+<h3 id="procbuddyinfo">/proc/buddyinfo</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gz03-SDK-server-10e50e63e22 secure]<span class="hljs-comment"># cat /proc/buddyinfo</span><br>Node 0, zone      DMA      0      0      0      0      2      1      1      0      1      1      3<br>Node 0, zone    DMA32  15436  18684   7851   2302    720    243     80     32     21      0      0<br>Node 0, zone   Normal 127559 175569  74035  31054  12025   2271    101      0      0      0      0<br></code></pre></td></tr></table></figure>
+<p>以下是 <strong><code>/proc/buddyinfo</code>
+数据的可读化转换</strong>，将原始数字按内存块大小分类，并标注实际物理内存量（假设页大小为
+<strong>4KB</strong>）：</p>
+<hr />
+<h4 id="数据转换表"><strong>1. 数据转换表</strong></h4>
+<h5
+id="列定义单位连续内存块数量"><strong>列定义</strong>（单位：连续内存块数量）</h5>
+<table>
+
+<thead>
+<tr class="header">
+<th>块大小（页数）</th>
+<th>实际大小</th>
+<th>Node 0 (DMA)</th>
+<th>Node 0 (DMA32)</th>
+<th>Node 0 (Normal)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>2^0</strong></td>
+<td>4KB</td>
+<td>0</td>
+<td>15436</td>
+<td>127559</td>
+</tr>
+<tr class="even">
+<td><strong>2^1</strong></td>
+<td>8KB</td>
+<td>0</td>
+<td>18684</td>
+<td>175569</td>
+</tr>
+<tr class="odd">
+<td><strong>2^2</strong></td>
+<td>16KB</td>
+<td>0</td>
+<td>7851</td>
+<td>74035</td>
+</tr>
+<tr class="even">
+<td><strong>2^3</strong></td>
+<td>32KB</td>
+<td>0</td>
+<td>2302</td>
+<td>31054</td>
+</tr>
+<tr class="odd">
+<td><strong>2^4</strong></td>
+<td>64KB</td>
+<td>2</td>
+<td>720</td>
+<td>12025</td>
+</tr>
+<tr class="even">
+<td><strong>2^5</strong></td>
+<td>128KB</td>
+<td>1</td>
+<td>243</td>
+<td>2271</td>
+</tr>
+<tr class="odd">
+<td><strong>2^6</strong></td>
+<td>256KB</td>
+<td>1</td>
+<td>80</td>
+<td>101</td>
+</tr>
+<tr class="even">
+<td><strong>2^7</strong></td>
+<td>512KB</td>
+<td>0</td>
+<td>32</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td><strong>2^8</strong></td>
+<td>1MB</td>
+<td>1</td>
+<td>21</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td><strong>2^9</strong></td>
+<td>2MB</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td><strong>2^10</strong></td>
+<td>4MB</td>
+<td>3</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="按区域的可读化说明"><strong>2. 按区域的可读化说明</strong></h4>
+<h5 id="dma-区域16mb-以下"><strong>① DMA 区域（16MB 以下）</strong></h5>
+<ul>
+<li><strong>剩余内存块</strong>：
+<ul>
+<li><strong>64KB</strong>：2 块 → <strong>128KB</strong><br />
+</li>
+<li><strong>128KB</strong>：1 块 → <strong>128KB</strong><br />
+</li>
+<li><strong>256KB</strong>：1 块 → <strong>256KB</strong><br />
+</li>
+<li><strong>1MB</strong>：1 块 → <strong>1MB</strong><br />
+</li>
+<li><strong>2MB</strong>：1 块 → <strong>2MB</strong><br />
+</li>
+<li><strong>4MB</strong>：3 块 → <strong>12MB</strong><br />
+</li>
+</ul></li>
+<li><strong>总计空闲</strong>：≈
+<strong>15.5MB</strong>（但极度碎片化，无连续大块）。</li>
+</ul>
+<h5 id="dma32-区域4gb-以下"><strong>② DMA32 区域（4GB
+以下）</strong></h5>
+<ul>
+<li><strong>剩余内存块</strong>：
+<ul>
+<li><strong>≤64KB</strong>：15436 (4KB) + 18684 (8KB) + ... + 720 (64KB)
+→ <strong>≈1.2GB</strong>（碎片化严重）<br />
+</li>
+<li><strong>≥128KB</strong>：243 (128KB) + 80 (256KB) + ... + 21 (1MB) →
+<strong>≈80MB</strong>（大块稀缺）<br />
+</li>
+</ul></li>
+<li><strong>关键问题</strong>：<strong>1MB 以上块仅 21
+个</strong>，可能影响大内存需求应用。</li>
+</ul>
+<h5 id="normal-区域全部内存"><strong>③ Normal
+区域（全部内存）</strong></h5>
+<ul>
+<li><strong>剩余内存块</strong>：
+<ul>
+<li><strong>≤64KB</strong>：127559 (4KB) + 175569 (8KB) + ... + 12025
+(64KB) → <strong>≈5.8GB</strong>（碎片化）<br />
+</li>
+<li><strong>≥128KB</strong>：2271 (128KB) + 101 (256KB) →
+<strong>≈350MB</strong><br />
+</li>
+<li><strong>≥1MB</strong>：<strong>0
+块</strong>（无法直接分配超大连续内存）</li>
+</ul></li>
+</ul>
+<hr />
+<h4 id="可视化碎片分布"><strong>3. 可视化碎片分布</strong></h4>
+<h5 id="dma-区域"><strong>DMA 区域</strong></h5>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">[4MB][4MB][4MB] [2MB] [1MB] [256KB] [128KB] [128KB] [64KB][64KB]<br></code></pre></td></tr></table></figure>
+<p>→ <strong>大块（≥1MB）占比高</strong>，但总量小（仅 16MB 区域）。</p>
+<h5 id="dma32normal-区域"><strong>DMA32/Normal 区域</strong></h5>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">[4KB][4KB][8KB][16KB]...[64KB]...[128KB]...[256KB]...（极少 1MB+）<br></code></pre></td></tr></table></figure>
+<p>→ <strong>90% 内存为 ≤64KB 小块</strong>，大块资源不足。</p>
+<hr />
+<h4 id="碎片化总结"><strong>4. 碎片化总结</strong></h4>
+<table>
+
+<thead>
+<tr class="header">
+<th>区域</th>
+<th>总空闲内存</th>
+<th>主要块大小</th>
+<th>碎片化程度</th>
+<th>可能影响</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>DMA</strong></td>
+<td>~15.5MB</td>
+<td>4MB/2MB/1MB</td>
+<td>🔥 <strong>高</strong></td>
+<td>旧设备驱动可能分配失败</td>
+</tr>
+<tr class="even">
+<td><strong>DMA32</strong></td>
+<td>~1.28GB</td>
+<td>4KB~64KB</td>
+<td>⚠️ <strong>中</strong></td>
+<td>大内存应用（如数据库）性能降级</td>
+</tr>
+<tr class="odd">
+<td><strong>Normal</strong></td>
+<td>~6.15GB</td>
+<td>4KB~256KB</td>
+<td>⚠️ <strong>中</strong></td>
+<td>需 1MB+ 连续内存的应用异常</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="用户友好提示"><strong>5. 用户友好提示</strong></h4>
+<ul>
+<li><strong>查看大块内存需求</strong>：<br />
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">grep -i huge /proc/meminfo  <span class="hljs-comment"># 检查透明大页使用情况</span><br></code></pre></td></tr></table></figure></li>
+<li><strong>主动缓解碎片</strong>：<br />
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 1 &gt; /proc/sys/vm/compact_memory  <span class="hljs-comment"># 手动触发内存规整</span><br></code></pre></td></tr></table></figure></li>
+</ul>
+<blockquote>
+<p>📌
+<strong>关键结论</strong>：系统内存以<strong>小块（≤256KB）为主</strong>，<strong>DMA32/Normal
+区域需关注大块分配问题</strong>，但常规应用影响有限。</p>
+</blockquote>
+<h3 id="procpagetypeinfo">/proc/pagetypeinfo</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@gz03-SDK-server-10e50e63e22 secure]<span class="hljs-comment"># cat /proc/pagetypeinfo</span><br>Page block order: 9<br>Pages per block:  512<br><br>Free pages count per migrate <span class="hljs-built_in">type</span> at order       0      1      2      3      4      5      6      7      8      9     10<br>Node    0, zone      DMA, <span class="hljs-built_in">type</span>    Unmovable      0      0      0      0      2      1      1      0      1      0      0<br>Node    0, zone      DMA, <span class="hljs-built_in">type</span>  Reclaimable      0      0      0      0      0      0      0      0      0      0      0<br>Node    0, zone      DMA, <span class="hljs-built_in">type</span>      Movable      0      0      0      0      0      0      0      0      0      1      3<br>Node    0, zone      DMA, <span class="hljs-built_in">type</span>      Reserve      0      0      0      0      0      0      0      0      0      0      0<br>Node    0, zone      DMA, <span class="hljs-built_in">type</span>          CMA      0      0      0      0      0      0      0      0      0      0      0<br>Node    0, zone      DMA, <span class="hljs-built_in">type</span>      Isolate      0      0      0      0      0      0      0      0      0      0      0<br>Node    0, zone    DMA32, <span class="hljs-built_in">type</span>    Unmovable   3441   2551    862    156     49     37     28     10      6      0      0<br>Node    0, zone    DMA32, <span class="hljs-built_in">type</span>  Reclaimable     21     21    182    149     97     59     33     18     15      0      0<br>Node    0, zone    DMA32, <span class="hljs-built_in">type</span>      Movable  11625  16116   6805   1996    574    147     19      4      0      0      0<br>Node    0, zone    DMA32, <span class="hljs-built_in">type</span>      Reserve      0      0      0      0      0      0      0      0      0      0      0<br>Node    0, zone    DMA32, <span class="hljs-built_in">type</span>          CMA      0      0      0      0      0      0      0      0      0      0      0<br>Node    0, zone    DMA32, <span class="hljs-built_in">type</span>      Isolate      0      0      0      0      0      0      0      0      0      0      0<br>Node    0, zone   Normal, <span class="hljs-built_in">type</span>    Unmovable  15016   9903   5654   2105    973    340     15      0      0      0      0<br>Node    0, zone   Normal, <span class="hljs-built_in">type</span>  Reclaimable   4465   5246   4104   2644   1275    475     41      0      0      0      0<br>Node    0, zone   Normal, <span class="hljs-built_in">type</span>      Movable 106989 160315  64278  26256   9777   1456     45      0      0      0      0<br>Node    0, zone   Normal, <span class="hljs-built_in">type</span>      Reserve      0      0      0      0      0      0      0      0      0      0      0<br>Node    0, zone   Normal, <span class="hljs-built_in">type</span>          CMA      0      0      0      0      0      0      0      0      0      0      0<br>Node    0, zone   Normal, <span class="hljs-built_in">type</span>      Isolate      0      0      0      0      0      0      0      0      0      0      0<br><br>Number of blocks <span class="hljs-built_in">type</span>     Unmovable  Reclaimable      Movable      Reserve          CMA      Isolate<br>Node 0, zone      DMA            1            0            7            0            0            0<br>Node 0, zone    DMA32          961           43          524            0            0            0<br>Node 0, zone   Normal        10261          217         4370            0            0            0<br></code></pre></td></tr></table></figure>
+<hr />
+<p>下面是对/proc/pagetypeinfo
+的一次完整、结构化、清晰可读的汇总整理，包括：</p>
+<h4 id="基础信息">基础信息</h4>
+<ul>
+<li><strong>Page block order</strong>: <code>9</code><br />
+→ 表示一个 page block 包含 <code>2^9 = 512</code> 个页（pages）<br />
+</li>
+<li><strong>每页大小</strong>: <code>4KB</code>（通常的页大小）<br />
+</li>
+<li><strong>每个 page block 大小</strong> = <code>512 pages × 4KB</code>
+= <strong>2MB</strong><br />
+✅ <strong>计算方法：</strong><br />
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">2</span>^<span class="hljs-number">9</span> × <span class="hljs-number">4</span>KB = <span class="hljs-number">512</span> × <span class="hljs-number">4</span>KB = <span class="hljs-number">2048</span>KB = <span class="hljs-number">2</span>MB<br></code></pre></td></tr></table></figure></li>
+</ul>
+<hr />
+<h4 id="page-block-summary-by-zone-migratetype页块数量与内存占用">Page
+Block Summary by Zone &amp; MigrateType（页块数量与内存占用）</h4>
+<table style="width:100%;">
+
+<thead>
+<tr class="header">
+<th>Node</th>
+<th>Zone</th>
+<th>Migrate Type</th>
+<th>Block 数量</th>
+<th>总内存 (约)</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0</td>
+<td>DMA</td>
+<td>Unmovable</td>
+<td>1</td>
+<td>1 block × 2MB = 2 MB</td>
+<td><strong>不可移动</strong>：<br>-
+<strong>内核早期代码区</strong>：存放在内核启动阶段运行的代码，如内核初始化代码。<br>-
+<strong>DMA
+驱动驻留区</strong>：用于直接内存访问（DMA）的驱动程序常驻内存区域，不会被交换或回收。<br>-
+常驻内存不可回收的内核对象。</td>
+</tr>
+<tr class="even">
+<td>0</td>
+<td>DMA</td>
+<td>Reclaimable</td>
+<td>0</td>
+<td>0</td>
+<td><strong>可回收</strong>：没有可回收的内存块，表示该区域当前没有标记为可回收的内存。</td>
+</tr>
+<tr class="odd">
+<td>0</td>
+<td>DMA</td>
+<td>Movable</td>
+<td>7</td>
+<td>7 blocks × 2MB = 14 MB</td>
+<td><strong>可移动</strong>：<br>- <strong>DMA
+区域少量可移动页</strong>：DMA
+区的内存空间，某些页可以在需要时被回收或移除。<br>-
+<strong>可移动页</strong>：内存中的某些部分可以被交换到磁盘或移至其他区域。</td>
+</tr>
+<tr class="even">
+<td>0</td>
+<td>DMA</td>
+<td>Reserve</td>
+<td>0</td>
+<td>0</td>
+<td><strong>预留</strong>：没有保留的内存块，表示该区域没有保留任何特殊用途的内存。</td>
+</tr>
+<tr class="odd">
+<td>0</td>
+<td>DMA</td>
+<td>CMA</td>
+<td>0</td>
+<td>0</td>
+<td><strong>CMA</strong>：未启用 CMA（Contiguous Memory
+Allocator），因此没有为连续内存分配区保留内存。</td>
+</tr>
+<tr class="even">
+<td>0</td>
+<td>DMA</td>
+<td>Isolate</td>
+<td>0</td>
+<td>0</td>
+<td><strong>隔离</strong>：没有使用内存隔离区，表示没有特定的内存区域被标记为隔离区。</td>
+</tr>
+<tr class="odd">
+<td>0</td>
+<td>DMA32</td>
+<td>Unmovable</td>
+<td>961</td>
+<td>961 blocks × 2MB = 1.88 GB</td>
+<td><strong>不可移动</strong>：<br>-
+<strong>驱动驻留内存</strong>：内核驱动程序占用的内存区域，通常不被回收或交换。<br>-
+<strong>vmalloc
+区域</strong>：动态分配的内存区域，通常用于较大的内存块，如大于
+PAGE_SIZE 的分配。<br>- <strong>slab 中不可回收对象</strong>：slab
+分配器分配的内存，用于存储内核对象，某些对象是不可回收的。</td>
+</tr>
+<tr class="even">
+<td>0</td>
+<td>DMA32</td>
+<td>Reclaimable</td>
+<td>43</td>
+<td>43 blocks × 2MB = 86 MB</td>
+<td><strong>可回收</strong>：<br>- <strong>slab
+可回收对象</strong>：例如 inode、dentry
+等内核缓存，通常会在空闲时被回收。<br>-
+<strong>文件页缓存</strong>：用于缓存文件数据，空闲时可以回收以释放内存。</td>
+</tr>
+<tr class="odd">
+<td>0</td>
+<td>DMA32</td>
+<td>Movable</td>
+<td>524</td>
+<td>524 blocks × 2MB = 1.02 GB</td>
+<td><strong>可移动</strong>：<br>-
+<strong>普通匿名页</strong>：用户空间进程的匿名页，这些页不与文件系统映射，通常可以被交换。<br>-
+<strong>文件缓存页</strong>：操作系统用于缓存文件数据的内存，可以在需要时被移动或回收。<br>-
+可以被回收或交换的内存页。</td>
+</tr>
+<tr class="even">
+<td>0</td>
+<td>DMA32</td>
+<td>Reserve</td>
+<td>0</td>
+<td>0</td>
+<td><strong>预留</strong>：没有保留内存块，表示没有用于特殊目的的内存区域。</td>
+</tr>
+<tr class="odd">
+<td>0</td>
+<td>DMA32</td>
+<td>CMA</td>
+<td>0</td>
+<td>0</td>
+<td><strong>CMA</strong>：没有启用
+CMA，表示没有为连续内存分配区保留内存。</td>
+</tr>
+<tr class="even">
+<td>0</td>
+<td>DMA32</td>
+<td>Isolate</td>
+<td>0</td>
+<td>0</td>
+<td><strong>隔离</strong>：没有使用内存隔离区，表示没有特定的内存区域被标记为隔离区。</td>
+</tr>
+<tr class="odd">
+<td>0</td>
+<td>Normal</td>
+<td>Unmovable</td>
+<td>10261</td>
+<td>10261 blocks × 2MB = 20.04 GB</td>
+<td><strong>不可移动</strong>：<br>-
+<strong>内核代码段</strong>：包含内核的主要代码，始终驻留在内存中。<br>-
+<strong>内核模块</strong>：动态加载的内核模块，它们需要常驻内存。<br>-
+<strong>slab/slub 中不可回收对象</strong>：slab
+分配器分配的不可回收的内存对象，如内核对象。<br>- <strong>vmalloc
+映射区域</strong>：由内核动态分配的虚拟内存区域。<br>-
+<strong>固定映射页（fixmap）</strong>：由内核在固定位置映射的内存区域，用于各种内核操作。</td>
+</tr>
+<tr class="even">
+<td>0</td>
+<td>Normal</td>
+<td>Reclaimable</td>
+<td>217</td>
+<td>217 blocks × 2MB = 434 MB</td>
+<td><strong>可回收</strong>：<br>- <strong>可回收的 slab
+对象</strong>：如 dentry、inode 等内核缓存对象，空闲时可以被回收。<br>-
+<strong>文件页缓存（page
+cache）</strong>：用于缓存文件数据，空闲时可以回收。<br>-
+<strong>inode/dentry 缓存</strong>：文件系统缓存，包含元数据。</td>
+</tr>
+<tr class="odd">
+<td>0</td>
+<td>Normal</td>
+<td>Movable</td>
+<td>4370</td>
+<td>4370 blocks × 2MB = 8.54 GB</td>
+<td><strong>可移动</strong>：<br>-
+<strong>用户空间匿名页</strong>：用户进程的匿名内存页，通常可以被交换。<br>-
+<strong>文件映射页</strong>：映射到用户空间的文件数据页。<br>-
+<strong>KSM 页</strong>：用于内存合并的页，KSM（Kernel Same-page
+Merging）技术可以将相同内容的页合并以节省内存。</td>
+</tr>
+<tr class="even">
+<td>0</td>
+<td>Normal</td>
+<td>Reserve</td>
+<td>0</td>
+<td>0</td>
+<td><strong>预留</strong>：没有保留内存块，表示没有用于特殊目的的内存区域。</td>
+</tr>
+<tr class="odd">
+<td>0</td>
+<td>Normal</td>
+<td>CMA</td>
+<td>0</td>
+<td>0</td>
+<td><strong>CMA</strong>：没有启用
+CMA，表示没有为连续内存分配区保留内存。</td>
+</tr>
+<tr class="even">
+<td>0</td>
+<td>Normal</td>
+<td>Isolate</td>
+<td>0</td>
+<td>0</td>
+<td><strong>隔离</strong>：没有使用内存隔离区，表示没有特定的内存区域被标记为隔离区。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="总体可视化统计按-zone">总体可视化统计（按 Zone）</h4>
+<table>
+
+<thead>
+<tr class="header">
+<th>Zone</th>
+<th>Unmovable</th>
+<th>Reclaimable</th>
+<th>Movable</th>
+<th>Total Blocks</th>
+<th>Total Size (GB)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>DMA</td>
+<td>1</td>
+<td>0</td>
+<td>7</td>
+<td>8</td>
+<td>0.016 GB</td>
+</tr>
+<tr class="even">
+<td>DMA32</td>
+<td>961</td>
+<td>43</td>
+<td>524</td>
+<td>1528</td>
+<td>2.98 GB</td>
+</tr>
+<tr class="odd">
+<td>Normal</td>
+<td>10261</td>
+<td>217</td>
+<td>4370</td>
+<td>14848</td>
+<td>29.0 GB</td>
+</tr>
+<tr class="even">
+<td><strong>总计</strong></td>
+<td><strong>11223</strong></td>
+<td><strong>260</strong></td>
+<td><strong>4901</strong></td>
+<td><strong>16384 blocks</strong></td>
+<td><strong>32.0 GB</strong>（总内存）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="重点观察">重点观察</h4>
+<ul>
+<li><strong>Normal 区是主力：</strong>
+<ul>
+<li>Unmovable：<code>10261 blocks</code> ≈ 20.04 GB</li>
+<li>Movable：<code>4370 blocks</code> ≈ 8.54 GB</li>
+</ul></li>
+<li><strong>DMA32 区也承担了一部分常驻内核内存</strong>（如 Unmovable
+961 blocks ≈ 1.88 GB）</li>
+<li><strong>未启用 CMA 和
+Isolate</strong>，说明没有使用大块连续内存预留和内存热拔插功能。</li>
+</ul>
+<h4 id="额外信息来源及命令建议">额外信息来源及命令建议</h4>
+<table>
+
+<thead>
+<tr class="header">
+<th>信息类型</th>
+<th>工具 / 命令</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Slab/Slub 分配占用</td>
+<td><code>slabtop</code> / <code>cat /proc/slabinfo</code></td>
+<td>查看内核结构分配情况</td>
+</tr>
+<tr class="even">
+<td>模块加载情况</td>
+<td><code>lsmod</code> / <code>cat /proc/modules</code></td>
+<td>检查 ko 占用内存</td>
+</tr>
+<tr class="odd">
+<td>vmalloc 区域分析</td>
+<td><code>cat /proc/vmallocinfo</code></td>
+<td>看分配了多少虚拟地址</td>
+</tr>
+<tr class="even">
+<td>页主跟踪</td>
+<td><code>cat /sys/kernel/debug/page_owner</code></td>
+<td>若开启 <code>CONFIG_PAGE_OWNER</code>，可精确定位占用源</td>
+</tr>
+<tr class="odd">
+<td>内存碎片情况</td>
+<td><code>cat /proc/buddyinfo</code></td>
+<td>查看页分配碎片状态</td>
+</tr>
+</tbody>
+</table>
+<h3
+id="找出-normal-区中那-10261-个不可移动页块约-20gb-都是被谁占用的">找出
+Normal 区中那 10261 个不可移动页块（约 20GB） 都是被谁占用的?</h3>
+<p>要找出 Normal 区中那 <strong>10261 个不可移动页块（约 20GB）</strong>
+都是被谁占用的，可以从多个维度来排查，方法如下：</p>
+<hr />
+<h4
+id="一先理解不可移动unmovable-包括哪些内容">一、先理解：“不可移动（Unmovable）”
+包括哪些内容？</h4>
+<p>Unmovable 类型的页块，通常包含：</p>
+<ul>
+<li>内核核心代码（text/data 段）</li>
+<li>内核模块（ko 文件加载后常驻内存）</li>
+<li>页表、vmalloc 区、固定映射（fixmap）</li>
+<li>slab/slub 分配器中的非回收对象（slab caches）</li>
+<li>不可迁移的内核结构（如 task_struct、文件描述符等）</li>
+<li>映射到设备的页（如 DMA 内存）</li>
+</ul>
+<hr />
+<h4 id="二定位这些页占用来源的方法">二、定位这些页占用来源的方法</h4>
+<h5 id="slabslub-分配器占了多少内存哪些对象是-unmovable">1.
+<strong>slab/slub 分配器：占了多少内存？哪些对象是
+Unmovable？</strong></h5>
+<p>使用： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">slabtop -s c -o | <span class="hljs-built_in">head</span> -n20<br></code></pre></td></tr></table></figure></p>
+<p>或者： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/slabinfo | <span class="hljs-built_in">sort</span> -k 3 -nr | <span class="hljs-built_in">head</span> -20<br></code></pre></td></tr></table></figure></p>
+<p>看哪些对象数量巨大，占用内存多，特别是 <code>allocs</code> 很多但
+<code>frees</code> 很少的项（无法释放 = Unmovable）。</p>
+<hr />
+<h5 id="内核模块是否加载了很多-ko-占据了-unmovable-区">2.
+<strong>内核模块：是否加载了很多 ko 占据了 Unmovable 区？</strong></h5>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">lsmod | <span class="hljs-built_in">sort</span> -k2 -nr | <span class="hljs-built_in">head</span><br></code></pre></td></tr></table></figure>
+<p>查看模块的使用量。</p>
+<p>配合： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/modules<br></code></pre></td></tr></table></figure> 看大小字段。</p>
+<hr />
+<h5 id="vmalloc-区域">3. <strong>vmalloc 区域</strong></h5>
+<p>查看 vmalloc 分配情况： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/vmallocinfo | less<br></code></pre></td></tr></table></figure></p>
+<p>vmalloc 分配出来的地址空间大多数是
+Unmovable（虽然页面本身可能有迁移可能性，但 pageblock 仍视作
+Unmovable）。</p>
+<hr />
+<h5 id="page-owner-tracing较高级">4. <strong>page owner
+tracing（较高级）</strong></h5>
+<p>如果你打开了
+<code>CONFIG_PAGE_OWNER</code>，可以直接查看页面是谁分配的：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /sys/kernel/debug/page_owner<br></code></pre></td></tr></table></figure>
+<p>然后配合筛选： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">grep -A30 Unmovable /sys/kernel/debug/page_owner | less<br></code></pre></td></tr></table></figure></p>
+<p>或者想查 Normal 区页可这样： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">grep Normal /sys/kernel/debug/page_owner | grep Unmovable<br></code></pre></td></tr></table></figure></p>
+<blockquote>
+<p>注：需要内核编译时打开 <code>CONFIG_PAGE_OWNER</code>
+并在grub加内核参数启动： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">page_owner=on<br></code></pre></td></tr></table></figure></p>
+</blockquote>
+<hr />
+<h5 id="buddyinfo-辅助判断碎片分布">5. <strong>buddyinfo
+辅助判断碎片分布</strong></h5>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/buddyinfo<br></code></pre></td></tr></table></figure>
+<p>可以查看 Normal 区是否高度碎片化，是否还有可能回收页。</p>
+<hr />
+<h5 id="内核页映射分布分析较高级">6.
+<strong>内核页映射分布分析（较高级）</strong></h5>
+<p>可以通过 <code>page-types</code> 工具配合 <code>page_owner</code>
+分析页面用途。</p>
+<p>比如： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo page-types -r /proc/kcore<br></code></pre></td></tr></table></figure></p>
+<p>可以尝试查看哪些物理页是 Unmovable。</p>
+<hr />
+<h4 id="三实用建议组合分析方法">三、实用建议组合分析方法</h4>
+<ol type="1">
+<li>先用 <code>slabtop</code> 查看谁吃了最多的内存。</li>
+<li>看 <code>lsmod</code> 模块是否加载太多。</li>
+<li>检查 <code>vmallocinfo</code> 是否用了很多大分配。</li>
+<li>如果你能重启加内核参数，可以启用 <code>page_owner</code>
+来精确找出分配源。</li>
+<li>结合 <code>buddyinfo</code> 看是否高度碎片化（意味着很多 page block
+无法释放）。</li>
+</ol>
+<hr />
+<h2 id="more">More</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/b25a4832f799">VMware non-cache
+内存增加</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_39445556/article/details/103779384">升级服务器内核解决Kernel内存泄露</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://stackoverflow.com/questions/49824718/kernel-dynamic-memory-leak">kernel
+dynamic memory leak</a></li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/mm/" class="category-chain-item">mm</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/mm/bugs/" class="category-chain-item">bugs</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/mm/bugs/kernel-dynamic-memory/" class="category-chain-item">kernel-dynamic-memory</a>
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/C/">#C++</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/namespace/">#namespace</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>kernel-dynamic-memory nocache very high</div>
+      <div>https://realwujing.github.io/linux/kernel/mm/bugs/kernel-dynamic-memory/kernel-dynamic-memory nocache very high/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年4月10日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/fs/bugs/procfs/hlist_bl_for_each_entry_rcu%E9%81%8D%E5%8E%86%E6%97%B6%E8%AE%BF%E9%97%AEdentry-%3Ed_name.hash%E6%97%B6%E5%87%BA%E7%8E%B0%E9%9D%9E%E6%B3%95%E5%9C%B0%E5%9D%80%E8%AE%BF%E9%97%AE%EF%BC%880x60e%EF%BC%89/" title="hlist_bl_for_each_entry_rcu遍历时访问dentry-&gt;d_name">
+                        <span class="hidden-mobile">hlist_bl_for_each_entry_rcu遍历时访问dentry-&gt;d_name</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '0ce1da2d36d1390bad0c58e2bc5bad47'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

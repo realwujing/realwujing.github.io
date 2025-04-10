@@ -1,0 +1,1115 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="hlist_bl_for_each_entry_rcu遍历时访问dentry-&gt;d_name.hash时出现非法地址访问（0x60e） BUG: kernel NULL pointer dereference, address: 000000000000060e  linux 线程内核栈内存溢出导致系统崩溃 关键内存问题定位 一文读懂 | Linux 中的各种栈：进程栈 线程栈 内核栈 中断">
+<meta property="og:type" content="article">
+<meta property="og:title" content="hlist_bl_for_each_entry_rcu遍历时访问dentry-&gt;d_name">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/fs/bugs/procfs/hlist_bl_for_each_entry_rcu%E9%81%8D%E5%8E%86%E6%97%B6%E8%AE%BF%E9%97%AEdentry-%3Ed_name.hash%E6%97%B6%E5%87%BA%E7%8E%B0%E9%9D%9E%E6%B3%95%E5%9C%B0%E5%9D%80%E8%AE%BF%E9%97%AE%EF%BC%880x60e%EF%BC%89/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="hlist_bl_for_each_entry_rcu遍历时访问dentry-&gt;d_name.hash时出现非法地址访问（0x60e） BUG: kernel NULL pointer dereference, address: 000000000000060e  linux 线程内核栈内存溢出导致系统崩溃 关键内存问题定位 一文读懂 | Linux 中的各种栈：进程栈 线程栈 内核栈 中断">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-04-10T16:05:39.000Z">
+<meta property="article:modified_time" content="2025-04-10T16:05:39.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="namespace">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>hlist_bl_for_each_entry_rcu遍历时访问dentry-&gt;d_name - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="hlist_bl_for_each_entry_rcu遍历时访问dentry-&gt;d_name"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-04-10 16:05" pubdate>
+          2025年4月10日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          26k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          216 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">hlist_bl_for_each_entry_rcu遍历时访问dentry-&gt;d_name</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1
+id="hlist_bl_for_each_entry_rcu遍历时访问dentry-d_name.hash时出现非法地址访问0x60e">hlist_bl_for_each_entry_rcu遍历时访问dentry-&gt;d_name.hash时出现非法地址访问（0x60e）</h1>
+<p>BUG: kernel NULL pointer dereference, address: 000000000000060e</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/13843033554">linux
+线程内核栈内存溢出导致系统崩溃 关键内存问题定位</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/2168474">一文读懂 |
+Linux 中的各种栈：进程栈 线程栈 内核栈 中断栈</a></li>
+</ul>
+<h2 id="crash">crash</h2>
+<h3 id="bt">bt</h3>
+<h4 id="bt-1">bt</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; bt<br>PID: 3996786  TASK: ffff96264e270000  CPU: 70   COMMAND: <span class="hljs-string">&quot;ps&quot;</span><br> <span class="hljs-comment">#0 [ffffa507c034fad8] crash_kexec at ffffffff83baec79</span><br> <span class="hljs-comment">#1 [ffffa507c034fae8] oops_end at ffffffff83a29a75</span><br> <span class="hljs-comment">#2 [ffffa507c034fb08] no_context at ffffffff83a7c9ac</span><br> <span class="hljs-comment">#3 [ffffa507c034fb40] __bad_area_nosemaphore at ffffffff83a7cab2</span><br> <span class="hljs-comment">#4 [ffffa507c034fb88] exc_page_fault at ffffffff844ce2bc</span><br> <span class="hljs-comment">#5 [ffffa507c034fbe0] asm_exc_page_fault at ffffffff84600afe</span><br>    [exception RIP: __d_lookup+65]<br>    RIP: ffffffff83db15e1  RSP: ffffa507c034fc98  RFLAGS: 00010206<br>    RAX: ffffa5078637f048  RBX: 00000000000005f6  RCX: 0000000000000007<br>    RDX: 0000000000b6fc09  RSI: ffffa507c034fdd0  RDI: ffff964615841518<br>    RBP: ffff964615841518   R8: 0000000000000000   R9: 0000000400000000<br>    R10: ffff964615841518  R11: ffffffff868b8b9c  R12: ffff964615841518<br>    R13: ffffa507c034fdd0  R14: 000000005b7e0484  R15: 0000000000008000<br>    ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018<br> <span class="hljs-comment">#6 [ffffa507c034fcc8] lookup_fast at ffffffff83d9ef78</span><br> <span class="hljs-comment">#7 [ffffa507c034fd08] open_last_lookups at ffffffff83da3254</span><br> <span class="hljs-comment">#8 [ffffa507c034fd68] path_openat at ffffffff83da3e28</span><br> <span class="hljs-comment">#9 [ffffa507c034fdb8] do_filp_open at ffffffff83da68c0</span><br><span class="hljs-comment">#10 [ffffa507c034fec8] do_sys_openat2 at ffffffff83d8dc07</span><br><span class="hljs-comment">#11 [ffffa507c034ff10] __x64_sys_openat at ffffffff83d8e2d4</span><br><span class="hljs-comment">#12 [ffffa507c034ff38] do_syscall_64 at ffffffff844cac00</span><br><span class="hljs-comment">#13 [ffffa507c034ff50] entry_SYSCALL_64_after_hwframe at ffffffff84600099</span><br>    RIP: 00007fbd0610f8eb  RSP: 00007ffd91e87c70  RFLAGS: 00000246<br>    RAX: ffffffffffffffda  RBX: 0000557c9d99e2d0  RCX: 00007fbd0610f8eb<br>    RDX: 0000000000000000  RSI: 00007ffd91e87e70  RDI: 00000000ffffff9c<br>    RBP: 00007ffd91e87e70   R8: 0000000000000008   R9: 0000000000000001<br>    R10: 0000000000000000  R11: 0000000000000246  R12: 0000000000000000<br>    R13: 0000557c9d99e2d0  R14: 0000000000000001  R15: 00000000003cfdc3<br>    ORIG_RAX: 0000000000000101  CS: 0033  SS: 002b<br></code></pre></td></tr></table></figure>
+<h4 id="bt--lsx">bt -lsx</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; bt -lsx<br>PID: 3996786  TASK: ffff96264e270000  CPU: 70   COMMAND: <span class="hljs-string">&quot;ps&quot;</span><br> <span class="hljs-comment">#0 [ffffa507c034fad8] crash_kexec+0x39 at ffffffff83baec79</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/./arch/x86/include/asm/atomic.h: 41<br> <span class="hljs-comment">#1 [ffffa507c034fae8] oops_end+0x95 at ffffffff83a29a75</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/arch/x86/kernel/dumpstack.c: 359<br> <span class="hljs-comment">#2 [ffffa507c034fb08] no_context+0x17c at ffffffff83a7c9ac</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/arch/x86/mm/fault.c: 767<br> <span class="hljs-comment">#3 [ffffa507c034fb40] __bad_area_nosemaphore+0x52 at ffffffff83a7cab2</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/arch/x86/mm/fault.c: 853<br> <span class="hljs-comment">#4 [ffffa507c034fb88] exc_page_fault+0x2dc at ffffffff844ce2bc</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/arch/x86/mm/fault.c: 1354<br> <span class="hljs-comment">#5 [ffffa507c034fbe0] asm_exc_page_fault+0x1e at ffffffff84600afe</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/./arch/x86/include/asm/idtentry.h: 571<br>    [exception RIP: __d_lookup+65]<br>    RIP: ffffffff83db15e1  RSP: ffffa507c034fc98  RFLAGS: 00010206<br>    RAX: ffffa5078637f048  RBX: 00000000000005f6  RCX: 0000000000000007<br>    RDX: 0000000000b6fc09  RSI: ffffa507c034fdd0  RDI: ffff964615841518<br>    RBP: ffff964615841518   R8: 0000000000000000   R9: 0000000400000000<br>    R10: ffff964615841518  R11: ffffffff868b8b9c  R12: ffff964615841518<br>    R13: ffffa507c034fdd0  R14: 000000005b7e0484  R15: 0000000000008000<br>    ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018<br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/fs/dcache.c: 2453<br> <span class="hljs-comment">#6 [ffffa507c034fcc8] lookup_fast+0xb8 at ffffffff83d9ef78</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/fs/namei.c: 1510<br> <span class="hljs-comment">#7 [ffffa507c034fd08] open_last_lookups+0x144 at ffffffff83da3254</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/fs/namei.c: 3203<br> <span class="hljs-comment">#8 [ffffa507c034fd68] path_openat+0x88 at ffffffff83da3e28</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/fs/namei.c: 3423<br> <span class="hljs-comment">#9 [ffffa507c034fdb8] do_filp_open+0x90 at ffffffff83da68c0</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/fs/namei.c: 3453<br><span class="hljs-comment">#10 [ffffa507c034fec8] do_sys_openat2+0x207 at ffffffff83d8dc07</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/fs/open.c: 1180<br><span class="hljs-comment">#11 [ffffa507c034ff10] __x64_sys_openat+0x54 at ffffffff83d8e2d4</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/fs/open.c: 1207<br><span class="hljs-comment">#12 [ffffa507c034ff38] do_syscall_64+0x40 at ffffffff844cac00</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/arch/x86/entry/common.c: 47<br><span class="hljs-comment">#13 [ffffa507c034ff50] entry_SYSCALL_64_after_hwframe+0x61 at ffffffff84600099</span><br>    /usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/arch/x86/entry/entry_64.S: 132<br>    RIP: 00007fbd0610f8eb  RSP: 00007ffd91e87c70  RFLAGS: 00000246<br>    RAX: ffffffffffffffda  RBX: 0000557c9d99e2d0  RCX: 00007fbd0610f8eb<br>    RDX: 0000000000000000  RSI: 00007ffd91e87e70  RDI: 00000000ffffff9c<br>    RBP: 00007ffd91e87e70   R8: 0000000000000008   R9: 0000000000000001<br>    R10: 0000000000000000  R11: 0000000000000246  R12: 0000000000000000<br>    R13: 0000557c9d99e2d0  R14: 0000000000000001  R15: 00000000003cfdc3<br>    ORIG_RAX: 0000000000000101  CS: 0033  SS: 002b<br></code></pre></td></tr></table></figure>
+<h4 id="files">files</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; files 3996786<br>PID: 3996786  TASK: ffff96264e270000  CPU: 70   COMMAND: <span class="hljs-string">&quot;ps&quot;</span><br>ROOT: /    CWD: /home/secure<br> FD       FILE            DENTRY           INODE       TYPE PATH<br>  0 ffff9645f2196800 ffff9646df18af30 ffff9645a19738c8 FIFO<br>  1 ffff9646a8ff1e00 ffff96460c2e90e0 ffff9586fbf5eca0 FIFO<br>  2 ffff9646778ce1c0 ffff9646df18b290 ffff9645a19758e0 FIFO<br>  3 ffff964603e63980 ffff95861b502288 ffff95861b516b88 DIR  /proc/<br></code></pre></td></tr></table></figure>
+<h3 id="d_lookup">__d_lookup</h3>
+<p>RSI: ffffa507c034fdd0 RDI: ffff964615841518</p>
+<p>[exception RIP: __d_lookup+65]</p>
+<p>在 x86_64 架构的 Linux 系统调用中，寄存器 RDI 和 RSI
+确实分别用于传递系统调用的第一个和第二个参数。</p>
+<h4 id="rsi-ffffa507c034fdd0">RSI: ffffa507c034fdd0</h4>
+<p>利用寄存器RSI推断BUG: kernel NULL pointer dereference, address:
+000000000000060e发生的逻辑。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim fs/dcache.c +2421</span><br><br><span class="hljs-number">2421</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dentry</span> *__<span class="hljs-title">d_lookup</span>(<span class="hljs-title">const</span> <span class="hljs-keyword">struct</span> <span class="hljs-title">dentry</span> *<span class="hljs-title">parent</span>, <span class="hljs-title">const</span> <span class="hljs-keyword">struct</span> <span class="hljs-title">qstr</span> *<span class="hljs-title">name</span>)</span><br><span class="hljs-class">2422 &#123;</span><br><span class="hljs-number">2423</span>     <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> hash = name-&gt;hash;<br><span class="hljs-number">2424</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">hlist_bl_head</span> *<span class="hljs-title">b</span> =</span> d_hash(hash);<br></code></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim fs/dcache.c +101</span><br><br> <span class="hljs-number">101</span> <span class="hljs-type">static</span> <span class="hljs-keyword">inline</span> <span class="hljs-keyword">struct</span> hlist_bl_head *<span class="hljs-title function_">d_hash</span><span class="hljs-params">(<span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> hash)</span><br> 102 &#123;<br> <span class="hljs-number">103</span>     <span class="hljs-keyword">return</span> dentry_hashtable + (hash &gt;&gt; d_hash_shift);<br> <span class="hljs-number">104</span> &#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct qstr.hash ffffa507c034fdd0<br>      <span class="hljs-built_in">hash</span> = 1534985348,<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; p dentry_hashtable<br>dentry_hashtable = <span class="hljs-variable">$2</span> = (struct hlist_bl_head *) 0xffffa50780801000<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct hlist_bl_head ffffa50780801000<br>struct hlist_bl_head &#123;<br>  first = 0x0<br>&#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; p d_hash_shift<br>d_hash_shift = <span class="hljs-variable">$3</span> = 7<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct -o hlist_bl_head<br>struct hlist_bl_head &#123;  [0] struct hlist_bl_node *first;<br>&#125;<br>SIZE: 8<br></code></pre></td></tr></table></figure>
+<p>另起终端中执行： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">python3 -c <span class="hljs-string">&quot;print(hex(0xffffa50780801000 + (1534985348 &gt;&gt; 7) * 8))&quot;</span><br>0xffffa5078637f048<br></code></pre></td></tr></table></figure></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct hlist_bl_head 0xffffa5078637f048<br>struct hlist_bl_head &#123;<br>  first = 0x5f6<br>&#125;<br></code></pre></td></tr></table></figure>
+<p><code>first = 0x5f6</code>与<code>RBX: 00000000000005f6</code>相同。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim fs/dcache.c +2453</span><br><br><span class="hljs-number">2451</span>     hlist_bl_for_each_entry_rcu(dentry, node, b, d_hash) &#123;<br><span class="hljs-number">2452</span><br><span class="hljs-number">2453</span>         <span class="hljs-keyword">if</span> (dentry-&gt;d_name.hash != hash)<br><span class="hljs-number">2454</span>             <span class="hljs-keyword">continue</span>;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; dis -lx __d_lookup | grep 2453 -A2<br>/usr/src/debug/kernel-5.10.0-136.12.0.90.ctl3.x86_64/linux-5.10.0-136.12.0.90.ctl3.x86_64/fs/dcache.c: 2453<br>0xffffffff83db15e1 &lt;__d_lookup+0x41&gt;:   cmp    %r14d,0x18(%rbx)<br>0xffffffff83db15e5 &lt;__d_lookup+0x45&gt;:   jne    0xffffffff83db15d9 &lt;__d_lookup+0x39&gt;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; <span class="hljs-built_in">eval</span> 0x5f6 + 0x18<br>hexadecimal: 60e<br>    decimal: 1550<br>      octal: 3016<br>     binary: 0000000000000000000000000000000000000000000000000000011000001110<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; rd 60e<br>rd: invalid user virtual address: 60e  <span class="hljs-built_in">type</span>: <span class="hljs-string">&quot;64-bit UVADDR&quot;</span><br></code></pre></td></tr></table></figure>
+<p>BUG: kernel NULL pointer dereference, address: 000000000000060e</p>
+<p>基本还原了crash发生的现场。</p>
+<h4 id="rdi-ffff964615841518">RDI: ffff964615841518</h4>
+<p>结合寄存器RDI进一步看看hlist_bl_for_each_entry_rcu逻辑。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct dentry.d_iname ffff964615841518<br>  d_iname = <span class="hljs-string">&quot;3997123\000ervice\000ce\000\000tty.slice\000\000\000&quot;</span>,<br>crash&gt; struct dentry.d_parent ffff964615841518<br>  d_parent = 0xffff95861b502288,<br>crash&gt; struct dentry.d_iname 0xffff95861b502288<br>  d_iname = <span class="hljs-string">&quot;/\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000&quot;</span>,<br>crash&gt; struct dentry.d_parent 0xffff95861b502288<br>  d_parent = 0xffff95861b502288,<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct dentry.d_name ffff964615841518<br>  d_name = &#123;<br>    &#123;<br>      &#123;<br>        <span class="hljs-built_in">hash</span> = 1624861078,<br>        len = 7<br>      &#125;,<br>      hash_len = 31689632150<br>    &#125;,<br>    name = 0xffff964615841550 <span class="hljs-string">&quot;3997123&quot;</span><br>  &#125;,<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct -o dentry<br>struct dentry &#123;<br>    [0] unsigned int d_flags;<br>    [4] seqcount_spinlock_t d_seq;<br>    [8] struct hlist_bl_node d_hash;<br>   [24] struct dentry *d_parent;<br>   [32] struct qstr d_name;<br>   [48] struct inode *d_inode;<br>   [56] unsigned char d_iname[32];<br>   [88] struct lockref d_lockref;<br>   [96] const struct dentry_operations *d_op;<br>  [104] struct super_block *d_sb;<br>  [112] unsigned long d_time;<br>  [120] void *d_fsdata;<br>        union &#123;<br>  [128]     struct list_head d_lru;<br>  [128]     wait_queue_head_t *d_wait;<br>        &#125;;<br>  [144] struct list_head d_child;<br>  [160] struct list_head d_subdirs;<br>        union &#123;<br>            struct hlist_node d_alias;<br>            struct hlist_bl_node d_in_lookup_hash;<br>            struct callback_head d_rcu;<br>  [176] &#125; d_u;<br>  [192] atomic_t d_neg_dnum;<br>  [200] u64 kabi_reserved1;<br>  [208] u64 kabi_reserved2;<br>&#125;<br>SIZE: 216<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">struct hlist_bl_node &#123;<br>   [0] struct hlist_bl_node *next;<br>   [8] struct hlist_bl_node **pprev;<br>&#125;<br>SIZE: 16<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct -o hlist_bl_head<br>struct hlist_bl_head &#123;<br>  [0] struct hlist_bl_node *first;<br>&#125;<br>SIZE: 8<br></code></pre></td></tr></table></figure>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><code class="hljs text">[dentry_hashtable] (数组，每个元素是一个 hlist_bl_head)<br>        |<br>        |  index = hash &gt;&gt; d_hash_shift<br>        v<br>+--------------------------+<br>| struct hlist_bl_head    |   &lt;- dentry_hashtable[index]<br>|--------------------------|<br>| *first --&gt; d_hash node  |   -&gt; 错误地指向了 0x5f6<br>+--------------------------+<br>        |<br>        v<br>+--------------------------+<br>| struct hlist_bl_node    |   &lt;- dentry-&gt;d_hash<br>|--------------------------|<br>| *next                   |<br>| **pprev                 |<br>+--------------------------+<br>        |<br>        v<br>+--------------------------+<br>| struct dentry           |<br>|--------------------------|<br>| d_flags                 |<br>| d_seq                   |<br>| d_hash (内嵌结构体)     | &lt;- 用于散列链表<br>| d_parent                |<br>| d_name (qstr)           | &lt;- 用于名称匹配<br>|   |- hash               |<br>|   |- len                |<br>|   |- *name              |<br>| d_inode                 |<br>| d_op                    |<br>| d_sb                    |<br>| ...                     |<br>+--------------------------+<br></code></pre></td></tr></table></figure>
+<p>从此图来看，RSI:
+ffffa507c034fdd0作为__d_lookup函数第二个参数传入的时候的就有问题，接下来围绕第二个入参深入分析。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim fs/dcache.c +2421</span><br><br><span class="hljs-number">2421</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dentry</span> *__<span class="hljs-title">d_lookup</span>(<span class="hljs-title">const</span> <span class="hljs-keyword">struct</span> <span class="hljs-title">dentry</span> *<span class="hljs-title">parent</span>, <span class="hljs-title">const</span> <span class="hljs-keyword">struct</span> <span class="hljs-title">qstr</span> *<span class="hljs-title">name</span>)</span><br><span class="hljs-class">2422 &#123;</span><br><span class="hljs-number">2423</span>     <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> hash = name-&gt;hash;<br><span class="hljs-number">2424</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">hlist_bl_head</span> *<span class="hljs-title">b</span> =</span> d_hash(hash);<br></code></pre></td></tr></table></figure>
+<h3 id="nameidata">nameidata</h3>
+<p>围绕RSI: ffffa507c034fdd0推断出nameidata结构体的内容。</p>
+<h4 id="d_lookup函数被引用点">__d_lookup函数被引用点</h4>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim fs/namei.c +1510</span><br><br><span class="hljs-number">1504</span>         <span class="hljs-keyword">if</span> (unlazy_child(nd, dentry, seq))<br><span class="hljs-number">1505</span>             <span class="hljs-keyword">return</span> ERR_PTR(-ECHILD);<br><span class="hljs-number">1506</span>         <span class="hljs-keyword">if</span> (unlikely(status == -ECHILD))<br><span class="hljs-number">1507</span>             <span class="hljs-comment">/* we&#x27;d been told to redo it in non-rcu mode */</span><br><span class="hljs-number">1508</span>             status = d_revalidate(dentry, nd-&gt;flags);<br><span class="hljs-number">1509</span>     &#125; <span class="hljs-keyword">else</span> &#123;<br><span class="hljs-number">1510</span>         dentry = __d_lookup(parent, &amp;nd-&gt;last);<br><span class="hljs-number">1511</span>         <span class="hljs-keyword">if</span> (unlikely(!dentry))<br><span class="hljs-number">1512</span>             <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br><span class="hljs-number">1513</span>         status = d_revalidate(dentry, nd-&gt;flags);<br><span class="hljs-number">1514</span>     &#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct qstr ffffa507c034fdd0<br>struct qstr &#123;<br>  &#123;<br>    &#123;<br>      <span class="hljs-built_in">hash</span> = 1534985348,<br>      len = 4<br>    &#125;,<br>    hash_len = 18714854532<br>  &#125;,<br>  name = 0xffff96270489b02e <span class="hljs-string">&quot;ctty&quot;</span><br>&#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct -o nameidata<br>struct nameidata &#123;<br>    [0] struct path path;<br>   [16] struct qstr last;     // 10进制的16，转换成16进制是0x10<br>   [32] struct path root;<br>   [48] struct inode *inode;<br>   [56] unsigned int flags;<br>   [60] unsigned int state;<br>   [64] unsigned int <span class="hljs-built_in">seq</span>;<br>   [68] unsigned int m_seq;<br>   [72] unsigned int r_seq;<br>   [76] int last_type;<br>   [80] unsigned int depth;<br>   [84] int total_link_count;<br>   [88] struct saved *stack;<br>   [96] struct saved internal[2];<br>  [192] struct filename *name;<br>  [200] struct nameidata *saved;<br>  [208] unsigned int root_seq;<br>  [212] int dfd;<br>  [216] kuid_t dir_uid;<br>  [220] umode_t dir_mode;<br>&#125;<br>SIZE: 224<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct -o saved<br>struct saved &#123;<br>   [0] struct path <span class="hljs-built_in">link</span>;<br>  [16] struct delayed_call <span class="hljs-keyword">done</span>;<br>  [32] const char *name;<br>  [40] unsigned int <span class="hljs-built_in">seq</span>;<br>&#125;<br>SIZE: 48<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct -o path<br>struct path &#123;<br>   [0] struct vfsmount *mnt;<br>   [8] struct dentry *dentry;<br>&#125;<br>SIZE: 16<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct -o delayed_call<br>struct delayed_call &#123;<br>   [0] void (*fn)(void *);<br>   [8] void *arg;<br>&#125;<br>SIZE: 16<br></code></pre></td></tr></table></figure>
+<p>10进制的16，转换成16进制是0x10: <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; <span class="hljs-built_in">eval</span> 16<br>hexadecimal: 10<br>    decimal: 16<br>      octal: 20<br>     binary: 0000000000000000000000000000000000000000000000000000000000010000<br></code></pre></td></tr></table></figure></p>
+<p>根据offset算出nd数据结构地址: <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; <span class="hljs-built_in">eval</span> 0xffffa507c034fdd0 - 0x10<br>hexadecimal: ffffa507c034fdc0<br>    decimal: 18446644051440893376  (-100022268658240)<br>      octal: 1777775120370015176700<br>     binary: 1111111111111111101001010000011111000000001101001111110111000000<br></code></pre></td></tr></table></figure></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct nameidata ffffa507c034fdc0<br>struct nameidata &#123;<br>  path = &#123;<br>    mnt = 0xffff96059259f4a0,<br>    dentry = 0xffff964615841518<br>  &#125;,<br>  last = &#123;<br>    &#123;<br>      &#123;<br>        <span class="hljs-built_in">hash</span> = 1534985348,<br>        len = 4<br>      &#125;,<br>      hash_len = 18714854532<br>    &#125;,<br>    name = 0xffff96270489b02e <span class="hljs-string">&quot;ctty&quot;</span><br>  &#125;,<br>  root = &#123;<br>    mnt = 0xffff966592a20de0,<br>    dentry = 0xffff96858e777a28<br>  &#125;,<br>  inode = 0xffff9626fdc5d2c8,<br>  flags = 257,<br>  state = 2,<br>  <span class="hljs-built_in">seq</span> = 0,<br>  m_seq = 19851860,<br>  r_seq = 1071248,<br>  last_type = 0,<br>  depth = 0,<br>  total_link_count = 0,<br>  stack = 0xffffa507c034fe20,<br>  internal = &#123;&#123;<br>      <span class="hljs-built_in">link</span> = &#123;<br>        mnt = 0x7ffc09853ef0,<br>        dentry = 0x6<br>      &#125;,<br>      <span class="hljs-keyword">done</span> = &#123;<br>        fn = 0xffffffff83b7b103 &lt;rcu_nocb_try_bypass+499&gt;,<br>        arg = 0xffffffff83d69a6f &lt;page_counter_try_charge+47&gt;<br>      &#125;,<br>      name = 0x4 &lt;error: Cannot access memory at address 0x4&gt;,    // 异常值，很明显的错误<br>      <span class="hljs-built_in">seq</span> = 3119488576<br>    &#125;, &#123;<br>      <span class="hljs-built_in">link</span> = &#123;<br>        mnt = 0x0,<br>        dentry = 0x9fff6<br>      &#125;,<br>      <span class="hljs-keyword">done</span> = &#123;<br>        fn = 0x40,<br>        arg = 0xffffffff83e2491c &lt;files_cgroup_alloc_fd+92&gt;<br>      &#125;,<br>      name = 0x0,<br>      <span class="hljs-built_in">seq</span> = 2085869312<br>    &#125;&#125;,<br>  name = 0xffff96270489b000,<br>  saved = 0x0,<br>  root_seq = 2,<br>  dfd = -100,<br>  dir_uid = &#123;<br>    val = 1000<br>  &#125;,<br>  dir_mode = 16749<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>判断 <code>internal</code>
+栈是否被踩（即内存是否被非法覆盖或破坏）的结论，是通过综合分析你提供的各种数据（<code>struct nameidata</code>、内存转储、调用栈等）得出的。以下是我逐步分析的过程和得出结论的依据：</p>
+<hr />
+<h3 id="internal分析过程与证据">internal分析过程与证据</h3>
+<h4 id="internal-字段的异常值">1. <code>internal</code>
+字段的异常值</h4>
+<p>从 <code>struct nameidata</code> 的 <code>internal</code> 数组（位于
+<code>0xffffa507c034fe20</code> -
+<code>0xffffa507c034fe77</code>）中，我们观察到以下内容： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><code class="hljs c">internal = &#123;&#123;<br>    link = &#123;<br>      mnt = <span class="hljs-number">0x7ffc09853ef0</span>,       <span class="hljs-comment">// 用户空间地址，异常</span><br>      dentry = <span class="hljs-number">0x6</span>                <span class="hljs-comment">// 低地址，异常</span><br>    &#125;,<br>    done = &#123;<br>      fn = <span class="hljs-number">0xffffffff83b7b103</span> &lt;rcu_nocb_try_bypass+<span class="hljs-number">499</span>&gt;, <span class="hljs-comment">// 有效内核函数</span><br>      arg = <span class="hljs-number">0xffffffff83d69a6f</span> &lt;page_counter_try_charge+<span class="hljs-number">47</span>&gt; <span class="hljs-comment">// 有效参数</span><br>    &#125;,<br>    name = <span class="hljs-number">0x4</span> &lt;error: Cannot access memory at address <span class="hljs-number">0x4</span>&gt;, <span class="hljs-comment">// 异常值</span><br>    seq = <span class="hljs-number">3119488576</span>            <span class="hljs-comment">// 有效序列号</span><br>  &#125;, &#123;<br>    link = &#123;<br>      mnt = <span class="hljs-number">0x0</span>,                 <span class="hljs-comment">// 空，正常</span><br>      dentry = <span class="hljs-number">0x9fff6</span>           <span class="hljs-comment">// 低地址，异常</span><br>    &#125;,<br>    done = &#123;<br>      fn = <span class="hljs-number">0x40</span>,                 <span class="hljs-comment">// 异常值</span><br>      arg = <span class="hljs-number">0xffffffff83e2491c</span> &lt;files_cgroup_alloc_fd+<span class="hljs-number">92</span>&gt; <span class="hljs-comment">// 有效参数</span><br>    &#125;,<br>    name = <span class="hljs-number">0x0</span>,                  <span class="hljs-comment">// 空，正常</span><br>    seq = <span class="hljs-number">2085869312</span>            <span class="hljs-comment">// 有效序列号</span><br>  &#125;&#125;,<br></code></pre></td></tr></table></figure>
+- <strong>异常点</strong>： -
+<strong><code>internal[0].name = 0x4</code></strong>：路径名指针应指向有效字符串（如
+<code>0xffff96270489b02e "ctty"</code>），但 <code>0x4</code>
+是一个低地址，且不可访问（<code>&lt;error: Cannot access memory at address 0x4&gt;</code>）。
+-
+<strong><code>internal[1].done.fn = 0x40</code></strong>：回调函数指针应为内核地址（如
+<code>0xffffffff83b7b103</code>），但 <code>0x40</code>
+是一个无效的低地址。 -
+<strong><code>internal[0].link.dentry = 0x6</code> 和
+<code>internal[1].link.dentry = 0x9fff6</code></strong>：目录项指针应为内核地址（如
+<code>0xffff964615841518</code>），这些低值异常。 -
+<strong>初步判断</strong>：这些字段的值不符合预期（内核数据结构中不应出现如此低的地址），表明它们可能被非法覆盖。</p>
+<h4 id="内存转储的对比">2. 内存转储的对比</h4>
+<p>从 <code>rd -x 0xffffa507c034fe00 32</code>
+的输出中，<code>internal</code> 区域（<code>0xffffa507c034fe20</code> -
+<code>0xffffa507c034fe77</code>）与上述结构一致： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs bash">rd -x ffffa507c034fe20 32<br>ffffa507c034fe20:  00007ffc09853ef0 0000000000000006  // link.mnt, link.dentry<br>ffffa507c034fe30:  ffffffff83b7b103 ffffffff83d69a6f  // done.fn, done.arg<br>ffffa507c034fe40:  0000000000000004 ffff9587b9ef9e40  // name, <span class="hljs-built_in">seq</span><br>ffffa507c034fe50:  0000000000000000 000000000009fff6  // link.mnt, link.dentry<br>ffffa507c034fe60:  0000000000000040 ffffffff83e2491c  // done.fn, done.arg<br>ffffa507c034fe70:  0000000000000000 52e37d4e7c53d700  // name, <span class="hljs-built_in">seq</span><br>ffffa507c034fe80:  ffff96270489b000 0000000000000000<br>ffffa507c034fe90:  ffffff9c00000002 ffff416d000003e8<br>ffffa507c034fea0:  00000000ffffff9c 52e37d4e7c53d700<br>ffffa507c034feb0:  ffffa507c034ff18 00000000ffffff9c<br>ffffa507c034fec0:  0000000000000004 ffffffff83d8dc07<br>ffffa507c034fed0:  000080004e270000 00000004c0340000<br>ffffa507c034fee0:  0000000100000100 52e37d4e7c53d700<br>ffffa507c034fef0:  0000000000000000 ffffa507c034ff48<br>ffffa507c034ff00:  ffffa507c034ff58 0000000000000000<br>ffffa507c034ff10:  ffffffff83d8e2d4 0000000000008000<br></code></pre></td></tr></table></figure> -
+<strong>确认异常</strong>： -
+<code>0xffffa507c034fe40: 0000000000000004</code> →
+<code>name = 0x4</code> -
+<code>0xffffa507c034fe60: 0000000000000040</code> →
+<code>done.fn = 0x40</code> -
+<code>0xffffa507c034fe28: 0000000000000006</code> →
+<code>link.dentry = 0x6</code> -
+<code>0xffffa507c034fe58: 000000000009fff6</code> →
+<code>link.dentry = 0x9fff6</code> -
+<strong>其他字段正常</strong>：<code>done.fn</code> 和
+<code>done.arg</code> 的其他值（如
+<code>0xffffffff83b7b103</code>）是有效的内核地址，<code>seq</code>
+也合理。 -
+<strong>推测</strong>：部分字段被破坏，而其他字段保持完整，表明覆盖是局部的。</p>
+<h4 id="栈布局与溢出可能性">3. 栈布局与溢出可能性</h4>
+<ul>
+<li><strong>栈地址</strong>：
+<ul>
+<li><code>struct nameidata</code> 位于
+<code>0xffffa507c034fdc0</code>。</li>
+<li><code>stack</code> 指针为 <code>0xffffa507c034fe20</code>，包含
+<code>internal</code>。</li>
+<li>调用栈从
+<code>0xffffa507c034fec8</code>（<code>do_sys_openat2+519</code>）开始。</li>
+</ul></li>
+<li><strong>溢出方向</strong>：x86_64
+栈从高地址向低地址增长。如果溢出发生在更高地址（如
+<code>0xffffa507c034ffxx</code>），可能向下覆盖
+<code>0xffffa507c034fe40</code>（<code>name</code>）和
+<code>0xffffa507c034fe60</code>（<code>done.fn</code>）。</li>
+<li><strong>重复值</strong>：
+<ul>
+<li><code>0x4</code> 在 <code>0xffffa507c034fec0</code> 再次出现：
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">ffffa507c034fec0</span>:  <span class="hljs-number">0000000000000004</span> ffffffff83d8dc07<br></code></pre></td></tr></table></figure></li>
+<li>这可能是溢出源，暗示更高地址的数据（如局部变量）覆盖了
+<code>internal</code>。</li>
+</ul></li>
+</ul>
+<h4 id="调用栈与上下文">4. 调用栈与上下文</h4>
+<p>调用栈（<code>bt</code>）显示： <figure class="highlight less"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs less"> <span class="hljs-selector-id">#5</span> <span class="hljs-selector-attr">[ffffa507c034fbe0]</span> <span class="hljs-selector-tag">asm_exc_page_fault</span><br>    <span class="hljs-selector-attr">[exception RIP: __d_lookup+65]</span><br> <span class="hljs-selector-id">#6</span> <span class="hljs-selector-attr">[ffffa507c034fcc8]</span> <span class="hljs-selector-tag">lookup_fast</span><br> <span class="hljs-selector-id">#8</span> <span class="hljs-selector-attr">[ffffa507c034fd68]</span> <span class="hljs-selector-tag">path_openat</span><br><span class="hljs-selector-id">#10</span> <span class="hljs-selector-attr">[ffffa507c034fec8]</span> <span class="hljs-selector-tag">do_sys_openat2</span><br><span class="hljs-selector-id">#13</span> <span class="hljs-selector-attr">[ffffa507c034ff50]</span> <span class="hljs-selector-tag">entry_SYSCALL_64_after_hwframe</span><br></code></pre></td></tr></table></figure> -
+<strong>崩溃点</strong>：<code>__d_lookup+65</code> 触发页面错误，可能与
+<code>struct qstr</code>（<code>0xffffa507c034fdd0</code>，<code>"ctty"</code>）或
+<code>dentry</code>（<code>0xffff964615841518</code>）相关。 -
+<strong>栈使用</strong>：<code>path_openat</code> 使用
+<code>struct nameidata</code> 解析路径，<code>internal</code>
+是其临时栈。如果栈分配或操作不当，可能导致覆盖。 -
+<strong>异常值来源</strong>：<code>0x4</code> 和 <code>0x40</code>
+不像是正常初始值（通常为 <code>0</code>
+或有效指针），更像是溢出或错误写入的结果。</p>
+<h4 id="模式与一致性">5. 模式与一致性</h4>
+<ul>
+<li><strong>局部破坏</strong>：<code>internal</code>
+中只有特定字段（<code>name</code>, <code>done.fn</code>,
+<code>link.dentry</code>）异常，其他字段（如 <code>done.arg</code>,
+<code>seq</code>）正常，表明不是整个栈被清空，而是局部覆盖。</li>
+<li><strong>重复数据</strong>：<code>0x4</code> 和
+<code>0x52e37d4e7c53d700</code>（<code>seq</code>）在栈中多次出现，可能反映溢出或未清理的栈状态。</li>
+<li><strong>用户态痕迹</strong>：<code>internal[0].link.mnt = 0x7ffc09853ef0</code>
+是用户空间地址，可能被错误写入内核栈。</li>
+</ul>
+<hr />
+<h4 id="得出结论的依据">得出结论的依据</h4>
+<p>基于以上分析，我得出“<code>internal</code>
+栈被踩”的结论，理由如下：</p>
+<ol type="1">
+<li><strong>字段值异常</strong>：
+<ul>
+<li><code>name = 0x4</code> 和 <code>done.fn = 0x40</code>
+是无效的低地址，与内核数据结构的预期（高地址指针）不符。</li>
+<li><code>link.dentry = 0x6</code> 和 <code>0x9fff6</code>
+同样异常。</li>
+</ul></li>
+<li><strong>局部覆盖特征</strong>：
+<ul>
+<li>只有部分字段被破坏，其他字段（如
+<code>done.arg</code>）保持有效，符合栈被踩的典型模式（溢出通常只影响部分区域）。</li>
+</ul></li>
+<li><strong>溢出证据</strong>：
+<ul>
+<li><code>0x4</code> 在 <code>0xffffa507c034fec0</code>
+重复出现，位于调用栈附近，可能是从更高地址溢出的结果。</li>
+<li>栈向下增长的特性支持从 <code>0xffffa507c034fexx</code> 覆盖到
+<code>0xffffa507c034fe40</code> 的可能性。</li>
+</ul></li>
+<li><strong>上下文支持</strong>：
+<ul>
+<li><code>path_openat</code> 和 <code>lookup_fast</code> 操作
+<code>struct nameidata</code>，若栈分配过大或指针越界，可能导致
+<code>internal</code> 被覆盖。</li>
+<li>崩溃在 <code>__d_lookup</code>
+表明路径解析出错，<code>internal</code>
+的异常可能是同一问题的副作用。</li>
+</ul></li>
+</ol>
+<hr />
+<h4 id="结论">结论</h4>
+<p><strong><code>internal</code> 栈被踩了</strong>，表现为
+<code>name = 0x4</code>、<code>done.fn = 0x40</code>
+等字段被非法覆盖。覆盖是局部的，可能是从更高地址（如
+<code>0xffffa507c034fec0</code>）的栈溢出导致。根本原因可能与
+<code>path_openat</code> 或 <code>lookup_fast</code>
+中的栈操作有关，建议进一步检查 <code>__d_lookup</code>
+的崩溃点和相关数据结构（<code>dentry</code>,
+<code>qstr</code>）以确认溢出源。</p>
+<h3 id="hash_len">hash_len</h3>
+<p>link_path_walk</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim fs/namei.c +2154</span><br><br><span class="hljs-number">2109</span> <span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">link_path_walk</span><span class="hljs-params">(<span class="hljs-type">const</span> <span class="hljs-type">char</span> *name, <span class="hljs-keyword">struct</span> nameidata *nd)</span><br>2100 &#123;<br>......................................................................<br><span class="hljs-number">2146</span>         <span class="hljs-keyword">if</span> (likely(type == LAST_NORM)) &#123;<br><span class="hljs-number">2147</span>             <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dentry</span> *<span class="hljs-title">parent</span> =</span> nd-&gt;path.dentry;<br><span class="hljs-number">2148</span>             nd-&gt;state &amp;= ~ND_JUMPED;<br><span class="hljs-number">2149</span>             <span class="hljs-keyword">if</span> (unlikely(parent-&gt;d_flags &amp; DCACHE_OP_HASH)) &#123;<br><span class="hljs-number">2150</span>                 <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">qstr</span> <span class="hljs-title">this</span> =</span> &#123; &#123; .hash_len = hash_len &#125;, .name = name &#125;;<br><span class="hljs-number">2151</span>                 err = parent-&gt;d_op-&gt;d_hash(parent, &amp;this);<br><span class="hljs-number">2152</span>                 <span class="hljs-keyword">if</span> (err &lt; <span class="hljs-number">0</span>)<br><span class="hljs-number">2153</span>                     <span class="hljs-keyword">return</span> err;<br><span class="hljs-number">2154</span>                 hash_len = this.hash_len;<br><span class="hljs-number">2155</span>                 name = this.name;<br><span class="hljs-number">2156</span>             &#125;<br><span class="hljs-number">2157</span>         &#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct dentry.d_inode ffff964615841518<br>  d_inode = 0xffff9626fdc5d2c8,<br>crash&gt; struct inode.i_rdev 0xffff9626fdc5d2c8<br>  i_rdev = 0,<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct dentry.d_op,d_sb ffff964615841518<br>  d_op = 0xffffffff84a53740 &lt;pid_dentry_operations&gt;,<br>  d_sb = 0xffff9625911ca000,<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct dentry_operations 0xffffffff84a53740<br>struct dentry_operations &#123;<br>  d_revalidate = 0xffffffff83e3e8b0 &lt;pid_revalidate&gt;,<br>  d_weak_revalidate = 0x0,<br>  d_hash = 0x0,<br>  d_compare = 0x0,<br>  d_delete = 0xffffffff83e3a3d0 &lt;pid_delete_dentry&gt;,<br>  d_init = 0x0,<br>  d_release = 0x0,<br>  d_prune = 0x0,<br>  d_iput = 0x0,<br>  d_dname = 0x0,<br>  d_automount = 0x0,<br>  d_manage = 0x0,<br>  d_real = 0x0,<br>  kabi_reserved1 = 0,<br>  kabi_reserved2 = 0,<br>  kabi_reserved3 = 0,<br>  kabi_reserved4 = 0<br>&#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct super_block.s_type,s_id 0xffff9625911ca000<br>  s_type = 0xffffffff856a89e0 &lt;proc_fs_type&gt;,<br>  s_id = <span class="hljs-string">&quot;proc\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000&quot;</span>,<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct file_system_type 0xffffffff856a89e0<br>struct file_system_type &#123;<br>  name = 0xffffffff84d57275 <span class="hljs-string">&quot;proc&quot;</span>,<br>  fs_flags = 24,<br>  init_fs_context = 0xffffffff83e39f80 &lt;proc_init_fs_context&gt;,<br>  parameters = 0xffffffff84a50820 &lt;proc_fs_parameters&gt;,<br>  mount = 0x0,<br>  kill_sb = 0xffffffff83e39c70 &lt;proc_kill_sb&gt;,<br>  owner = 0x0,<br>  next = 0xffffffff85636c40 &lt;cgroup_fs_type&gt;,<br>  fs_supers = &#123;<br>    first = 0xffff9666b22298e0<br>  &#125;,<br>  s_lock_key = &#123;&lt;No data fields&gt;&#125;,<br>  s_umount_key = &#123;&lt;No data fields&gt;&#125;,<br>  s_vfs_rename_key = &#123;&lt;No data fields&gt;&#125;,<br>  s_writers_key = 0xffffffff856a8a28 &lt;proc_fs_type+72&gt;,<br>  i_lock_key = &#123;&lt;No data fields&gt;&#125;,<br>  i_mutex_key = &#123;&lt;No data fields&gt;&#125;,<br>  i_mutex_dir_key = &#123;&lt;No data fields&gt;&#125;,<br>  kabi_reserved1 = 0,<br>  kabi_reserved2 = 0,<br>  kabi_reserved3 = 0,<br>  kabi_reserved4 = 0<br>&#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct task_struct.nsproxy ffff96264e270000<br>  nsproxy = 0xffffffff85257de0 &lt;init_nsproxy&gt;,<br>crash&gt;<br>crash&gt;<br>crash&gt; struct nsproxy 0xffffffff85257de0<br>struct nsproxy &#123;<br>  count = &#123;<br>    counter = 3670<br>  &#125;,<br>  uts_ns = 0xffffffff85212700 &lt;init_uts_ns&gt;,<br>  ipc_ns = 0xffffffff856a9b00 &lt;init_ipc_ns&gt;,<br>  mnt_ns = 0xffff9586001cf5c0,<br>  pid_ns_for_children = 0xffffffff85257a40 &lt;init_pid_ns&gt;,<br>  net_ns = 0xffffffff85749180 &lt;init_net&gt;,<br>  time_ns = 0xffffffff85632880 &lt;init_time_ns&gt;,<br>  time_ns_for_children = 0xffffffff85632880 &lt;init_time_ns&gt;,<br>  cgroup_ns = 0xffffffff85637f00 &lt;init_cgroup_ns&gt;,<br>  kabi_reserved1 = 0,<br>  kabi_reserved2 = 0,<br>  kabi_reserved3 = 0,<br>  kabi_reserved4 = 0,<br>  kabi_reserved5 = 0,<br>  kabi_reserved6 = 0,<br>  kabi_reserved7 = 0,<br>  kabi_reserved8 = 0<br>&#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash">[145] struct mnt_namespace 0xffff9586001cf5c0<br>[146] struct -o mnt_namespace<br>[147] struct mnt_namespace.root 0xffff9586001cf5c0<br>[148] struct mount 0xffff962590036300<br>[149] struct -o mount<br>[150] struct mount.mnt_parent 0xffff962590036300<br>[151] struct mount 0xffff962590036300<br>[152] struct -o mount<br>[153] struct mount.dentry 0xffff962590036300<br>[154] struct mount 0xffff962590036300<br>[155] struct mount.mnt_mountpoint 0xffff962590036300<br>[156] struct dentry 0xffff95e590400798<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; mount -n ffff96264e270000 | grep -E <span class="hljs-string">&quot;MOUNT|proc&quot;</span><br>     MOUNT           SUPERBLK     TYPE   DEVNAME   DIRNAME<br>ffff96059259f480 ffff9625911ca000 proc   proc      /proc<br>ffff962592823c00 ffff96659271f800 autofs systemd-1 /proc/sys/fs/binfmt_misc<br>ffff95864a865180 ffff96660d1e0000 binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc/<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct dentry.d_lockref.count ffff964615841518<br>  d_lockref.count = 1<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; kmem -s ffff964615841518<br>CACHE             OBJSIZE  ALLOCATED     TOTAL  SLABS  SSIZE  NAME<br>ffff96059000db80      216     380560    436156  11788     8k  dentry<br>  SLAB              MEMORY            NODE  TOTAL  ALLOCATED  FREE<br>  ffffe3b084561000  ffff964615840000     6     37         37     0<br>  FREE / [ALLOCATED]<br>  [ffff964615841518]<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; kmem -s ffff9626fdc5d2c8<br>CACHE             OBJSIZE  ALLOCATED     TOTAL  SLABS  SSIZE  NAME<br>ffff96059000ea80      696      90178    129950   2825    32k  proc_inode_cache<br>  SLAB              MEMORY            NODE  TOTAL  ALLOCATED  FREE<br>  ffffe3b007f71600  ffff9626fdc58000     5     46         46     0<br>  FREE / [ALLOCATED]<br>  [ffff9626fdc5d280]<br></code></pre></td></tr></table></figure>
+<pre><code class=" mermaid">flowchart TD
+    %% 定义子图，区分用户态和内核态地址空间
+    subgraph 用户态地址空间
+        A[开始: 用户态进程 ps 运行 &lt;br&gt; PID: 3996786]
+        B1[步骤 1.1: 用户进程调用 openat 系统调用]
+        B2[步骤 1.2: 执行 syscall 指令 &lt;br&gt; 系统调用号 0x101 存入 RAX]
+        M1[步骤 12.1: 通过 sysret 指令返回用户态]
+        M2[步骤 12.2: 恢复用户态寄存器和堆栈]
+        N[结束: 用户态进程继续运行]
+    end
+
+    subgraph 内核态地址空间
+        C1[步骤 2.1: CPU 切换到内核态 Ring 0]
+        C2[步骤 2.2: 跳转到 entry_SYSCALL_64_after_hwframe &lt;br&gt; 加载内核栈]
+        D1[步骤 3.1: 执行 do_syscall_64 &lt;br&gt; 使用内核栈存储调用帧]
+        D2[步骤 3.2: 根据 RAX 调用 __x64_sys_openat]
+        E1[步骤 4.1: __x64_sys_openat 调用 do_sys_openat2]
+        E2[步骤 4.2: do_sys_openat2 调用 do_filp_open]
+        F1[步骤 5.1: do_filp_open 调用 path_openat]
+        F2[步骤 5.2: path_openat 调用 open_last_lookups]
+        G1[步骤 6.1: open_last_lookups 调用 lookup_fast]
+        G2[步骤 6.2: lookup_fast 调用 __d_lookup]
+        H1[步骤 7.1: __d_lookup 触发页面错误]
+        H2[步骤 7.2: 跳转到 asm_exc_page_fault]
+        I1[步骤 8.1: asm_exc_page_fault 调用 exc_page_fault]
+        I2[步骤 8.2: exc_page_fault 调用 __bad_area_nosemaphore]
+        J1[步骤 9.1: __bad_area_nosemaphore 调用 no_context]
+        J2[步骤 9.2: no_context 调用 oops_end]
+        K1[步骤 10.1: oops_end 调用 crash_kexec]
+        K2[步骤 10.2: crash_kexec 准备生成内核转储]
+        L[步骤 11: 内核崩溃并生成转储 &lt;br&gt; 内核栈: ffffa507c034fad8 附近]
+    end
+
+    %% 流程连接
+    A --&gt; B1 --&gt; B2 --&gt; C1 --&gt; C2 --&gt; D1 --&gt; D2 --&gt; E1 --&gt; E2 --&gt; F1 --&gt; F2 --&gt; G1 --&gt; G2 --&gt; H1 --&gt; H2 --&gt; I1 --&gt; I2 --&gt; J1 --&gt; J2 --&gt; K1 --&gt; K2 --&gt; L --&gt; M1 --&gt; M2 --&gt; N
+
+    %% 地址空间信息标注
+    A:::userSpace --&gt; |地址: 0x00007fbd0610f8eb 附近 用户代码| B1
+    B1 --&gt; B2:::userSpace --&gt; |RAX: 0x101 openat 系统调用号| C1
+    C1 --&gt; C2:::kernelStack --&gt; |地址: 0xffffffff84600099 entry_SYSCALL_64 &lt;br&gt; 内核栈: 0xffffa507c034ff50 附近| D1
+    D1 --&gt; D2:::kernelStack --&gt; |地址: 0xffffffff83d8e2d4 __x64_sys_openat &lt;br&gt; 内核栈: 0xffffa507c034ff38 附近| E1
+    E1 --&gt; E2:::kernelSpace --&gt; |地址: 0xffffffff83d8dc07 do_sys_openat2 &lt;br&gt; 内核栈: 0xffffa507c034fec8 附近| F1
+    F1 --&gt; F2:::kernelSpace --&gt; |地址: 0xffffffff83da3e28 path_openat &lt;br&gt; 内核栈: 0xffffa507c034fdb8 附近| G1
+    G1 --&gt; G2:::kernelSpace --&gt; |地址: 0xffffffff83d9ef78 lookup_fast &lt;br&gt; 内核栈: 0xffffa507c034fd08 附近| H1
+    H1 --&gt; H2:::kernelSpace --&gt; |地址: 0xffffffff83db15e1 __d_lookup+65 &lt;br&gt; 内核栈: 0xffffa507c034fcc8 附近| I1
+    I1 --&gt; I2:::kernelSpace --&gt; |地址: 0xffffffff844ce2bc exc_page_fault &lt;br&gt; 内核栈: 0xffffa507c034fbe0 附近| J1
+    J1 --&gt; J2:::kernelSpace --&gt; |地址: 0xffffffff83a7c9ac no_context &lt;br&gt; 内核栈: 0xffffa507c034fb08 附近| K1
+    K1 --&gt; K2:::kernelSpace --&gt; |地址: 0xffffffff83baec79 crash_kexec &lt;br&gt; 内核栈: 0xffffa507c034fae8 附近| L
+    L --&gt; M1 --&gt; M2:::userSpace --&gt; |地址: 0x00007fbd0610f8eb 附近 用户代码| N
+
+    %% 样式定义
+    classDef userSpace fill:#d4f0d4,stroke:#333,stroke-width:1px
+    classDef kernelSpace fill:#f0d4d4,stroke:#333,stroke-width:1px
+    classDef kernelStack fill:#f0d4d4,stroke:#ff0000,stroke-width:3px
+</code></pre>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; struct task_struct.fs ffff96264e270000<br>  fs = 0xffff962717214740,<br>crash&gt; struct fs_struct.pwd 0xffff962717214740<br>  <span class="hljs-built_in">pwd</span> = &#123;<br>    mnt = 0xffff966592a20de0,<br>    dentry = 0xffff9645c39f4798<br>  &#125;<br>crash&gt; struct task_struct.tty ffff96264e270000<br>struct: invalid data structure reference: task_struct.tty<br>crash&gt; struct dentry.d_sb ffff964615841518<br>  d_sb = 0xffff9625911ca000,<br>crash&gt;<br>crash&gt; struct super_block.s_type,s_id 0xffff9625911ca000<br>  s_type = 0xffffffff856a89e0 &lt;proc_fs_type&gt;,<br>  s_id = <span class="hljs-string">&quot;proc\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000&quot;</span>,<br>crash&gt; struct mount.mnt,mnt_mountpoint 0xffff96059259f480<br>  mnt = &#123;<br>    mnt_root = 0xffff95861b502288,<br>    mnt_sb = 0xffff9625911ca000,<br>    mnt_flags = 4135,<br>    kabi_reserved1 = 0<br>  &#125;,<br>  mnt_mountpoint = 0xffff9645930d36c8,<br>crash&gt; struct dentry.d_iname,d_parent 0xffff95861b502288<br>  d_iname = <span class="hljs-string">&quot;/\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000&quot;</span>,<br>  d_parent = 0xffff95861b502288,<br>crash&gt;<br>crash&gt;<br>crash&gt; struct dentry.d_iname,d_parent 0xffff9645930d36c8<br>  d_iname = <span class="hljs-string">&quot;proc\000:host31\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000&quot;</span>,<br>  d_parent = 0xffff96858e777a28,<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; ps 3997123<br>ps: invalid task or pid value: 3997123<br><br>PID    PPID  CPU       TASK        ST  %MEM      VSZ      RSS  COMM<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; <span class="hljs-built_in">eval</span> ffff964615841518 + 0xa0<br>hexadecimal: ffff9646158415b8<br>    decimal: 18446627826485695928  (-116247223855688)<br>      octal: 1777774544302541012670<br>     binary: 1111111111111111100101100100011000010101100001000001010110111000<br>crash&gt; list -s dentry.d_iname,d_name -H ffff9646158415b8<br>(empty)<br>crash&gt; struct dentry.d_subdirs ffff964615841518<br>  d_subdirs = &#123;<br>    next = 0xffff9646158415b8,<br>    prev = 0xffff9646158415b8<br>  &#125;,<br></code></pre></td></tr></table></figure>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/fs/" class="category-chain-item">fs</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/fs/bugs/" class="category-chain-item">bugs</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/fs/bugs/procfs/" class="category-chain-item">procfs</a>
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/namespace/">#namespace</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>hlist_bl_for_each_entry_rcu遍历时访问dentry-&gt;d_name</div>
+      <div>https://realwujing.github.io/linux/kernel/fs/bugs/procfs/hlist_bl_for_each_entry_rcu遍历时访问dentry-&gt;d_name.hash时出现非法地址访问（0x60e）/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年4月10日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/kernel/mm/bugs/kernel-dynamic-memory/kernel-dynamic-memory%20nocache%20very%20high/" title="kernel-dynamic-memory nocache very high">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">kernel-dynamic-memory nocache very high</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/task/container/README/" title="README">
+                        <span class="hidden-mobile">README</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '3d1c3749df8c280dcc3b49d7e3d7c0eb'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
