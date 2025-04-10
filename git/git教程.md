@@ -268,6 +268,36 @@ git log --pretty=format:"%h %s %an <%ae>" | grep "@example.com"
 
 通过这种方式，你将获得包含简短 `commit id`、提交信息、作者姓名和邮箱的输出，并且只显示 `@example.com` 域名的提交记录。
 
+## git log --grep
+
+搜索 Git 历史记录中涉及 __d_lookup 的提交:
+```bash
+git log linux-stable/master --grep="__d_lookup" 
+```
+
+完全精准匹配（避免部分匹配如 __d_lookup_rcu），可使用单词边界正则表达式：
+```bash
+git log linux-stable/master --grep="\<__d_lookup\>"
+```
+
+要同时匹配提交信息中包含 __d_lookup 和 lookup_fast 的 Git 提交记录，可以使用 --grep 结合正则表达式，或者通过管道 (|) 进行多条件筛选:
+
+方法 1：使用 --grep 正则表达式（单次匹配）
+```bash
+git log linux-stable/master --grep="__d_lookup.*lookup_fast\|lookup_fast.*__d_lookup"
+```
+
+方法 2：使用 git log 管道 + grep（更灵活）
+```bash
+git log linux-stable/master | grep -E "__d_lookup" | grep -E "lookup_fast"
+```
+
+方法 3：使用 -P（Perl 正则，更精准）
+
+```bash
+git log linux-stable/master -P --grep="(?=.*__d_lookup)(?=.*lookup_fast)"
+```
+
 ## 查看某个补丁在内核哪些版本中有
 
 在Linux kernel stable tree mirror中查找某个提交：
