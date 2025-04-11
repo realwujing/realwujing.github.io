@@ -1,4 +1,4 @@
-# hlist_bl_for_each_entry_rcu遍历时访问dentry->d_name.hash时出现非法地址访问（0x60e）
+# hlist_bl_for_each_entry_rcu遍历时访问dentry->d_name.hash时出现非法地址访问0x60e
 
 BUG: kernel NULL pointer dereference, address: 000000000000060e
 
@@ -43,6 +43,63 @@ PID: 3996786  TASK: ffff96264e270000  CPU: 70   COMMAND: "ps"
     R10: 0000000000000000  R11: 0000000000000246  R12: 0000000000000000
     R13: 0000557c9d99e2d0  R14: 0000000000000001  R15: 00000000003cfdc3
     ORIG_RAX: 0000000000000101  CS: 0033  SS: 002b
+```
+
+```mermaid
+flowchart TD
+    %% 定义子图，区分用户态和内核态地址空间
+    subgraph 用户态地址空间
+        A[开始: 用户态进程 ps 运行 <br> PID: 3996786]
+        B1[步骤 1.1: 用户进程调用 openat 系统调用]
+        B2[步骤 1.2: 执行 syscall 指令 <br> 系统调用号 0x101 存入 RAX]
+        M1[步骤 12.1: 通过 sysret 指令返回用户态]
+        M2[步骤 12.2: 恢复用户态寄存器和堆栈]
+        N[结束: 用户态进程继续运行]
+    end
+
+    subgraph 内核态地址空间
+        C1[步骤 2.1: CPU 切换到内核态 Ring 0]
+        C2[步骤 2.2: 跳转到 entry_SYSCALL_64_after_hwframe <br> 加载内核栈]
+        D1[步骤 3.1: 执行 do_syscall_64 <br> 使用内核栈存储调用帧]
+        D2[步骤 3.2: 根据 RAX 调用 __x64_sys_openat]
+        E1[步骤 4.1: __x64_sys_openat 调用 do_sys_openat2]
+        E2[步骤 4.2: do_sys_openat2 调用 do_filp_open]
+        F1[步骤 5.1: do_filp_open 调用 path_openat]
+        F2[步骤 5.2: path_openat 调用 open_last_lookups]
+        G1[步骤 6.1: open_last_lookups 调用 lookup_fast]
+        G2[步骤 6.2: lookup_fast 调用 __d_lookup]
+        H1[步骤 7.1: __d_lookup 触发页面错误]
+        H2[步骤 7.2: 跳转到 asm_exc_page_fault]
+        I1[步骤 8.1: asm_exc_page_fault 调用 exc_page_fault]
+        I2[步骤 8.2: exc_page_fault 调用 __bad_area_nosemaphore]
+        J1[步骤 9.1: __bad_area_nosemaphore 调用 no_context]
+        J2[步骤 9.2: no_context 调用 oops_end]
+        K1[步骤 10.1: oops_end 调用 crash_kexec]
+        K2[步骤 10.2: crash_kexec 准备生成内核转储]
+        L[步骤 11: 内核崩溃并生成转储 <br> 内核栈: ffffa507c034fad8 附近]
+    end
+
+    %% 流程连接
+    A --> B1 --> B2 --> C1 --> C2 --> D1 --> D2 --> E1 --> E2 --> F1 --> F2 --> G1 --> G2 --> H1 --> H2 --> I1 --> I2 --> J1 --> J2 --> K1 --> K2 --> L --> M1 --> M2 --> N
+
+    %% 地址空间信息标注
+    A:::userSpace --> |地址: 0x00007fbd0610f8eb 附近 用户代码| B1
+    B1 --> B2:::userSpace --> |RAX: 0x101 openat 系统调用号| C1
+    C1 --> C2:::kernelStack --> |地址: 0xffffffff84600099 entry_SYSCALL_64 <br> 内核栈: 0xffffa507c034ff50 附近| D1
+    D1 --> D2:::kernelStack --> |地址: 0xffffffff83d8e2d4 __x64_sys_openat <br> 内核栈: 0xffffa507c034ff38 附近| E1
+    E1 --> E2:::kernelSpace --> |地址: 0xffffffff83d8dc07 do_sys_openat2 <br> 内核栈: 0xffffa507c034fec8 附近| F1
+    F1 --> F2:::kernelSpace --> |地址: 0xffffffff83da3e28 path_openat <br> 内核栈: 0xffffa507c034fdb8 附近| G1
+    G1 --> G2:::kernelSpace --> |地址: 0xffffffff83d9ef78 lookup_fast <br> 内核栈: 0xffffa507c034fd08 附近| H1
+    H1 --> H2:::kernelSpace --> |地址: 0xffffffff83db15e1 __d_lookup+65 <br> 内核栈: 0xffffa507c034fcc8 附近| I1
+    I1 --> I2:::kernelSpace --> |地址: 0xffffffff844ce2bc exc_page_fault <br> 内核栈: 0xffffa507c034fbe0 附近| J1
+    J1 --> J2:::kernelSpace --> |地址: 0xffffffff83a7c9ac no_context <br> 内核栈: 0xffffa507c034fb08 附近| K1
+    K1 --> K2:::kernelSpace --> |地址: 0xffffffff83baec79 crash_kexec <br> 内核栈: 0xffffa507c034fae8 附近| L
+    L --> M1 --> M2:::userSpace --> |地址: 0x00007fbd0610f8eb 附近 用户代码| N
+
+    %% 样式定义
+    classDef userSpace fill:#d4f0d4,stroke:#333,stroke-width:1px
+    classDef kernelSpace fill:#f0d4d4,stroke:#333,stroke-width:1px
+    classDef kernelStack fill:#f0d4d4,stroke:#ff0000,stroke-width:3px
 ```
 
 #### bt -lsx
@@ -246,6 +303,42 @@ crash> struct dentry.d_name ffff964615841518
 ```
 
 ```bash
+crash> struct dentry.d_sb ffff964615841518
+  d_sb = 0xffff9625911ca000,
+crash>
+crash> struct super_block.s_type,s_id 0xffff9625911ca000
+  s_type = 0xffffffff856a89e0 <proc_fs_type>,
+  s_id = "proc\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000",
+```
+
+```bash
+crash> mount -n ffff96264e270000 | grep -E "MOUNT|proc"
+     MOUNT           SUPERBLK     TYPE   DEVNAME   DIRNAME
+ffff96059259f480 ffff9625911ca000 proc   proc      /proc
+ffff962592823c00 ffff96659271f800 autofs systemd-1 /proc/sys/fs/binfmt_misc
+ffff95864a865180 ffff96660d1e0000 binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc/
+```
+
+```bash
+crash> struct mount.mnt,mnt_mountpoint 0xffff96059259f480
+  mnt = {
+    mnt_root = 0xffff95861b502288,
+    mnt_sb = 0xffff9625911ca000,
+    mnt_flags = 4135,
+    kabi_reserved1 = 0
+  },
+  mnt_mountpoint = 0xffff9645930d36c8,
+crash> struct dentry.d_iname,d_parent 0xffff95861b502288
+  d_iname = "/\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000",
+  d_parent = 0xffff95861b502288,
+crash>
+crash>
+crash> struct dentry.d_iname,d_parent 0xffff9645930d36c8
+  d_iname = "proc\000:host31\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000",
+  d_parent = 0xffff96858e777a28,
+```
+
+```bash
 crash> struct -o dentry
 struct dentry {
     [0] unsigned int d_flags;
@@ -347,7 +440,6 @@ SIZE: 8
 
 围绕RSI: ffffa507c034fdd0推断出nameidata结构体的内容。
 
-
 #### __d_lookup函数被引用点
 
 ```c
@@ -378,6 +470,32 @@ struct qstr {
   },
   name = 0xffff96270489b02e "ctty"
 }
+```
+
+到这里基本上确定寻找路径`/proc/3997123/ctty`的时候踩内存了。
+
+确认进程是否存在：
+```bash
+crash> ps 3997123
+ps: invalid task or pid value: 3997123
+
+PID    PPID  CPU       TASK        ST  %MEM      VSZ      RSS  COMM
+```
+
+确认detry下的子目录：
+```bash
+crash> eval ffff964615841518 + 0xa0
+hexadecimal: ffff9646158415b8
+    decimal: 18446627826485695928  (-116247223855688)
+      octal: 1777774544302541012670
+     binary: 1111111111111111100101100100011000010101100001000001010110111000
+crash> list -s dentry.d_iname,d_name -H ffff9646158415b8
+(empty)
+crash> struct dentry.d_subdirs ffff964615841518
+  d_subdirs = {
+    next = 0xffff9646158415b8,
+    prev = 0xffff9646158415b8
+  },
 ```
 
 ```bash
@@ -738,6 +856,8 @@ struct file_system_type {
 }
 ```
 
+这里想进一步确认一下路径`/proc/3997123/ctty`是不是有误，如果在容器中，视图不一致，路径可能改变。
+
 ```bash
 crash> struct task_struct.nsproxy ffff96264e270000
   nsproxy = 0xffffffff85257de0 <init_nsproxy>,
@@ -782,19 +902,13 @@ struct nsproxy {
 [156] struct dentry 0xffff95e590400798
 ```
 
-```bash
-crash> mount -n ffff96264e270000 | grep -E "MOUNT|proc"
-     MOUNT           SUPERBLK     TYPE   DEVNAME   DIRNAME
-ffff96059259f480 ffff9625911ca000 proc   proc      /proc
-ffff962592823c00 ffff96659271f800 autofs systemd-1 /proc/sys/fs/binfmt_misc
-ffff95864a865180 ffff96660d1e0000 binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc/
-```
-
+这里确认dentry 锁计数:
 ```bash
 crash> struct dentry.d_lockref.count ffff964615841518
   d_lockref.count = 1
 ```
 
+确认dentry有没有被释放：
 ```bash
 crash> kmem -s ffff964615841518
 CACHE             OBJSIZE  ALLOCATED     TOTAL  SLABS  SSIZE  NAME
@@ -815,63 +929,8 @@ ffff96059000ea80      696      90178    129950   2825    32k  proc_inode_cache
   [ffff9626fdc5d280]
 ```
 
-```mermaid
-flowchart TD
-    %% 定义子图，区分用户态和内核态地址空间
-    subgraph 用户态地址空间
-        A[开始: 用户态进程 ps 运行 <br> PID: 3996786]
-        B1[步骤 1.1: 用户进程调用 openat 系统调用]
-        B2[步骤 1.2: 执行 syscall 指令 <br> 系统调用号 0x101 存入 RAX]
-        M1[步骤 12.1: 通过 sysret 指令返回用户态]
-        M2[步骤 12.2: 恢复用户态寄存器和堆栈]
-        N[结束: 用户态进程继续运行]
-    end
-
-    subgraph 内核态地址空间
-        C1[步骤 2.1: CPU 切换到内核态 Ring 0]
-        C2[步骤 2.2: 跳转到 entry_SYSCALL_64_after_hwframe <br> 加载内核栈]
-        D1[步骤 3.1: 执行 do_syscall_64 <br> 使用内核栈存储调用帧]
-        D2[步骤 3.2: 根据 RAX 调用 __x64_sys_openat]
-        E1[步骤 4.1: __x64_sys_openat 调用 do_sys_openat2]
-        E2[步骤 4.2: do_sys_openat2 调用 do_filp_open]
-        F1[步骤 5.1: do_filp_open 调用 path_openat]
-        F2[步骤 5.2: path_openat 调用 open_last_lookups]
-        G1[步骤 6.1: open_last_lookups 调用 lookup_fast]
-        G2[步骤 6.2: lookup_fast 调用 __d_lookup]
-        H1[步骤 7.1: __d_lookup 触发页面错误]
-        H2[步骤 7.2: 跳转到 asm_exc_page_fault]
-        I1[步骤 8.1: asm_exc_page_fault 调用 exc_page_fault]
-        I2[步骤 8.2: exc_page_fault 调用 __bad_area_nosemaphore]
-        J1[步骤 9.1: __bad_area_nosemaphore 调用 no_context]
-        J2[步骤 9.2: no_context 调用 oops_end]
-        K1[步骤 10.1: oops_end 调用 crash_kexec]
-        K2[步骤 10.2: crash_kexec 准备生成内核转储]
-        L[步骤 11: 内核崩溃并生成转储 <br> 内核栈: ffffa507c034fad8 附近]
-    end
-
-    %% 流程连接
-    A --> B1 --> B2 --> C1 --> C2 --> D1 --> D2 --> E1 --> E2 --> F1 --> F2 --> G1 --> G2 --> H1 --> H2 --> I1 --> I2 --> J1 --> J2 --> K1 --> K2 --> L --> M1 --> M2 --> N
-
-    %% 地址空间信息标注
-    A:::userSpace --> |地址: 0x00007fbd0610f8eb 附近 用户代码| B1
-    B1 --> B2:::userSpace --> |RAX: 0x101 openat 系统调用号| C1
-    C1 --> C2:::kernelStack --> |地址: 0xffffffff84600099 entry_SYSCALL_64 <br> 内核栈: 0xffffa507c034ff50 附近| D1
-    D1 --> D2:::kernelStack --> |地址: 0xffffffff83d8e2d4 __x64_sys_openat <br> 内核栈: 0xffffa507c034ff38 附近| E1
-    E1 --> E2:::kernelSpace --> |地址: 0xffffffff83d8dc07 do_sys_openat2 <br> 内核栈: 0xffffa507c034fec8 附近| F1
-    F1 --> F2:::kernelSpace --> |地址: 0xffffffff83da3e28 path_openat <br> 内核栈: 0xffffa507c034fdb8 附近| G1
-    G1 --> G2:::kernelSpace --> |地址: 0xffffffff83d9ef78 lookup_fast <br> 内核栈: 0xffffa507c034fd08 附近| H1
-    H1 --> H2:::kernelSpace --> |地址: 0xffffffff83db15e1 __d_lookup+65 <br> 内核栈: 0xffffa507c034fcc8 附近| I1
-    I1 --> I2:::kernelSpace --> |地址: 0xffffffff844ce2bc exc_page_fault <br> 内核栈: 0xffffa507c034fbe0 附近| J1
-    J1 --> J2:::kernelSpace --> |地址: 0xffffffff83a7c9ac no_context <br> 内核栈: 0xffffa507c034fb08 附近| K1
-    K1 --> K2:::kernelSpace --> |地址: 0xffffffff83baec79 crash_kexec <br> 内核栈: 0xffffa507c034fae8 附近| L
-    L --> M1 --> M2:::userSpace --> |地址: 0x00007fbd0610f8eb 附近 用户代码| N
-
-    %% 样式定义
-    classDef userSpace fill:#d4f0d4,stroke:#333,stroke-width:1px
-    classDef kernelSpace fill:#f0d4d4,stroke:#333,stroke-width:1px
-    classDef kernelStack fill:#f0d4d4,stroke:#ff0000,stroke-width:3px
-```
-
+确认进程工作目录：
+```bash
 ```bash
 crash> struct task_struct.fs ffff96264e270000
   fs = 0xffff962717214740,
@@ -882,48 +941,4 @@ crash> struct fs_struct.pwd 0xffff962717214740
   }
 crash> struct task_struct.tty ffff96264e270000
 struct: invalid data structure reference: task_struct.tty
-crash> struct dentry.d_sb ffff964615841518
-  d_sb = 0xffff9625911ca000,
-crash>
-crash> struct super_block.s_type,s_id 0xffff9625911ca000
-  s_type = 0xffffffff856a89e0 <proc_fs_type>,
-  s_id = "proc\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000",
-crash> struct mount.mnt,mnt_mountpoint 0xffff96059259f480
-  mnt = {
-    mnt_root = 0xffff95861b502288,
-    mnt_sb = 0xffff9625911ca000,
-    mnt_flags = 4135,
-    kabi_reserved1 = 0
-  },
-  mnt_mountpoint = 0xffff9645930d36c8,
-crash> struct dentry.d_iname,d_parent 0xffff95861b502288
-  d_iname = "/\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000",
-  d_parent = 0xffff95861b502288,
-crash>
-crash>
-crash> struct dentry.d_iname,d_parent 0xffff9645930d36c8
-  d_iname = "proc\000:host31\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000",
-  d_parent = 0xffff96858e777a28,
-```
-
-```bash
-crash> ps 3997123
-ps: invalid task or pid value: 3997123
-
-PID    PPID  CPU       TASK        ST  %MEM      VSZ      RSS  COMM
-```
-
-```bash
-crash> eval ffff964615841518 + 0xa0
-hexadecimal: ffff9646158415b8
-    decimal: 18446627826485695928  (-116247223855688)
-      octal: 1777774544302541012670
-     binary: 1111111111111111100101100100011000010101100001000001010110111000
-crash> list -s dentry.d_iname,d_name -H ffff9646158415b8
-(empty)
-crash> struct dentry.d_subdirs ffff964615841518
-  d_subdirs = {
-    next = 0xffff9646158415b8,
-    prev = 0xffff9646158415b8
-  },
 ```
