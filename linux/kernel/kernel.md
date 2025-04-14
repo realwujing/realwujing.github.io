@@ -497,6 +497,100 @@ module_blacklist=  [KNL] Do not load a comma-separated list of
                     modules.  Useful for debugging problem modules.
 ```
 
+#### grubby
+
+##### 1. `grubby` 命令简介
+`grubby` 是一个用于管理和配置 **Linux 系统的引导加载程序**（主要针对 GRUB 和 GRUB2）的工具，通常用于修改内核启动参数、默认内核、引导条目等。它在许多基于 Red Hat 的发行版（如 RHEL、CentOS、Fedora）以及其他使用 GRUB 的系统中广泛使用。
+
+- **功能**：
+  - 查看、添加、删除或修改 GRUB 配置文件中的内核引导条目。
+  - 配置内核命令行参数（例如 `ro`、`crashkernel` 或 `kfence.sample_interval`）。
+  - 设置默认启动内核或调整引导顺序。
+  - 支持多内核管理，方便在系统上维护多个内核版本或配置。
+
+- **常用场景**：
+  - 更新 GRUB 配置以启用调试参数（如 KFENCE 或 KASAN）。
+  - 切换默认内核版本（例如从 `5.10.0-136.12.0.90.kfence` 到 `5.10.0-136.12.0.90.kasan`）。
+  - 添加硬件相关参数（如 `iommu=pt` 或 `hugepages`）。
+  - 管理救援模式（rescue mode）条目。
+
+- **工作原理**：
+  - `grubby` 解析 GRUB 配置文件（通常是 `/boot/grub/grub.cfg` 或 `/boot/grub2/grub.cfg`）或相关的配置模板（`/etc/grub.d/` 和 `/etc/default/grub`）。
+  - 修改配置后，`grubby` 可以自动更新 GRUB 的最终配置文件（通过调用 `grub2-mkconfig` 或直接编辑）。
+
+- **常见命令**：
+  - `grubby --info=ALL`：列出所有 GRUB 引导条目的详细信息。
+  - `grubby --default-kernel`：显示当前默认启动的内核。
+  - `grubby --set-default=<kernel>`：设置默认启动内核。
+  - `grubby --add-kernel=<kernel> --args=<args>`：添加新内核条目并指定参数。
+  - `grubby --update-kernel=<kernel> --args=<args>`：更新指定内核的启动参数。
+
+---
+
+##### 2. 使用 `grubby` 的简单示例
+以下是一些与你的环境相关的 `grubby` 操作示例：
+
+- **列出所有内核信息**：
+  ```bash
+  grubby --info=ALL
+
+  index=0
+  kernel=/boot/vmlinuz-5.10.0-136.12.0.90.kfence.ctl3.x86_64
+  args="ro console=ttyS0,115200n8 crashkernel=512M amd_iommu=on iommu=pt hugepagesz=1GB hugepages=869 default_hugepagesz=1GB pci=realloc modprobe.blacklist=virtio_blk"
+  root=UUID=81a77f8a-5e51-41a8-b6d4-419281e24974
+  initrd=/boot/initramfs-5.10.0-136.12.0.90.kfence.ctl3.x86_64.img
+  title=ctyunos (5.10.0-136.12.0.90.kfence.ctl3.x86_64) 23.01 2.1
+  index=1
+  kernel=/boot/vmlinuz-5.10.0-136.12.0.90.kasan.ctl3.x86_64
+  args="ro console=ttyS0,115200n8 crashkernel=512M amd_iommu=on iommu=pt hugepagesz=1GB hugepages=869 default_hugepagesz=1GB pci=realloc modprobe.blacklist=virtio_blk"
+  root=UUID=81a77f8a-5e51-41a8-b6d4-419281e24974
+  initrd=/boot/initramfs-5.10.0-136.12.0.90.kasan.ctl3.x86_64.img
+  title=ctyunos (5.10.0-136.12.0.90.kasan.ctl3.x86_64) 23.01 2.1
+  index=2
+  kernel=/boot/vmlinuz-5.10.0-136.12.0.90.ctl3.x86_64
+  args="ro console=ttyS0,115200n8 crashkernel=512M amd_iommu=on iommu=pt hugepagesz=1GB hugepages=869 default_hugepagesz=1GB pci=realloc modprobe.blacklist=virtio_blk"
+  root=UUID=81a77f8a-5e51-41a8-b6d4-419281e24974
+  initrd=/boot/initramfs-5.10.0-136.12.0.90.ctl3.x86_64.img
+  title=ctyunos (5.10.0-136.12.0.90.ctl3.x86_64) 23.01 2.1
+  index=3
+  kernel=/boot/vmlinuz-0-rescue-c6f9b8a106494102adaeca11a92de74f
+  args="ro console=ttyS0,115200n8 crashkernel=512M amd_iommu=on iommu=pt hugepagesz=1GB hugepages=869 default_hugepagesz=1GB pci=realloc modprobe.blacklist=virtio_blk"
+  root=UUID=81a77f8a-5e51-41a8-b6d4-419281e24974
+  initrd=/boot/initramfs-0-rescue-c6f9b8a106494102adaeca11a92de74f.img
+  title=ctyunos (0-rescue-c6f9b8a106494102adaeca11a92de74f) 23.01 2.1
+  index=4
+  non linux entry
+  index=5
+  non linux entry
+  index=6
+  non linux entry
+  ```
+  输出所有内核的详细信息，包括版本、参数等。
+
+- **查看默认内核**：
+  ```bash
+  grubby --default-kernel
+  ```
+  输出当前默认启动的内核（可能是 `/boot/vmlinuz-5.10.0-136.12.0.90.kfence.ctl3.x86_64`）。
+
+- **添加 KFENCE 参数**：
+  ```bash
+  grubby --update-kernel=/boot/vmlinuz-5.10.0-136.12.0.90.kfence.ctl3.x86_64 --args="kfence.sample_interval=200"
+  ```
+  将采样间隔设置为 200ms。
+
+- **切换到 KASAN 内核**：
+  ```bash
+  grubby --set-default=/boot/vmlinuz-5.10.0-136.12.0.90.kasan.ctl3.x86_64
+  ```
+
+- **恢复默认参数（移除特定参数）**：
+  ```bash
+  grubby --update-kernel=/boot/vmlinuz-5.10.0-136.12.0.90.kfence.ctl3.x86_64 --remove-args="kfence.sample_interval"
+  ```
+
+---
+
 ## 内核编译
 
 - [<font color=Red>Linux系统内核概述</font>](https://mp.weixin.qq.com/s/VJFXFs8430SrpnJTmUsIZg)
