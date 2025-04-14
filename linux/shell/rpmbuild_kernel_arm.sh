@@ -112,6 +112,7 @@ export ARCH=arm64
 
 rm -rf /root/rpmbuild/SOURCES/kernel.tar.gz
 tar --xform="s/^./kernel/" --exclude=".git" -chzf /root/rpmbuild/SOURCES/kernel.tar.gz .
-cp build/* /root/rpmbuild/SOURCES
+#cp build/* /root/rpmbuild/SOURCES
+find build/ -maxdepth 1 -type f -exec cp -f {} /root/rpmbuild/SOURCES/ \;
 
 time rpmbuild -ba --target=aarch64 --define "_host_cpu aarch64" --without=bpftool --without=perf --without=kvm_stat build/kernel.spec
