@@ -27,6 +27,16 @@
 - [<font color=Red>Linux系统查看日志命令journalctl的一些用法</font>](https://zhuanlan.zhihu.com/p/410995772)
 - [如何使用 journalctl 查看和分析 systemd 日志（附实例）](https://www.toutiao.com/article/7200566974173151802)
 
+    显示人类可读的时间格式，包含 ​​秒 + 毫秒​​（如 2023-04-15 09:18:47.123）:
+    ```bash
+    journalctl -o short-precise
+    ```
+
+    示例输出​​：
+    ```text
+    Apr 15 09:18:47.123 hostname kernel: XFS (sda8): EXPERIMENTAL big timestamp...
+    ```
+
 - [rsyslog服务及Linux系统日志简介](https://www.jianshu.com/p/3b11a2b7c746)
 - [Enable Rsyslog Logging on Debian 12](https://kifarunix.com/enable-rsyslog-logging-on-debian-12/)
 - [Linux系统中的日志管理——journal、rsyslog、timedatectl、时间同步](https://blog.csdn.net/qq_45225437/article/details/104294044)
