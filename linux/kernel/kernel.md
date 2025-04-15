@@ -215,6 +215,105 @@ Linux 内核相关网站的出现顺序:
 
 - [ignore_loglevel](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=ignore_loglevel)
 
+#### debug
+
+```bash
+dyndbg='file fs/xfs/* +p' debug
+```
+
+在 Linux 内核启动参数中，`debug` 是一个 **全局调试开关**，它会显著增加内核运行时输出的日志量。以下是启用 `debug` 参数后，内核会输出的 **主要日志类型** 及其作用：
+
+---
+
+##### **1. 内核通用日志（所有子系统）**
+• **日志级别**：强制设置为 `KERN_DEBUG`（级别 `7`），输出所有优先级 ≤7 的日志。
+• **包含内容**：
+  • 内核初始化流程（如 CPU 检测、内存映射）。
+  • 设备驱动加载（如存储控制器、USB、GPU）。
+  • 中断和调度事件。
+  • 文件系统挂载（如 `ext4`、`XFS`、`btrfs`）。
+  • 网络协议栈初始化。
+
+---
+
+##### **2. 动态调试日志（Dynamic Debug）**
+• **触发条件**：`debug` 会隐式激活部分内核模块的 **动态调试输出**（需模块支持）。
+• **典型日志**：
+  • 驱动探测（`probe`）和初始化细节。
+  • 硬件寄存器读写（如 PCIe 设备配置）。
+  • 文件系统元数据操作（如 XFS 的 inode 读写）。
+  • 块设备 I/O 请求（如磁盘读写队列）。
+
+---
+
+##### **3. 关键子系统日志**
+###### **(1) 存储和文件系统**
+• SCSI/SATA/NVMe 磁盘检测。
+• LVM/RAID 设备组装。
+• 文件系统挂载错误（如 `superblock` 损坏）。
+• 加密卷解锁（如 LUKS）。
+
+###### **(2) 网络**
+• 网卡驱动加载（如 `igb`、`e1000e`）。
+• IP 地址分配（DHCP 或静态）。
+• 防火墙规则初始化（如 `iptables`/`nftables`）。
+
+###### **(3) 电源管理**
+• CPU 频率调整（`cpufreq`）。
+• ACPI 事件（如休眠/唤醒）。
+
+---
+
+##### **4. `initramfs` 阶段日志（需配合 `rd.debug`）**
+如果同时使用 `rd.debug`，还会输出 `initramfs` 内部的详细操作：
+• 设备节点创建（`udev` 规则执行）。
+• 存储解密（如 `cryptsetup`）。
+• 根文件系统挂载尝试。
+• `dracut` 脚本的执行流程。
+
+---
+
+##### **5. 日志示例（实际输出片段）**
+```text
+[    0.123456] DEBUG: CPU0: Intel(R) Core(TM) i7-9750H, 2600 MHz
+[    0.234567] DEBUG: pci 0000:00:1f.2: [8086:15d7] type 00 class 0x010601
+[    1.345678] DEBUG: XFS (sda1): Mounting V5 Filesystem
+[    1.456789] DEBUG: scsi 2:0:0:0: Direct-Access     ATA      SSD 2TB        1.23 PQ: 0 ANSI: 5
+[    2.567890] DEBUG: systemd[1]: Reading config file /etc/systemd/system.conf
+```
+
+---
+
+##### **6. 注意事项**
+1. **日志量极大**：  
+   `debug` 会导致日志刷屏，建议通过串口控制台或 `journalctl -k` 捕获。
+2. **性能影响**：  
+   生产环境慎用，可能降低启动速度。
+3. **需结合过滤工具**：  
+   使用 `grep` 或 `dmesg --level=debug` 聚焦关键问题：
+   ```bash
+   dmesg | grep -i "error\|fail\|warn\|xfs\|scsi"
+   ```
+
+---
+
+##### **7. 与其他参数对比**
+| **参数**          | **作用**                               | **日志范围**                     |
+|--------------------|----------------------------------------|----------------------------------|
+| `debug`           | 强制输出所有可用调试日志               | 全局（内核 + 支持动态调试的模块）|
+| `loglevel=7`      | 仅设置日志级别（不强制模块输出）       | 依赖模块是否主动生成调试日志     |
+| `dyndbg="file xxx +p"` | 显式激活特定模块的调试日志       | 仅指定模块（如 `fs/xfs/*`）      |
+
+---
+
+##### **总结**
+• **`debug` 输出的日志**：覆盖内核全局事件、驱动初始化、存储/网络操作等，优先级 ≤7 的所有信息。
+• **适用场景**：  
+  • 系统启动失败、硬件兼容性问题、驱动加载异常。  
+  • 需快速获取最大信息量时（无需逐一手动启用模块调试）。  
+• **优化建议**：  
+  若日志过多，可结合 `dyndbg` 限制范围（如 `debug dyndbg="file fs/xfs/* +p"`）。
+
 #### dynamic debug
 
 - [<font color=Red>https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html</font>](https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html)
@@ -1065,6 +1164,173 @@ time rpmbuild -ba --target=aarch64 --define "_host_cpu aarch64" build/kernel.spe
 
 - [lsinitramfs lsinitrd 系统镜像操作相关命令一览表](https://cloud.tencent.com/developer/article/2128401)
 - [lsinitramfs - list content of an initramfs image](https://manpages.ubuntu.com/manpages/xenial/man8/lsinitramfs.8.html)
+
+在Linux的GRUB启动配置中，可以通过 **initramfs调试参数** 来排查系统启动问题（如文件系统挂载失败、驱动加载问题等）。以下是常用的调试参数及其作用：
+
+---
+#### grub中initramfs调试参数
+
+- [dracut.cmdline - dracut kernel command line options](https://man7.org/linux/man-pages/man7/dracut.cmdline.7.html)
+- [initramfs-tools - an introduction to writing scripts for mkinitramfs](https://manpages.debian.org/buster/initramfs-tools-core/initramfs-tools.7.en.html)
+
+##### **1. 常用 `initramfs` 调试参数**
+###### **(1) `rd.debug`**
+• **作用**：启用 `dracut`（或 `initramfs`）的详细调试日志。
+• **示例**：
+  ```text
+  rd.debug
+  ```
+• **输出**：显示 `initramfs` 阶段的所有脚本执行过程，适合排查启动流程问题。
+
+###### **(2) `rd.break`**
+• **作用**：在 `initramfs` 启动过程中暂停，进入交互式 Shell。
+• **常用断点**：
+  ```text
+  rd.break=pre-mount   # 在挂载根文件系统前暂停
+  rd.break=pre-pivot   # 在切换到真实根文件系统前暂停
+  rd.break=pre-trigger # 在 systemd 启动前暂停
+  ```
+• **使用方式**：
+  1. 在 GRUB 启动菜单按 `e` 编辑内核参数，添加 `rd.break=pre-mount`。
+  2. 启动后会进入 `initramfs` 的 Shell，可手动执行命令（如 `mount`、`lsblk`）。
+  3. 输入 `exit` 继续启动。
+
+###### **(3) `rd.shell`**
+• **作用**：如果 `initramfs` 启动失败，自动进入紧急 Shell。
+• **示例**：
+  ```text
+  rd.shell
+  ```
+• **适用场景**：系统无法挂载根文件系统时，手动修复。
+
+###### **(4) `rd.initcall.debug`**
+• **作用**：打印 `initramfs` 阶段的所有内核初始化调用（`initcall`）。
+• **示例**：
+  ```text
+  rd.initcall.debug
+  ```
+• **适用场景**：排查驱动加载顺序问题。
+
+###### **(5) `rd.driver.blacklist` / `rd.driver.pre`**
+• **作用**：黑名单或优先加载特定驱动。
+• **示例**：
+  ```text
+  rd.driver.blacklist=nouveau  # 禁用 nouveau 驱动
+  rd.driver.pre=ahci           # 优先加载 ahci 驱动
+  ```
+• **适用场景**：驱动冲突或加载失败时调试。
+
+###### **(6) `rootdelay`**
+• **作用**：延长 `initramfs` 等待根设备的时间（秒）。
+• **示例**：
+  ```text
+  rootdelay=30
+  ```
+• **适用场景**：慢速存储设备（如 USB/NAS）需要更长时间初始化。
+
+###### **(7) `rd.lvm.vg` / `rd.lvm.lv`**
+• **作用**：手动指定 LVM 卷组或逻辑卷。
+• **示例**：
+  ```text
+  rd.lvm.vg=vg00 rd.lvm.lv=vg00/root
+  ```
+• **适用场景**：LVM 设备未被自动激活时。
+
+###### **(8) `rd.live.ram`**
+• **作用**：将 Live CD 的 `initramfs` 完全加载到内存。
+• **示例**：
+  ```text
+  rd.live.ram
+  ```
+• **适用场景**：调试 Live 系统启动问题。
+
+###### **(9) `rd.luks.uuid`**
+• **作用**：手动指定 LUKS 加密设备的 UUID。
+• **示例**：
+  ```text
+  rd.luks.uuid=1234-5678-90ab-cdef
+  ```
+• **适用场景**：加密设备未被自动解锁时。
+
+###### **(10) `rd.md.uuid`**
+• **作用**：手动指定软 RAID（`mdadm`）设备的 UUID。
+• **示例**：
+  ```text
+  rd.md.uuid=abcd1234:5678ef90
+  ```
+• **适用场景**：RAID 设备未被自动组装时。
+
+---
+
+##### **2. 组合使用示例**
+###### **示例 1：调试根文件系统挂载失败**
+```text
+rd.debug rd.break=pre-mount rootdelay=30
+```
+• **作用**：
+  • 打印详细日志（`rd.debug`）。
+  • 在挂载根文件系统前暂停（`rd.break=pre-mount`）。
+  • 延长设备等待时间（`rootdelay=30`）。
+
+###### **示例 2：排查 LVM + LUKS 启动问题**
+```text
+rd.debug rd.lvm.vg=vg00 rd.luks.uuid=1234-5678
+```
+• **作用**：
+  • 打印详细日志（`rd.debug`）。
+  • 手动指定 LVM 卷组（`rd.lvm.vg`）。
+  • 手动指定 LUKS 设备 UUID（`rd.luks.uuid`）。
+
+---
+
+##### **3. 如何应用这些参数？**
+1. **在 GRUB 启动菜单编辑内核参数**：
+   • 启动时按 `e` 进入编辑模式。
+   • 在 `linux` 或 `linux16` 行末尾添加调试参数（如 `rd.debug rd.break=pre-mount`）。
+   • 按 `Ctrl+X` 或 `F10` 启动。
+
+2. **永久修改 GRUB 配置**（谨慎操作）：
+   ```bash
+   sudo nano /etc/default/grub
+   ```
+   • 修改 `GRUB_CMDLINE_LINUX`，例如：
+     ```text
+     GRUB_CMDLINE_LINUX="rd.debug rd.shell"
+     ```
+   • 更新 GRUB：
+     ```bash
+     sudo update-grub   # Debian/Ubuntu
+     sudo grub2-mkconfig -o /boot/grub2/grub.cfg  # RHEL/CentOS
+     ```
+
+---
+
+##### **4. 调试技巧**
+• **查看日志**：
+  • `dmesg`：内核日志。
+  • `journalctl -xb`：systemd 日志。
+  • `/run/initramfs/init.log`：`dracut` 日志（需在 `initramfs` Shell 中查看）。
+
+• **手动挂载根文件系统**（在 `rd.break` Shell 中）：
+  ```bash
+  mkdir /mnt/root
+  mount /dev/mapper/vg00-root /mnt/root  # 替换为实际设备
+  chroot /mnt/root                       # 切换到真实根文件系统
+  ```
+
+---
+
+##### **总结**
+| **参数** | **作用** | **适用场景** |
+|----------|---------|-------------|
+| `rd.debug` | 打印详细日志 | 排查 `initramfs` 流程问题 |
+| `rd.break` | 进入调试 Shell | 手动修复挂载/驱动问题 |
+| `rd.shell` | 启动失败时进入 Shell | 紧急修复 |
+| `rootdelay` | 延长设备等待时间 | 慢速存储设备 |
+| `rd.lvm.vg` | 手动指定 LVM | LVM 未自动激活 |
+| `rd.luks.uuid` | 手动指定 LUKS | 加密设备未解锁 |
+
+通过合理组合这些参数，可以高效定位和解决 `initramfs` 阶段的启动问题。
 
 ## do_initcalls
 
