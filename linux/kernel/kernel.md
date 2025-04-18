@@ -1168,6 +1168,7 @@ time rpmbuild -ba --target=aarch64 --define "_host_cpu aarch64" build/kernel.spe
 在Linux的GRUB启动配置中，可以通过 **initramfs调试参数** 来排查系统启动问题（如文件系统挂载失败、驱动加载问题等）。以下是常用的调试参数及其作用：
 
 ---
+
 #### grub中initramfs调试参数
 
 - [dracut.cmdline - dracut kernel command line options](https://man7.org/linux/man-pages/man7/dracut.cmdline.7.html)
