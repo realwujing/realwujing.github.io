@@ -287,7 +287,7 @@
         
         
         
-          146 分钟
+          144 分钟
         
       </span>
     
@@ -404,25 +404,24 @@ IOMMU作用层次示意图</strong></h3>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">+-----------------------+<br>|     User Space         | ← 应用程序（如虚拟机、普通进程）<br>+-----------------------+<br>|     Kernel Space       | ← 驱动、内存管理、IOMMU子系统（iommu=pt参数生效处）<br>+-----------------------+<br>|     Hardware Layer     | ← IOMMU硬件（VT-d/AMD-Vi）、PCIe设备<br>+-----------------------+<br></code></pre></td></tr></table></figure>
 <hr />
 <h3 id="详细流程图"><strong>2. 详细流程图</strong></h3>
-<pre><code class=" mermaid">flowchart TB
-    A[系统启动] --&gt; B[BIOS/UEFI初始化]
-    B --&gt; C&#123;是否启用IOMMU?&#125;
-    C -- 是 --&gt; D[硬件IOMMU激活（VT-d/AMD-Vi）]
-    C -- 否 --&gt; E[跳过IOMMU，直接DMA访问]
-    D --&gt; F[GRUB加载内核参数]
-    F --&gt; G&#123;检查iommu参数&#125;
-    G -- iommu=pt --&gt; H[仅对直通设备启用IOMMU]
-    G -- iommu=on --&gt; I[全局启用IOMMU]
-    G -- iommu=off --&gt; E
-    H --&gt; J[内核初始化时标记直通设备]
-    I --&gt; K[所有设备通过IOMMU访问内存]
-    J --&gt; L[设备DMA请求]
-    L --&gt; M&#123;设备是否直通?&#125;
-    M -- 是 --&gt; N[IOMMU转换地址（IOVA→PA）]
-    M -- 否 --&gt; O[绕过IOMMU，直接访问物理内存]
-    N --&gt; P[安全访问指定内存区域]
-    O --&gt; Q[传统DMA操作（无隔离）]
-</code></pre>
+<pre class="mermaid">flowchart TB
+    A[系统启动] --> B[BIOS/UEFI初始化]
+    B --> C{是否启用IOMMU?}
+    C -- 是 --> D[硬件IOMMU激活（VT-d/AMD-Vi）]
+    C -- 否 --> E[跳过IOMMU，直接DMA访问]
+    D --> F[GRUB加载内核参数]
+    F --> G{检查iommu参数}
+    G -- iommu=pt --> H[仅对直通设备启用IOMMU]
+    G -- iommu=on --> I[全局启用IOMMU]
+    G -- iommu=off --> E
+    H --> J[内核初始化时标记直通设备]
+    I --> K[所有设备通过IOMMU访问内存]
+    J --> L[设备DMA请求]
+    L --> M{设备是否直通?}
+    M -- 是 --> N[IOMMU转换地址（IOVA→PA）]
+    M -- 否 --> O[绕过IOMMU，直接访问物理内存]
+    N --> P[安全访问指定内存区域]
+    O --> Q[传统DMA操作（无隔离）]</pre>
 <hr />
 <h3 id="关键点说明"><strong>3. 关键点说明</strong></h3>
 <ol type="1">
@@ -559,17 +558,16 @@ IOMMU通过<strong>I/O页表</strong>（由VFIO驱动配置）将GPA转换为真
 <strong>EPT/NPT</strong>（KVM的扩展页表）负责虚拟机内<code>GVA→GPA</code>的转换，而IOMMU负责<code>GPA→HPA</code>的转换，两者协作完成完整映射。</p>
 <hr />
 <h3 id="内存隔离示意图"><strong>3. 内存隔离示意图</strong></h3>
-<pre><code class=" mermaid">flowchart LR
+<pre class="mermaid">flowchart LR
     subgraph 虚拟机1
-        A[GPA 0x1000] --&gt;|DMA请求| B(IOMMU)
-        C[GPA 0x2000] --&gt;|DMA请求| B
+        A[GPA 0x1000] -->|DMA请求| B(IOMMU)
+        C[GPA 0x2000] -->|DMA请求| B
     end
     subgraph 宿主机物理内存
-        B --&gt; D[HPA 0x8000]
-        B --&gt; E[HPA 0x12000]
-        F[HPA 0x30000] --&gt;|属于其他VM| G[虚拟机2内存]
-    end
-</code></pre>
+        B --> D[HPA 0x8000]
+        B --> E[HPA 0x12000]
+        F[HPA 0x30000] -->|属于其他VM| G[虚拟机2内存]
+    end</pre>
 <p>• <strong>隔离性</strong>：IOMMU确保虚拟机1的设备无法访问
 <code>HPA 0x30000</code>（虚拟机2的内存）。</p>
 <hr />
@@ -683,26 +681,24 @@ panic 或虚拟机异常退出。</li>
 IOMMU）</strong></h2>
 <h3 id="有-iommu-的正常流程"><strong>(1) 有 IOMMU
 的正常流程</strong></h3>
-<pre><code class=" mermaid">flowchart TB
+<pre class="mermaid">flowchart TB
     subgraph 虚拟机
-        A[设备 DMA 请求 GPA 0x1000] --&gt; B[IOMMU 转换]
+        A[设备 DMA 请求 GPA 0x1000] --> B[IOMMU 转换]
     end
     subgraph 宿主机
-        B --&gt; C[HPA 0x8000（正确地址）]
-    end
-</code></pre>
+        B --> C[HPA 0x8000（正确地址）]
+    end</pre>
 <p>• <strong>IOMMU 确保</strong>：设备 DMA 的 <code>GPA 0x1000</code>
 被转换为正确的 <code>HPA 0x8000</code>。</p>
 <h3 id="无-iommu-的错误流程"><strong>(2) 无 IOMMU
 的错误流程</strong></h3>
-<pre><code class=" mermaid">flowchart TB
+<pre class="mermaid">flowchart TB
     subgraph 虚拟机
-        A[设备 DMA 请求 GPA 0x1000] --&gt; B[直接访问 HPA 0x1000]
+        A[设备 DMA 请求 GPA 0x1000] --> B[直接访问 HPA 0x1000]
     end
     subgraph 宿主机
-        B --&gt; C[可能属于其他 VM 或宿主机内核]
-    end
-</code></pre>
+        B --> C[可能属于其他 VM 或宿主机内核]
+    end</pre>
 <p>• <strong>无 IOMMU</strong>：设备 DMA 直接使用
 <code>GPA 0x1000</code> 作为 <code>HPA 0x1000</code>，导致越界访问。</p>
 <hr />
@@ -909,13 +905,12 @@ DMA 将数据写入 <code>buf1</code>（地址 <code>0x1000</code>）。</li>
 <li><strong>回收缓冲区</strong>： • 驱动重新填充 <code>buf1</code> 到 Rx
 Ring，供下一次收包使用。</li>
 </ol>
-<pre><code class=" mermaid">flowchart LR
-    A[数据包到达网卡] --&gt; B[网卡 DMA 写入 Rx 缓冲区]
-    B --&gt; C[网卡触发中断]
-    C --&gt; D[CPU 处理数据包]
-    D --&gt; E[协议栈处理]
-    E --&gt; F[驱动回收缓冲区]
-</code></pre>
+<pre class="mermaid">flowchart LR
+    A[数据包到达网卡] --> B[网卡 DMA 写入 Rx 缓冲区]
+    B --> C[网卡触发中断]
+    C --> D[CPU 处理数据包]
+    D --> E[协议栈处理]
+    E --> F[驱动回收缓冲区]</pre>
 <hr />
 <h2 id="发包流程tx-transmit"><strong>3. 发包流程（Tx,
 Transmit）</strong></h2>
@@ -945,13 +940,12 @@ Transmit）</strong></h2>
 <li><strong>驱动回收资源</strong>： • 释放 DMA
 映射（<code>dma_unmap_single</code>），回收 <code>sk_buff</code>。</li>
 </ol>
-<pre><code class=" mermaid">flowchart LR
-    A[协议栈构造 sk_buff] --&gt; B[驱动映射 DMA 缓冲区]
-    B --&gt; C[填充 Tx Ring]
-    C --&gt; D[网卡 DMA 读取数据]
-    D --&gt; E[发送到网络]
-    E --&gt; F[中断通知完成]
-</code></pre>
+<pre class="mermaid">flowchart LR
+    A[协议栈构造 sk_buff] --> B[驱动映射 DMA 缓冲区]
+    B --> C[填充 Tx Ring]
+    C --> D[网卡 DMA 读取数据]
+    D --> E[发送到网络]
+    E --> F[中断通知完成]</pre>
 <hr />
 <h2 id="关键优化技术"><strong>4. 关键优化技术</strong></h2>
 <h3 id="多队列rss-receive-side-scaling"><strong>(1) 多队列（RSS, Receive
@@ -1014,22 +1008,21 @@ DMA。</li>
 两个部分，并标注关键步骤和硬件/软件交互：</p>
 <hr />
 <h3 id="收包流程rx"><strong>1. 收包流程（Rx）</strong></h3>
-<pre><code class=" mermaid">flowchart TB
+<pre class="mermaid">flowchart TB
     subgraph 驱动初始化
-        A[分配DMA缓冲区] --&gt; B[填充Rx Ring描述符]
+        A[分配DMA缓冲区] --> B[填充Rx Ring描述符]
     end
     subgraph 网卡收包
-        C[数据包到达网卡] --&gt; D[网卡DMA写入内存]
-        D --&gt; E[更新描述符状态]
-        E --&gt; F[触发中断通知CPU]
+        C[数据包到达网卡] --> D[网卡DMA写入内存]
+        D --> E[更新描述符状态]
+        E --> F[触发中断通知CPU]
     end
     subgraph 内核处理
-        F --&gt; G[CPU读取Rx Ring]
-        G --&gt; H[解析数据包（sk_buff）]
-        H --&gt; I[传递给协议栈（IP/TCP）]
-        I --&gt; J[回收缓冲区到Rx Ring]
-    end
-</code></pre>
+        F --> G[CPU读取Rx Ring]
+        G --> H[解析数据包（sk_buff）]
+        H --> I[传递给协议栈（IP/TCP）]
+        I --> J[回收缓冲区到Rx Ring]
+    end</pre>
 <h4 id="关键步骤说明"><strong>关键步骤说明</strong></h4>
 <ol type="1">
 <li><strong>驱动初始化</strong>：<br />
@@ -1042,22 +1035,21 @@ DMA。</li>
 </ol>
 <hr />
 <h3 id="发包流程tx"><strong>2. 发包流程（Tx）</strong></h3>
-<pre><code class=" mermaid">flowchart TB
+<pre class="mermaid">flowchart TB
     subgraph 协议栈准备
-        A[构造数据包（sk_buff）] --&gt; B[映射DMA缓冲区]
-        B --&gt; C[填充Tx Ring描述符]
+        A[构造数据包（sk_buff）] --> B[映射DMA缓冲区]
+        B --> C[填充Tx Ring描述符]
     end
     subgraph 网卡发包
-        C --&gt; D[网卡读取Tx Ring]
-        D --&gt; E[网卡DMA从内存读取数据]
-        E --&gt; F[通过物理端口发送]
-        F --&gt; G[发送完成中断]
+        C --> D[网卡读取Tx Ring]
+        D --> E[网卡DMA从内存读取数据]
+        E --> F[通过物理端口发送]
+        F --> G[发送完成中断]
     end
     subgraph 驱动清理
-        G --&gt; H[CPU释放DMA映射]
-        H --&gt; I[回收sk_buff]
-    end
-</code></pre>
+        G --> H[CPU释放DMA映射]
+        H --> I[回收sk_buff]
+    end</pre>
 <h4 id="关键步骤说明-1"><strong>关键步骤说明</strong></h4>
 <ol type="1">
 <li><strong>协议栈准备</strong>：<br />
@@ -1070,16 +1062,15 @@ DMA。</li>
 </ol>
 <hr />
 <h3 id="完整收发包交互图"><strong>3. 完整收发包交互图</strong></h3>
-<pre><code class=" mermaid">flowchart LR
+<pre class="mermaid">flowchart LR
     subgraph 收包Rx
-        A[网卡DMA写内存] --&gt; B[CPU处理]
+        A[网卡DMA写内存] --> B[CPU处理]
     end
     subgraph 发包Tx
-        C[CPU填充Tx Ring] --&gt; D[网卡DMA读内存]
+        C[CPU填充Tx Ring] --> D[网卡DMA读内存]
     end
-    B --&gt;|协议栈| C
-    D --&gt;|发送完成| A
-</code></pre>
+    B -->|协议栈| C
+    D -->|发送完成| A</pre>
 <h4 id="核心交互"><strong>核心交互</strong></h4>
 <p>• <strong>绿色箭头</strong>：数据流向（收包是网卡→内存→CPU，发包是
 CPU→内存→网卡）。<br />
@@ -1088,12 +1079,11 @@ CPU→内存→网卡）。<br />
 • 发包：网卡 DMA <strong>读</strong>内存。</p>
 <hr />
 <h3 id="关键组件关系图"><strong>4. 关键组件关系图</strong></h3>
-<pre><code class=" mermaid">flowchart TD
-    NIC[网卡] --&gt;|DMA| MEM[(内存)]
-    MEM --&gt;|中断| CPU[CPU/驱动]
-    CPU --&gt;|填充描述符| Ring[Rx/Tx Ring]
-    Ring --&gt;|DMA地址| NIC
-</code></pre>
+<pre class="mermaid">flowchart TD
+    NIC[网卡] -->|DMA| MEM[(内存)]
+    MEM -->|中断| CPU[CPU/驱动]
+    CPU -->|填充描述符| Ring[Rx/Tx Ring]
+    Ring -->|DMA地址| NIC</pre>
 <h4 id="组件角色"><strong>组件角色</strong></h4>
 <p>• <strong>网卡</strong>：发起 DMA 读写，触发中断。<br />
 • <strong>内存</strong>：存储数据包（DMA 缓冲区）。<br />
@@ -1151,18 +1141,17 @@ DMA地址映射与解映射</strong></h4>
 <hr />
 <h3 id="典型dma工作流程以收包为例"><strong>3.
 典型DMA工作流程（以收包为例）</strong></h3>
-<pre><code class=" mermaid">sequenceDiagram
+<pre class="mermaid">sequenceDiagram
     participant 驱动
     participant 网卡
     participant 内存
 
-    驱动-&gt;&gt;内存: dma_alloc_coherent()分配缓冲区
-    驱动-&gt;&gt;网卡: 将DMA地址写入Rx Ring描述符
-    网卡-&gt;&gt;内存: DMA写入数据包（直接访问物理内存/IOVA）
-    网卡-&gt;&gt;驱动: 触发中断
-    驱动-&gt;&gt;内存: 读取数据并传递给协议栈
-    驱动-&gt;&gt;网卡: 回收描述符，准备下一次收包
-</code></pre>
+    驱动->>内存: dma_alloc_coherent()分配缓冲区
+    驱动->>网卡: 将DMA地址写入Rx Ring描述符
+    网卡->>内存: DMA写入数据包（直接访问物理内存/IOVA）
+    网卡->>驱动: 触发中断
+    驱动->>内存: 读取数据并传递给协议栈
+    驱动->>网卡: 回收描述符，准备下一次收包</pre>
 <hr />
 <h3 id="不同场景的dma代码差异"><strong>4.
 不同场景的DMA代码差异</strong></h3>
@@ -1292,11 +1281,10 @@ PL330 vs. 服务器的 Intel IOAT）需要不同驱动。 •
 <p>• <strong>功能</strong>：将设备 DMA
 地址（IOVA）转换为物理地址（HPA），提供隔离保护。 • <strong>与 DMA
 的关系</strong>：</p>
-<p><pre><code class=" mermaid">flowchart LR
-  A[设备DMA请求 IOVA] --&gt; B&#123;是否启用IOMMU?&#125;
-  B --&gt;|是| C[IOMMU硬件转换 HPA]
-  B --&gt;|否| D[直接使用物理地址]
-</code></pre></p>
+<pre class="mermaid">  flowchart LR
+    A[设备DMA请求 IOVA] --> B{是否启用IOMMU?}
+    B -->|是| C[IOMMU硬件转换 HPA]
+    B -->|否| D[直接使用物理地址]</pre>
 <h4 id="设备驱动中的-dma-实现"><strong>(4) 设备驱动中的 DMA
 实现</strong></h4>
 <p>以网卡驱动（如
@@ -1305,21 +1293,20 @@ PL330 vs. 服务器的 Intel IOAT）需要不同驱动。 •
 <hr />
 <h3 id="dma-工作流程示例以网卡收包为例"><strong>4. DMA
 工作流程示例（以网卡收包为例）</strong></h3>
-<pre><code class=" mermaid">sequenceDiagram
+<pre class="mermaid">sequenceDiagram
     participant 驱动
     participant DMA API
     participant IOMMU
     participant 网卡
 
-    驱动-&gt;&gt;DMA API: dma_alloc_coherent()
-    DMA API-&gt;&gt;IOMMU: 分配IOVA（若启用）
-    DMA API--&gt;&gt;驱动: 返回虚拟地址和DMA句柄
-    驱动-&gt;&gt;网卡: 将DMA地址写入描述符环
-    网卡-&gt;&gt;IOMMU: DMA请求（使用IOVA）
-    IOMMU-&gt;&gt;内存: 转换为HPA并访问
-    内存--&gt;&gt;网卡: 返回数据
-    网卡-&gt;&gt;驱动: 中断通知完成
-</code></pre>
+    驱动->>DMA API: dma_alloc_coherent()
+    DMA API->>IOMMU: 分配IOVA（若启用）
+    DMA API-->>驱动: 返回虚拟地址和DMA句柄
+    驱动->>网卡: 将DMA地址写入描述符环
+    网卡->>IOMMU: DMA请求（使用IOVA）
+    IOMMU->>内存: 转换为HPA并访问
+    内存-->>网卡: 返回数据
+    网卡->>驱动: 中断通知完成</pre>
 <hr />
 <h3 id="调试与监控"><strong>5. 调试与监控</strong></h3>
 <h4 id="查看-dma-内存使用"><strong>(1) 查看 DMA 内存使用</strong></h4>

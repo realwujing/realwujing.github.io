@@ -16,12 +16,12 @@
   <meta name="author" content="Wu Jing">
   <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
   
-    <meta name="description" content="Linux网络收包与epoll协作机制 1. 整体架构图 graph TD     %% 硬件层     A[网卡接收数据包 - 硬件中断信号] --&gt;|触发IRQ信号| B[DMA引擎启动 - 数据写入ring buffer]     B --&gt;|完成数据传输| C[网卡发出硬中断 - 调用注册的ISR]      %% 内核硬中断层     C --&gt;|通过中断向量| D[硬">
+    <meta name="description" content="Linux网络收包与epoll协作机制 1. 整体架构图 graph TD     %% 硬件层     A[网卡接收数据包 - 硬件中断信号] --&gt;|触发IRQ信号| B[DMA引擎启动 - 数据写入ring buffer]     B --&gt;|完成数据传输| C[网卡发出硬中断 - 调用注册的ISR]      %% 内核硬中断层     C --&gt;|通过中断向量| D[硬中断处理开始 -">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Linux网络收包与epoll协作机制">
 <meta property="og:url" content="https://realwujing.github.io/linux/kernel/net/Linux%E7%BD%91%E7%BB%9C%E6%94%B6%E5%8C%85%E4%B8%8Eepoll%E5%8D%8F%E4%BD%9C%E6%9C%BA%E5%88%B6/index.html">
 <meta property="og:site_name" content="WuJing&#39;s Blog">
-<meta property="og:description" content="Linux网络收包与epoll协作机制 1. 整体架构图 graph TD     %% 硬件层     A[网卡接收数据包 - 硬件中断信号] --&gt;|触发IRQ信号| B[DMA引擎启动 - 数据写入ring buffer]     B --&gt;|完成数据传输| C[网卡发出硬中断 - 调用注册的ISR]      %% 内核硬中断层     C --&gt;|通过中断向量| D[硬">
+<meta property="og:description" content="Linux网络收包与epoll协作机制 1. 整体架构图 graph TD     %% 硬件层     A[网卡接收数据包 - 硬件中断信号] --&gt;|触发IRQ信号| B[DMA引擎启动 - 数据写入ring buffer]     B --&gt;|完成数据传输| C[网卡发出硬中断 - 调用注册的ISR]      %% 内核硬中断层     C --&gt;|通过中断向量| D[硬中断处理开始 -">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-03-28T19:06:58.000Z">
 <meta property="article:modified_time" content="2025-03-28T19:06:58.000Z">
@@ -287,7 +287,7 @@
         
         
         
-          93 分钟
+          91 分钟
         
       </span>
     
@@ -332,96 +332,96 @@
                 
                 <h1 id="linux网络收包与epoll协作机制">Linux网络收包与epoll协作机制</h1>
 <h2 id="整体架构图">1. 整体架构图</h2>
-<pre><code class=" mermaid">graph TD
+<pre class="mermaid">graph TD
     %% 硬件层
-    A[网卡接收数据包 - 硬件中断信号] --&gt;|触发IRQ信号| B[DMA引擎启动 - 数据写入ring buffer]
-    B --&gt;|完成数据传输| C[网卡发出硬中断 - 调用注册的ISR]
+    A[网卡接收数据包 - 硬件中断信号] -->|触发IRQ信号| B[DMA引擎启动 - 数据写入ring buffer]
+    B -->|完成数据传输| C[网卡发出硬中断 - 调用注册的ISR]
 
     %% 内核硬中断层
-    C --&gt;|通过中断向量| D[硬中断处理开始 - do_IRQ]
-    D --&gt;|保存上下文| E[执行网卡驱动ISR - ack中断]
-    E --&gt;|网卡支持NAPI时调度| E1[调用NAPI - napi_schedule]
-    E --&gt;|未调度NAPI| E2[未调用NAPI - 直接触发软中断]
-    E1 --&gt;|设置软中断标志| F[触发软中断 - raise_softirq NET_RX_SOFTIRQ]
-    E2 --&gt; F
-    E1:::note --&gt;|NAPI状态允许时调用| E1
-    E2:::note --&gt;|网卡不支持NAPI时| E2
+    C -->|通过中断向量| D[硬中断处理开始 - do_IRQ]
+    D -->|保存上下文| E[执行网卡驱动ISR - ack中断]
+    E -->|网卡支持NAPI时调度| E1[调用NAPI - napi_schedule]
+    E -->|未调度NAPI| E2[未调用NAPI - 直接触发软中断]
+    E1 -->|设置软中断标志| F[触发软中断 - raise_softirq NET_RX_SOFTIRQ]
+    E2 --> F
+    E1:::note -->|NAPI状态允许时调用| E1
+    E2:::note -->|网卡不支持NAPI时| E2
 
     %% 软中断调度层
-    F --&gt;|硬中断退出| G[检查软中断 - do_softirq]
-    G --&gt;|高负载时调度| H[调用ksoftirqd - 软中断守护进程]
-    G --&gt;|直接处理| I[执行软中断 - NET_RX_SOFTIRQ]
-    H --&gt;|延迟执行| I
+    F -->|硬中断退出| G[检查软中断 - do_softirq]
+    G -->|高负载时调度| H[调用ksoftirqd - 软中断守护进程]
+    G -->|直接处理| I[执行软中断 - NET_RX_SOFTIRQ]
+    H -->|延迟执行| I
 
     %% 软中断控制
-    I --&gt;|启用底半部机制| J[启用底半部 - local_bh_enable]
-    J --&gt;|硬中断未调用时调度| J0[调用NAPI - napi_schedule]
-    J:::note --&gt;|可能触发do_softirq| J
+    I -->|启用底半部机制| J[启用底半部 - local_bh_enable]
+    J -->|硬中断未调用时调度| J0[调用NAPI - napi_schedule]
+    J:::note -->|可能触发do_softirq| J
 
     %% NAPI机制
     subgraph NAPI机制
-        J0 --&gt;|执行轮询| K[处理数据包 - netif_receive_skb]
-        J0:::note --&gt;|硬中断未调用或新数据包到达时| J0
-        K:::note --&gt;|NAPI轮询执行| K
+        J0 -->|执行轮询| K[处理数据包 - netif_receive_skb]
+        J0:::note -->|硬中断未调用或新数据包到达时| J0
+        K:::note -->|NAPI轮询执行| K
     end
 
     %% 内核协议层
-    K --&gt;|数据包上行| M[网络协议栈处理 - ip_rcv -&gt; tcp_v4_rcv]
-    M --&gt;|分配内存| N[数据包入队列 - sk_buff分配]
-    N --&gt;|数据入Socket| O[Socket缓冲区就绪 - sk-&gt;sk_receive_queue]
-    O --&gt;|通知事件| P[sock_def_readable - 通知事件可用]
+    K -->|数据包上行| M[网络协议栈处理 - ip_rcv -> tcp_v4_rcv]
+    M -->|分配内存| N[数据包入队列 - sk_buff分配]
+    N -->|数据入Socket| O[Socket缓冲区就绪 - sk->sk_receive_queue]
+    O -->|通知事件| P[sock_def_readable - 通知事件可用]
 
     %% epoll 核心机制
-    P --&gt;|分发事件| Q[ep_poll_callback - 处理就绪事件]
+    P -->|分发事件| Q[ep_poll_callback - 处理就绪事件]
     
     subgraph epoll内部机制
-        Q --&gt;|通过fd查询| R[红黑树查询 - rb_tree_find]
-        Q --&gt;|检查状态| S[检查epitem - ep_events_available]
-        R --&gt;|找到epitem| T[加入rdllist - list_add_tail]
-        S --&gt;|状态通过| T
-        T --&gt;|更新计数| U[更新计数 - ep-&gt;rdllist.count++]
-        U --&gt;|唤醒| V[唤醒epoll_wait - wake_up ep-&gt;wq]
-        R:::note --&gt;|查找fd对应的epitem| R
-        S:::note --&gt;|epitem包含fd和事件| S
-        T:::note --&gt;|epitem加入就绪链表| T
-        V:::note --&gt;|唤醒用户态等待进程| V
+        Q -->|通过fd查询| R[红黑树查询 - rb_tree_find]
+        Q -->|检查状态| S[检查epitem - ep_events_available]
+        R -->|找到epitem| T[加入rdllist - list_add_tail]
+        S -->|状态通过| T
+        T -->|更新计数| U[更新计数 - ep->rdllist.count++]
+        U -->|唤醒| V[唤醒epoll_wait - wake_up ep->wq]
+        R:::note -->|查找fd对应的epitem| R
+        S:::note -->|epitem包含fd和事件| S
+        T:::note -->|epitem加入就绪链表| T
+        V:::note -->|唤醒用户态等待进程| V
     end
 
     %% 上下文切换与唤醒
-    V --&gt;|通知调度器| V1[调度器重新调度 - schedule]
-    V1 --&gt;|恢复用户态上下文| V2[系统调用返回 - 从内核态返回]
+    V -->|通知调度器| V1[调度器重新调度 - schedule]
+    V1 -->|恢复用户态上下文| V2[系统调用返回 - 从内核态返回]
 
     %% 用户态与内核态交互
     subgraph 用户态与内核态交互
-        V2 --&gt;|返回就绪fd| W[epoll_wait返回 - 用户态获取fd列表]
-        W --&gt;|处理就绪事件| W1[用户态处理 - 检查fd事件]
-        W1 --&gt;|发起读取| X[用户态发起read - sys_read]
-        X --&gt;|内核读取数据| Y[内核检查缓冲区 - copy_to_user]
-        Y --&gt;|数据返回| Z[数据返回用户空间 - 完成读取]
+        V2 -->|返回就绪fd| W[epoll_wait返回 - 用户态获取fd列表]
+        W -->|处理就绪事件| W1[用户态处理 - 检查fd事件]
+        W1 -->|发起读取| X[用户态发起read - sys_read]
+        X -->|内核读取数据| Y[内核检查缓冲区 - copy_to_user]
+        Y -->|数据返回| Z[数据返回用户空间 - 完成读取]
     end
 
     %% 分组与层级
     subgraph 硬件层
-        A --&gt; B --&gt; C
+        A --> B --> C
     end
     subgraph 内核硬中断层
-        D --&gt; E --&gt; E1 --&gt; F
-        E --&gt; E2 --&gt; F
+        D --> E --> E1 --> F
+        E --> E2 --> F
     end
     subgraph 软中断调度层
-        F --&gt; G --&gt; H --&gt; I
+        F --> G --> H --> I
     end
     subgraph 软中断控制
-        I --&gt; J --&gt; J0
+        I --> J --> J0
     end
     subgraph 内核协议层
-        K --&gt; M --&gt; N --&gt; O
+        K --> M --> N --> O
     end
     subgraph 内核Socket层
-        O --&gt; P
+        O --> P
     end
     subgraph epoll内部机制
-        Q --&gt; R --&gt; S --&gt; T --&gt; U --&gt; V
+        Q --> R --> S --> T --> U --> V
     end
 
     %% 样式定义
@@ -442,8 +442,7 @@
     class M,N,O,P socket
     class Q,R,S,T,U,V epoll
     class V1,V2 epoll
-    class W,W1,X,Y,Z user
-</code></pre>
+    class W,W1,X,Y,Z user</pre>
 <hr />
 <p>基于你提供的 Markdown 图、Linux 5.10 内核代码以及 virtio-net
 驱动，我将对内容进行补充和完善，重点补充硬件层、中断处理层、协议栈处理、epoll
