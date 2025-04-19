@@ -15,6 +15,16 @@ Fluid.utils = {
     window.removeEventListener('scroll', callback);
   },
 
+  listenDOMLoaded(callback) {
+    if (document.readyState !== 'loading') {
+      callback();
+    } else {
+      document.addEventListener('DOMContentLoaded', function () {
+        callback();
+      });
+    }
+  },
+
   scrollToElement: function(target, offset) {
     var of = jQuery(target).offset();
     if (of) {
@@ -28,10 +38,11 @@ Fluid.utils = {
   elementVisible: function(element, offsetFactor) {
     offsetFactor = offsetFactor && offsetFactor >= 0 ? offsetFactor : 0;
     var rect = element.getBoundingClientRect();
-    var height = window.innerHeight || document.documentElement.clientHeight;
-    var top = rect.top;
-    return (top >= 0 && top <= height * (offsetFactor + 1))
-      || (top <= 0 && top >= -(height * offsetFactor) - rect.height);
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    return (
+      (rect.top >= 0 && rect.top <= viewportHeight * (1 + offsetFactor) + rect.height / 2) ||
+      (rect.bottom >= 0 && rect.bottom <= viewportHeight * (1 + offsetFactor) + rect.height / 2)
+    );
   },
 
   waitElementVisible: function(selectorOrElement, callback, offsetFactor) {
@@ -45,29 +56,31 @@ Fluid.utils = {
     offsetFactor = offsetFactor && offsetFactor >= 0 ? offsetFactor : 0;
 
     function waitInViewport(element) {
-      if (Fluid.utils.elementVisible(element, offsetFactor)) {
-        callback();
-        return;
-      }
-      if ('IntersectionObserver' in window) {
-        var io = new IntersectionObserver(function(entries, ob) {
-          if (entries[0].isIntersecting) {
-            callback();
-            ob.disconnect();
-          }
-        }, {
-          threshold : [0],
-          rootMargin: (window.innerHeight || document.documentElement.clientHeight) * offsetFactor + 'px'
-        });
-        io.observe(element);
-      } else {
-        var wrapper = Fluid.utils.listenScroll(function() {
-          if (Fluid.utils.elementVisible(element, offsetFactor)) {
-            Fluid.utils.unlistenScroll(wrapper);
-            callback();
-          }
-        });
-      }
+      Fluid.utils.listenDOMLoaded(function() {
+        if (Fluid.utils.elementVisible(element, offsetFactor)) {
+          callback();
+          return;
+        }
+        if ('IntersectionObserver' in window) {
+          var io = new IntersectionObserver(function(entries, ob) {
+            if (entries[0].isIntersecting) {
+              callback();
+              ob.disconnect();
+            }
+          }, {
+            threshold : [0],
+            rootMargin: (window.innerHeight || document.documentElement.clientHeight) * offsetFactor + 'px'
+          });
+          io.observe(element);
+        } else {
+          var wrapper = Fluid.utils.listenScroll(function() {
+            if (Fluid.utils.elementVisible(element, offsetFactor)) {
+              Fluid.utils.unlistenScroll(wrapper);
+              callback();
+            }
+          });
+        }
+      });
     }
 
     if (typeof selectorOrElement === 'string') {
@@ -97,7 +110,7 @@ Fluid.utils = {
       });
       mo.observe(document, { childList: true, subtree: true });
     } else {
-      document.addEventListener('DOMContentLoaded', function() {
+      Fluid.utils.listenDOMLoaded(function() {
         var waitLoop = function() {
           var ele = document.querySelector(selector);
           if (ele) {
@@ -141,8 +154,8 @@ Fluid.utils = {
     l.setAttribute('type', 'text/css');
     l.setAttribute('href', url);
     var e = document.getElementsByTagName('link')[0]
-    || document.getElementsByTagName('head')[0]
-    || document.head || document.documentElement;
+      || document.getElementsByTagName('head')[0]
+      || document.head || document.documentElement;
     e.parentNode.insertBefore(l, e);
   },
 
@@ -186,7 +199,7 @@ Fluid.utils = {
       }
     };
     setTimeout(next, interval);
-  },
+  }
 
 };
 
@@ -199,6 +212,7 @@ function Debouncer(callback) {
   this.callback = callback;
   this.ticking = false;
 }
+
 Debouncer.prototype = {
   constructor: Debouncer,
 
