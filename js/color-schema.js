@@ -11,7 +11,6 @@
   var defaultColorSchemaAttributeName = 'data-default-color-scheme';
   var colorToggleButtonSelector = '#color-toggle-btn';
   var colorToggleIconSelector = '#color-toggle-icon';
-  var iframeSelector = 'iframe';
 
   function setLS(k, v) {
     try {
@@ -248,7 +247,6 @@
           theme: giscusTheme,
         }
       };
-      // giscus.style.cssText += 'color-scheme: normal;';
       giscus.contentWindow.postMessage({ 'giscus': message }, 'https://giscus.app');
     }
   }
@@ -278,9 +276,4 @@
       }
     }
   });
-
-  Fluid.utils.waitElementLoaded(iframeSelector, function() {
-    applyCustomColorSchemaSettings();
-  });
-  
 })(window, document);
