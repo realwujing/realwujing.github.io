@@ -40,6 +40,19 @@
 - [rsyslog服务及Linux系统日志简介](https://www.jianshu.com/p/3b11a2b7c746)
 - [Enable Rsyslog Logging on Debian 12](https://kifarunix.com/enable-rsyslog-logging-on-debian-12/)
 - [Linux系统中的日志管理——journal、rsyslog、timedatectl、时间同步](https://blog.csdn.net/qq_45225437/article/details/104294044)
+- [[命令] Linux 命令 systemd-analyze （显示系统和服务的启动时间、开启和关闭日志的排错模式）](https://eternalcenter.com/systemd-analyze/)
+
+    启用调试日志:
+
+    ```bash
+     systemd-analyze set-log-level debug
+    ```
+
+    恢复默认日志级别:
+
+    ```bash
+     systemd-analyze set-log-level info
+    ```
 
 ## swap
 

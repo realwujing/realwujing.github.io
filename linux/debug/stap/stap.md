@@ -1,6 +1,6 @@
 # stap
 
-- [【linux内核调试】SystemTap使用技巧](https://blog.csdn.net/panhewu9919/article/details/103113711)
+- [<font color=Red>【linux内核调试】SystemTap使用技巧</font>](https://blog.csdn.net/panhewu9919/article/details/103113711)
 - [SystemTap（stap）架构和原理介绍，以及脚本编写举例](https://blog.csdn.net/SaberJYang/article/details/141563417)
 - [如何使用 SystemTap 对程序进行追踪](https://www.cnblogs.com/shuqin/p/13196585.html)
 - [<font color=Red>SystemTap使用技巧【一】</font>](https://blog.csdn.net/wangzuxi/article/details/42849053)
