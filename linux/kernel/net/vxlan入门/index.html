@@ -1,0 +1,1255 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="vxlan入门.md 什么是 vxlan VXLAN (Virtual Extensible LAN) 是一种网络虚拟化技术，它通过在现有 IP 网络基础设施上创建虚拟的第 2 层网络来扩展传统的 VLAN 功能。 基本概念  VXLAN 是什么：  一种 overlay 网络技术 使用 MAC-in-UDP 封装 将二层帧封装在 UDP 数据包中通过三层网络传输 VXLAN ID (VNI) 2">
+<meta property="og:type" content="article">
+<meta property="og:title" content="vxlan入门">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/net/vxlan%E5%85%A5%E9%97%A8/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="vxlan入门.md 什么是 vxlan VXLAN (Virtual Extensible LAN) 是一种网络虚拟化技术，它通过在现有 IP 网络基础设施上创建虚拟的第 2 层网络来扩展传统的 VLAN 功能。 基本概念  VXLAN 是什么：  一种 overlay 网络技术 使用 MAC-in-UDP 封装 将二层帧封装在 UDP 数据包中通过三层网络传输 VXLAN ID (VNI) 2">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-04-21T17:07:22.000Z">
+<meta property="article:modified_time" content="2025-04-21T17:07:22.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="linux">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>vxlan入门 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="vxlan入门"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-04-21 17:07" pubdate>
+          2025年4月21日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          5.6k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          47 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">vxlan入门</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="vxlan入门.md">vxlan入门.md</h1>
+<h2 id="什么是-vxlan">什么是 vxlan</h2>
+<p>VXLAN (Virtual Extensible LAN) 是一种网络虚拟化技术，它通过在现有 IP
+网络基础设施上创建虚拟的第 2 层网络来扩展传统的 VLAN 功能。</p>
+<h2 id="基本概念">基本概念</h2>
+<ol type="1">
+<li><strong>VXLAN 是什么</strong>：
+<ul>
+<li>一种 overlay 网络技术</li>
+<li>使用 MAC-in-UDP 封装</li>
+<li>将二层帧封装在 UDP 数据包中通过三层网络传输</li>
+<li>VXLAN ID (VNI) 24位，可支持多达 1600 万个虚拟网络 (VLAN 只有 4096
+个)</li>
+</ul></li>
+<li><strong>主要组件</strong>：
+<ul>
+<li><strong>VTEP (VXLAN Tunnel End Point)</strong>：封装/解封装 VXLAN
+流量的设备</li>
+<li><strong>VNI (VXLAN Network
+Identifier)</strong>：标识不同的虚拟网络</li>
+<li><strong>Underlay 网络</strong>：承载 VXLAN 流量的物理网络</li>
+</ul></li>
+</ol>
+<h2 id="linux-中的-vxlan-实现">Linux 中的 VXLAN 实现</h2>
+<h3 id="创建-vxlan-接口">1. 创建 VXLAN 接口</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 基本命令</span><br>ip <span class="hljs-built_in">link</span> add vxlan0 <span class="hljs-built_in">type</span> vxlan <span class="hljs-built_in">id</span> 42 dstport 4789 dev eth0 <span class="hljs-built_in">local</span> 192.168.1.100<br><br><span class="hljs-comment"># 完整示例</span><br>ip <span class="hljs-built_in">link</span> add vxlan0 <span class="hljs-built_in">type</span> vxlan \<br>    <span class="hljs-built_in">id</span> 42 \<br>    dstport 4789 \<br>    dev eth0 \<br>    <span class="hljs-built_in">local</span> 192.168.1.100 \<br>    remote 192.168.1.101 \<br>    group 239.1.1.1 \<br>    ttl 10<br></code></pre></td></tr></table></figure>
+<p>参数说明：</p>
+<ul>
+<li><code>id</code>: VXLAN 网络标识符 (VNI)</li>
+<li><code>dstport</code>: 目标 UDP 端口 (默认 8472，但 IANA 指定
+4789)</li>
+<li><code>dev</code>: 底层物理接口</li>
+<li><code>local</code>: 本地 VTEP IP</li>
+<li><code>remote</code>: 远程 VTEP IP (点对点模式)</li>
+<li><code>group</code>: 多播组地址 (多播模式)</li>
+<li><code>ttl</code>: 生存时间</li>
+</ul>
+<h3 id="启动并配置-vxlan-接口">2. 启动并配置 VXLAN 接口</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">ip <span class="hljs-built_in">link</span> <span class="hljs-built_in">set</span> vxlan0 up<br>ip addr add 10.0.0.1/24 dev vxlan0<br></code></pre></td></tr></table></figure>
+<h3 id="查看-vxlan-接口信息">3. 查看 VXLAN 接口信息</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ip -d <span class="hljs-built_in">link</span> show vxlan0<br></code></pre></td></tr></table></figure>
+<h3 id="删除-vxlan-接口">4. 删除 VXLAN 接口</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ip <span class="hljs-built_in">link</span> del vxlan0<br></code></pre></td></tr></table></figure>
+<h2 id="vxlan-工作模式">VXLAN 工作模式</h2>
+<ol type="1">
+<li><strong>单播模式 (Unicast)</strong>：
+<ul>
+<li>点对点连接</li>
+<li>需要预先知道所有对端 VTEP 地址</li>
+<li>使用 <code>remote</code> 参数指定</li>
+</ul></li>
+<li><strong>多播模式 (Multicast)</strong>：
+<ul>
+<li>使用多播组自动发现 VTEP</li>
+<li>适合大规模部署</li>
+<li>使用 <code>group</code> 参数指定多播组</li>
+</ul></li>
+<li><strong>L2/L3 网关模式</strong>：
+<ul>
+<li>连接 VXLAN 网络与传统网络</li>
+<li>需要特殊配置</li>
+</ul></li>
+</ol>
+<h2 id="高级配置">高级配置</h2>
+<h3 id="使用桥接">1. 使用桥接</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 创建网桥</span><br>ip <span class="hljs-built_in">link</span> add br0 <span class="hljs-built_in">type</span> bridge<br>ip <span class="hljs-built_in">link</span> <span class="hljs-built_in">set</span> br0 up<br><br><span class="hljs-comment"># 将 VXLAN 接口加入网桥</span><br>ip <span class="hljs-built_in">link</span> <span class="hljs-built_in">set</span> vxlan0 master br0<br></code></pre></td></tr></table></figure>
+<h3 id="静态-fdb-条目">2. 静态 FDB 条目</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">bridge fdb append 00:11:22:33:44:55 dev vxlan0 dst 192.168.1.101<br></code></pre></td></tr></table></figure>
+<h3 id="使用-evpn-控制平面">3. 使用 EVPN 控制平面</h3>
+<p>更复杂的部署可以使用 BGP EVPN 作为控制平面来自动学习 MAC 地址和 VTEP
+信息。</p>
+<h2 id="内核要求">内核要求</h2>
+<p>VXLAN 需要 Linux 内核支持：</p>
+<ul>
+<li>3.7+ 版本：基本 VXLAN 支持</li>
+<li>3.12+ 版本：多播支持</li>
+<li>4.3+ 版本：IPv6 支持</li>
+</ul>
+<p>检查内核是否支持：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">modprobe vxlan<br>lsmod | grep vxlan<br></code></pre></td></tr></table></figure>
+<h2 id="典型应用场景">典型应用场景</h2>
+<ol type="1">
+<li>跨数据中心的虚拟机迁移</li>
+<li>容器网络</li>
+<li>云环境中的多租户隔离</li>
+<li>大规模网络虚拟化</li>
+</ol>
+<h2 id="优缺点">优缺点</h2>
+<p><strong>优点</strong>：</p>
+<ul>
+<li>突破 VLAN 4096 限制</li>
+<li>更好的隔离性</li>
+<li>跨三层网络扩展二层</li>
+<li>适合云环境和虚拟化</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>封装开销 (50字节)</li>
+<li>需要支持的网络设备</li>
+<li>配置复杂度高于传统 VLAN</li>
+</ul>
+<p>VXLAN 是现代数据中心和云环境中广泛使用的网络虚拟化技术，特别是在
+Kubernetes 和 OpenStack 等平台中。</p>
+<h2 id="给出示例中的vxlan网络拓扑图">给出示例中的vxlan网络拓扑图</h2>
+<p>以下是示例中 VXLAN 网络的拓扑图描述及可视化表示：</p>
+<hr />
+<h3 id="vxlan-网络拓扑图示例"><strong>VXLAN
+网络拓扑图（示例）</strong></h3>
+<h4 id="物理网络-underlay">物理网络 (Underlay)</h4>
+<figure class="highlight gherkin"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs gherkin">+-----------------------------------------------------+<br>|<span class="hljs-string">              物理网络 (IP 网络)                      </span>|<br>|<span class="hljs-string">   +-------------+                   +-------------+  </span>|<br>|<span class="hljs-string">   </span>|<span class="hljs-string"> 主机A       </span>|<span class="hljs-string">                   </span>|<span class="hljs-string"> 主机B       </span>|<span class="hljs-string">  </span>|<br>|<span class="hljs-string">   </span>|<span class="hljs-string"> eth0:       </span>|<span class="hljs-string">&lt;--- IP 连接 ---&gt;  </span>|<span class="hljs-string"> eth0:       </span>|<span class="hljs-string">  </span>|<br>|<span class="hljs-string">   </span>|<span class="hljs-string"> 192.168.1.100</span>|<span class="hljs-string">                   </span>|<span class="hljs-string">192.168.1.101</span>|<span class="hljs-string">  </span>|<br>|<span class="hljs-string">   +-------------+                   +-------------+  </span>|<br>+-----------------------------------------------------+<br></code></pre></td></tr></table></figure>
+<h4 id="虚拟网络-overlay---vxlan">虚拟网络 (Overlay - VXLAN)</h4>
+<figure class="highlight gherkin"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs gherkin">+-----------------------------------------------------+<br>|<span class="hljs-string">              虚拟二层网络 (VXLAN VNI 42)             </span>|<br>|<span class="hljs-string">   +-------------+                   +-------------+  </span>|<br>|<span class="hljs-string">   </span>|<span class="hljs-string"> vxlan0      </span>|<span class="hljs-string">&lt;--- VXLAN隧道 ---&gt;</span>|<span class="hljs-string"> vxlan0      </span>|<span class="hljs-string">  </span>|<br>|<span class="hljs-string">   </span>|<span class="hljs-string"> 10.0.0.1/24 </span>|<span class="hljs-string">                   </span>|<span class="hljs-string">10.0.0.2/24  </span>|<span class="hljs-string">  </span>|<br>|<span class="hljs-string">   +-------------+                   +-------------+  </span>|<br>|<span class="hljs-string">   </span>|<span class="hljs-string"> 主机A       </span>|<span class="hljs-string">                   </span>|<span class="hljs-string"> 主机B       </span>|<span class="hljs-string">  </span>|<br>|<span class="hljs-string">   +-------------+                   +-------------+  </span>|<br>+-----------------------------------------------------+<br></code></pre></td></tr></table></figure>
+<hr />
+<h3 id="关键组件说明"><strong>关键组件说明</strong></h3>
+<ol type="1">
+<li><strong>物理网络 (Underlay)</strong>：
+<ul>
+<li>主机A和主机B通过物理接口 <code>eth0</code> 在三层 IP
+网络（如192.168.1.0/24）中互通。</li>
+<li>这是 VXLAN 隧道的承载网络。</li>
+</ul></li>
+<li><strong>虚拟网络 (Overlay)</strong>：
+<ul>
+<li>主机A和主机B上创建了 VXLAN 接口
+<code>vxlan0</code>，属于同一个虚拟网络（VNI=42）。</li>
+<li>即使主机A和主机B物理上位于不同子网，VXLAN
+会让它们像在同一个二层网络中一样通信。</li>
+</ul></li>
+<li><strong>数据流</strong>：
+<ul>
+<li>当主机A的 <code>vxlan0</code> 发送数据包到 <code>10.0.0.2</code>：
+<ol type="1">
+<li>原始二层帧（目标MAC + IP）被封装到 UDP 数据包中。</li>
+<li>外层 IP 头使用 Underlay 网络的地址（如
+<code>192.168.1.100 -&gt; 192.168.1.101</code>）。</li>
+<li>通过物理网络传输到主机B后，解封装还原为原始二层帧。</li>
+</ol></li>
+</ul></li>
+</ol>
+<hr />
+<h3 id="拓扑图可视化"><strong>拓扑图可视化</strong></h3>
+<figure class="highlight gherkin"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs gherkin">+-------------------+       Underlay Network       +-------------------+<br>|<span class="hljs-string">     主机A         </span>|<span class="hljs-string">------------------------------</span>|<span class="hljs-string">     主机B         </span>|<br>|<span class="hljs-string">  eth0:192.168.1.100</span>|<span class="hljs-string">                              </span>|<span class="hljs-string"> eth0:192.168.1.101</span>|<br>|<span class="hljs-string">                   </span>|<span class="hljs-string">                              </span>|<span class="hljs-string">                   </span>|<br>|<span class="hljs-string">  +-------------+  </span>|<span class="hljs-string">                              </span>|<span class="hljs-string">  +-------------+  </span>|<br>|<span class="hljs-string">  </span>|<span class="hljs-string"> vxlan0      </span>|<span class="hljs-string">  </span>|<span class="hljs-string">       VXLAN Tunnel (VNI 42)  </span>|<span class="hljs-string">  </span>|<span class="hljs-string"> vxlan0      </span>|<span class="hljs-string">  </span>|<br>|<span class="hljs-string">  </span>|<span class="hljs-string"> 10.0.0.1/24 </span>|<span class="hljs-string">&lt;==============================&gt;</span>|<span class="hljs-string">  </span>|<span class="hljs-string">10.0.0.2/24  </span>|<span class="hljs-string">  </span>|<br>|<span class="hljs-string">  +-------------+  </span>|<span class="hljs-string">                              </span>|<span class="hljs-string">  +-------------+  </span>|<br>+-------------------+                              +-------------------+<br></code></pre></td></tr></table></figure>
+<hr />
+<h3 id="模式说明"><strong>模式说明</strong></h3>
+<ol type="1">
+<li><strong>示例中的模式</strong>：
+<ul>
+<li>若命令中指定了 <code>remote 192.168.1.101</code>，则为
+<strong>单播模式</strong>（点对点隧道）。</li>
+<li>若指定了 <code>group 239.1.1.1</code>，则为
+<strong>多播模式</strong>（通过多播组自动发现VTEP）。</li>
+</ul></li>
+<li><strong>扩展场景</strong>：
+<ul>
+<li>如需连接多个主机，可添加更多 VTEP（如主机C、主机D）。</li>
+<li>多播模式下，所有VTEP加入同一多播组即可自动建立隧道。</li>
+</ul></li>
+</ol>
+<hr />
+<h3 id="实际应用示例"><strong>实际应用示例</strong></h3>
+<ul>
+<li><strong>容器网络</strong>：Kubernetes 中的 Flannel 或 Calico 使用
+VXLAN 实现跨节点容器通信。</li>
+<li><strong>跨数据中心 VM
+迁移</strong>：保持虚拟机的二层网络属性不变。</li>
+</ul>
+<h2 id="vlan-为啥只有-4096-个">VLAN 为啥只有 4096 个？</h2>
+<p>VLAN（Virtual Local Area Network）的 ID 范围之所以限制在 <strong>4096
+个</strong>（实际可用 4094
+个），是由其技术标准和历史设计决定的，主要原因如下：</p>
+<hr />
+<h3 id="ieee-802.1q-标准的字段限制"><strong>1. IEEE 802.1Q
+标准的字段限制</strong></h3>
+<p>VLAN 的标识符（VLAN ID）在以太网帧的 <strong>802.1Q Tag</strong>
+中占用 <strong>12 位二进制</strong>，其取值范围为：</p>
+<ul>
+<li><strong>二进制</strong>：<code>000000000000</code> ~
+<code>111111111111</code><br />
+</li>
+<li><strong>十进制</strong>：<code>0</code> ~ <code>4095</code>
+<ul>
+<li><code>0</code> 和 <code>4095</code> 为保留值（<code>0</code>
+表示优先级帧，<code>4095</code> 保留未使用），因此 <strong>实际可用 VLAN
+ID 为 1~4094</strong>。</li>
+</ul></li>
+</ul>
+<h4 id="q-帧结构示例"><strong>802.1Q 帧结构示例</strong></h4>
+<figure class="highlight gherkin"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs gherkin">|<span class="hljs-string"> 目的MAC </span>|<span class="hljs-string"> 源MAC </span>|<span class="hljs-string"> 802.1Q Tag (4字节) </span>|<span class="hljs-string"> 类型/长度 </span>|<span class="hljs-string"> 数据... </span>|<br>           ^^^^^^^^^^^^^^^^^<br>           其中 VLAN ID 占 12 bits（0~4095）<br></code></pre></td></tr></table></figure>
+<hr />
+<h3 id="历史背景与设计权衡"><strong>2. 历史背景与设计权衡</strong></h3>
+<ul>
+<li><strong>早期网络规模需求有限</strong>：<br />
+在 1998 年 IEEE 802.1Q 标准制定时，企业网络规模较小，4094 个 VLAN
+被认为足够覆盖大多数场景（如部门隔离、设备分组）。</li>
+<li><strong>帧头开销优化</strong>：<br />
+增加 VLAN ID 位数会扩大以太网帧头（802.1Q Tag 已占用 4
+字节），可能影响网络效率（尤其是小数据包场景）。</li>
+</ul>
+<hr />
+<h3 id="为什么不是更大"><strong>3. 为什么不是更大？</strong></h3>
+<ul>
+<li><strong>兼容性</strong>：<br />
+保持与传统以太网帧的兼容性（普通以太网帧无 VLAN Tag）。</li>
+<li><strong>硬件限制</strong>：<br />
+早期交换机的 TCAM（Ternary Content-Addressable
+Memory）容量有限，存储大量 VLAN 表项会提高成本。</li>
+</ul>
+<hr />
+<h3 id="vlan-的替代方案"><strong>4. VLAN 的替代方案</strong></h3>
+<p>由于 4094 个 VLAN
+无法满足现代大规模网络（如云计算、多租户数据中心）的需求，催生了以下技术：</p>
+<h4 id="vxlanvirtual-extensible-lan"><strong>(1) </strong>VXLAN（Virtual
+Extensible LAN）**</h4>
+<ul>
+<li><strong>24 位 VNI（VXLAN Network Identifier）</strong>，支持约
+<strong>1600 万</strong>个虚拟网络。<br />
+</li>
+<li>通过 MAC-in-UDP 封装，跨三层网络扩展二层域。</li>
+</ul>
+<h4 id="qinqieee-802.1ad"><strong>(2) </strong>QinQ（IEEE
+802.1ad）**</h4>
+<ul>
+<li>堆叠两层 VLAN Tag（外层 Tag 称为 S-Tag），理论上支持
+<code>4094 x 4094</code> 个网络，但管理复杂。</li>
+</ul>
+<h4 id="nvgregre-等-overlay-技术"><strong>(3) </strong>NVGRE、GRE 等
+Overlay 技术**</h4>
+<p>其他隧道协议也可突破 VLAN 数量限制。</p>
+<hr />
+<h3 id="为什么-vxlan-能突破限制"><strong>5. 为什么 VXLAN
+能突破限制？</strong></h3>
+<ul>
+<li><strong>封装方式不同</strong>：<br />
+VXLAN 将整个二层帧封装在 UDP 中，无需依赖传统以太网帧头。<br />
+</li>
+<li><strong>现代硬件支持</strong>：<br />
+新一代交换机/网卡支持 VXLAN 硬件卸载（如 VTEP），降低性能开销。</li>
+</ul>
+<hr />
+<h3 id="总结"><strong>总结</strong></h3>
+<ul>
+<li><p><strong>VLAN 的 4096 限制</strong>源于 802.1Q 标准的 12
+位字段设计，是历史与技术的权衡结果。<br />
+</p></li>
+<li><p><strong>大规模虚拟化网络</strong>需依赖 VXLAN 等 Overlay
+技术，通过扩展标识符位数（如 24 位 VNI）解决这一问题。<br />
+</p></li>
+<li><p><strong>关键区别</strong>：</p>
+<table>
+<thead>
+<tr class="header">
+<th>技术</th>
+<th>标识符位数</th>
+<th>最大网络数</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>VLAN</td>
+<td>12-bit</td>
+<td>4094</td>
+<td>传统企业网络</td>
+</tr>
+<tr class="even">
+<td>VXLAN</td>
+<td>24-bit</td>
+<td>16,777,214</td>
+<td>云数据中心、SDN</td>
+</tr>
+</tbody>
+</table></li>
+</ul>
+<h2
+id="vxlan.ko与openvswitch.ko的区别">vxlan.ko与openvswitch.ko的区别</h2>
+<p>在 Linux 网络虚拟化中，<code>vxlan.ko</code> 和
+<code>openvswitch.ko</code> 都支持
+VXLAN，但它们的实现方式、架构和适用场景有显著区别。以下是两者的详细对比：</p>
+<hr />
+<h3 id="内核模块基础"><strong>1. 内核模块基础</strong></h3>
+<table>
+
+<thead>
+<tr class="header">
+<th><strong>特性</strong></th>
+<th><strong><code>vxlan.ko</code></strong></th>
+<th><strong><code>openvswitch.ko</code></strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>所属项目</strong></td>
+<td>Linux 内核原生支持</td>
+<td>Open vSwitch (OVS) 用户态+内核态方案</td>
+</tr>
+<tr class="even">
+<td><strong>依赖关系</strong></td>
+<td>纯内核模块，无需额外组件</td>
+<td>需配合用户态守护进程 <code>ovs-vswitchd</code></td>
+</tr>
+<tr class="odd">
+<td><strong>定位</strong></td>
+<td>轻量级 VXLAN 实现</td>
+<td>功能丰富的虚拟交换机，支持多种隧道协议</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="vxlan-实现方式"><strong>2. VXLAN 实现方式</strong></h3>
+<h4 id="vxlan.ko"><strong>(1) <code>vxlan.ko</code></strong></h4>
+<ul>
+<li><strong>封装/解封装</strong>：<br />
+由内核直接处理 VXLAN 的 MAC-in-UDP 封装，性能较高。</li>
+<li><strong>控制平面</strong>：<br />
+依赖静态配置（如 <code>ip link</code>
+命令）或简单多播，无高级控制协议（如 EVPN）。</li>
+<li><strong>典型用途</strong>：<br />
+点对点 VXLAN 隧道、简单的 Overlay 网络。</li>
+</ul>
+<h4 id="openvswitch.ko"><strong>(2)
+<code>openvswitch.ko</code></strong></h4>
+<ul>
+<li><strong>封装/解封装</strong>：<br />
+OVS 内核模块处理封装，但流表规则由用户态 <code>ovs-vswitchd</code>
+下发，灵活性更高。</li>
+<li><strong>控制平面</strong>：<br />
+支持动态协议（如 OVSDB、OpenFlow、BGP EVPN），适合 SDN 场景。</li>
+<li><strong>典型用途</strong>：<br />
+复杂虚拟化网络（如
+OpenStack、Kubernetes）、多租户隔离、分布式网关。</li>
+</ul>
+<hr />
+<h3 id="功能对比"><strong>3. 功能对比</strong></h3>
+<table>
+
+<thead>
+<tr class="header">
+<th><strong>功能</strong></th>
+<th><strong><code>vxlan.ko</code></strong></th>
+<th><strong><code>openvswitch.ko</code></strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>VXLAN 支持</strong></td>
+<td>是（基础封装）</td>
+<td>是（支持更复杂的流表规则）</td>
+</tr>
+<tr class="even">
+<td><strong>多播/单播</strong></td>
+<td>支持</td>
+<td>支持</td>
+</tr>
+<tr class="odd">
+<td><strong>控制协议</strong></td>
+<td>仅静态配置</td>
+<td>支持 EVPN、OpenFlow、OVSDB</td>
+</tr>
+<tr class="even">
+<td><strong>流表规则</strong></td>
+<td>无</td>
+<td>支持复杂匹配和动作（如 NAT、QoS）</td>
+</tr>
+<tr class="odd">
+<td><strong>性能</strong></td>
+<td>更高（纯内核处理）</td>
+<td>稍低（需用户态交互）</td>
+</tr>
+<tr class="even">
+<td><strong>适用场景</strong></td>
+<td>简单 Overlay 网络</td>
+<td>云平台、SDN、多租户网络</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="配置示例"><strong>4. 配置示例</strong></h3>
+<h4 id="vxlan.ko-配置静态单播"><strong>(1) <code>vxlan.ko</code>
+配置（静态单播）</strong></h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 创建 VXLAN 接口</span><br>ip <span class="hljs-built_in">link</span> add vxlan0 <span class="hljs-built_in">type</span> vxlan \<br>    <span class="hljs-built_in">id</span> 42 \<br>    dstport 4789 \<br>    dev eth0 \<br>    <span class="hljs-built_in">local</span> 192.168.1.100 \<br>    remote 192.168.1.101<br><br><span class="hljs-comment"># 启动并分配 IP</span><br>ip <span class="hljs-built_in">link</span> <span class="hljs-built_in">set</span> vxlan0 up<br>ip addr add 10.0.0.1/24 dev vxlan0<br></code></pre></td></tr></table></figure>
+<h4 id="openvswitch.ko-配置ovs-vxlan"><strong>(2)
+<code>openvswitch.ko</code> 配置（OVS + VXLAN）</strong></h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 创建 OVS 网桥并添加 VXLAN 端口</span><br>ovs-vsctl add-br ovs-br0<br>ovs-vsctl add-port ovs-br0 vxlan0 \<br>    -- <span class="hljs-built_in">set</span> interface vxlan0 <span class="hljs-built_in">type</span>=vxlan \<br>    options:remote_ip=192.168.1.101 \<br>    options:key=42<br><br><span class="hljs-comment"># 分配 IP（可选）</span><br>ip addr add 10.0.0.1/24 dev ovs-br0<br></code></pre></td></tr></table></figure>
+<hr />
+<h3 id="性能与扩展性"><strong>5. 性能与扩展性</strong></h3>
+<ul>
+<li><strong><code>vxlan.ko</code></strong>：
+<ul>
+<li><strong>优势</strong>：低延迟、高吞吐（内核直接处理）。<br />
+</li>
+<li><strong>劣势</strong>：缺乏动态控制能力，扩展性差（需手动管理
+VTEP）。</li>
+</ul></li>
+<li><strong><code>openvswitch.ko</code></strong>：
+<ul>
+<li><strong>优势</strong>：支持自动化（如
+EVPN）、策略灵活（流表）。<br />
+</li>
+<li><strong>劣势</strong>：用户态-内核态交互可能引入微秒级延迟。</li>
+</ul></li>
+</ul>
+<hr />
+<h3 id="如何选择"><strong>6. 如何选择？</strong></h3>
+<ul>
+<li><strong>使用 <code>vxlan.ko</code> 的场景</strong>：
+<ul>
+<li>需要简单、高性能的 VXLAN 隧道（如容器网络）。<br />
+</li>
+<li>无需复杂控制平面（如 Calico 的某些模式）。</li>
+</ul></li>
+<li><strong>使用 <code>openvswitch.ko</code> 的场景</strong>：
+<ul>
+<li>云平台（OpenStack、Kubernetes）。<br />
+</li>
+<li>需要 EVPN、分布式网关或精细流表控制。</li>
+</ul></li>
+</ul>
+<hr />
+<h3 id="总结-1"><strong>总结</strong></h3>
+<ul>
+<li><strong><code>vxlan.ko</code></strong> 是内核原生方案，适合轻量级
+VXLAN。<br />
+</li>
+<li><strong><code>openvswitch.ko</code></strong> 是 OVS
+的一部分，适合复杂虚拟化网络。<br />
+</li>
+<li>两者可共存：OVS 内部也可能调用 <code>vxlan.ko</code>
+进行封装，但管理方式不同。</li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/net/" class="category-chain-item">net</a>
+  
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>vxlan入门</div>
+      <div>https://realwujing.github.io/linux/kernel/net/vxlan入门/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年4月21日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/debug/grub/grub%E4%B8%ADiommu=pt%E7%9A%84%E4%BD%9C%E7%94%A8/" title="grub中iommu=pt的作用">
+                        <span class="hidden-mobile">grub中iommu=pt的作用</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: 'ee2bfc41f791862276c3c0ba37851c0a'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
