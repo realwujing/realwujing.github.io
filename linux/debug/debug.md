@@ -770,6 +770,146 @@ ffff80037d374680       64      37358     37400   1873     8k  anon_vma_chain(904
 ffff8003954a1580       40      34932     34944   1664     8k  ext4_extent_status
 ```
 
+### percpu变量
+
+- [crash工具学习 —— percpu相关的一些用法](https://www.cnblogs.com/pengdonglin137/p/17724719.html)
+
+#### 查看percpu变量在每个cpu上的基地址
+```bash
+crash> kmem -o
+PER-CPU OFFSET VALUES:
+  CPU 0: ffff88807f600000
+  CPU 1: ffff88807fa00000
+  CPU 2: ffff88813d600000
+  CPU 3: ffff88813da00000
+  CPU 4: ffff8881bd600000
+  CPU 5: ffff8881bda00000
+  CPU 6: ffff88823d600000
+  CPU 7: ffff88823da00000
+```
+
+#### 查看一个全局的percpu变量的具体值
+
+以下面这个全局percpu变量call_single_queue为例：
+
+```c
+static DEFINE_PER_CPU_SHARED_ALIGNED(struct llist_head, call_single_queue);
+```
+
+```bash
+crash> p call_single_queue
+PER-CPU DATA TYPE:
+  struct llist_head call_single_queue;
+PER-CPU ADDRESSES:
+  [0]: ffff88807f800340
+  [1]: ffff88807fc00340
+  [2]: ffff88813d800340
+  [3]: ffff88813dc00340
+  [4]: ffff8881bd800340
+  [5]: ffff8881bdc00340
+  [6]: ffff88823d800340
+  [7]: ffff88823dc00340
+```
+
+查看其在某些CPU上的具体内容:
+
+```bash
+crash> p call_single_queue:0,2,5-7
+per_cpu(call_single_queue, 0) = $5 = {
+  first = 0x0
+}
+per_cpu(call_single_queue, 2) = $6 = {
+  first = 0x0
+}
+per_cpu(call_single_queue, 5) = $7 = {
+  first = 0x0
+}
+per_cpu(call_single_queue, 6) = $8 = {
+  first = 0x0
+}
+per_cpu(call_single_queue, 7) = $9 = {
+  first = 0x0
+}
+```
+
+#### 根据结构体中percpu变量的偏移地址得到绝对地址
+
+```c
+struct kmem_cache {
+ struct array_cache __percpu *cpu_cache;
+ 
+/* 1) Cache tunables. Protected by slab_mutex */
+ unsigned int batchcount;
+ unsigned int limit;
+ unsigned int shared;
+...
+```
+
+以16进制方式查看 kmem_cache 的 per-CPU 缓存指针（cpu_slab）的偏移量:
+
+```bash
+crash> struct kmem_cache.cpu_slab -x ffff893751f60800
+  cpu_slab = 0x5fc135c77b40,
+```
+
+上面cpu_slab的偏移量是0x5fc135c77b40
+
+假如想知道这个成员在cpu10上的地址，下面有2种方法：
+
+- 绝对值相加
+
+  首先获取percpu变量在cpu10上的基地址：
+
+  ```bash
+  crash> kmem -o | grep "CPU 10"
+  CPU 10: ffff88debfd00000
+  ```
+
+  然后相加即可：
+
+  ```bash
+  crash> eval ffff88debfd00000 + 0x5fc135c77b40
+  hexadecimal: ffffe89ff5977b40
+      decimal: 18446718372450630464  (-25701258921152)
+        octal: 1777777211776545675500
+      binary: 1111111111111111111010001001111111110101100101110111101101000000
+  ```
+
+  上面将相加后的结果分别按16进制，10进制，8进制以及2进制进行了输出。
+
+- 使用ptov
+
+  ```bash
+  crash> ptov 0x5fc135c77b40:10
+  PER-CPU OFFSET: 5fc135c77b40
+    CPU     VIRTUAL
+    [10]  ffffe89ff5977b40
+  ```
+
+  这种方法更加方便。
+
+#### 读取percpu变量的内容
+
+还是以kmem_cache为例：
+
+```bash
+crash> struct kmem_cache.cpu_slab -x ffff893751f60800
+  cpu_slab = 0x5fc135c77b40,
+```
+
+如果想读取cpu_slab的内容，之前的办法是先得到绝对地址，然后再读取(用*代替struct)，其实也可以直接读取，下面的例子读取cpu2上的cpu_slab的内容:
+
+```bash
+crash> *kmem_cache_cpu 0x5fc135c77b40:2
+[2]: ffffe89ff5577b40
+struct kmem_cache_cpu {
+  freelist = 0x0,
+  tid = 2,
+  page = 0x0,
+  partial = 0x0
+}
+```
+
 ## sysrq-trigger
 
 - [<font color=Red>Linux Magic System Request Key Hacks</font>](https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/sysrq.html)
