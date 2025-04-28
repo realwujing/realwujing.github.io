@@ -924,6 +924,11 @@ struct kmem_cache_cpu {
 - [linux获取oops的dmesg之ramoops](https://blog.csdn.net/faxiang1230/article/details/103778193)
 - [Linux pstore 实现自动“抓捕”内核崩溃日志](https://www.toutiao.com/article/6888542275027075591/)
 
+## 中断
+
+- [linux软中断响应时间,Kernel trace tools（一）：中断和软中断关闭时间过长问题追踪...](https://blog.csdn.net/weixin_33550394/article/details/116674423)
+- [Trace-irqoff](https://github.com/bytedance/trace-irqoff/tree/master)
+
 ## windebug
 
 - [windebug快速使用及调试注意事项](https://blog.csdn.net/pathfinder1987/article/details/86620985)
