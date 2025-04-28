@@ -306,6 +306,7 @@ send(sockfd, buffer, len, 0);
 
 ## 丢包
 
+- [Linux服务器时不时丢包，它凭啥能精准解决？](https://mp.weixin.qq.com/s/ecRMntFeL9smXtzO-htPVA)
 - [Linux内核常见的网络丢包场景分析](https://mp.weixin.qq.com/s/vdW0L7nEdfrxSJ_9VGviaA)
 - [Linux内核网络丢包探秘，这些办法轻松搞定](https://mp.weixin.qq.com/s/eLO9NxH4XfRca-PP5VCtPQ)
 
