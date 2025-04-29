@@ -32,6 +32,11 @@ kernel.function("do_sys_open@fs/open.c:1185")
 kernel.function("do_sys_openat2@fs/open.c:1156")
 ```
 
+```bash
+[root@fedora wujing]# stap -l 'kernel.function("stack_trace_save_regs")'
+kernel.function("stack_trace_save_regs@kernel/stacktrace.c:163")
+```
+
 ### 获取内核函数位置+参数
 
 ```bash
