@@ -157,6 +157,8 @@
 
 ## 收发包
 
+- [Linux 网络数据包的接收和发送流程](https://mp.weixin.qq.com/s/YG_9N41AweQ3IqO_fjpidw)
+
 网络数据包的接收过程通常分为**硬中断（Hard IRQ）**和**软中断（Soft IRQ）**两个阶段，这是 Linux 网络栈中的典型处理方式，能有效提高性能和响应速度。让我们一步步解释这个流程：  
 
 ---
