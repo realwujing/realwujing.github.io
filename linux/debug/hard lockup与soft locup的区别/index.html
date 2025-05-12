@@ -24,7 +24,7 @@
 <meta property="og:description" content="hard lockup与soft locup的区别  [linux][异常检测] hung task, soft lockup, hard lockup, workqueue stall Softlockup与hardlockup检测机制(又名:nmi_watchdog)  hard lockup与soft lockup的区别 在计算机系统中，尤其是Linux内核中，&quot;hard lockup&quot;和&quot;">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-03-16T20:50:28.000Z">
-<meta property="article:modified_time" content="2025-03-16T20:50:28.000Z">
+<meta property="article:modified_time" content="2025-05-12T11:03:31.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="qemu">
@@ -277,7 +277,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          24k 字
+          30k 字
         
       </span>
     
@@ -288,7 +288,7 @@
         
         
         
-          201 分钟
+          248 分钟
         
       </span>
     
@@ -327,6 +327,14 @@
           <article class="post-content mx-auto">
             <!-- SEO header -->
             <h1 style="display: none">hard lockup与soft locup的区别</h1>
+            
+              <p class="note note-info">
+                
+                  
+                    本文最后更新于：2025年5月12日 上午
+                  
+                
+              </p>
             
             
               <div class="markdown-body">
@@ -1373,6 +1381,335 @@ Lockup的对比</strong></h3>
 </ul></li>
 </ul>
 <p>这个机制利用了多核协作和中断的健壮性，确保即使被锁死的CPU无法自我报告，系统也能发现问题。</p>
+<h2
+id="喂狗不解决调度问题喂狗仅重置看门狗定时器但-soft-lockup-检测的是-cpu-调度状态与喂狗无关-具体讲讲soft-lockup的检测逻辑">喂狗不解决调度问题：喂狗仅重置看门狗定时器，但
+soft lockup 检测的是 CPU 调度状态，与喂狗无关? 具体讲讲soft
+lockup的检测逻辑？</h2>
+<p>你提到“喂狗不解决调度问题”并希望了解 <strong>soft lockup</strong>
+的检测逻辑，这是一个很核心的问题。以下我会详细讲解 Linux 5.10 内核中
+soft lockup 的检测机制，重点阐述其逻辑、实现方式以及为何与喂狗（watchdog
+timer 重置）无关。内容会尽量清晰、结构化，并结合你的上下文（软中断风暴和
+<code>ksoftirqd</code> 场景）进行说明。</p>
+<hr />
+<h3 id="soft-lockup-的定义和背景">1. <strong>Soft Lockup
+的定义和背景</strong></h3>
+<ul>
+<li><p><strong>Soft Lockup</strong> 是 Linux
+内核的一种错误检测机制，用于检测某个 CPU
+是否被单一任务（通常是内核代码）长时间占用，导致调度器无法切换到其他任务。</p></li>
+<li><p>它由 <strong>watchdog</strong> 子系统实现，依赖内核配置
+<code>CONFIG_SOFTLOCKUP_DETECTOR</code>（在 Linux 5.10
+中默认启用）。</p></li>
+<li><p><strong>触发条件</strong>：如果一个 CPU 在默认 <strong>20
+秒</strong>（通过 <code>watchdog_thresh</code>
+参数可调）内未触发调度（即未运行 <code>schedule()</code>
+或被抢占），内核会认为该 CPU 被“卡住”，触发 soft lockup
+警告，并打印堆栈跟踪。</p></li>
+<li><p><strong>Soft Lockup</strong> 是 Linux
+内核的一种错误检测机制，用于检测某个 CPU
+是否被单一任务（通常是内核代码）长时间占用，导致调度器无法切换到其他任务。</p></li>
+<li><p><strong>与喂狗的区别</strong>：</p>
+<ul>
+<li><strong>喂狗</strong>：通过 <code>TIMER_SOFTIRQ</code>（hrtimer
+触发）调用看门狗驱动的 <code>ping</code>
+函数，重置硬件或软件看门狗定时器，防止系统重置（hard lockup）。</li>
+<li><strong>Soft Lockup</strong>：检测的是 <strong>CPU
+调度饥饿</strong>（scheduler
+starvation），即调度器长时间无法运行，与喂狗的目标（防止硬件超时）不同。</li>
+</ul></li>
+</ul>
+<hr />
+<h3 id="soft-lockup-检测逻辑概述">2. <strong>Soft Lockup
+检测逻辑概述</strong></h3>
+<p>Soft lockup 检测的核心是监控每个 CPU 的
+<strong>调度活动</strong>，确保 CPU
+定期触发调度器（<code>schedule()</code> 函数）或被抢占。如果一个 CPU
+在指定时间（<code>watchdog_thresh</code>）内未发生调度，内核会触发 soft
+lockup 警告。以下是检测逻辑的详细步骤：</p>
+<h4 id="a.-watchdog-子系统的初始化">a. <strong>Watchdog
+子系统的初始化</strong></h4>
+<ul>
+<li><strong>启用条件</strong>：
+<ul>
+<li>Soft lockup 检测依赖 <code>CONFIG_SOFTLOCKUP_DETECTOR</code> 和
+<code>CONFIG_WATCHDOG</code>。</li>
+<li>在 Linux 5.10 中，watchdog 子系统通过 hrtimer
+驱动（<code>TIMER_SOFTIRQ</code>）实现，而不是独立的
+<code>watchdog/X</code> 线程（与喂狗逻辑一致）。</li>
+</ul></li>
+<li><strong>初始化</strong>：
+<ul>
+<li>在内核启动时，watchdog 子系统为每个 CPU 初始化一个
+<strong>hrtimer</strong>（高精度定时器），用于周期性检查 CPU
+的调度状态。</li>
+<li>相关代码位于 <code>kernel/watchdog.c</code> 和
+<code>kernel/watchdog_hld.c</code>。</li>
+</ul></li>
+<li><strong>关键参数</strong>：
+<ul>
+<li><code>watchdog_thresh</code>：默认 20 秒（可通过
+<code>/proc/sys/kernel/watchdog_thresh</code> 调整），定义 soft lockup
+的检测阈值。</li>
+<li><code>hrtimer</code> 周期：通常为
+<code>watchdog_thresh / 2</code>（例如，10 秒），确保检测足够频繁。</li>
+</ul></li>
+</ul>
+<h4 id="b.-检测机制的核心组件">b.
+<strong>检测机制的核心组件</strong></h4>
+<p>Soft lockup 检测依赖以下几个关键组件：</p>
+<ol type="1">
+<li><strong>hrtimer</strong>：为每个 CPU
+创建一个周期性高精度定时器，触发 <code>TIMER_SOFTIRQ</code>
+执行检测逻辑。</li>
+<li><strong>Touch Timestamp</strong>：每个 CPU
+维护一个时间戳（<code>touch_softlockup_watchdog</code>），记录最后一次调度或抢占的时间。</li>
+<li><strong>Watchdog Check</strong>：hrtimer 回调函数检查时间戳，判断
+CPU 是否在阈值时间内未调度。</li>
+<li><strong>Stack Dump</strong>：如果检测到 soft lockup，内核打印当前
+CPU 的堆栈跟踪，指出卡住的任务（例如 <code>ksoftirqd</code>）。</li>
+</ol>
+<h4 id="c.-检测逻辑的步骤">c. <strong>检测逻辑的步骤</strong></h4>
+<p>以下是 soft lockup 检测的详细流程（基于 Linux 5.10
+源码，<code>kernel/watchdog.c</code> 和
+<code>kernel/watchdog_hld.c</code>）：</p>
+<ol type="1">
+<li><strong>初始化 hrtimer</strong>：
+<ul>
+<li>在 <code>watchdog_hrtimer_init</code> 或 <code>watchdog_start</code>
+中，每个 CPU 创建一个 hrtimer，周期为
+<code>watchdog_thresh / 2</code>（默认 10 秒）。</li>
+<li>hrtimer 回调函数为
+<code>watchdog_timer_fn</code>（或类似函数）。</li>
+</ul></li>
+<li><strong>更新时间戳</strong>：
+<ul>
+<li>每次 CPU 触发调度（<code>schedule()</code>）或被抢占时，内核调用
+<code>touch_softlockup_watchdog</code> 更新该 CPU 的时间戳。</li>
+<li>时间戳通常存储在每个 CPU 的 <code>per_cpu</code>
+数据结构中（例如，<code>hrtimer_interrupts</code> 或
+<code>watchdog_touch_ts</code>）。</li>
+</ul></li>
+<li><strong>周期性检查</strong>：
+<ul>
+<li><p>hrtimer 超时后，触发 <code>TIMER_SOFTIRQ</code>，运行
+<code>watchdog_timer_fn</code>。</p></li>
+<li><p>该函数检查当前 CPU 的时间戳，计算从上次调度到现在的间隔：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">if</span> (time_after(jiffies, per_cpu(watchdog_touch_ts) + watchdog_thresh * HZ))<br>    <span class="hljs-comment">// 触发 soft lockup</span><br></code></pre></td></tr></table></figure></li>
+<li><p>如果间隔超过 <code>watchdog_thresh</code>（默认 20 秒），说明 CPU
+未调度，进入 soft lockup 处理逻辑。</p></li>
+</ul></li>
+<li><strong>触发 Soft Lockup</strong>：
+<ul>
+<li><p>如果检测到 CPU 卡住，内核调用
+<code>trigger_all_cpu_backtrace()</code> 或类似函数，打印所有 CPU
+的堆栈跟踪。</p></li>
+<li><p>同时记录日志（通过 <code>printk</code>），示例：</p>
+<figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs x86asm"><span class="hljs-symbol">watchdog:</span> BUG: soft lockup - <span class="hljs-meta">CPU</span>#<span class="hljs-number">0</span> stuck for 22s! [ksoftirqd/<span class="hljs-number">0</span>:<span class="hljs-number">10</span>]<br>...<br><span class="hljs-keyword">Call</span> Trace:<br> net_rx_action+<span class="hljs-number">0x123</span>/<span class="hljs-number">0x456</span><br> __do_softirq+<span class="hljs-number">0xabc</span>/<span class="hljs-number">0xdef</span><br> run_ksoftirqd+<span class="hljs-number">0x12</span>/<span class="hljs-number">0x34</span><br></code></pre></td></tr></table></figure></li>
+<li><p>通常不会导致系统崩溃，但可能影响性能或提示潜在问题。</p></li>
+</ul></li>
+<li><strong>重置和继续监控</strong>：
+<ul>
+<li>触发 soft lockup 后，watchdog 继续监控，不会停止检测。</li>
+<li>如果问题持续，可能反复打印 soft lockup 警告。</li>
+</ul></li>
+</ol>
+<h4 id="d.-关键函数和代码路径">d.
+<strong>关键函数和代码路径</strong></h4>
+<p>以下是 Linux 5.10 中 soft lockup 检测的核心函数（参考
+<code>kernel/watchdog.c</code> 和
+<code>kernel/watchdog_hld.c</code>）：</p>
+<ul>
+<li><code>touch_softlockup_watchdog()</code>：更新当前 CPU
+的时间戳，标记调度或抢占发生。</li>
+<li><code>watchdog_timer_fn()</code>：hrtimer 回调，检查时间戳并触发
+soft lockup。</li>
+<li><code>is_softlockup()</code>：判断时间间隔是否超过阈值。</li>
+<li><code>trigger_all_cpu_backtrace()</code>：打印堆栈跟踪。</li>
+<li><code>watchdog_enable/disable()</code>：启用或禁用某个 CPU 的
+watchdog。</li>
+</ul>
+<hr />
+<h3 id="为何-soft-lockup-与喂狗无关">3. <strong>为何 Soft Lockup
+与喂狗无关</strong></h3>
+<p>你的问题提到“喂狗仅重置看门狗定时器，但 soft lockup 检测的是 CPU
+调度状态”。以下是具体原因：</p>
+<h4 id="a.-喂狗的目标">a. <strong>喂狗的目标</strong></h4>
+<ul>
+<li><strong>喂狗</strong>：通过 <code>TIMER_SOFTIRQ</code>
+调用看门狗驱动的 <code>ping</code> 函数（如
+<code>watchdog_ping</code>），重置硬件看门狗定时器，防止系统因超时重置（hard
+lockup）。</li>
+<li><strong>上下文</strong>：运行在 <code>TIMER_SOFTIRQ</code> 中（由
+hrtimer 触发），优先级高于其他软中断（如
+<code>NET_RX_SOFTIRQ</code>）。</li>
+<li><strong>效果</strong>：确保硬件看门狗不触发重置，与 CPU
+的调度状态无关。</li>
+</ul>
+<h4 id="b.-soft-lockup-的目标">b. <strong>Soft Lockup
+的目标</strong></h4>
+<ul>
+<li><strong>Soft Lockup</strong>：检测 CPU 是否被单一任务（例如
+<code>ksoftirqd</code>）长时间占用，导致调度器无法运行。</li>
+<li><strong>关键点</strong>：它监控的是
+<strong>调度器活动</strong>（<code>schedule()</code>
+调用或抢占），而不是看门狗定时器的状态。</li>
+<li><strong>触发条件</strong>：如果 <code>ksoftirqd</code>
+在软中断风暴中反复运行 <code>do_softirq</code>（即使优先处理
+<code>TIMER_SOFTIRQ</code> 喂狗），但未让出
+CPU，调度器无法介入，时间戳（<code>watchdog_touch_ts</code>）不会更新，最终触发
+soft lockup。</li>
+</ul>
+<h4 id="c.-为何喂狗不解决问题">c.
+<strong>为何喂狗不解决问题</strong></h4>
+<ul>
+<li><strong>独立机制</strong>：
+<ul>
+<li>喂狗（<code>TIMER_SOFTIRQ</code>）和 soft lockup 检测（hrtimer
+检查）是 watchdog 子系统的两个独立功能。</li>
+<li>喂狗只影响硬件看门狗的超时计数器，而 soft lockup 检测依赖 CPU
+的调度时间戳。</li>
+</ul></li>
+<li><strong>调度饥饿</strong>：
+<ul>
+<li>在软中断风暴中，<code>ksoftirqd</code> 可能频繁运行，处理
+<code>TIMER_SOFTIRQ</code>（喂狗）和
+<code>NET_RX_SOFTIRQ</code>（收包），但由于其高优先级和持续唤醒，调度器无法抢占
+CPU。</li>
+<li>即使喂狗正常执行，<code>touch_softlockup_watchdog</code>
+未被调用（因为没有调度），导致时间戳过期，触发 soft lockup。</li>
+</ul></li>
+</ul>
+<h4 id="d.-示例场景">d. <strong>示例场景</strong></h4>
+<ul>
+<li><strong>软中断风暴</strong>：
+<ul>
+<li><code>ksoftirqd</code> 被频繁唤醒，每次运行
+<code>do_softirq</code>，优先处理
+<code>TIMER_SOFTIRQ</code>（喂狗），然后处理耗时的
+<code>NET_RX_SOFTIRQ</code>。</li>
+<li>单次 <code>do_softirq</code> 耗时 1.5ms，<code>ksoftirqd</code> 每
+2ms 唤醒一次。</li>
+<li>在 20 秒内，<code>ksoftirqd</code> 运行约 10,000 次，累积占用 15 秒
+CPU 时间。</li>
+<li>即使每次喂狗成功，调度器可能因 <code>ksoftirqd</code>
+的高优先级无法运行，<code>watchdog_touch_ts</code> 未更新，触发 soft
+lockup。</li>
+</ul></li>
+</ul>
+<hr />
+<h3 id="soft-lockup-检测的局限性">4. <strong>Soft Lockup
+检测的局限性</strong></h3>
+<p>Soft lockup 检测并非完美，可能受到以下因素影响：</p>
+<ul>
+<li><strong>高优先级任务</strong>：
+<ul>
+<li>如果系统中存在高优先级的实时任务（<code>SCHED_FIFO</code> 或
+<code>SCHED_DEADLINE</code>），可能抢占 <code>ksoftirqd</code> 或
+watchdog 检测任务，导致检测不准确。</li>
+</ul></li>
+<li><strong>hrtimer 延迟</strong>：
+<ul>
+<li>在极高负载下，<code>TIMER_SOFTIRQ</code>（包括 soft lockup
+检测）可能被推迟到 <code>ksoftirqd</code>，若 <code>ksoftirqd</code>
+本身卡住，检测可能延迟。</li>
+</ul></li>
+<li><strong>误报</strong>：
+<ul>
+<li>在某些场景下（例如，调试器暂停系统或极高负载），soft lockup
+可能误报，因为调度器正常但未及时运行。</li>
+</ul></li>
+<li><strong>硬件依赖</strong>：
+<ul>
+<li>Soft lockup 检测依赖 hrtimer
+的精确性，如果底层硬件时钟有问题，可能影响检测。</li>
+</ul></li>
+</ul>
+<hr />
+<h3 id="如何验证-soft-lockup-检测">5. <strong>如何验证 Soft Lockup
+检测</strong></h3>
+<p>如果你想深入分析 soft lockup
+的触发原因或验证检测逻辑，可以使用以下方法：</p>
+<ul>
+<li><p><strong>检查日志</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dmesg | grep -i lockup<br></code></pre></td></tr></table></figure>
+<p>查看 soft lockup 的堆栈跟踪，确认卡住的任务（例如
+<code>ksoftirqd</code>）和软中断类型（例如
+<code>net_rx_action</code>）。</p></li>
+<li><p><strong>跟踪调度和软中断</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 1 &gt; /sys/kernel/debug/tracing/events/sched/enable<br><span class="hljs-built_in">echo</span> 1 &gt; /sys/kernel/debug/tracing/events/softirq/enable<br><span class="hljs-built_in">cat</span> /sys/kernel/debug/tracing/trace<br></code></pre></td></tr></table></figure>
+<p>检查 <code>schedule()</code> 调用频率和 <code>ksoftirqd</code>
+的运行模式，确认调度点是否缺失。</p></li>
+<li><p><strong>监控 watchdog 阈值</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/kernel/watchdog_thresh<br></code></pre></td></tr></table></figure>
+<p>确认当前阈值（默认 20 秒），可临时调整为 60 秒观察效果：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 60 &gt; /proc/sys/kernel/watchdog_thresh<br></code></pre></td></tr></table></figure></li>
+<li><p><strong>分析 hrtimer 行为</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 1 &gt; /sys/kernel/debug/tracing/events/hrtimer/enable<br><span class="hljs-built_in">cat</span> /sys/kernel/debug/tracing/trace<br></code></pre></td></tr></table></figure>
+<p>检查 soft lockup 检测的 hrtimer 触发是否正常。</p></li>
+<li><p><strong>检查 CPU 占用</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">top -p $(pgrep ksoftirqd)<br></code></pre></td></tr></table></figure>
+<p>确认 <code>ksoftirqd</code> 是否持续高占用，结合
+<code>/proc/softirqs</code> 检查软中断分布。</p></li>
+</ul>
+<hr />
+<h3 id="与软中断风暴的关联">6. <strong>与软中断风暴的关联</strong></h3>
+<p>在你的场景（软中断风暴，<code>ksoftirqd</code> 频繁唤醒），soft
+lockup 的检测逻辑与问题关联如下：</p>
+<ul>
+<li><strong>风暴中的 <code>ksoftirqd</code></strong>：
+<ul>
+<li><code>ksoftirqd</code> 反复运行 <code>do_softirq</code>，优先处理
+<code>TIMER_SOFTIRQ</code>（喂狗），但随后处理耗时的
+<code>NET_RX_SOFTIRQ</code>。</li>
+<li>高频唤醒和长耗时导致 <code>ksoftirqd</code> 累积占用
+CPU，延迟调度器运行。</li>
+</ul></li>
+<li><strong>检测触发</strong>：
+<ul>
+<li><code>watchdog_timer_fn</code> 发现 <code>watchdog_touch_ts</code>
+未在 20 秒内更新（因调度器未运行），触发 soft lockup。</li>
+<li>即使喂狗成功，<code>ksoftirqd</code> 的持续运行阻止
+<code>schedule()</code> 调用，导致检测失败。</li>
+</ul></li>
+<li><strong>堆栈跟踪</strong>：
+<ul>
+<li>日志通常指向 <code>ksoftirqd</code> 和具体软中断（例如
+<code>net_rx_action</code>），表明 <code>NET_RX_SOFTIRQ</code>
+是主要耗时来源。</li>
+</ul></li>
+</ul>
+<hr />
+<h3 id="总结-8">7. <strong>总结</strong></h3>
+<p>Soft lockup 的检测逻辑在 Linux 5.10 中基于以下步骤：</p>
+<ol type="1">
+<li>每个 CPU 的 hrtimer 周期性触发 <code>TIMER_SOFTIRQ</code>，运行
+<code>watchdog_timer_fn</code>。</li>
+<li>检查 CPU
+的时间戳（<code>watchdog_touch_ts</code>），判断上次调度到现在的间隔。</li>
+<li>如果间隔超过 <code>watchdog_thresh</code>（默认 20 秒），触发 soft
+lockup，打印堆栈跟踪。</li>
+<li>时间戳由 <code>schedule()</code>
+或抢占更新，与喂狗（<code>TIMER_SOFTIRQ</code>）无关。</li>
+</ol>
+<p><strong>为何与喂狗无关</strong>：</p>
+<ul>
+<li>喂狗重置硬件看门狗定时器，防止 hard lockup。</li>
+<li>Soft lockup 检测调度器饥饿（<code>schedule()</code>
+缺失），即使喂狗成功，若 <code>ksoftirqd</code> 在软中断风暴中持续占用
+CPU，调度器无法运行，触发 soft lockup。</li>
+</ul>
+<p><strong>在软中断风暴中</strong>：</p>
+<ul>
+<li><code>ksoftirqd</code> 频繁运行
+<code>do_softirq</code>，优先喂狗但随后处理耗时的
+<code>NET_RX_SOFTIRQ</code>，累积占用 CPU。</li>
+<li>调度器因 <code>ksoftirqd</code>
+的高优先级无法介入，<code>watchdog_touch_ts</code> 未更新，导致 soft
+lockup。</li>
+</ul>
+<p>如果你有具体的 soft lockup
+日志、系统负载细节或想深入某一方面（例如，<code>NET_RX_SOFTIRQ</code>
+的优化），可以提供更多信息，我可以进一步分析或建议解决方案！</p>
 
                 
               </div>
