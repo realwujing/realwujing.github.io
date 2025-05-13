@@ -1,4 +1,4 @@
-# minifs
+# minifs-v1
 
 ```c
 #include <linux/module.h>
@@ -236,7 +236,7 @@ MODULE_LICENSE("GPL");
 
 ---
 
-### 编译和测试步骤
+## 编译和测试步骤
 
 1. **更新代码**：
    - 将 `/home/wujing kotlin android studio /code/realwujing.github.io/linux/kernel/fs/minifs/minifs.c` 的内容替换为上述修正代码。
@@ -314,7 +314,8 @@ MODULE_LICENSE("GPL");
      ```
 
 ---
-### 调试建议
+
+## 调试建议
 
 如果编译或测试仍失败：
 
