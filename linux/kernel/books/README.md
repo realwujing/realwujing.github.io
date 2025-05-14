@@ -59,3 +59,7 @@
 ## 深入浅出DPDK
 
 - [深入浅出DPDK (朱河清等著) 中文完整扫描pdf版[9MB]](https://www.jb51.net/books/651350.html)
+
+## 
+
+- [通用图形处理器设计GPGPU编程模型与架构原理.pdf](链接: <https://pan.baidu.com/s/10CEW1CW3nXGfbNga0QrAIg?pwd=63s4> 提取码: 63s4)

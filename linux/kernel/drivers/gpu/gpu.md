@@ -78,6 +78,7 @@ sudo apt install task-gnome-desktop
 - [【干货】三张图看懂主流GPU性能](https://mp.weixin.qq.com/s/bNGBoeKnvcEB7prpDeAXeQ)
 - [【干货】一文看懂CPU与GPU异构计算](https://mp.weixin.qq.com/s/xGwaaaaMED23dNbO9wNICg)
 - [Linux 显示子系统之 Framebuffer 与 DRM](https://mp.weixin.qq.com/s/apXuHnOTpKq0Za8VsFhM0A)
+- [Linux GPU Driver Developer’s Guide](https://blog.csdn.net/u012839187/article/details/89875800)
 
 ### admgpu
 
