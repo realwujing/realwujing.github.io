@@ -80,6 +80,11 @@ sudo apt install task-gnome-desktop
 - [Linux 显示子系统之 Framebuffer 与 DRM](https://mp.weixin.qq.com/s/apXuHnOTpKq0Za8VsFhM0A)
 - [Linux GPU Driver Developer’s Guide](https://blog.csdn.net/u012839187/article/details/89875800)
 
+### ai
+
+- [AISystem 主要是指AI系统，包括AI芯片、AI编译器、AI推理和训练框架等AI全栈底层技术](https://github.com/chenzomi12/AISystem.git)
+  - <https://chenzomi12.github.io/>
+
 ### admgpu
 
 在 AMD GPU 驱动中，gfx（Graphics Core Next） Ring Buffer 和 uvd（Unified Video Decoder） Ring Buffer 分别用于图形和视频解码任务，是 GPU 调度器中的两个不同的环形缓冲区。以下是它们之间的主要区别：
