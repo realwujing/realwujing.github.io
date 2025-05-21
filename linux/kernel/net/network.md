@@ -311,6 +311,8 @@ send(sockfd, buffer, len, 0);
 - [Linux服务器时不时丢包，它凭啥能精准解决？](https://mp.weixin.qq.com/s/ecRMntFeL9smXtzO-htPVA)
 - [Linux内核常见的网络丢包场景分析](https://mp.weixin.qq.com/s/vdW0L7nEdfrxSJ_9VGviaA)
 - [Linux内核网络丢包探秘，这些办法轻松搞定](https://mp.weixin.qq.com/s/eLO9NxH4XfRca-PP5VCtPQ)
+- [linux 丢包排查思路简述（tcp+rdma）](https://blog.csdn.net/zxpoiu/article/details/115748746)
+- [使用dropwatch观测网络丢包](https://blog.csdn.net/xiayutian747/article/details/136016137)
 
 在网络收发包过程中，判断一个包是否丢失，通常依赖于协议层面的机制。不同协议有各自的处理方式，下面以常见的 **TCP** 和 **UDP** 为例来解释：
 
@@ -355,6 +357,122 @@ UDP 是无连接、不可靠传输协议，本身不提供丢包检测机制。�
 
 2. **网卡统计：**
    - 网卡驱动程序维护收发包计数器（如 `ifconfig`、`ethtool` 工具可以查看），包括丢包统计信息，可用来辅助判断。
+
+### dropwatch
+
+以下是 dropwatch 工具的核心用法总结，涵盖输出解析、操作流程和实战技巧：
+
+---
+
+**一、核心使用流程**
+**1. 启动监控**
+
+```bash
+sudo dropwatch -l kas  # 需root权限
+dropwatch> start      # 开始捕获丢包事件
+```
+
+**2. 输出解析**
+典型输出格式：
+
+```plaintext
+drop at: [函数名]+[偏移量] (addr: [内存地址])
+```
+
+关键函数与含义：
+
+| 函数名                     | 丢包层级               | 常见原因                  |
+|---------------------------|----------------------|-------------------------|
+| `__netif_receive_skb_core` | 网卡驱动/数据链路层    | 网卡队列满，DMA失败       |
+| `ip_rcv`                  | IP协议栈入口          | IP头校验失败，路由无匹配  |
+| `tcp_v4_rcv`              | TCP协议处理层         | 端口未监听，序列号异常    |
+| `kfree_skb`               | 内核通用释放点         | 内存不足，协议栈主动丢弃  |
+
+**3. 高级过滤**
+
+```bash
+# 启动时过滤TCP相关丢包
+dropwatch -l kas | grep -E 'tcp_|kfree_skb'
+```
+
+---
+
+**二、基础操作指令速查**
+
+| 命令               | 作用                          | 示例                  |
+|--------------------|-----------------------------|-----------------------|
+| `start`            | 开始实时监控丢包               | `dropwatch> start`    |
+| `stop`             | 暂停监控（保持进程）            | `dropwatch> stop`     |
+| `exit` / `Ctrl+C`  | 完全退出程序                   | `dropwatch> exit`     |
+| `help`             | 查看所有可用命令                | `dropwatch> help`     |
+
+---
+
+**三、实战技巧**
+**1. 获取完整调用栈**
+
+```bash
+dropwatch> stack  # 启用堆栈跟踪
+dropwatch> start
+```
+
+输出示例：
+
+```plaintext
+drop at: tcp_v4_do_rcv+0x1a1
+    [<ffffffff814a2b11>] tcp_rcv_established+0x8d
+    [<ffffffff814a3b11>] tcp_v4_do_rcv+0x1a1
+```
+
+**2. 结合地址反查**
+
+```bash
+# 使用addr2line定位代码（需内核调试符号）
+addr2line -e /usr/lib/debug/lib/modules/$(uname -r)/vmlinux ffffffff814a2b11
+```
+
+输出：`/net/ipv4/tcp_input.c:185`（具体代码行）
+
+**3. 自动化监控脚本**
+
+```bash
+#!/bin/bash
+# 监控10秒，统计TOP丢包点
+timeout 10 dropwatch -l kas | awk '/drop at:/{print $3}' | sort | uniq -c | sort -nr
+```
+
+---
+
+**四、生产环境注意事项**
+
+1. 权限与依赖：
+   • 需 `root` 权限运行
+
+   • 内核需启用 `CONFIG_KPROBES` 和 `CONFIG_DEBUG_INFO`
+
+2. 性能影响：
+   • 高频丢包时可能增加CPU负载，建议短期诊断
+
+3. 符号表问题：
+   • 若输出纯地址（如 `ffffffff814a2b11`），安装调试符号包：
+
+     ```bash
+     apt install linux-image-$(uname -r)-dbgsym  # Debian/Ubuntu
+     ```
+
+---
+
+**五、与其他工具对比**
+
+| 工具          | 粒度       | 优势                  | 局限                |
+|--------------|-----------|----------------------|---------------------|
+| `dropwatch`  | 函数级     | 精准定位内核丢包位置   | 需符号表支持        |
+| `perf`       | 指令级     | 支持动态探针           | 学习成本高          |
+| `ethtool -S` | 网卡级     | 硬件丢包统计           | 无法定位协议栈问题  |
+
+---
+
+通过以上方法，可快速定位TCP/IP协议栈中丢包的具体位置，进而针对性优化内核参数或修复网络配置问题。
 
 ## ovs dpdk
 
