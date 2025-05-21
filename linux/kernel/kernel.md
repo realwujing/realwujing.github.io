@@ -127,6 +127,35 @@
     kernel=C:\\Users\\17895\\bzImage
     ```
 
+- [使用 Sparse VHD 优化 WSL2 磁盘空间占用的技术分享](https://blog.51cto.com/u_3405056/11990926)
+- [WSL 中的高级设置配置](https://learn.microsoft.com/zh-cn/windows/wsl/wsl-config)
+
+  ```text
+  [wsl2]
+
+  # Enable experimental features
+  [experimental]
+  sparseVhd=true
+  ```
+
+  ```bash
+  PS C:\Users\17895> wsl -l
+  适用于 Linux 的 Windows 子系统分发:
+  Ubuntu-24.04 (默认)
+  docker-desktop
+  PS C:\Users\17895> wsl -l -v
+    NAME              STATE           VERSION
+  * Ubuntu-24.04      Stopped         2
+    docker-desktop    Stopped         2
+  PS C:\Users\17895> wsl --shutdown
+  PS C:\Users\17895> wsl --manage Ubuntu-24.04 --set-sparse true
+  正在进行转换，这可能需要几分钟时间。
+  操作成功完成。
+  PS C:\Users\17895> wsl --manage docker-desktop --set-sparse true
+  正在进行转换，这可能需要几分钟时间。
+  操作成功完成。
+  ```
+
 ### others
 
 - [ubuntu获取源码方式](https://blog.csdn.net/sinat_38816924/article/details/115498707)
