@@ -85,6 +85,64 @@
 - <https://wiki.debian.org/DebianKernel>
 - <https://salsa.debian.org/kernel-team/linux>
 
+Debian Linux Kernel Handbook:
+```bash
+# 克隆 Debian 内核团队的 Linux 内核源代码仓库到本地
+git clone https://salsa.debian.org/kernel-team/linux.git
+
+# 切换到 debian/6.1.99-1 分支，并基于该分支创建一个本地分支 debian/6.1.99-1
+git checkout -b debian/6.1.99-1 debian/6.1.99-1
+
+# 显示当前分支的版本描述，确认是否正确切换到 6.1.99-1 分支
+git describe
+
+# 使用远程上游 Linux 内核仓库生成 orig tarball（已注释，选择其一）
+#debian/bin/genorig.py https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+
+# 使用本地上游内核仓库（~/code/linux）生成 orig tarball，生成 ../linux_6.1.99.orig.tar.xz
+debian/bin/genorig.py ~/code/linux
+
+# 运行 debian/rules 的 orig 目标，将 orig tarball 与 Debian 打包文件整合
+debian/rules orig
+
+# 运行 debian/rules 的 debian/control 目标，生成 debian/control 文件，定义要构建的包
+debian/rules debian/control
+
+# 安装当前目录（.）的构建依赖，确保所有编译所需的工具和库都已安装
+apt build-dep .
+
+# 构建二进制包（.deb），不生成源码包（-b），不签名（-uc -us），使用 32 线程并行编译（-j32）
+#dpkg-buildpackage -b -uc -us -j32
+
+# 生成所有二进制包，包括内核、文档、源码等
+debian/rules binary
+
+# 使用32线程编译，仅生成当前架构（如 amd64）的二进制包
+FEATURESET=none DEB_BUILD_OPTIONS=parallel=32 debian/rules binary-arch
+
+# debian/build，setup none、clond、rt
+make -f debian/rules.gen setup_amd64
+
+# debian/build，setup none
+make -f debian/rules.gen setup_amd64_none_amd64
+
+# 仅编译none架构的内核
+make -f debian/rules.gen build-arch_amd64_none_amd64
+
+# 仅将none内核打成deb包
+make -f debian/rules.gen binary-arch_amd64_none_amd64
+
+# 仅编译perf deb包
+make -f debian/rules.gen binary-arch_amd64_real_perf
+```
+
+```bash
+# cd ~/code/linux，合并多个config配置文件，前面的setup也会调用scripts/kconfig/merge_config.sh
+scripts/kconfig/merge_config.sh debian/config/config debian/config/kernelarch-x86/config debian/config/amd64/config
+
+make bindeb-pkg -j32
+```
+
 ### openeuler
 
 - [2、openEuler社区版本生命周期管理规范（LTS+SP](https://www.openeuler.org/zh/other/lifecycle/)
