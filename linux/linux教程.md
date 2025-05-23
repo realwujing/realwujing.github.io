@@ -772,6 +772,7 @@ top -Hcp 503
 
 - [Lunix线程、内存管理—htop命令详解](https://blog.csdn.net/xixirupan/article/details/82930750)
 - [htop命令中显示相同进程的解决方案](https://blog.csdn.net/weixin_45817309/article/details/134675773)
+- [CentOS Stream 安装 htop](https://blog.csdn.net/shangpusp/article/details/125765593)
 
 ## network
 
