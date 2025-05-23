@@ -643,6 +643,52 @@ awk -F\' '$1=="menuentry " {print i++ " : " $2}' /boot/grub2/grub.cfg
 - **`$1=="menuentry "`**：这个条件表示只处理以 `"menuentry "` 开头的行。`$1` 是使用 `-F\'` 分隔符之后的第一部分，所以 `$1` 应该是 `"menuentry "`。
 - **`{print i++ " : " $2}`**：当匹配到 `"menuentry "` 行时，输出一个计数器 `i` 和 `$2`（也就是 `menuentry` 的名称部分）。`i++` 会在每次输出后递增，给每个菜单项分配一个编号。
 
+##### debian12中更改默认启动内核
+
+```bash
+root@debian:/boot/grub# awk -F"'" '/(menuentry|submenu) / { print i++ ": " $2 }' /boot/grub/grub.cfg
+
+0: Debian GNU/Linux
+1: Advanced options for Debian GNU/Linux
+2: Debian GNU/Linux, with Linux 6.6.92
+3: Debian GNU/Linux, with Linux 6.6.92 (recovery mode)
+4: Debian GNU/Linux, with Linux 6.1.0-35-amd64
+5: Debian GNU/Linux, with Linux 6.1.0-35-amd64 (recovery mode)
+6: Debian GNU/Linux, with Linux 5.10.235
+7: Debian GNU/Linux, with Linux 5.10.235 (recovery mode)
+8: Debian GNU/Linux, with Linux 4.19.325
+9: Debian GNU/Linux, with Linux 4.19.325 (recovery mode)
+10: UEFI Firmware Settings
+```
+
+```bash
+awk -F"'" '
+/submenu / { submenu_id = i++; print submenu_id ": " $2; in_submenu=1; sub_i=0; next }
+/menuentry / {
+  if (in_submenu) {
+    print submenu_id "." sub_i++ ": " $2
+  } else {
+    print i++ ": " $2
+  }
+}
+/^}/ { in_submenu=0 }
+' /boot/grub/grub.cfg
+```
+
+```bash
+0: Debian GNU/Linux
+1: Advanced options for Debian GNU/Linux
+1.0: Debian GNU/Linux, with Linux 6.6.92
+1.1: Debian GNU/Linux, with Linux 6.6.92 (recovery mode)
+1.2: Debian GNU/Linux, with Linux 6.1.0-35-amd64
+1.3: Debian GNU/Linux, with Linux 6.1.0-35-amd64 (recovery mode)
+1.4: Debian GNU/Linux, with Linux 5.10.235
+1.5: Debian GNU/Linux, with Linux 5.10.235 (recovery mode)
+1.6: Debian GNU/Linux, with Linux 4.19.325
+1.7: Debian GNU/Linux, with Linux 4.19.325 (recovery mode)
+2: UEFI Firmware Settings
+```
+
 ###### 更改默认启动内核
 
 GRUB菜单项的索引是从0开始计算的，这意味着第一个菜单项的索引为0，第二个菜单项的索引为1，以此类推。
