@@ -27,6 +27,7 @@
 - [<font color=Red>https://github.com/VundleVim/Vundle.vim</font>](https://github.com/VundleVim/Vundle.vim)
 - [https://github.com/preservim/nerdtree](https://github.com/preservim/nerdtree)
 - [https://github.com/yegappan/taglist](https://github.com/yegappan/taglist)
+- [A vim plugin to display the indention levels with thin vertical lines](https://github.com/Yggdroot/indentLine)
 
 ```bash
 sudo apt install vim vim-gtk ctags cscope
@@ -243,6 +244,14 @@ g*(g#)        //此命令与上条命令相似, 只不过它不完全匹配光�
 ## 忽略大小写
 
 - [vim 技巧 – 查找的时候忽略大小写](https://xwsoul.com/posts/472)
+
+## 显示不可见字符
+
+在~/.vimrc 中加入可永久开启：
+```text
+set list
+set listchars=tab:»·,trail:·,extends:>,precedes:<,nbsp:␣
+```
 
 ## 鼠标模式
 
