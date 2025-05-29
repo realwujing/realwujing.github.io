@@ -1,0 +1,1691 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="spin_lock变体对比 自旋锁spin_lock和raw_spin_lock  自旋锁spin_lock和raw_spin_lock  1. 背景解析：raw_spin_lock 的起源  历史背景（2004 年，PREEMPT_RT 的引入）：  2004 年，MontaVista Software 提出了实时 Linux 内核模型，目标是提升 Linux 的实时性，由 Ingo Molna">
+<meta property="og:type" content="article">
+<meta property="og:title" content="spin_lock变体对比">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/mutex/spin_lock%E5%8F%98%E4%BD%93%E5%AF%B9%E6%AF%94/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="spin_lock变体对比 自旋锁spin_lock和raw_spin_lock  自旋锁spin_lock和raw_spin_lock  1. 背景解析：raw_spin_lock 的起源  历史背景（2004 年，PREEMPT_RT 的引入）：  2004 年，MontaVista Software 提出了实时 Linux 内核模型，目标是提升 Linux 的实时性，由 Ingo Molna">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-05-29T18:11:53.000Z">
+<meta property="article:modified_time" content="2025-05-29T18:11:53.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="linux">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>spin_lock变体对比 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="spin_lock变体对比"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-05-29 18:11" pubdate>
+          2025年5月29日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          9.8k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          82 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">spin_lock变体对比</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="spin_lock变体对比">spin_lock变体对比</h1>
+<h2
+id="自旋锁spin_lock和raw_spin_lock">自旋锁spin_lock和raw_spin_lock</h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/DroidPhone/article/details/7395983">自旋锁spin_lock和raw_spin_lock</a></li>
+</ul>
+<h3 id="背景解析raw_spin_lock-的起源">1.
+<strong>背景解析：<code>raw_spin_lock</code> 的起源</strong></h3>
+<ul>
+<li><strong>历史背景（2004 年，PREEMPT_RT 的引入）</strong>：
+<ul>
+<li>2004 年，MontaVista Software 提出了实时 Linux 内核模型，目标是提升
+Linux 的实时性，由 Ingo Molnar 实现为 PREEMPT_RT 补丁。</li>
+<li>PREEMPT_RT
+的核心理念是允许临界区被抢占，并将自旋锁（spinlock）的忙等待机制改为基于信号量（<code>rt_mutex</code>）的睡眠锁，以减少延迟，提高实时性。</li>
+<li>当时内核中有约 10,000 处使用
+<code>spin_lock</code>，若全部改为睡眠锁，改动过于庞大，且可能影响性能敏感的代码（如硬中断处理、调度器等）。</li>
+</ul></li>
+<li><strong>解决方案</strong>：
+<ul>
+<li>为避免大规模修改，开发者决定只在必须保持忙等待（不允许抢占或休眠）的约
+100 处使用新的锁机制，命名为 <code>raw_spin_lock</code>。</li>
+<li>同时，Linus Torvalds 建议调整命名空间以减少混淆：
+<ul>
+<li>原有的 <code>raw_spin_lock</code>（体系结构相关的原子操作实现）改为
+<code>arch_spin_lock</code>。</li>
+<li>原有的 <code>spin_lock</code> 改为
+<code>raw_spin_lock</code>，用于忙等待锁。</li>
+<li>引入新的 <code>spin_lock</code>，在 PREEMPT_RT 下映射为睡眠锁。</li>
+</ul></li>
+</ul></li>
+<li><strong>结果</strong>：
+<ul>
+<li>在 Linux 2.6.33 及之后的版本中，<code>spin_lock</code>
+成为通用接口，优先使用，允许在 PREEMPT_RT 下转换为睡眠锁。</li>
+<li><code>raw_spin_lock</code>
+用于性能敏感或硬实时场景，始终保持忙等待。</li>
+</ul></li>
+</ul>
+<h3 id="raw_spin_lock-和-spin_lock-的区别linux-4.19-上下文">2.
+<strong><code>raw_spin_lock</code> 和 <code>spin_lock</code>
+的区别（Linux 4.19 上下文）</strong></h3>
+<p>结合提供的信息和 Linux 4.19 的实现，区别如下：</p>
+<table>
+
+<thead>
+<tr class="header">
+<th><strong>特性</strong></th>
+<th><strong><code>spin_lock</code></strong></th>
+<th><strong><code>raw_spin_lock</code></strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>定义</strong></td>
+<td>高级接口，基于 <code>raw_spin_lock</code>
+封装，可能包含调试逻辑。</td>
+<td>低级接口，直接操作 <code>arch_spin_lock</code>，无额外封装。</td>
+</tr>
+<tr class="even">
+<td><strong>抢占行为</strong></td>
+<td>禁用抢占（通过 <code>preempt_disable()</code>）；PREEMPT_RT
+下为睡眠锁。</td>
+<td>禁用抢占（通过 <code>preempt_disable()</code>），始终忙等待。</td>
+</tr>
+<tr class="odd">
+<td><strong>PREEMPT_RT 行为</strong></td>
+<td>映射为 <code>rt_mutex</code> 睡眠锁，允许抢占和休眠。</td>
+<td>保持忙等待，不允许抢占或休眠。</td>
+</tr>
+<tr class="even">
+<td><strong>调试支持</strong></td>
+<td>支持 lockdep 死锁检测（若启用
+<code>CONFIG_DEBUG_LOCK_ALLOC</code>）。</td>
+<td>无调试逻辑，性能更高。</td>
+</tr>
+<tr class="odd">
+<td><strong>适用场景</strong></td>
+<td>通用场景，临界区可稍长，优先使用。</td>
+<td>硬中断、调度器等性能敏感场景，临界区必须极短。</td>
+</tr>
+<tr class="even">
+<td><strong>调用路径</strong></td>
+<td>调用 <code>raw_spin_lock</code>，增加调试和 PREEMPT_RT 逻辑。</td>
+<td>直接调用 <code>arch_spin_lock</code>，减少开销。</td>
+</tr>
+</tbody>
+</table>
+<h3 id="为何内核中同时使用-spin_lock-和-raw_spin_lock">3.
+<strong>为何内核中同时使用 <code>spin_lock</code> 和
+<code>raw_spin_lock</code></strong></h3>
+<ul>
+<li><strong>历史遗留与兼容性</strong>：
+<ul>
+<li>在 PREEMPT_RT 补丁引入之前，内核只有
+<code>spin_lock</code>，用于所有忙等待场景。引入 PREEMPT_RT
+后，<code>spin_lock</code>
+被改造为支持睡眠锁，但某些场景（硬中断、调度器等）不能接受休眠，因此需要
+<code>raw_spin_lock</code> 保留原始忙等待行为。</li>
+<li>内核开发者选择保留两套接口，允许逐步迁移，而不是一次性替换所有锁。</li>
+</ul></li>
+<li><strong>性能与实时性权衡</strong>：
+<ul>
+<li><strong><code>spin_lock</code></strong>：在 PREEMPT_RT
+下，<code>spin_lock</code>
+转换为睡眠锁，适合实时系统，减少忙等待带来的延迟，但可能增加上下文切换开销。</li>
+<li><strong><code>raw_spin_lock</code></strong>：保持忙等待，适用于性能敏感场景（如调度器、时钟中断），但不适合实时性要求高的场景。</li>
+</ul></li>
+<li><strong>代码分布</strong>：
+<ul>
+<li>内核中约 99% 的锁使用
+<code>spin_lock</code>，因为它们在进程上下文或软中断中，允许抢占或休眠。</li>
+<li>约 1% 的锁使用
+<code>raw_spin_lock</code>，集中在硬中断、调度器或核心代码（如
+<code>kernel/sched/</code> 或
+<code>kernel/time/</code>），这些地方禁止休眠。</li>
+</ul></li>
+</ul>
+<h3 id="关于显式调用-preempt_disable">4. <strong>关于显式调用
+<code>preempt_disable()</code></strong></h3>
+<ul>
+<li>前一个问题提到 <code>raw_spin_lock</code> 是否需要显式调用
+<code>preempt_disable()</code>：
+<ul>
+<li><strong>实际实现</strong>：在 Linux 4.19
+中，<code>raw_spin_lock</code> 的调用路径（如
+<code>__raw_spin_lock</code>）通常显式调用
+<code>preempt_disable()</code>，以确保抢占被禁用（如前所述，位于
+<code>include/linux/spinlock_api_smp.h</code>）。</li>
+<li><strong>理论可能性</strong>：<code>arch_spin_lock</code>
+的忙等待和原子操作可能隐式防止抢占，但显式调用
+<code>preempt_disable()</code> 是为了跨架构一致性和调试支持（如
+lockdep）。</li>
+<li><strong>PREEMPT_RT 影响</strong>：<code>raw_spin_lock</code> 不受
+PREEMPT_RT 影响，始终忙等待，因此 <code>preempt_disable()</code>
+确保调度器不会干预。</li>
+</ul></li>
+</ul>
+<h3 id="文章中的建议解读">5. <strong>文章中的建议解读</strong></h3>
+<p>文章建议：</p>
+<ul>
+<li><strong>尽可能使用
+<code>spin_lock</code></strong>：因为它是通用接口，支持 PREEMPT_RT
+的睡眠锁，适合大多数场景。</li>
+<li><strong>仅在绝对不允许抢占或休眠的地方使用
+<code>raw_spin_lock</code></strong>：如硬中断、调度器或极短的临界区。</li>
+<li><strong>临界区极小时使用
+<code>raw_spin_lock</code></strong>：因为忙等待锁的性能开销在短临界区中更可控。</li>
+</ul>
+<p>这些建议与 Linux 4.19 的实现一致：</p>
+<ul>
+<li><code>spin_lock</code> 是默认选择，适用于进程上下文或软中断，兼容
+PREEMPT_RT。</li>
+<li><code>raw_spin_lock</code> 用于硬中断或性能敏感场景，如
+<code>kernel/sched/core.c</code> 中的运行队列保护。</li>
+</ul>
+<h3 id="linux-4.19-的具体实现">6. <strong>Linux 4.19
+的具体实现</strong></h3>
+<ul>
+<li><p><strong>架构实现</strong>：在 x86_64
+上，<code>raw_spin_lock</code> 使用 queued
+spinlock（<code>qspinlock</code>），定义在
+<code>arch/x86/include/asm/qspinlock.h</code>，通过原子操作（如
+<code>cmpxchg</code>）实现高效锁。</p></li>
+<li><p><strong>调用路径</strong>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">define</span> raw_spin_lock(lock) _raw_spin_lock(lock)</span><br><span class="hljs-type">static</span> <span class="hljs-keyword">inline</span> <span class="hljs-type">void</span> __raw_spin_lock(<span class="hljs-type">raw_spinlock_t</span> *lock)<br>&#123;<br>    preempt_disable(); <span class="hljs-comment">// 显式禁用抢占</span><br>    spin_acquire(&amp;lock-&gt;dep_map, <span class="hljs-number">0</span>, <span class="hljs-number">0</span>, _RET_IP_);<br>    arch_spin_lock(&amp;lock-&gt;raw_lock); <span class="hljs-comment">// 调用架构特定的锁</span><br>&#125;<br></code></pre></td></tr></table></figure></li>
+<li><p><strong>PREEMPT_RT</strong>：<code>spin_lock</code> 在 PREEMPT_RT
+下映射为 <code>rt_mutex</code>（定义在
+<code>include/linux/spinlock_rt.h</code>），而
+<code>raw_spin_lock</code> 保持不变。</p></li>
+</ul>
+<h3 id="总结">7. <strong>总结</strong></h3>
+<ul>
+<li><strong>为何同时存在</strong>：<code>spin_lock</code> 和
+<code>raw_spin_lock</code> 的并存源于 PREEMPT_RT
+的需求。<code>spin_lock</code>
+优先用于支持实时性的场景，<code>raw_spin_lock</code>
+用于必须忙等待的硬实时场景。</li>
+<li><strong>抢占禁用</strong>：<code>raw_spin_lock</code> 通常显式调用
+<code>preempt_disable()</code>，以确保一致性和调试支持，尽管
+<code>arch_spin_lock</code> 的忙等待可能隐式防止抢占。</li>
+<li><strong>使用建议</strong>：
+<ul>
+<li>默认使用
+<code>spin_lock</code>，除非明确需要忙等待（如硬中断或极短临界区）。</li>
+<li>在 Linux 4.19 中，<code>raw_spin_lock</code>
+适用于核心代码（如调度器），而 <code>spin_lock</code>
+适用于通用场景。</li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="自旋锁变体对比表">🔒 自旋锁变体对比表</h2>
+<table>
+
+<thead>
+<tr class="header">
+<th>锁类型</th>
+<th>中断控制</th>
+<th>抢占控制</th>
+<th>调试支持</th>
+<th>适用场景</th>
+<th>性能开销</th>
+<th>示例代码</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>spin_lock</code></td>
+<td>❌ 不关中断</td>
+<td>隐式关闭抢占</td>
+<td>✅ 支持</td>
+<td>通用非中断上下文，需调试检测死锁</td>
+<td>较高</td>
+<td><code>spin_lock(&amp;lock); ... spin_unlock(&amp;lock);</code></td>
+</tr>
+<tr class="even">
+<td><code>raw_spin_lock</code></td>
+<td>❌ 不关中断</td>
+<td>隐式关闭抢占</td>
+<td>❌ 不支持</td>
+<td>内核核心路径（调度器/RCU），极致性能需求</td>
+<td>最低</td>
+<td><code>raw_spin_lock(&amp;lock); ... raw_spin_unlock(&amp;lock);</code></td>
+</tr>
+<tr class="odd">
+<td><code>spin_lock_irq</code></td>
+<td>✅ 关中断（不保存状态）</td>
+<td>隐式关闭抢占</td>
+<td>✅ 支持</td>
+<td>简化中断已关闭场景</td>
+<td>中</td>
+<td><code>spin_lock_irq(&amp;lock); ... spin_unlock_irq(&amp;lock);</code></td>
+</tr>
+<tr class="even">
+<td><code>spin_lock_irqsave</code></td>
+<td>✅ 关中断 + 保存状态</td>
+<td>隐式关闭抢占</td>
+<td>✅ 支持</td>
+<td>通用中断上下文锁，需要恢复原始中断状态</td>
+<td>中</td>
+<td><code>unsigned long flags; spin_lock_irqsave(&amp;lock, flags); ... spin_unlock_irqrestore(&amp;lock, flags);</code></td>
+</tr>
+<tr class="odd">
+<td><code>raw_spin_lock_irqsave</code></td>
+<td>✅ 关中断 + 保存状态</td>
+<td>隐式关闭抢占</td>
+<td>❌ 不支持</td>
+<td>中断上下文 + 高性能需求</td>
+<td>低</td>
+<td><code>unsigned long flags; raw_spin_lock_irqsave(&amp;lock, flags); ... raw_spin_unlock_irqrestore(&amp;lock, flags);</code></td>
+</tr>
+<tr class="even">
+<td><code>spin_lock_bh</code></td>
+<td>❌ 不关硬件中断<br>✅ 关软中断</td>
+<td>隐式关闭抢占</td>
+<td>✅ 支持</td>
+<td>防止软中断并发（网络、定时器）</td>
+<td>中</td>
+<td><code>spin_lock_bh(&amp;lock); ... spin_unlock_bh(&amp;lock);</code></td>
+</tr>
+<tr class="odd">
+<td><code>raw_spin_lock_bh</code></td>
+<td>❌ 不关硬件中断<br>✅ 关软中断</td>
+<td>隐式关闭抢占</td>
+<td>❌ 不支持</td>
+<td>高性能软中断保护（如网络驱动）</td>
+<td>低</td>
+<td><code>raw_spin_lock_bh(&amp;lock); ... raw_spin_unlock_bh(&amp;lock);</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="关键维度说明">📌 关键维度说明</h3>
+<h4 id="中断控制">🔁 中断控制</h4>
+<ul>
+<li><strong>关中断</strong>：防止硬中断期间产生死锁。</li>
+<li><strong>关软中断</strong>：防止软中断上下文中并发访问共享资源（如网络子系统）。</li>
+</ul>
+<h4 id="抢占控制">🚫 抢占控制</h4>
+<ul>
+<li>所有自旋锁在加锁期间
+<strong>自动关闭抢占（preempt_disable）</strong>。</li>
+<li>若需显式关闭抢占（例如临界区内调用非锁操作），可用
+<code>preempt_disable()</code> 搭配使用。</li>
+</ul>
+<h4 id="调试支持">🧪 调试支持</h4>
+<ul>
+<li><code>spin_lock</code> 系列支持 <strong>LOCKDEP
+死锁检测</strong>，便于开发调试。</li>
+<li><code>raw_spin_lock</code> 系列去除了调试逻辑，追求
+<strong>最小开销</strong>。</li>
+</ul>
+<hr />
+<h3 id="锁选择指南">📋 锁选择指南</h3>
+<table>
+
+<thead>
+<tr class="header">
+<th>使用场景</th>
+<th>推荐锁类型</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>普通内核模块</td>
+<td><code>spin_lock</code></td>
+<td>调试支持完善，适合大多数使用情境</td>
+</tr>
+<tr class="even">
+<td>中断上下文</td>
+<td><code>raw_spin_lock_irqsave</code></td>
+<td>安全地关闭中断，适用于硬件中断处理程序</td>
+</tr>
+<tr class="odd">
+<td>高性能内核路径</td>
+<td><code>raw_spin_lock</code></td>
+<td>追求极致性能，避免调试代码影响</td>
+</tr>
+<tr class="even">
+<td>防止软中断并发</td>
+<td><code>spin_lock_bh</code></td>
+<td>屏蔽软中断足够，无需关闭硬件中断</td>
+</tr>
+<tr class="odd">
+<td>实时内核（RT）</td>
+<td><code>raw_spin_lock</code></td>
+<td>避免被自动替换为可睡眠锁，确保实时响应</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="注意事项">⚠️ 注意事项</h3>
+<ul>
+<li><strong>不要混用不同变体</strong>：如 <code>spin_lock</code> 加锁但
+<code>raw_spin_unlock</code> 解锁，行为未定义。</li>
+<li><strong>避免长临界区操作</strong>：阻塞其他
+CPU，影响系统实时性。</li>
+<li><strong>实时内核兼容性</strong>：RT patch 中部分
+<code>spin_lock</code> 可能被转换为可睡眠锁，应优先使用
+<code>raw_spin_lock</code> 保持行为一致。</li>
+<li><strong>中断状态恢复务必对称</strong>：使用
+<code>irqsave/irqrestore</code> 时确保成对使用。</li>
+</ul>
+<h2
+id="也就是说带raw的唯一区别就是不支持调试">也就是说带raw的唯一区别就是不支持调试？</h2>
+<p>是的，理解得基本正确：</p>
+<blockquote>
+<p><strong>带 <code>raw_</code> 前缀的自旋锁（如
+<code>raw_spin_lock</code>）的主要区别</strong> 是：
+<strong>移除了调试/追踪功能</strong>（如
+<code>lockdep</code>、锁验证、调试信息记录），
+<strong>以最小开销、最直接的方式操作锁</strong>，适用于
+<strong>内核核心路径或性能关键场景</strong>。</p>
+</blockquote>
+<hr />
+<h2 id="raw_spin_lock-vs-spin_lock-核心对比总结">✅
+<code>raw_spin_lock</code> vs <code>spin_lock</code> 核心对比总结</h2>
+<table>
+
+<thead>
+<tr class="header">
+<th>特性</th>
+<th><code>spin_lock</code></th>
+<th><code>raw_spin_lock</code></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>调试支持</strong></td>
+<td>✅ 支持 <code>LOCKDEP</code>（锁依赖、死锁检测）</td>
+<td>❌ 不支持，避免调试逻辑（性能最优）</td>
+</tr>
+<tr class="even">
+<td><strong>中断控制</strong></td>
+<td>❌ 默认不关中断（需使用 <code>_irqsave</code> 等变体）</td>
+<td>❌ 同上</td>
+</tr>
+<tr class="odd">
+<td><strong>抢占控制</strong></td>
+<td>✅ 隐式关闭（<code>preempt_disable()</code>）</td>
+<td>✅ 同上</td>
+</tr>
+<tr class="even">
+<td><strong>性能开销</strong></td>
+<td>较高（额外调试逻辑）</td>
+<td>更低（裸操作）</td>
+</tr>
+<tr class="odd">
+<td><strong>适用场景</strong></td>
+<td>普通内核模块、调试阶段</td>
+<td>性能关键路径、锁实现内部、实时内核</td>
+</tr>
+<tr class="even">
+<td><strong>替换为睡眠锁风险</strong></td>
+<td>✅ 在 RT 内核中可能被替换为 <code>rt_mutex</code></td>
+<td>❌ 始终为真正的自旋锁</td>
+</tr>
+<tr class="odd">
+<td><strong>底层实现</strong></td>
+<td><code>__spin_lock()</code> → 调试逻辑 +
+<code>do_raw_spin_lock()</code></td>
+<td>直接 <code>do_raw_spin_lock()</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="为什么需要-raw_spin_lock">🔍 为什么需要
+<code>raw_spin_lock</code></h3>
+<h4 id="绕过调试逻辑极致性能">1.
+<strong>绕过调试逻辑，极致性能</strong></h4>
+<ul>
+<li><code>raw_spin_lock()</code> 直接使用底层原子指令。</li>
+<li>避免调用 <code>LOCKDEP</code> 的开销，例如
+<code>spin_acquire()</code>、<code>lockdep_invariant_state()</code>
+等。</li>
+</ul>
+<h4 id="避免锁实现中的递归调用">2.
+<strong>避免锁实现中的递归调用</strong></h4>
+<ul>
+<li>比如实现 <code>qspinlock</code>
+自旋锁算法时自身就使用锁，必须避免递归触发 <code>LOCKDEP</code>。</li>
+</ul>
+<h4 id="实时内核场景中避免潜在睡眠">3.
+<strong>实时内核场景中避免潜在睡眠</strong></h4>
+<ul>
+<li><code>spin_lock</code> 在 <code>CONFIG_PREEMPT_RT</code> 下会变为
+<code>rt_mutex</code>（可睡眠），不再是真正的自旋锁。</li>
+<li>而 <code>raw_spin_lock</code> 永远不会被替换为
+<code>rt_mutex</code>，仍保持忙等行为。</li>
+</ul>
+<hr />
+<h3 id="底层实现简析">💡 底层实现简析</h3>
+<h4 id="spin_lock-逻辑带调试"><code>spin_lock()</code>
+逻辑（带调试）</h4>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">void</span> <span class="hljs-title function_">spin_lock</span><span class="hljs-params">(<span class="hljs-type">spinlock_t</span> *lock)</span> &#123;<br>    __spin_lock(lock);                 <span class="hljs-comment">// 调用 LOCKDEP 调试逻辑</span><br>    do_raw_spin_lock(&amp;lock-&gt;rlock);   <span class="hljs-comment">// 真正原子加锁</span><br>&#125;<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>__spin_lock()</code> 内部调用
+<code>spin_acquire()</code>、打标记、检查递归等。</li>
+</ul>
+<h4 id="raw_spin_lock-逻辑无调试"><code>raw_spin_lock()</code>
+逻辑（无调试）</h4>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">void</span> <span class="hljs-title function_">raw_spin_lock</span><span class="hljs-params">(<span class="hljs-type">raw_spinlock_t</span> *lock)</span> &#123;<br>    do_raw_spin_lock(lock);           <span class="hljs-comment">// 直接原子操作，最小指令路径</span><br>&#125;<br></code></pre></td></tr></table></figure>
+<hr />
+<h3 id="选择指南">🛠️ 选择指南</h3>
+<table>
+
+<thead>
+<tr class="header">
+<th>使用场景</th>
+<th>推荐锁类型</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>普通驱动/模块开发</td>
+<td><code>spin_lock</code></td>
+<td>锁依赖检查有助于调试死锁</td>
+</tr>
+<tr class="even">
+<td>调度器、RCU、软中断</td>
+<td><code>raw_spin_lock</code></td>
+<td>极致性能、避免调试开销</td>
+</tr>
+<tr class="odd">
+<td>硬中断上下文（需关中断）</td>
+<td><code>raw_spin_lock_irqsave</code></td>
+<td>不能使用 <code>spin_lock</code>，也无需调试</td>
+</tr>
+<tr class="even">
+<td>实时内核中要求强制自旋的代码</td>
+<td><code>raw_spin_lock</code></td>
+<td>防止被替换为 <code>rt_mutex</code>（可睡眠锁）</td>
+</tr>
+<tr class="odd">
+<td>锁实现自身</td>
+<td><code>raw_spin_lock</code></td>
+<td>避免递归调用死锁检测逻辑</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="注意事项-1">⚠️ 注意事项</h3>
+<ul>
+<li>🔁 <strong>不要混用 <code>raw_spin_lock</code> 和
+<code>spin_unlock</code></strong>：必须成对使用。</li>
+<li>⏳ <strong>避免在临界区内执行耗时操作</strong>：尤其是
+<code>raw_spin_lock</code>，会长时间占用 CPU。</li>
+<li>🧠
+<strong>明确的锁所处上下文（中断/软中断/抢占）</strong>，选择正确的变体。</li>
+</ul>
+<hr />
+<h3 id="总结一句话">✅ 总结一句话</h3>
+<blockquote>
+<p>除非明确知道自己<strong>需要跳过调试或运行于实时/中断/调度路径中</strong>，否则请默认使用
+<code>spin_lock</code> —— 它安全，有调试支持，适合大多数场景。</p>
+</blockquote>
+<hr />
+<h2 id="进入底层看实现__spin_lock-和-do_raw_spin_lock">🔍
+进入底层看实现：<code>__spin_lock()</code> 和
+<code>do_raw_spin_lock()</code></h2>
+<p>这些函数是自旋锁的核心实现，下面以 <code>x86_64</code> 为例（以 Linux
+6.x 为基础，结构不会变太大）：</p>
+<hr />
+<h3 id="spin_lock-是带调试支持的封装">🔹 <code>__spin_lock()</code>
+是带调试支持的封装</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">void</span> __spin_lock(<span class="hljs-type">raw_spinlock_t</span> *lock)<br>&#123;<br>    spin_acquire(&amp;lock-&gt;dep_map, <span class="hljs-number">0</span>, <span class="hljs-number">0</span>, _RET_IP_); <span class="hljs-comment">// LOCKDEP 追踪</span><br>    do_raw_spin_lock(lock);<br>&#125;<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>spin_acquire()</code>：用于 Lockdep
+死锁检测系统，记录谁在什么时候拿了锁。</li>
+<li>然后调用 <code>do_raw_spin_lock()</code>，实际执行原子操作。</li>
+</ul>
+<hr />
+<h3 id="do_raw_spin_lock-是真正执行原子加锁逻辑的底层实现">🔹
+<code>do_raw_spin_lock()</code> 是真正执行原子加锁逻辑的底层实现</h3>
+<p>在 <code>include/linux/spinlock_api_smp.h</code> 或
+<code>arch/x86/include/asm/spinlock.h</code>
+中，最终调用的是如下代码：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> __always_inline <span class="hljs-type">void</span> <span class="hljs-title function_">do_raw_spin_lock</span><span class="hljs-params">(<span class="hljs-type">raw_spinlock_t</span> *lock)</span><br>&#123;<br>    preempt_disable();                         <span class="hljs-comment">// 关闭抢占</span><br>    arch_spin_lock(&amp;lock-&gt;raw_lock);           <span class="hljs-comment">// 硬件架构原子加锁</span><br>&#125;<br></code></pre></td></tr></table></figure>
+<p>其中：</p>
+<ul>
+<li><code>preempt_disable()</code>
+防止自旋过程中被调度切走（必须保证线程持续运行以完成锁操作）。</li>
+<li><code>arch_spin_lock()</code> 是体系结构相关的实现，例如 x86 是用
+<code>xchg</code> 或 <code>cmpxchg</code>：</li>
+</ul>
+<hr />
+<h3 id="x86-架构下的-arch_spin_lock-示例实现">🔹 x86 架构下的
+<code>arch_spin_lock()</code> 示例实现</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-keyword">inline</span> <span class="hljs-type">void</span> <span class="hljs-title function_">arch_spin_lock</span><span class="hljs-params">(<span class="hljs-type">arch_spinlock_t</span> *lock)</span><br>&#123;<br>    <span class="hljs-keyword">while</span> (unlikely(!arch_spin_trylock(lock))) &#123;<br>        cpu_relax(); <span class="hljs-comment">// 减少总线压力，避免忙等</span><br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>arch_spin_trylock()</code> 尝试原子加锁，失败就循环；</li>
+<li><code>cpu_relax()</code> 是一个 hint，比如 <code>pause</code>
+指令，用于减少忙等时的功耗和提升性能。</li>
+</ul>
+<hr />
+<h3 id="raw_spin_lock-和-spin_lock-的关系">🔹
+<code>raw_spin_lock()</code> 和 <code>spin_lock()</code> 的关系</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">define</span> raw_spin_lock(lock)         _raw_spin_lock(lock)</span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> spin_lock(lock)             _spin_lock(lock)</span><br><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> _spin_lock(lock)            __spin_lock(lock)  <span class="hljs-comment">// 有调试支持</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> _raw_spin_lock(lock)        do_raw_spin_lock(lock) <span class="hljs-comment">// 纯粹原子操作</span></span><br></code></pre></td></tr></table></figure>
+<p>也就是说：</p>
+<table>
+
+<thead>
+<tr class="header">
+<th>接口</th>
+<th>调试支持</th>
+<th>调用路径</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>spin_lock()</code></td>
+<td>✅ 有</td>
+<td>→ <code>__spin_lock()</code> → <code>do_raw_spin_lock()</code></td>
+</tr>
+<tr class="even">
+<td><code>raw_spin_lock()</code></td>
+<td>❌ 无</td>
+<td>→ <code>do_raw_spin_lock()</code> 直接执行</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="总结-1">✅ 总结</h3>
+<table>
+
+<thead>
+<tr class="header">
+<th>比较项</th>
+<th><code>spin_lock()</code></th>
+<th><code>raw_spin_lock()</code></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>调试功能</td>
+<td>✅ 支持 lockdep 等</td>
+<td>❌ 无</td>
+</tr>
+<tr class="even">
+<td>开销</td>
+<td>略高（主要是调试追踪）</td>
+<td>最小</td>
+</tr>
+<tr class="odd">
+<td>使用建议</td>
+<td>一般内核模块/驱动</td>
+<td>性能关键路径，如调度器、RCU、硬中断</td>
+</tr>
+<tr class="even">
+<td>内部实现</td>
+<td><code>__spin_lock</code> + <code>do_raw_spin_lock</code></td>
+<td>仅 <code>do_raw_spin_lock</code></td>
+</tr>
+</tbody>
+</table>
+<h2
+id="关中断关抢占调度器还会切换进程吗">关中断、关抢占调度器还会切换进程吗？</h2>
+<p>在 Linux
+内核中，如果<strong>关闭中断</strong>和<strong>关闭抢占（preemption）</strong>，调度器<strong>一般不会切换进程</strong>，但这要看具体的上下文和操作行为。我们来详细分情况说明：</p>
+<hr />
+<h3 id="一先说结论">✅ 一、先说结论</h3>
+<table>
+<thead>
+<tr class="header">
+<th>状态</th>
+<th>是否可能进程切换</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>关中断 + 关抢占</td>
+<td>❌ <strong>一般不会</strong>切换进程</td>
+</tr>
+<tr class="even">
+<td>仅关中断</td>
+<td>✅ 可能被调度器抢占（内核态非抢占）</td>
+</tr>
+<tr class="odd">
+<td>仅关抢占</td>
+<td>❌ 不会调度其他任务，但可能被中断打断</td>
+</tr>
+<tr class="even">
+<td>用户态</td>
+<td>✅ 会被抢占调度</td>
+</tr>
+<tr class="odd">
+<td>内核态默认</td>
+<td>✅ 在抢占内核配置下可被抢占</td>
+</tr>
+<tr class="even">
+<td>NMI（非屏蔽中断）</td>
+<td>✅ 即使关中断也可能被 NMI 打断</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="二抢占与调度的关键逻辑">🧠 二、抢占与调度的关键逻辑</h3>
+<h4 id="preempt_disable-local_irq_disable">1.
+<code>preempt_disable()</code> / <code>local_irq_disable()</code></h4>
+<ul>
+<li><code>preempt_disable()</code>：防止当前代码被<strong>内核抢占</strong>（即当前线程不会被调度走）。</li>
+<li><code>local_irq_disable()</code>：关闭<strong>本 CPU
+的中断响应</strong>，防止中断打断当前执行。</li>
+</ul>
+<h4 id="调度器的前提条件">2. 调度器的前提条件</h4>
+<p>调度器必须满足两个条件才会切换进程：</p>
+<ul>
+<li>当前允许被抢占；</li>
+<li>存在更高优先级可运行进程。</li>
+</ul>
+<p>而如果同时执行了：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c">local_irq_disable();      <span class="hljs-comment">// 关中断</span><br>preempt_disable();        <span class="hljs-comment">// 关内核抢占</span><br></code></pre></td></tr></table></figure>
+<p>就相当于屏蔽了：</p>
+<ul>
+<li>硬件中断（无法进入调度的时钟中断等）；</li>
+<li>抢占调度点（不响应 <code>schedule()</code> 时机）；</li>
+</ul>
+<p><strong>因此当前进程不会被换出，直到手动恢复中断或抢占。</strong></p>
+<hr />
+<h3 id="三什么时候会切换进程">🔄 三、什么时候会切换进程？</h3>
+<p>以下情况<strong>即使关闭中断/抢占，仍可能切进程</strong>（罕见但必须知道）：</p>
+<table>
+
+<thead>
+<tr class="header">
+<th>情况</th>
+<th>是否可能调度</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>主动调用 <code>schedule()</code></td>
+<td>✅ 会切换</td>
+<td>即使关抢占，调度器照样切走</td>
+</tr>
+<tr class="even">
+<td>NMI 非屏蔽中断</td>
+<td>✅ 会打断</td>
+<td>不受 <code>local_irq_disable()</code> 影响</td>
+</tr>
+<tr class="odd">
+<td>配置错误或 bug</td>
+<td>✅ 风险</td>
+<td>内核调度器 BUG 或 driver 抢占逻辑错误</td>
+</tr>
+</tbody>
+</table>
+<p>例如：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c">local_irq_disable();<br>preempt_disable();<br>schedule();  <span class="hljs-comment">// 主动进入调度器，此时会切换线程</span><br></code></pre></td></tr></table></figure>
+<p>这种写法通常是错误的：因为 schedule
+需要抢占或自愿睡眠，而却关了抢占。</p>
+<hr />
+<h3 id="四在-spinlock-中的表现">🧪 四、在 spinlock 中的表现</h3>
+<p><code>spin_lock()</code> 内部执行了：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c">preempt_disable();        <span class="hljs-comment">// 禁止抢占</span><br>lock();                   <span class="hljs-comment">// 实际自旋加锁</span><br></code></pre></td></tr></table></figure>
+<p>如果使用 <code>spin_lock_irqsave()</code> 或
+<code>raw_spin_lock_irqsave()</code>，还会额外关闭中断。</p>
+<p>此时：</p>
+<ul>
+<li>当前 CPU 不会响应软/硬中断；</li>
+<li>当前任务不会被调度器切走；</li>
+<li>直到调用 <code>spin_unlock_irqrestore()</code> 恢复现场；</li>
+</ul>
+<hr />
+<h3 id="五总结">🔚 五、总结</h3>
+<h4 id="关中断-关抢占还会切换进程吗">❓“关中断 +
+关抢占还会切换进程吗？”</h4>
+<blockquote>
+<p>✅ <strong>一般不会。</strong></p>
+</blockquote>
+<p>这正是我们使用这些手段的原因 ——
+为了临界区不被中断、不被调度，保证上下文一致性（如锁操作、原子操作等）。</p>
+<h4 id="但要注意">⚠️ 但要注意</h4>
+<ul>
+<li>如果主动调用
+<code>schedule()</code>，就算关了抢占，中断，也会被调度；</li>
+<li>NMI 无法屏蔽，因此极端情况下仍有不可预测行为；</li>
+<li>永远不要让关中断+关抢占的临界区太大，否则会影响系统响应性能；</li>
+</ul>
+<hr />
+<h2 id="内核线程为什么默认不被抢占">内核线程为什么默认“不被抢占”？</h2>
+<p>内核线程在默认情况下表现出“不被抢占”行为，这一特性并非来自单一机制，而是由
+<strong>内核抢占模型</strong>、<strong>调度策略</strong> 和
+<strong>关抢占机制</strong> 三者共同作用的结果。具体实现如下：</p>
+<hr />
+<h3 id="一内核抢占模型kernel-preemption-model">一、内核抢占模型（Kernel
+Preemption Model）</h3>
+<p>Linux 支持不同的抢占模式，通过编译选项控制：</p>
+<h4 id="config_preempt_none非抢占内核">1.
+CONFIG_PREEMPT_NONE（非抢占内核）</h4>
+<ul>
+<li><p><strong>行为</strong>：内核线程不会被强制抢占，除非：</p>
+<ul>
+<li>主动调用 <code>schedule()</code> / <code>cond_resched()</code></li>
+<li>发生阻塞（如等待锁或 I/O）</li>
+</ul></li>
+<li><p><strong>适用场景</strong>：追求吞吐性能，如服务器场景</p></li>
+</ul>
+<h4 id="config_preempt_voluntary自愿抢占">2.
+CONFIG_PREEMPT_VOLUNTARY（自愿抢占）</h4>
+<ul>
+<li><strong>行为</strong>：仅在显式调度点（如
+<code>might_sleep()</code>）可能让出 CPU，不会强制抢占</li>
+</ul>
+<h4 id="config_preempt完全抢占内核">3.
+CONFIG_PREEMPT（完全抢占内核）</h4>
+<ul>
+<li><p><strong>行为</strong>：允许更高优先级任务抢占正在运行的内核线程</p></li>
+<li><p><strong>限制</strong>：</p>
+<ul>
+<li><strong>关抢占区域</strong>（如持自旋锁、RCU
+临界区、中断上下文）仍不可被抢占</li>
+</ul></li>
+</ul>
+<hr />
+<h3 id="二调度策略scheduling-class">二、调度策略（Scheduling
+Class）</h3>
+<h4 id="sched_normalcfs完全公平调度">1.
+SCHED_NORMAL（CFS，完全公平调度）</h4>
+<ul>
+<li><p>内核线程通常不会被强制抢占，原因包括：</p>
+<ul>
+<li>无主动调度点就不会被 CFS 抢占</li>
+<li>高优先级（如 <code>nice = -19</code>）降低被抢占概率</li>
+</ul></li>
+</ul>
+<h4 id="sched_fifo-sched_rr实时调度">2. SCHED_FIFO /
+SCHED_RR（实时调度）</h4>
+<ul>
+<li><strong>行为</strong>：只会被优先级更高的实时任务抢占</li>
+<li><strong>应用</strong>：如
+<code>migration/</code>、<code>watchdog/</code>、线程化中断（<code>irq/XX</code>）</li>
+</ul>
+<hr />
+<h3 id="三关键路径中的关抢占机制">三、关键路径中的“关抢占”机制</h3>
+<p>即使启用
+CONFIG_PREEMPT，内核也会在关键区域手动关闭抢占，保护一致性：</p>
+<table>
+<thead>
+<tr class="header">
+<th>机制</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>spin_lock()</code></td>
+<td>隐含 <code>preempt_disable()</code>，禁止抢占</td>
+</tr>
+<tr class="even">
+<td><code>rcu_read_lock()</code></td>
+<td>保证 RCU 区间内不可被抢占</td>
+</tr>
+<tr class="odd">
+<td>中断上下文</td>
+<td>默认不可被抢占</td>
+</tr>
+</tbody>
+</table>
+<p>示例：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c">spin_lock(&amp;mylock);   <span class="hljs-comment">// 禁止抢占</span><br>... 临界区 ...<br>spin_unlock(&amp;mylock); <span class="hljs-comment">// 恢复抢占</span><br></code></pre></td></tr></table></figure>
+<hr />
+<h3 id="四用户进程-vs.-内核线程的抢占时机">四、用户进程 vs.
+内核线程的抢占时机</h3>
+<ul>
+<li><strong>用户进程</strong>：在系统调用或中断返回前检查
+<code>need_resched</code>，若为 1 可立即被抢占</li>
+<li><strong>内核线程</strong>：不会自动响应
+<code>need_resched</code>，除非主动进入调度点（如
+<code>cond_resched()</code>）</li>
+</ul>
+<hr />
+<h3 id="五如何让内核线程可以被抢占">五、如何让内核线程可以被抢占？</h3>
+<ul>
+<li><p><strong>启用 CONFIG_PREEMPT</strong></p></li>
+<li><p><strong>主动让出 CPU</strong>（在循环中加入
+<code>cond_resched()</code>）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">while</span> (!kthread_should_stop()) &#123;<br>    do_work();<br>    cond_resched(); <span class="hljs-comment">// 允许调度器调度其他任务</span><br>&#125;<br></code></pre></td></tr></table></figure></li>
+<li><p><strong>避免使用实时调度类（SCHED_FIFO）或适当降低优先级</strong></p></li>
+</ul>
+<hr />
+<h3
+id="六总结为何内核线程默认不被抢占">六、总结：为何内核线程默认“不被抢占”？</h3>
+<table>
+<thead>
+<tr class="header">
+<th>机制/配置</th>
+<th>抢占行为</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CONFIG_PREEMPT_NONE</td>
+<td>除非主动让出，否则不抢占</td>
+</tr>
+<tr class="even">
+<td>CONFIG_PREEMPT_VOLUNTARY</td>
+<td>仅在调度点可能被抢占</td>
+</tr>
+<tr class="odd">
+<td>CONFIG_PREEMPT</td>
+<td>可被抢占，但关键路径除外</td>
+</tr>
+<tr class="even">
+<td>SCHED_NORMAL</td>
+<td>依赖主动调度点，不会强制剥夺 CPU</td>
+</tr>
+<tr class="odd">
+<td>SCHED_FIFO</td>
+<td>仅被更高优先级实时线程抢占</td>
+</tr>
+<tr class="even">
+<td>preempt_disable()</td>
+<td>明确禁止抢占</td>
+</tr>
+</tbody>
+</table>
+<p><strong>最终结论</strong>： 内核线程的“不被抢占”并非天然特性，而是由
+<strong>内核编译配置 + 调度类 + 手动关抢占</strong>
+多重机制保障的运行策略。</p>
+<hr />
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/mutex/" class="category-chain-item">mutex</a>
+  
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>spin_lock变体对比</div>
+      <div>https://realwujing.github.io/linux/kernel/mutex/spin_lock变体对比/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年5月29日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/mutex/rcu/bugs/rcu_process_callbacks/queued_spin_lock_slowpath/" title="queued_spin_lock_slowpath">
+                        <span class="hidden-mobile">queued_spin_lock_slowpath</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '1d92cc77ab78682572168f17dd68b41c'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
