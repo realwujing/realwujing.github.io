@@ -1,9 +1,9 @@
-# queued_spin_lock_slowpath
+# rcu hard lockup
 
 ## 问题信息
 
 1. 故障时间：2025-05-11-23:11:38
-2. 故障节点：内蒙08多AZ测试 94.106 94.236
+2. 故障节点：
 3. 故障现象：PANIC: "Kernel panic - not syncing: Hard LOCKUP"
 4. 操作系统：4.19.90-2102.2.0.0062.ctl2.aarch64
 5. cpu: 鲲鹏920
@@ -1006,6 +1006,53 @@ SIZE: 42112
 rcu_state 0xffff3eb87f209000 > rcu_state_0xffff3eb87f209000.log
 ```
 
+```bash
+# include/linux/swait.h
+# 知道swait_queue_head地址，crash中怎么用list命令得到第62行的task地址
+
+crash> p &(rcu_sched_state.gp_wq)
+$96 = (struct swait_queue_head *) 0xffff3eb87f2132d8
+
+crash> list -o swait_queue.task_list -s task_struct.pid,comm -O swait_queue_head.task_list -h 0xffff3eb87f2132d8
+list: invalid option -- 'O'
+Usage:
+  list [[-o] offset][-e end][-[s|S] struct[.member[,member] [-l offset]] -[x|d]]
+       [-r|-B] [-h|-H] start
+Enter "help list" for details.
+```
+
+```bash
+[root@obs-arm-worker-01 127.0.0.1-2025-05-11-23:11:38]# crash --version
+
+crash 7.2.8-5.ctl2
+```
+
+crash版本太低，改用`-o`选项：
+```bash
+crash> p &(rcu_sched_state.gp_wq.task_list)
+$98 = (struct list_head *) 0xffff3eb87f2132e0
+
+crash> list -o swait_queue.task -s task_struct.pid,comm -H 0xffff3eb87f2132e0
+(empty)
+```
+
+```bash
+crash> task_struct.on_cpu,cpu,recent_used_cpu,wake_cpu ffffbf6546fae880
+  on_cpu = 1
+  cpu = 60
+  recent_used_cpu = 44
+  wake_cpu = 60
+crash> bt -c 60
+PID: 11     TASK: ffffbf6546fae880  CPU: 60  COMMAND: "rcu_sched"
+bt: WARNING: cannot determine starting stack frame for task ffffbf6546fae880
+crash>
+crash> task_struct.on_cpu,cpu,recent_used_cpu,wake_cpu ffffbf6546fae880
+  on_cpu = 1
+  cpu = 60
+  recent_used_cpu = 44
+  wake_cpu = 60
+```
+
 从rcu_state中可以得到所有的rcu_node信息：
 ```bash
 rcu_node[0]：grplo=0, grphi=15, qsmask=49141
@@ -1556,6 +1603,20 @@ cpu mcs: 60 39 32 40 51 33 36 41 24 52 0 53 54 55 42 59 56 57 62 47 26 46 45 nul
 
 cpu mcs: 20 35 30 10 50 61 39
 
+```bash
+crash> irq -s -c 44 | awk '$2 != 0'
+          CPU44
+  4:       2183    GICv3 arch_timer
+147:         81  ITS-MSI megasas0-msix12
+164:         18  ITS-MSI megasas0-msix29
+166:          3  ITS-MSI megasas0-msix31
+325:          3  ITS-MSI ens1-43
+390:          1  ITS-MSI eth1-43
+412:        448  ITS-MSI ens0-1
+413:        585  ITS-MSI ens0-2
+422:          8  ITS-MSI ens0-11
+486:          1  ITS-MSI eth3-11
+```
 
 ```bash
 crash> irq -s -c 5 | awk '$2 != 0'

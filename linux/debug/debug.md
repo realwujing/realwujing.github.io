@@ -739,6 +739,41 @@ crash> eval -b 0x3  //vcpu0的SMT调度域包含vcpu0和vcpu1一对超线程
 crash>
 ```
 
+### list
+
+- [crash点滴之三（list与strcut命令）](https://zhuanlan.zhihu.com/p/584589747)
+
+```bash
+# include/linux/swait.h
+# 知道swait_queue_head地址，crash中怎么用list命令得到第62行的task地址
+
+crash> p &(rcu_sched_state.gp_wq)
+$96 = (struct swait_queue_head *) 0xffff3eb87f2132d8
+
+crash> list -o swait_queue.task_list -s task_struct.pid,comm -O swait_queue_head.task_list -h 0xffff3eb87f2132d8
+list: invalid option -- 'O'
+Usage:
+  list [[-o] offset][-e end][-[s|S] struct[.member[,member] [-l offset]] -[x|d]]
+       [-r|-B] [-h|-H] start
+Enter "help list" for details.
+```
+
+```bash
+[root@obs-arm-worker-01 127.0.0.1-2025-05-11-23:11:38]# crash --version
+
+crash 7.2.8-5.ctl2
+```
+
+crash版本太低，改用`-o`选项：
+
+```bash
+crash> p &(rcu_sched_state.gp_wq.task_list)
+$98 = (struct list_head *) 0xffff3eb87f2132e0
+
+crash> list -o swait_queue.task -s task_struct.pid,comm -H 0xffff3eb87f2132e0
+(empty)
+```
+
 ### kmem
 
 查看内存的使用统计信息:
