@@ -3,10 +3,10 @@
 ## 问题信息
 
 1. 故障时间：2025-05-11-23:11:38
-2. 故障节点：
+2. 故障节点：内蒙古呼和浩特IT上云1 10.141.181.26
 3. 故障现象：PANIC: "Kernel panic - not syncing: Hard LOCKUP"
 4. 操作系统：4.19.90-2102.2.0.0062.ctl2.aarch64
-5. cpu: 鲲鹏920
+5. cpu: Kunpeng-920
 
 ## 问题分析
 
@@ -98,6 +98,177 @@
 ```
 
 首先发生在5号CPU的NMI watchdog，5号cpu的x19: ffff3eb87f209280，和11号CPU的x19是一样的。
+
+#### RCU Stall 日志中 `idle=XXX/0/0x1` 标志位解析
+
+```bash
+grep 'idle=' . -inr --include="vmcore-dmesg.txt"
+
+./127.0.0.1-2025-05-11-23:11:38/vmcore-dmesg.txt:1585:[  916.158850] rcu:       44-...!: (1 ticks this GP) idle=4ca/0/0x1 softirq=1046/1046 fqs=0 
+./127.0.0.1-2025-05-11-18:26:08/vmcore-dmesg.txt:1584:[887136.218705] rcu:      5-...!: (1 GPs behind) idle=e32/0/0x1 softirq=2547154/2547154 fqs=1 
+./127.0.0.1-2025-05-11-18:26:08/vmcore-dmesg.txt:1645:[1622263.640745] rcu:     47-...!: (1 ticks this GP) idle=a36/0/0x1 softirq=2425136/2425136 fqs=0 
+./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:1585:[ 3885.234398] rcu:       29-...!: (6 GPs behind) idle=a6a/0/0x1 softirq=11528/11528 fqs=1 
+./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:1617:[15488.588605] rcu:       58-...!: (3 GPs behind) idle=e52/0/0x1 softirq=72598/72598 fqs=1 
+./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:1736:[49506.456605] rcu:       53-...!: (1 ticks this GP) idle=70e/0/0x1 softirq=164776/164776 fqs=0 
+./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:2475:[190935.928694] rcu:      35-...!: (1 ticks this GP) idle=576/0/0x1 softirq=680003/680003 fqs=0 
+./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:3132:[223980.504804] rcu:      47-...!: (2 ticks this GP) idle=d5e/0/0x1 softirq=893065/893066 fqs=1 
+./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:3164:[230566.588728] rcu:      18-...!: (1 GPs behind) idle=9e6/1/0x4000000000000002 softirq=730680/730682 fqs=1 
+./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:3308:[320459.544436] rcu:      55-...!: (1 ticks this GP) idle=39e/0/0x1 softirq=1181112/1181112 fqs=1 
+./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:3340:[601083.460709] rcu:      59-...!: (1 ticks this GP) idle=436/0/0x1 softirq=5886999/5886999 fqs=0
+```
+
+idle陷入深度睡眠后未能被唤醒，无法响应时钟中断，进而引发 RCU Stall、调度停滞等问题？
+
+##### 定时器停止的底层原理
+
+###### 1. 硬件行为
+- **时钟源停摆**：
+  - 在深度 idle 状态（如 ARM 的 WFI 或 x86 的 C3）下，为节省功耗，CPU 可能关闭本地时钟（如 `arch_timer` 或 TSC）。
+  - 本地定时器中断（如 `tick_sched_timer`）不再触发。
+  - `jiffies` 停止更新（依赖时钟中断递增）。
+
+- **唤醒依赖**：
+  - 需依赖外部中断唤醒 CPU，包括：
+    - 处理器间中断（IPI）：其他 CPU 通过 `smp_call_function()` 发送。
+    - 设备中断：如网卡、磁盘等外设触发的中断。
+    - 全局时钟中断：部分架构的全局定时器（如 ARM sp804）可能仍运行。
+
+###### 2. 软件配置
+- **内核控制**：
+  - 通过 `cpuidle` 驱动决定是否允许定时器停止：
+    ```c
+    static struct cpuidle_state states[] = {
+        {
+            .name = "C2",
+            .flags = CPUIDLE_FLAG_TIMER_STOP, // 关键标志位
+            .enter = arm_cpuidle_enter,
+        },
+    };
+    ```
+
+- **唤醒路径**：
+  - 若定时器停止，内核需确保至少一个唤醒源有效：
+    ```
+    外部中断 → GIC/APIC → CPU 退出 idle → 恢复定时器 → 处理中断
+    ```
+
+##### 唤醒失败的常见原因
+
+###### 1. 中断控制器故障
+| 问题                     | 检测方法                                              | 解决方案                             |
+|--------------------------|-----------------------------------------------------|-------------------------------------|
+| GIC 未路由中断           | `cat /proc/interrupts` 查看目标 CPU 的中断计数是否增长 | 调整 `smp_affinity` 绑定中断         |
+| APIC 配置错误            | `dmesg | grep -i "apic\ irq"` 检查日志错误            | 更新 BIOS 或内核 APIC 驱动          |
+| 中断优先级过低           | 检查 GIC 的 `GICD_IPRIORITYRn` 寄存器（需 JTAG）     | 提高中断优先级                      |
+
+###### 2. 电源管理缺陷
+| 问题                     | 检测方法                                              | 解决方案                             |
+|--------------------------|-----------------------------------------------------|-------------------------------------|
+| PSCI 调用失败            | `dmesg | grep -i "psci"` 查看 CPU_ON/CPU_OFF 错误    | 更新 ATF（ARM Trusted Firmware）     |
+| SoC 时钟未恢复           | 读取 SoC 寄存器（如 `CNTCTLBase.CNTCR`）确认时钟使能 | 联系厂商提供固件补丁                 |
+| 电压域未退出             | 检查 PMIC 寄存器（需厂商工具）                        | 调整电源管理配置                     |
+
+###### 3. 内核配置问题
+| 问题                     | 检测方法                                              | 解决方案                             |
+|--------------------------|-----------------------------------------------------|-------------------------------------|
+| NO_HZ 配置冲突           | `cat /sys/kernel/debug/tracing/events/timer/timer_stop/enable` 追踪停钟事件 | 禁用 `CONFIG_NO_HZ_FULL`            |
+| cpuidle 驱动缺陷         | `perf probe -L arm_cpuidle_enter` 检查驱动逻辑        | 升级或回退内核版本                   |
+| RCU 回调阻塞             | `ftrace` 追踪 `rcu_core` 和 `irq_enter` 的延迟        | 修复长时间关中断的代码               |
+
+##### 诊断工具与方法
+
+###### 1. 硬件层诊断
+- **检查 ARM 定时器状态（需 root）**：
+  ```bash
+  devmem2 0x<CNTCTLBase.CNTCR>  # 读时钟控制寄存器
+  devmem2 0x<GICD_ISENABLER>    # 读中断使能状态
+  ```
+
+- **使用 JTAG 调试器验证 CPU 唤醒信号**：
+
+  ```bash
+  openocd -f <soc_config.cfg> -c "halt" -c "reg cpsr"
+  ```
+
+###### 2. 内核层诊断
+
+- **监控 idle 状态切换**：
+
+  ```bash
+  echo 1 > /sys/kernel/debug/tracing/events/power/cpu_idle/enable
+  cat /sys/kernel/debug/tracing/trace_pipe
+  ```
+
+- **追踪中断唤醒路径**：
+
+  ```bash
+  perf probe -a 'gic_handle_irq' -a 'arch_cpu_idle_enter'
+  ```
+
+###### 3. 日志分析重点
+
+- **关键错误**：
+
+  ```
+  arch_timer: IRQ 30 missed      # 时钟中断丢失
+  PSCI: CPU29 on failed (-5)     # 电源管理调用失败
+  ```
+
+- **唤醒成功日志**：
+
+  ```
+  cpu_idle: state=2 -> state=0    # 退出深度 idle
+  irq_enter: irq=30              # 中断处理开始
+  ```
+
+##### 解决方案总结
+
+###### 临时措施
+
+- **强制禁用深度 idle（所有 CPU）**：
+
+  ```bash
+  for cpu in /sys/devices/system/cpu/cpu*/cpuidle/state[2-9]; do
+      echo 1 > $cpu/disable
+  done
+  ```
+
+- **关闭动态 tick**：
+
+  ```bash
+  echo 0 > /sys/kernel/debug/tracing/events/timer/timer_stop/enable
+  ```
+
+###### 长期修复
+
+- **硬件**：更新微码/BIOS，修复时钟和中断控制器缺陷。
+- **内核**：升级到修复版本（如 Linux 5.10+ 的 ARM idle 驱动补丁）。
+- **配置**：调整内核启动参数：
+
+  ```bash
+  idle=poll                   # 完全禁用 idle
+  clocksource=arch_sys_counter # 强制使用可靠时钟源
+  ```
+
+###### 厂商协作
+
+- **华为"..鹏**：提交 `hisi_cpufreq` 驱动日志给厂商。
+- **Intel**：收集 `pmc_core` 和 `intel_idle` 模块日志。
+
+##### 深度 idle 唤醒流程图解
+
+```plaintext
++-------------------+     +-------------------+     +-------------------+
+| 进入深度 idle     |     | 定时器停止         |     | 等待外部中断       |
+| (WFI/C3)         | --> | (CPUIDLE_FLAG_     | --> | (IPI/设备中断)     |
+|                  |     | TIMER_STOP)        |     |                   |
++-------------------+     +-------------------+     +-------------------+
+                                                    |
++-------------------+     +-------------------+     +-------------------+
+| 中断控制器接收     | --> | CPU 退出 idle     | --> | 恢复定时器并       |
+| (GIC/APIC)        |     | (PSCI_CPU_ON)      |     | 处理中断           |
++-------------------+     +-------------------+     +-------------------+
+```
 
 ### crash
 
@@ -585,12 +756,40 @@ SIZE: 640
 调用栈回溯：
 
 ```c
-rcu_dump_cpu_stacks
-print_cpu_stall
-__rcu_pending
-rcu_pending
-rcu_check_callbacks
-update_process_times
+// vim 127.0.0.1-2025-05-11-18:26:08/vmcore-dmesg.txt +1580
+
+1583 [887136.212952] rcu: INFO: rcu_sched self-detected stall on CPU
+1584 [887136.218705] rcu:    5-...!: (1 GPs behind) idle=e32/0/0x1 softirq=2547154/2547154 fqs=1
+1585 [887136.226836] rcu:     (t=69795 jiffies g=60317529 q=32)
+1586 [887136.231966] NMI backtrace for cpu 5
+1587 [887136.235591] CPU: 5 PID: 0 Comm: swapper/5 Kdump: loaded Tainted: G           OE     4.19.90-2102.2.0.0062.ctl2.aarch64 #1
+1588 [887136.246811] Hardware name: RCSIT TG225 B1/BC82AMDQ, BIOS 5.25 09/14/2022
+1589 [887136.253702] Call trace:
+1590 [887136.256267]  dump_backtrace+0x0/0x198
+1591 [887136.260066]  show_stack+0x24/0x30
+1592 [887136.263516]  dump_stack+0xa4/0xe8
+1593 [887136.266963]  nmi_cpu_backtrace+0xf4/0xf8
+1594 [887136.271026]  nmi_trigger_cpumask_backtrace+0x170/0x1c0
+1595 [887136.276328]  arch_trigger_cpumask_backtrace+0x30/0xd8
+1596 [887136.281543]  rcu_dump_cpu_stacks+0xf4/0x134
+1597 [887136.285872]  print_cpu_stall+0x16c/0x228
+1598 [887136.289937]  rcu_check_callbacks+0x590/0x7a8
+1599 [887136.297318]  update_process_times+0x34/0x60
+1600 [887136.304678]  tick_sched_handle.isra.4+0x34/0x70
+1601 [887136.312346]  tick_sched_timer+0x50/0xa0
+1602 [887136.319222]  __hrtimer_run_queues+0x114/0x368
+1603 [887136.326551]  hrtimer_interrupt+0xf8/0x2d0
+1604 [887136.333458]  arch_timer_handler_phys+0x38/0x58
+1605 [887136.340774]  handle_percpu_devid_irq+0x90/0x248
+1606 [887136.348161]  generic_handle_irq+0x3c/0x58
+1607 [887136.354969]  __handle_domain_irq+0x68/0xc0
+1608 [887136.361812]  gic_handle_irq+0x6c/0x170
+1609 [887136.368233]  el1_irq+0xb8/0x140
+1610 [887136.373961]  arch_cpu_idle+0x38/0x1d0
+1611 [887136.380163]  default_idle_call+0x24/0x58
+1612 [887136.386580]  do_idle+0x1d4/0x2b0
+1613 [887136.392193]  cpu_startup_entry+0x28/0x78
+1614 [887136.398475]  secondary_start_kernel+0x17c/0x1c8
 ```
 
 ```c
@@ -1036,6 +1235,8 @@ crash> list -o swait_queue.task -s task_struct.pid,comm -H 0xffff3eb87f2132e0
 (empty)
 ```
 
+可以看到rcu_sched_state.gp_wq.task_list是空的，说明rcu_sched_state.gp_wq中没有等待的任务。
+
 ```bash
 crash> task_struct.on_cpu,cpu,recent_used_cpu,wake_cpu ffffbf6546fae880
   on_cpu = 1
@@ -1052,6 +1253,10 @@ crash> task_struct.on_cpu,cpu,recent_used_cpu,wake_cpu ffffbf6546fae880
   recent_used_cpu = 44
   wake_cpu = 60
 ```
+
+rcu_sched最近一次使用44号cpu，当前运行在60号cpu上。
+
+#### rcu_node
 
 从rcu_state中可以得到所有的rcu_node信息：
 ```bash
@@ -1143,6 +1348,8 @@ crash>
 **未QS的CPU号：50,51,53,54,55,56,57,58,59,60,61,62**
 
 ---
+
+#### rcu_data
 
 ##### rcu_state.rda
 
@@ -1345,13 +1552,13 @@ crash> rcu_data ffffbf657fade280 > rcu_data_fffbf657fade280_cpu_5.log
 crash> p rcu_sched_data:5 > p_rcu_sched_data_5.log
 ```
 
-#### rcu_data
-
 前文查看了cpu 44和cpu 5的`rcu_data`，太慢了，将所有cpu上的rcu_data导出来看看。
 
 ```bash
 crash> p rcu_sched_data:0-63 > p_rcu_sched_data_0-63.log
 ```
+
+##### 查找core_needs_qs = true
 
 ```bash
 #!/bin/bash
@@ -1371,10 +1578,13 @@ grep 'per_cpu(rcu_sched_data' core_needs_qs_true.log | awk -F '[, )]+' '{print $
 0,2,5,6,7,9,11,12,13,15,23,25,26,28,30,32,33,36,37,40,41,44,45,46,47,50,51,53,54,56,58,60,61
 ```
 
+##### 查看core_needs_qs = true的CPU栈
+
 ```bash
 crash> bt -c 0,2,5,6,7,9,11,12,13,15,23,25,26,28,30,32,33,36,37,40,41,44,45,46,47,50,51,53,54,56,58,60,61 > bt_c_rcu_sched_data_core_needs_qs_true.log
 ```
 
+##### 23号cpu是否关中断？
 ```bash
 crash> task_struct.thread_info ffffbf655d94d900
   thread_info = {
@@ -1400,6 +1610,8 @@ bt: WARNING: cannot determine starting stack frame for task ffffbf655d94d900
 ```bash
 list callback_head.next -s callback_head  0xffffbf6521b07e68 > cblist_head_cpu_5.log
 ```
+
+##### rcu_callback_head.next不为0的情况
 
 ```bash
 #!/bin/bash
@@ -1473,6 +1685,8 @@ sym: invalid address: 0xffffbf657fade2b8
 
 #### per_cpu(qnodes)
 
+qspinlock的qnodes是一个per-CPU变量。
+
 ```c
 // vim kernel/locking/qspinlock.c +119
 119 static DEFINE_PER_CPU_ALIGNED(struct qnode, qnodes[MAX_NODES]);
@@ -1511,6 +1725,7 @@ done
 cat unused_qnodes.txt
 ```
 
+没有父节点的qnode cpu编号:
 ```bash
 # cat unused_qnodes.txt
 
@@ -1581,6 +1796,7 @@ while read addr; do
 done < dup_next.txt
 ```
 
+多个qnode指向同一个next的cpu：
 ```bash
 # cat dup_next_cpu.txt
 
@@ -1699,3 +1915,11 @@ crash> irq -s -c 0 | awk '$2 != 0'
 ```
 
 ## 问题结果
+
+疑点：时钟中断上报有问题或某段代码中长时间关中断，导致rcu_sched无法被调度，rcu回调函数无法被执行。
+
+同一批鲲鹏920机器，都是装的4.19 62内核，只有一台机器开机后放着不动出现了这个问题。
+
+硬件侧排查时钟中断未上报问题。
+
+内核测观察是否有长时间关中断的代码。
