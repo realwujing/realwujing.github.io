@@ -24,7 +24,7 @@
 <meta property="og:description" content="rcu hard lockup 问题信息  故障时间：2025-05-11-23:11:38 故障节点： 故障现象：PANIC: &quot;Kernel panic - not syncing: Hard LOCKUP&quot; 操作系统：4.19.90-2102.2.0.0062.ctl2.aarch64 cpu: 鲲鹏920  问题分析 vmcore-dmesg.txt Kernel panic - not">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-06-01T17:06:52.000Z">
-<meta property="article:modified_time" content="2025-06-01T17:06:52.000Z">
+<meta property="article:modified_time" content="2025-06-05T17:16:27.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="linux">
@@ -276,7 +276,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          43k 字
+          47k 字
         
       </span>
     
@@ -287,7 +287,7 @@
         
         
         
-          358 分钟
+          396 分钟
         
       </span>
     
@@ -327,6 +327,14 @@
             <!-- SEO header -->
             <h1 style="display: none">rcu hard lockup</h1>
             
+              <p class="note note-info">
+                
+                  
+                    本文最后更新于：2025年6月5日 下午
+                  
+                
+              </p>
+            
             
               <div class="markdown-body">
                 
@@ -348,6 +356,179 @@ syncing: Hard LOCKUP</h4>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@obs-arm-worker-01 127.0.0.1-2025-05-11-23:11:38]<span class="hljs-comment"># grep &#x27;NMI watchdog:&#x27; -inr vmcore-dmesg.txt --color</span><br>1208:[    9.230149] SDEI NMI watchdog: SDEI Watchdog registered successfully<br>1688:[  929.239598] NMI watchdog: Watchdog detected hard LOCKUP on cpu 5<br>1725:[  929.239638] NMI watchdog: Watchdog detected hard LOCKUP on cpu 9<br>1762:[  929.239675] NMI watchdog: Watchdog detected hard LOCKUP on cpu 11<br>1825:[  929.239720] NMI watchdog: Watchdog detected hard LOCKUP on cpu 13<br>1915:[  936.855640] NMI watchdog: Watchdog detected hard LOCKUP on cpu 60<br>1946:[  949.303293] NMI watchdog: Watchdog detected hard LOCKUP on cpu 2<br>1983:[  949.303334] NMI watchdog: Watchdog detected hard LOCKUP on cpu 6<br>2020:[  949.303374] NMI watchdog: Watchdog detected hard LOCKUP on cpu 7<br>2057:[  949.303413] NMI watchdog: Watchdog detected hard LOCKUP on cpu 12<br>2094:[  949.303456] NMI watchdog: Watchdog detected hard LOCKUP on cpu 23<br></code></pre></td></tr></table></figure>
 <p>首先发生在5号CPU的NMI watchdog，5号cpu的x19:
 ffff3eb87f209280，和11号CPU的x19是一样的。</p>
+<h4 id="rcu-stall-日志中-idlexxx00x1-标志位解析">RCU Stall 日志中
+<code>idle=XXX/0/0x1</code> 标志位解析</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">grep <span class="hljs-string">&#x27;idle=&#x27;</span> . -inr --include=<span class="hljs-string">&quot;vmcore-dmesg.txt&quot;</span><br><br>./127.0.0.1-2025-05-11-23:11:38/vmcore-dmesg.txt:1585:[  916.158850] rcu:       44-...!: (1 ticks this GP) idle=4ca/0/0x1 softirq=1046/1046 fqs=0 <br>./127.0.0.1-2025-05-11-18:26:08/vmcore-dmesg.txt:1584:[887136.218705] rcu:      5-...!: (1 GPs behind) idle=e32/0/0x1 softirq=2547154/2547154 fqs=1 <br>./127.0.0.1-2025-05-11-18:26:08/vmcore-dmesg.txt:1645:[1622263.640745] rcu:     47-...!: (1 ticks this GP) idle=a36/0/0x1 softirq=2425136/2425136 fqs=0 <br>./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:1585:[ 3885.234398] rcu:       29-...!: (6 GPs behind) idle=a6a/0/0x1 softirq=11528/11528 fqs=1 <br>./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:1617:[15488.588605] rcu:       58-...!: (3 GPs behind) idle=e52/0/0x1 softirq=72598/72598 fqs=1 <br>./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:1736:[49506.456605] rcu:       53-...!: (1 ticks this GP) idle=70e/0/0x1 softirq=164776/164776 fqs=0 <br>./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:2475:[190935.928694] rcu:      35-...!: (1 ticks this GP) idle=576/0/0x1 softirq=680003/680003 fqs=0 <br>./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:3132:[223980.504804] rcu:      47-...!: (2 ticks this GP) idle=d5e/0/0x1 softirq=893065/893066 fqs=1 <br>./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:3164:[230566.588728] rcu:      18-...!: (1 GPs behind) idle=9e6/1/0x4000000000000002 softirq=730680/730682 fqs=1 <br>./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:3308:[320459.544436] rcu:      55-...!: (1 ticks this GP) idle=39e/0/0x1 softirq=1181112/1181112 fqs=1 <br>./127.0.0.1-2025-05-26-02:29:07/vmcore-dmesg.txt:3340:[601083.460709] rcu:      59-...!: (1 ticks this GP) idle=436/0/0x1 softirq=5886999/5886999 fqs=0<br></code></pre></td></tr></table></figure>
+<p>idle陷入深度睡眠后未能被唤醒，无法响应时钟中断，进而引发 RCU
+Stall、调度停滞等问题？</p>
+<h5 id="定时器停止的底层原理">定时器停止的底层原理</h5>
+<h6 id="硬件行为">1. 硬件行为</h6>
+<ul>
+<li><strong>时钟源停摆</strong>：
+<ul>
+<li>在深度 idle 状态（如 ARM 的 WFI 或 x86 的 C3）下，为节省功耗，CPU
+可能关闭本地时钟（如 <code>arch_timer</code> 或 TSC）。</li>
+<li>本地定时器中断（如 <code>tick_sched_timer</code>）不再触发。</li>
+<li><code>jiffies</code> 停止更新（依赖时钟中断递增）。</li>
+</ul></li>
+<li><strong>唤醒依赖</strong>：
+<ul>
+<li>需依赖外部中断唤醒 CPU，包括：
+<ul>
+<li>处理器间中断（IPI）：其他 CPU 通过 <code>smp_call_function()</code>
+发送。</li>
+<li>设备中断：如网卡、磁盘等外设触发的中断。</li>
+<li>全局时钟中断：部分架构的全局定时器（如 ARM sp804）可能仍运行。</li>
+</ul></li>
+</ul></li>
+</ul>
+<h6 id="软件配置">2. 软件配置</h6>
+<ul>
+<li><strong>内核控制</strong>：
+<ul>
+<li>通过 <code>cpuidle</code> 驱动决定是否允许定时器停止：
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">cpuidle_state</span> <span class="hljs-title">states</span>[] =</span> &#123;<br>    &#123;<br>        .name = <span class="hljs-string">&quot;C2&quot;</span>,<br>        .flags = CPUIDLE_FLAG_TIMER_STOP, <span class="hljs-comment">// 关键标志位</span><br>        .enter = arm_cpuidle_enter,<br>    &#125;,<br>&#125;;<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li><strong>唤醒路径</strong>：
+<ul>
+<li>若定时器停止，内核需确保至少一个唤醒源有效： <figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs x86asm">外部中断 → GIC/APIC → <span class="hljs-meta">CPU</span> 退出 idle → 恢复定时器 → 处理中断<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+</ul>
+<h5 id="唤醒失败的常见原因">唤醒失败的常见原因</h5>
+<h6 id="中断控制器故障">1. 中断控制器故障</h6>
+<table>
+
+<thead>
+<tr class="header">
+<th>问题</th>
+<th>检测方法</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GIC 未路由中断</td>
+<td><code>cat /proc/interrupts</code> 查看目标 CPU
+的中断计数是否增长</td>
+<td>调整 <code>smp_affinity</code> 绑定中断</td>
+</tr>
+<tr class="even">
+<td>APIC 配置错误</td>
+<td><code>dmesg | grep -i "apic\ irq"</code> 检查日志错误</td>
+<td>更新 BIOS 或内核 APIC 驱动</td>
+</tr>
+<tr class="odd">
+<td>中断优先级过低</td>
+<td>检查 GIC 的 <code>GICD_IPRIORITYRn</code> 寄存器（需 JTAG）</td>
+<td>提高中断优先级</td>
+</tr>
+</tbody>
+</table>
+<h6 id="电源管理缺陷">2. 电源管理缺陷</h6>
+<table>
+
+<thead>
+<tr class="header">
+<th>问题</th>
+<th>检测方法</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>PSCI 调用失败</td>
+<td><code>dmesg | grep -i "psci"</code> 查看 CPU_ON/CPU_OFF 错误</td>
+<td>更新 ATF（ARM Trusted Firmware）</td>
+</tr>
+<tr class="even">
+<td>SoC 时钟未恢复</td>
+<td>读取 SoC 寄存器（如 <code>CNTCTLBase.CNTCR</code>）确认时钟使能</td>
+<td>联系厂商提供固件补丁</td>
+</tr>
+<tr class="odd">
+<td>电压域未退出</td>
+<td>检查 PMIC 寄存器（需厂商工具）</td>
+<td>调整电源管理配置</td>
+</tr>
+</tbody>
+</table>
+<h6 id="内核配置问题">3. 内核配置问题</h6>
+<table>
+
+<thead>
+<tr class="header">
+<th>问题</th>
+<th>检测方法</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>NO_HZ 配置冲突</td>
+<td><code>cat /sys/kernel/debug/tracing/events/timer/timer_stop/enable</code>
+追踪停钟事件</td>
+<td>禁用 <code>CONFIG_NO_HZ_FULL</code></td>
+</tr>
+<tr class="even">
+<td>cpuidle 驱动缺陷</td>
+<td><code>perf probe -L arm_cpuidle_enter</code> 检查驱动逻辑</td>
+<td>升级或回退内核版本</td>
+</tr>
+<tr class="odd">
+<td>RCU 回调阻塞</td>
+<td><code>ftrace</code> 追踪 <code>rcu_core</code> 和
+<code>irq_enter</code> 的延迟</td>
+<td>修复长时间关中断的代码</td>
+</tr>
+</tbody>
+</table>
+<h5 id="诊断工具与方法">诊断工具与方法</h5>
+<h6 id="硬件层诊断">1. 硬件层诊断</h6>
+<ul>
+<li><p><strong>检查 ARM 定时器状态（需 root）</strong>：
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">devmem2 0x&lt;CNTCTLBase.CNTCR&gt;  <span class="hljs-comment"># 读时钟控制寄存器</span><br>devmem2 0x&lt;GICD_ISENABLER&gt;    <span class="hljs-comment"># 读中断使能状态</span><br></code></pre></td></tr></table></figure></p></li>
+<li><p><strong>使用 JTAG 调试器验证 CPU 唤醒信号</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">openocd -f &lt;soc_config.cfg&gt; -c <span class="hljs-string">&quot;halt&quot;</span> -c <span class="hljs-string">&quot;reg cpsr&quot;</span><br></code></pre></td></tr></table></figure></li>
+</ul>
+<h6 id="内核层诊断">2. 内核层诊断</h6>
+<ul>
+<li><p><strong>监控 idle 状态切换</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 1 &gt; /sys/kernel/debug/tracing/events/power/cpu_idle/enable<br><span class="hljs-built_in">cat</span> /sys/kernel/debug/tracing/trace_pipe<br></code></pre></td></tr></table></figure></li>
+<li><p><strong>追踪中断唤醒路径</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">perf probe -a <span class="hljs-string">&#x27;gic_handle_irq&#x27;</span> -a <span class="hljs-string">&#x27;arch_cpu_idle_enter&#x27;</span><br></code></pre></td></tr></table></figure></li>
+</ul>
+<h6 id="日志分析重点">3. 日志分析重点</h6>
+<ul>
+<li><p><strong>关键错误</strong>：</p>
+<figure class="highlight avrasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs avrasm"><span class="hljs-symbol">arch_timer:</span> IRQ <span class="hljs-number">30</span> missed      <span class="hljs-meta"># 时钟中断丢失</span><br><span class="hljs-symbol">PSCI:</span> CPU29 on failed (<span class="hljs-number">-5</span>)     <span class="hljs-meta"># 电源管理调用失败</span><br></code></pre></td></tr></table></figure></li>
+<li><p><strong>唤醒成功日志</strong>：</p>
+<figure class="highlight pf"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs pf">cpu_idle: <span class="hljs-keyword">state</span>=<span class="hljs-number">2</span> -&gt; <span class="hljs-keyword">state</span>=<span class="hljs-number">0</span>    <span class="hljs-comment"># 退出深度 idle</span><br>irq_enter: irq=<span class="hljs-number">30</span>              <span class="hljs-comment"># 中断处理开始</span><br></code></pre></td></tr></table></figure></li>
+</ul>
+<h5 id="解决方案总结">解决方案总结</h5>
+<h6 id="临时措施">临时措施</h6>
+<ul>
+<li><p><strong>强制禁用深度 idle（所有 CPU）</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-keyword">for</span> cpu <span class="hljs-keyword">in</span> /sys/devices/system/cpu/cpu*/cpuidle/state[2-9]; <span class="hljs-keyword">do</span><br>    <span class="hljs-built_in">echo</span> 1 &gt; <span class="hljs-variable">$cpu</span>/disable<br><span class="hljs-keyword">done</span><br></code></pre></td></tr></table></figure></li>
+<li><p><strong>关闭动态 tick</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 0 &gt; /sys/kernel/debug/tracing/events/timer/timer_stop/enable<br></code></pre></td></tr></table></figure></li>
+</ul>
+<h6 id="长期修复">长期修复</h6>
+<ul>
+<li><p><strong>硬件</strong>：更新微码/BIOS，修复时钟和中断控制器缺陷。</p></li>
+<li><p><strong>内核</strong>：升级到修复版本（如 Linux 5.10+ 的 ARM idle
+驱动补丁）。</p></li>
+<li><p><strong>配置</strong>：调整内核启动参数：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">idle=poll                   <span class="hljs-comment"># 完全禁用 idle</span><br>clocksource=arch_sys_counter <span class="hljs-comment"># 强制使用可靠时钟源</span><br></code></pre></td></tr></table></figure></li>
+</ul>
+<h6 id="厂商协作">厂商协作</h6>
+<ul>
+<li><strong>华为"..鹏</strong>：提交 <code>hisi_cpufreq</code>
+驱动日志给厂商。</li>
+<li><strong>Intel</strong>：收集 <code>pmc_core</code> 和
+<code>intel_idle</code> 模块日志。</li>
+</ul>
+<h5 id="深度-idle-唤醒流程图解">深度 idle 唤醒流程图解</h5>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">+-------------------+     +-------------------+     +-------------------+<br>| 进入深度 idle     |     | 定时器停止         |     | 等待外部中断       |<br>| (WFI/C3)         | --&gt; | (CPUIDLE_FLAG_     | --&gt; | (IPI/设备中断)     |<br>|                  |     | TIMER_STOP)        |     |                   |<br>+-------------------+     +-------------------+     +-------------------+<br>                                                    |<br>+-------------------+     +-------------------+     +-------------------+<br>| 中断控制器接收     | --&gt; | CPU 退出 idle     | --&gt; | 恢复定时器并       |<br>| (GIC/APIC)        |     | (PSCI_CPU_ON)      |     | 处理中断           |<br>+-------------------+     +-------------------+     +-------------------+<br></code></pre></td></tr></table></figure>
 <h3 id="crash">crash</h3>
 <h4
 id="queued_spin_lock_slowpath0x1d8">queued_spin_lock_slowpath+0x1d8</h4>
@@ -455,7 +636,10 @@ ffff3eb87f209280</h5>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># include/linux/swait.h</span><br><span class="hljs-comment"># 知道swait_queue_head地址，crash中怎么用list命令得到第62行的task地址</span><br><br>crash&gt; p &amp;(rcu_sched_state.gp_wq)<br><span class="hljs-variable">$96</span> = (struct swait_queue_head *) 0xffff3eb87f2132d8<br><br>crash&gt; list -o swait_queue.task_list -s task_struct.pid,<span class="hljs-built_in">comm</span> -O swait_queue_head.task_list -h 0xffff3eb87f2132d8<br>list: invalid option -- <span class="hljs-string">&#x27;O&#x27;</span><br>Usage:<br>  list [[-o] offset][-e end][-[s|S] struct[.member[,member] [-l offset]] -[x|d]]<br>       [-r|-B] [-h|-H] start<br>Enter <span class="hljs-string">&quot;help list&quot;</span> <span class="hljs-keyword">for</span> details.<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@obs-arm-worker-01 127.0.0.1-2025-05-11-23:11:38]<span class="hljs-comment"># crash --version</span><br><br>crash 7.2.8-5.ctl2<br></code></pre></td></tr></table></figure>
 <p>crash版本太低，改用<code>-o</code>选项： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; p &amp;(rcu_sched_state.gp_wq.task_list)<br><span class="hljs-variable">$98</span> = (struct list_head *) 0xffff3eb87f2132e0<br><br>crash&gt; list -o swait_queue.task -s task_struct.pid,<span class="hljs-built_in">comm</span> -H 0xffff3eb87f2132e0<br>(empty)<br></code></pre></td></tr></table></figure></p>
+<p>可以看到rcu_sched_state.gp_wq.task_list是空的，说明rcu_sched_state.gp_wq中没有等待的任务。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; task_struct.on_cpu,cpu,recent_used_cpu,wake_cpu ffffbf6546fae880<br>  on_cpu = 1<br>  cpu = 60<br>  recent_used_cpu = 44<br>  wake_cpu = 60<br>crash&gt; bt -c 60<br>PID: 11     TASK: ffffbf6546fae880  CPU: 60  COMMAND: <span class="hljs-string">&quot;rcu_sched&quot;</span><br>bt: WARNING: cannot determine starting stack frame <span class="hljs-keyword">for</span> task ffffbf6546fae880<br>crash&gt;<br>crash&gt; task_struct.on_cpu,cpu,recent_used_cpu,wake_cpu ffffbf6546fae880<br>  on_cpu = 1<br>  cpu = 60<br>  recent_used_cpu = 44<br>  wake_cpu = 60<br></code></pre></td></tr></table></figure>
+<p>rcu_sched最近一次使用44号cpu，当前运行在60号cpu上。</p>
+<h4 id="rcu_node">rcu_node</h4>
 <p>从rcu_state中可以得到所有的rcu_node信息： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">rcu_node[0]：grplo=0, grphi=15, qsmask=49141<br>rcu_node[1]：grplo=16, grphi=31, qsmask=32384<br>rcu_node[2]：grplo=32, grphi=47, qsmask=64435<br>rcu_node[3]：grplo=48, grphi=63, qsmask=32636<br></code></pre></td></tr></table></figure></p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; <span class="hljs-built_in">eval</span> 49141<br>hexadecimal: bff5<br>    decimal: 49141<br>      octal: 137765<br>     binary: 0000000000000000000000000000000000000000000000001011111111110101<br>crash&gt;<br>crash&gt; <span class="hljs-built_in">eval</span> 32384<br>hexadecimal: 7e80<br>    decimal: 32384<br>      octal: 77200<br>     binary: 0000000000000000000000000000000000000000000000000111111010000000<br>crash&gt;<br>crash&gt; <span class="hljs-built_in">eval</span> 64435<br>hexadecimal: fbb3<br>    decimal: 64435<br>      octal: 175663<br>     binary: 0000000000000000000000000000000000000000000000001111101110110011<br>crash&gt;<br>crash&gt; <span class="hljs-built_in">eval</span> 32636<br>hexadecimal: 7f7c<br>    decimal: 32636<br>      octal: 77574<br>     binary: 0000000000000000000000000000000000000000000000000111111101111100<br>crash&gt;<br></code></pre></td></tr></table></figure>
 <p>根据crash输出的二进制结果<strong>重新给出准确的四张表</strong>：</p>
@@ -736,6 +920,7 @@ grphi=63, qsmask=32636</h5>
 </table>
 <p><strong>未QS的CPU号：50,51,53,54,55,56,57,58,59,60,61,62</strong></p>
 <hr />
+<h4 id="rcu_data">rcu_data</h4>
 <h5 id="rcu_state.rda">rcu_state.rda</h5>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim kernel/locking/rcu.h +317</span><br><br><span class="hljs-number">312</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rcu_state</span> &#123;</span><br><span class="hljs-number">313</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rcu_node</span> <span class="hljs-title">node</span>[<span class="hljs-title">NUM_RCU_NODES</span>];</span>    <span class="hljs-comment">/* Hierarchy. */</span><br><span class="hljs-number">314</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rcu_node</span> *<span class="hljs-title">level</span>[<span class="hljs-title">RCU_NUM_LVLS</span> + 1];</span><br><span class="hljs-number">315</span> +-----  <span class="hljs-number">2</span> lines: Hierarchy <span class="hljs-title function_">levels</span> <span class="hljs-params">(+<span class="hljs-number">1</span> to -------------------------------------------------------------------</span><br><span class="hljs-params"><span class="hljs-number">317</span>     <span class="hljs-keyword">struct</span> rcu_data __percpu *rda;      <span class="hljs-comment">/* pointer of percu rcu_data. */</span></span><br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; rcu_state.rda ffff3eb87f209000<br>  rda = 0xffff3eb87eebe280<br></code></pre></td></tr></table></figure>
@@ -772,27 +957,33 @@ Period）的序列号，即系统推进到的最新RCU同步序号。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; rcu_data ffffbf657fade280 &gt; rcu_data_fffbf657fade280_cpu_5.log<br></code></pre></td></tr></table></figure>
 <h6 id="方法二-1">方法二</h6>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; p rcu_sched_data:5 &gt; p_rcu_sched_data_5.log<br></code></pre></td></tr></table></figure>
-<h4 id="rcu_data">rcu_data</h4>
 <p>前文查看了cpu 44和cpu
 5的<code>rcu_data</code>，太慢了，将所有cpu上的rcu_data导出来看看。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; p rcu_sched_data:0-63 &gt; p_rcu_sched_data_0-63.log<br></code></pre></td></tr></table></figure>
+<h5 id="查找core_needs_qs-true">查找core_needs_qs = true</h5>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-meta">#!/bin/bash</span><br><span class="hljs-comment"># filepath: find_core_needs_qs_true.sh</span><br><br>awk <span class="hljs-string">&#x27;</span><br><span class="hljs-string">BEGIN &#123; RS=&quot;per_cpu\\(rcu_sched_data,&quot;; ORS=&quot;&quot;; &#125;</span><br><span class="hljs-string">/core_needs_qs = true/ &amp;&amp; NR&gt;1 &#123;</span><br><span class="hljs-string">    print &quot;per_cpu(rcu_sched_data,&quot; $0 &quot;\n----------------------------------------\n&quot;</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">&#x27;</span> p_rcu_sched_data_0-63.log | <span class="hljs-built_in">tee</span> core_needs_qs_true.log<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">grep <span class="hljs-string">&#x27;per_cpu(rcu_sched_data&#x27;</span> core_needs_qs_true.log | awk -F <span class="hljs-string">&#x27;[, )]+&#x27;</span> <span class="hljs-string">&#x27;&#123;print $2&#125;&#x27;</span> | <span class="hljs-built_in">paste</span> -sd,<br><br>0,2,5,6,7,9,11,12,13,15,23,25,26,28,30,32,33,36,37,40,41,44,45,46,47,50,51,53,54,56,58,60,61<br></code></pre></td></tr></table></figure>
+<h5 id="查看core_needs_qs-true的cpu栈">查看core_needs_qs =
+true的CPU栈</h5>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; bt -c 0,2,5,6,7,9,11,12,13,15,23,25,26,28,30,32,33,36,37,40,41,44,45,46,47,50,51,53,54,56,58,60,61 &gt; bt_c_rcu_sched_data_core_needs_qs_true.log<br></code></pre></td></tr></table></figure>
+<h5 id="号cpu是否关中断">23号cpu是否关中断？</h5>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; task_struct.thread_info ffffbf655d94d900<br>  thread_info = &#123;<br>    flags = 552,<br>    addr_limit = 281474976710655,<br>    preempt_count = 1114112<br>  &#125;<br>crash&gt; <span class="hljs-built_in">eval</span> 552<br>hexadecimal: 228<br>    decimal: 552<br>      octal: 1050<br>     binary: 0000000000000000000000000000000000000000000000000000001000101000<br>crash&gt; <span class="hljs-built_in">eval</span> 1114112<br>hexadecimal: 110000  (1088KB)<br>    decimal: 1114112<br>      octal: 4200000<br>     binary: 0000000000000000000000000000000000000000000100010000000000000000<br>crash&gt; bt -c 23<br>PID: 6214   TASK: ffffbf655d94d900  CPU: 23  COMMAND: <span class="hljs-string">&quot;kworker/23:0&quot;</span><br>bt: WARNING: cannot determine starting stack frame <span class="hljs-keyword">for</span> task ffffbf655d94d900<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">list callback_head.next -s callback_head  0xffffbf6521b07e68 &gt; cblist_head_cpu_5.log<br></code></pre></td></tr></table></figure>
+<h5
+id="rcu_callback_head.next不为0的情况">rcu_callback_head.next不为0的情况</h5>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-meta">#!/bin/bash</span><br><br><span class="hljs-comment"># find_rcu_sched_data_len_not_zero.sh</span><br><br>awk <span class="hljs-string">&#x27;</span><br><span class="hljs-string">BEGIN &#123; RS=&quot;per_cpu\\(rcu_sched_data,&quot;; ORS=&quot;&quot;; &#125;</span><br><span class="hljs-string">/len *= *[1-9][0-9]*/ &amp;&amp; NR&gt;1 &#123;</span><br><span class="hljs-string">    print &quot;per_cpu(rcu_sched_data,&quot; $0 &quot;\n----------------------------------------\n&quot;</span><br><span class="hljs-string">&#125;</span><br><span class="hljs-string">&#x27;</span> p_rcu_sched_data_0-63.log &gt; rcu_sched_data_len_not_zero.log<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; list callback_head.next -s callback_head.func 0xffffbf6556214c00 | grep func | awk <span class="hljs-string">&#x27;&#123;print $3&#125;&#x27;</span> | <span class="hljs-built_in">sort</span> | <span class="hljs-built_in">uniq</span><br>0x28<br>0xffff3eb87e1dd6a0<br>0xffff3eb87e27c128<br>0xffff3eb87e2986d8<br>crash&gt; sym 0xffff3eb87e1dd6a0<br>ffff3eb87e1dd6a0 (t) shmem_destroy_callback /usr/src/debug/kernel-4.19.90-2102.2.0.0062.ctl2.aarch64/linux-4.19.90-2102.2.0.0062.ctl2.aarch64/mm/shmem.c: 3635<br>crash&gt; sym 0xffff3eb87e27c128<br>ffff3eb87e27c128 (t) file_free_rcu /usr/src/debug/kernel-4.19.90-2102.2.0.0062.ctl2.aarch64/linux-4.19.90-2102.2.0.0062.ctl2.aarch64/fs/file_table.c: 45<br>crash&gt; sym 0xffff3eb87e2986d8<br>ffff3eb87e2986d8 (t) __d_free /usr/src/debug/kernel-4.19.90-2102.2.0.0062.ctl2.aarch64/linux-4.19.90-2102.2.0.0062.ctl2.aarch64/fs/dcache.c: 254<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; list callback_head.next -s callback_head.func 0xffffbf657fa4e2b8 | grep func | awk <span class="hljs-string">&#x27;&#123;print $3&#125;&#x27;</span> | <span class="hljs-built_in">sort</span> | <span class="hljs-built_in">uniq</span><br><br>0xffff3eb87e2986d8<br>0xffffbf657fa4e2b8<br>crash&gt;<br>crash&gt; sym 0xffff3eb87e2986d8<br>ffff3eb87e2986d8 (t) __d_free /usr/src/debug/kernel-4.19.90-2102.2.0.0062.ctl2.aarch64/linux-4.19.90-2102.2.0.0062.ctl2.aarch64/fs/dcache.c: 254<br>crash&gt; sym 0xffffbf657fa4e2b8<br>sym: invalid address: 0xffffbf657fa4e2b8<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; list callback_head.next -s callback_head.func 0xffffbf657faae2b8 | grep func | awk <span class="hljs-string">&#x27;&#123;print $3&#125;&#x27;</span> | <span class="hljs-built_in">sort</span> | <span class="hljs-built_in">uniq</span><br>0xffff3eb87e014d18<br>0xffff3eb87e038970<br>0xffff3eb87e2986d8<br>0xffff3eb87e30fdc0<br>0xffffbf657faae2b8<br>crash&gt; sym 0xffff3eb87e014d18<br>ffff3eb87e014d18 (t) delayed_put_task_struct /usr/src/debug/kernel-4.19.90-2102.2.0.0062.ctl2.aarch64/linux-4.19.90-2102.2.0.0062.ctl2.aarch64/kernel/exit.c: 176<br>crash&gt; sym 0xffff3eb87e038970<br>ffff3eb87e038970 (t) delayed_put_pid /usr/src/debug/kernel-4.19.90-2102.2.0.0062.ctl2.aarch64/linux-4.19.90-2102.2.0.0062.ctl2.aarch64/kernel/pid.c: 118<br>crash&gt; sym 0xffff3eb87e2986d8<br>ffff3eb87e2986d8 (t) __d_free /usr/src/debug/kernel-4.19.90-2102.2.0.0062.ctl2.aarch64/linux-4.19.90-2102.2.0.0062.ctl2.aarch64/fs/dcache.c: 254<br>crash&gt; sym 0xffffbf657faae2b8<br>sym: invalid address: 0xffffbf657faae2b8<br></code></pre></td></tr></table></figure>
 <p>cpu 5: <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; list callback_head.next -s callback_head.func 0xffffbf657fade2b8 | grep func | awk <span class="hljs-string">&#x27;&#123;print $3&#125;&#x27;</span> | <span class="hljs-built_in">sort</span> | <span class="hljs-built_in">uniq</span><br>0xffff3eb87e2986d8<br>0xffff3eb87e2db538<br>0xffffbf657fade2b8<br>crash&gt; sym 0xffff3eb87e2986d8<br>ffff3eb87e2986d8 (t) __d_free /usr/src/debug/kernel-4.19.90-2102.2.0.0062.ctl2.aarch64/linux-4.19.90-2102.2.0.0062.ctl2.aarch64/fs/dcache.c: 254<br>crash&gt; sym 0xffff3eb87e2db538<br>ffff3eb87e2db538 (t) epi_rcu_free /usr/src/debug/kernel-4.19.90-2102.2.0.0062.ctl2.aarch64/linux-4.19.90-2102.2.0.0062.ctl2.aarch64/fs/eventpoll.c: 763<br>crash&gt; sym 0xffffbf657fade2b8<br>sym: invalid address: 0xffffbf657fade2b8<br></code></pre></td></tr></table></figure></p>
 <h4 id="per_cpuqnodes">per_cpu(qnodes)</h4>
+<p>qspinlock的qnodes是一个per-CPU变量。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim kernel/locking/qspinlock.c +119</span><br><span class="hljs-number">119</span> <span class="hljs-type">static</span> <span class="hljs-title function_">DEFINE_PER_CPU_ALIGNED</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> qnode, qnodes[MAX_NODES])</span>;<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; qnodes &gt; qnodes.log<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; p qnodes:0-63 &gt; p_qnodes.log<br></code></pre></td></tr></table></figure>
 <h5 id="find_unused_qnodes.sh">find_unused_qnodes.sh</h5>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-meta">#!/bin/bash</span><br><span class="hljs-comment"># 文件名：find_unused_qnodes.sh</span><br><br><span class="hljs-comment"># 先清理旧结果</span><br><span class="hljs-built_in">rm</span> -f used_addr.txt unused_qnodes.txt<br><br><span class="hljs-comment"># 1. 提取 p_qndoes.log 中所有出现过的地址</span><br>grep -oE <span class="hljs-string">&#x27;ffff[0-9a-f]&#123;12&#125;&#x27;</span> p_qndoes.log &gt; used_addr.txt<br><br><span class="hljs-comment"># 2. 遍历 qnodes.log 里的地址和CPU编号，输出未被指向的</span><br>grep -oP <span class="hljs-string">&#x27;\[\d+\]: ffff[0-9a-f]+&#x27;</span> qnodes.log | <span class="hljs-keyword">while</span> <span class="hljs-built_in">read</span> line; <span class="hljs-keyword">do</span><br>    cpu=$(<span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;<span class="hljs-variable">$line</span>&quot;</span> | grep -oP <span class="hljs-string">&#x27;\[\d+\]&#x27;</span> | <span class="hljs-built_in">tr</span> -d <span class="hljs-string">&#x27;[]&#x27;</span>)<br>    addr=$(<span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;<span class="hljs-variable">$line</span>&quot;</span> | grep -oP <span class="hljs-string">&#x27;ffff[0-9a-f]+&#x27;</span>)<br>    <span class="hljs-keyword">if</span> ! grep -q <span class="hljs-string">&quot;<span class="hljs-variable">$addr</span>&quot;</span> used_addr.txt; <span class="hljs-keyword">then</span><br>        <span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;CPU <span class="hljs-variable">$cpu</span>: <span class="hljs-variable">$addr</span>&quot;</span> &gt;&gt; unused_qnodes.txt<br>    <span class="hljs-keyword">fi</span><br><span class="hljs-keyword">done</span><br><br><span class="hljs-comment"># 3. 打印结果</span><br><span class="hljs-built_in">cat</span> unused_qnodes.txt<br></code></pre></td></tr></table></figure>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># cat unused_qnodes.txt</span><br><br>CPU 3: ffffbf657fa7e240<br>CPU 4: ffffbf657faae240<br>CPU 5: ffffbf657fade240<br>CPU 22: ffffbf657fe0e240<br>CPU 27: ffffbf657fefe240<br>CPU 31: ffffbf657ffbe240<br>CPU 37: ffffdf653fa1e240<br>CPU 44: ffffdf653fb6e240<br>CPU 48: ffffdf653fc2e240<br>CPU 60: ffffdf653fe6e240<br></code></pre></td></tr></table></figure>
+<p>没有父节点的qnode cpu编号: <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># cat unused_qnodes.txt</span><br><br>CPU 3: ffffbf657fa7e240<br>CPU 4: ffffbf657faae240<br>CPU 5: ffffbf657fade240<br>CPU 22: ffffbf657fe0e240<br>CPU 27: ffffbf657fefe240<br>CPU 31: ffffbf657ffbe240<br>CPU 37: ffffdf653fa1e240<br>CPU 44: ffffdf653fb6e240<br>CPU 48: ffffdf653fc2e240<br>CPU 60: ffffdf653fe6e240<br></code></pre></td></tr></table></figure></p>
 <p>根据cpu msc锁看到没有父节点的qnode cpu编号大致分类两类，bt -c <cpuid>
 栈正常的如下，正常的栈内容基本一样： - <code>bt -c 3</code> -
 <code>bt -c 4</code> - <code>bt -c 22</code> - <code>bt -c 27</code> -
@@ -808,7 +999,7 @@ Period）的序列号，即系统推进到的最新RCU同步序号。</p>
 <h5
 id="find_duplicate_next_cpu_fixed.sh">find_duplicate_next_cpu_fixed.sh</h5>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-meta">#!/bin/bash</span><br><span class="hljs-comment"># 文件名：find_duplicate_next_cpu_fixed.sh</span><br><br><span class="hljs-comment"># 1. 找出被多个节点指向的 next 地址（去掉0x前缀）</span><br>grep -oP <span class="hljs-string">&#x27;next = 0x[0-9a-f]+&#x27;</span> p_qndoes.log | grep -v <span class="hljs-string">&#x27;next = 0x0&#x27;</span> | awk <span class="hljs-string">&#x27;&#123;print $3&#125;&#x27;</span> | sed <span class="hljs-string">&#x27;s/^0x//&#x27;</span> | <span class="hljs-built_in">sort</span> | <span class="hljs-built_in">uniq</span> -c | awk <span class="hljs-string">&#x27;$1 &gt; 1 &#123;print $2&#125;&#x27;</span> &gt; dup_next.txt<br><br><span class="hljs-comment"># 2. 建立地址到CPU编号的映射表</span><br>awk <span class="hljs-string">&#x27;/\[[0-9]+\]: ffff/ &#123;</span><br><span class="hljs-string">    match($0, /\[([0-9]+)\]: (ffff[0-9a-f]+)/, arr);</span><br><span class="hljs-string">    if (arr[1] &amp;&amp; arr[2]) print arr[2] &quot; &quot; arr[1];</span><br><span class="hljs-string">&#125;&#x27;</span> qnodes.log &gt; addr2cpu.txt<br><br><span class="hljs-comment"># 3. 查找每个重复next对应的CPU编号</span><br><span class="hljs-keyword">while</span> <span class="hljs-built_in">read</span> addr; <span class="hljs-keyword">do</span><br>    cpu=$(grep -i <span class="hljs-string">&quot;^<span class="hljs-variable">$addr</span> &quot;</span> addr2cpu.txt | awk <span class="hljs-string">&#x27;&#123;print $2&#125;&#x27;</span>)<br>    <span class="hljs-keyword">if</span> [ -n <span class="hljs-string">&quot;<span class="hljs-variable">$cpu</span>&quot;</span> ]; <span class="hljs-keyword">then</span><br>        <span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;<span class="hljs-variable">$addr</span> 对应的CPU编号: <span class="hljs-variable">$cpu</span>&quot;</span> &gt;&gt; dup_next_cpu.txt<br>    <span class="hljs-keyword">else</span><br>        <span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;<span class="hljs-variable">$addr</span> 未找到对应CPU&quot;</span><br>    <span class="hljs-keyword">fi</span><br><span class="hljs-keyword">done</span> &lt; dup_next.txt<br></code></pre></td></tr></table></figure>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># cat dup_next_cpu.txt</span><br><br>ffffbf657fe3e240 对应的CPU编号: 23<br>ffffbf657ff5e240 对应的CPU编号: 29<br>ffffdf653fa7e240 对应的CPU编号: 39<br>ffffdf653fb3e240 对应的CPU编号: 43<br>ffffdf653fece240 对应的CPU编号: 62<br></code></pre></td></tr></table></figure>
+<p>多个qnode指向同一个next的cpu： <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># cat dup_next_cpu.txt</span><br><br>ffffbf657fe3e240 对应的CPU编号: 23<br>ffffbf657ff5e240 对应的CPU编号: 29<br>ffffdf653fa7e240 对应的CPU编号: 39<br>ffffdf653fb3e240 对应的CPU编号: 43<br>ffffdf653fece240 对应的CPU编号: 62<br></code></pre></td></tr></table></figure></p>
 <p>观察一下cpu mcs:</p>
 <p>cpu mcs：5 2 9 13 11 6 7 12 23 null</p>
 <p>cpu mcs：48 21 23 null</p>
@@ -824,6 +1015,11 @@ id="find_duplicate_next_cpu_fixed.sh">find_duplicate_next_cpu_fixed.sh</h5>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; irq -s -c 2 | awk <span class="hljs-string">&#x27;$2 != 0&#x27;</span><br>           CPU2<br>  4:       6420    GICv3 arch_timer<br>145:         75  ITS-MSI megasas0-msix10<br>219:        102  ITS-MSI megasas5-msix10<br>283:          3  ITS-MSI ens1-1<br>348:          1  ITS-MSI eth1-1<br>444:          3  ITS-MSI ens0-33<br>508:          1  ITS-MSI eth3-33<br>733:          1  ITS-MSI hclge-misc-0000:7d:00.2<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; irq -s -c 0 | awk <span class="hljs-string">&#x27;$2 != 0&#x27;</span><br>           CPU0<br>  4:      13484    GICv3 arch_timer<br> 15:          7    GICv3 ttyS0<br> 75:         33    GICv3 ehci_hcd:usb1,ehci_hcd:usb2,ohci_hcd:usb3,ohci_hcd:usb4<br> 76:        921  ITS-MSI hibmc<br> 77:         76  ITS-MSI xhci_hcd<br>143:         41  ITS-MSI megasas0-msix8<br>281:          4  ITS-MSI ens1--1<br>344:       5084  ITS-MSI mlx5_async63@pci:0000:01:00.0<br>346:          1  ITS-MSI eth1--1<br>409:       2908  ITS-MSI mlx5_async63@pci:0000:01:00.1<br>442:          3  ITS-MSI ens0-31<br>473:       5100  ITS-MSI mlx5_async63@pci:0000:82:00.0<br>506:          1  ITS-MSI eth3-31<br>537:       2908  ITS-MSI mlx5_async63@pci:0000:82:00.1<br>538:          1  ITS-MSI hclge-misc-0000:7d:00.0<br></code></pre></td></tr></table></figure>
 <h2 id="问题结果">问题结果</h2>
+<p>疑点：时钟中断上报有问题或某段代码中长时间关中断，导致rcu_sched无法被调度，rcu回调函数无法被执行。</p>
+<p>同一批鲲鹏920机器，都是装的4.19
+62内核，只有一台机器开机后放着不动出现了这个问题。</p>
+<p>硬件侧排查时钟中断未上报问题。</p>
+<p>内核测观察是否有长时间关中断的代码。</p>
 
                 
               </div>
