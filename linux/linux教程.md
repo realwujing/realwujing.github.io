@@ -1504,11 +1504,147 @@ sed -n '1119,1224'p kern.log > pm.log
 - [Linux下tar命令解压到指定的目录](https://blog.csdn.net/libing_zeng/article/details/73268032)
 - [想学Linux中的打包和压缩？看这一篇就够了](https://www.toutiao.com/article/7172630331697218059)
 
+---
+
+### 常用压缩/解压命令（简洁版）
+
+#### `.tar.xz` 文件（高压缩率，较慢）
+
+- **压缩**：
+
+  ```bash
+  tar -cJvf file.tar.xz file_or_dir
+  ```
+
+* **解压**：
+
+  ```bash
+  tar -xJvf file.tar.xz
+  ```
+
+---
+
+#### `.tar.gz` 文件（压缩率与速度平衡）
+
+- **压缩**：
+
+  ```bash
+  tar -czvf file.tar.gz file_or_dir
+  ```
+
+* **解压**：
+
+  ```bash
+  tar -xzvf file.tar.gz
+  ```
+
+---
+
+#### `.zip` 文件（跨平台兼容）
+
+- **压缩**：
+
+  ```bash
+  zip -r file.zip file_or_dir
+  ```
+
+* **解压**：
+
+  ```bash
+  unzip file.zip
+  ```
+
+---
+
+### 总结对照表
+
+| 格式        | 压缩命令                          | 解压命令                    |
+| --------- | ----------------------------- | ----------------------- |
+| `.tar.xz` | `tar -cJvf file.tar.xz file/` | `tar -xJvf file.tar.xz` |
+| `.tar.gz` | `tar -czvf file.tar.gz file/` | `tar -xzvf file.tar.gz` |
+| `.zip`    | `zip -r file.zip file/`       | `unzip file.zip`        |
+
+> ✅ `-v`（verbose）参数可选，用于显示详细进度信息。
+> ✅ 解压 `.tar.xz` / `.tar.gz` 时，`-J` / `-z` 可省略，`tar` 通常会自动检测格式。
+
+如需进一步精简去掉 `-v`，可以用如下形式：
+
+- `.tar.xz`：`tar -cJf` / `tar -xJf`
+- `.tar.gz`：`tar -czf` / `tar -xzf`
+- `.zip`：`zip -r` / `unzip`
+
 ### 分卷压缩
 
 - [linux下分卷压缩，合并解压的3种方法](http://blog.51yip.com/linux/988.html)
 - [linux使用tar打包压缩和分卷压缩](https://blog.csdn.net/sumengnan/article/details/107806838)
 - [Linux新手入门系列：Linux分卷压缩与分卷解压缩](https://zhuanlan.zhihu.com/p/397071336)
+
+以下是三种格式的**分卷压缩和解压命令（简洁版）**，适合大文件分割打包：
+
+---
+
+### `.tar.gz` / `.tar.xz` 分卷压缩
+
+tar 本身不支持分卷，但可结合 `split` 命令实现：
+
+#### 压缩并分卷
+
+```bash
+tar -czf - dir/ | split -b 100M - file.tar.gz.part_
+```
+
+或：
+
+```bash
+tar -cJf - dir/ | split -b 100M - file.tar.xz.part_
+```
+
+> `-b 100M` 指每卷大小，`file.tar.gz.part_aa`、`file.tar.gz.part_ab`... 是输出文件名。
+
+#### 合并并解压
+
+```bash
+cat file.tar.gz.part_* | tar -xzf -
+```
+
+或：
+
+```bash
+cat file.tar.xz.part_* | tar -xJf -
+```
+
+---
+
+### `.zip` 分卷压缩（zip 本身支持）
+
+#### 压缩并分卷
+
+```bash
+zip -r -s 100m file.zip dir/
+```
+
+> 生成 `file.z01`、`file.z02`… 和主文件 `file.zip`
+
+#### 解压
+
+```bash
+unzip file.zip
+```
+
+---
+
+### 总结对照表
+
+| 格式        | 分卷压缩命令                                                 | 解压命令                                   |
+| --------- | ------------------------------------------------------ | -------------------------------------- |
+| `.tar.gz` | `tar -czf - dir/ \| split -b 100M - file.tar.gz.part_` | `cat file.tar.gz.part_* \| tar -xzf -` |
+| `.tar.xz` | `tar -cJf - dir/ \| split -b 100M - file.tar.xz.part_` | `cat file.tar.xz.part_* \| tar -xJf -` |
+| `.zip`    | `zip -r -s 100m file.zip dir/`                         | `unzip file.zip`                       |
+
+---
+
+> ✅ 分卷文件一定不能重命名。
+> ✅ `.zip` 分卷压缩无需 `cat` 合并，直接 `unzip` 主 `.zip` 文件即可。
 
 ## 远程命令
 

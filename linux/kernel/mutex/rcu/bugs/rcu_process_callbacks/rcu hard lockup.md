@@ -764,32 +764,32 @@ SIZE: 640
 1586 [887136.231966] NMI backtrace for cpu 5
 1587 [887136.235591] CPU: 5 PID: 0 Comm: swapper/5 Kdump: loaded Tainted: G           OE     4.19.90-2102.2.0.0062.ctl2.aarch64 #1
 1588 [887136.246811] Hardware name: RCSIT TG225 B1/BC82AMDQ, BIOS 5.25 09/14/2022
-1589 [887136.253702] Call trace:
-1590 [887136.256267]  dump_backtrace+0x0/0x198
-1591 [887136.260066]  show_stack+0x24/0x30
-1592 [887136.263516]  dump_stack+0xa4/0xe8
-1593 [887136.266963]  nmi_cpu_backtrace+0xf4/0xf8
-1594 [887136.271026]  nmi_trigger_cpumask_backtrace+0x170/0x1c0
-1595 [887136.276328]  arch_trigger_cpumask_backtrace+0x30/0xd8
-1596 [887136.281543]  rcu_dump_cpu_stacks+0xf4/0x134
-1597 [887136.285872]  print_cpu_stall+0x16c/0x228
-1598 [887136.289937]  rcu_check_callbacks+0x590/0x7a8
-1599 [887136.297318]  update_process_times+0x34/0x60
-1600 [887136.304678]  tick_sched_handle.isra.4+0x34/0x70
-1601 [887136.312346]  tick_sched_timer+0x50/0xa0
-1602 [887136.319222]  __hrtimer_run_queues+0x114/0x368
-1603 [887136.326551]  hrtimer_interrupt+0xf8/0x2d0
-1604 [887136.333458]  arch_timer_handler_phys+0x38/0x58
-1605 [887136.340774]  handle_percpu_devid_irq+0x90/0x248
-1606 [887136.348161]  generic_handle_irq+0x3c/0x58
-1607 [887136.354969]  __handle_domain_irq+0x68/0xc0
-1608 [887136.361812]  gic_handle_irq+0x6c/0x170
-1609 [887136.368233]  el1_irq+0xb8/0x140
-1610 [887136.373961]  arch_cpu_idle+0x38/0x1d0
-1611 [887136.380163]  default_idle_call+0x24/0x58
-1612 [887136.386580]  do_idle+0x1d4/0x2b0
-1613 [887136.392193]  cpu_startup_entry+0x28/0x78
-1614 [887136.398475]  secondary_start_kernel+0x17c/0x1c8
+1589 [887136.253702] Call trace:  # 调用栈跟踪
+1590 [887136.256267]  dump_backtrace+0x0/0x198  # 打印当前CPU的回溯信息
+1591 [887136.260066]  show_stack+0x24/0x30  # 显示内核堆栈
+1592 [887136.263516]  dump_stack+0xa4/0xe8  # 打印完整堆栈信息
+1593 [887136.266963]  nmi_cpu_backtrace+0xf4/0xf8  # NMI下打印CPU回溯
+1594 [887136.271026]  nmi_trigger_cpumask_backtrace+0x170/0x1c0  # 触发指定CPU集合的NMI回溯
+1595 [887136.276328]  arch_trigger_cpumask_backtrace+0x30/0xd8  # 架构相关的NMI回溯触发
+1596 [887136.281543]  rcu_dump_cpu_stacks+0xf4/0x134  # RCU打印所有stall CPU的堆栈
+1597 [887136.285872]  print_cpu_stall+0x16c/0x228  # 打印CPU卡死（stall）信息
+1598 [887136.289937]  rcu_check_callbacks+0x590/0x7a8  # 检查RCU回调，检测stall
+1599 [887136.297318]  update_process_times+0x34/0x60  # 更新进程时间（时钟中断处理）
+1600 [887136.304678]  tick_sched_handle.isra.4+0x34/0x70  # 定时器调度处理
+1601 [887136.312346]  tick_sched_timer+0x50/0xa0  # 定时器中断处理主函数
+1602 [887136.319222]  __hrtimer_run_queues+0x114/0x368  # 高精度定时器队列处理
+1603 [887136.326551]  hrtimer_interrupt+0xf8/0x2d0  # 高精度定时器中断入口
+1604 [887136.333458]  arch_timer_handler_phys+0x38/0x58  # 架构相关物理定时器中断处理
+1605 [887136.340774]  handle_percpu_devid_irq+0x90/0x248  # 处理per-cpu设备中断
+1606 [887136.348161]  generic_handle_irq+0x3c/0x58  # 通用中断处理
+1607 [887136.354969]  __handle_domain_irq+0x68/0xc0  # 处理中断域
+1608 [887136.361812]  gic_handle_irq+0x6c/0x170  # ARM GIC中断控制器处理
+1609 [887136.368233]  el1_irq+0xb8/0x140  # EL1异常级别的IRQ入口
+1610 [887136.373961]  arch_cpu_idle+0x38/0x1d0  # 架构相关CPU空闲处理
+1611 [887136.380163]  default_idle_call+0x24/0x58  # 默认CPU空闲调用
+1612 [887136.386580]  do_idle+0x1d4/0x2b0  # CPU空闲主循环
+1613 [887136.392193]  cpu_startup_entry+0x28/0x78  # CPU启动入口
+1614 [887136.398475]  secondary_start_kernel+0x17c/0x1c8  # 次级CPU启动内核
 ```
 
 ```c
