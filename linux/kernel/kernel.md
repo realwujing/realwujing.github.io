@@ -1899,6 +1899,6 @@ void recursive_function() {
 #### **Q: 分段错误（Segmentation Fault）属于哪一类？**  
 **A**: 多数情况下是 **Fault**（如访问非法地址时可被 `SIGSEGV` 捕获），但若内核无法处理（如页表损坏），可能升级为 **Abort**。
 
-## 其它
+### 其它
 
 - [用户态和内核态的切换耗费时间的原因](https://blog.csdn.net/weixin_43871678/article/details/106723029)
