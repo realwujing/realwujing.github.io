@@ -560,6 +560,62 @@ v5.10.10
 
 - [.gitignore 在已忽略文件夹中不忽略指定文件、文件夹... | Laravel China 社区 (learnku.com)](https://learnku.com/articles/18380)
 
+### .gitignore_global
+
+可以使用如下命令将这些常见的 `ctags` / `cscope` / `global` 索引文件添加到 `~/.gitignore_global` 中：
+
+```bash
+cat >> ~/.gitignore_global <<EOF
+GPATH
+GRTAGS
+GTAGS
+cscope.in.out
+cscope.out
+cscope.po.out
+EOF
+```
+
+---
+
+### ✅ 完整流程（适合首次设置）
+
+```bash
+# 创建全局忽略文件（如果还没有）
+touch ~/.gitignore_global
+
+# 添加常见索引文件
+cat >> ~/.gitignore_global <<EOF
+GPATH
+GRTAGS
+GTAGS
+cscope.in.out
+cscope.out
+cscope.po.out
+EOF
+
+# 设置 Git 使用该文件作为全局忽略规则
+git config --global core.excludesFile ~/.gitignore_global
+```
+
+---
+
+### ✅ 验证是否生效
+
+```bash
+git config --global core.excludesFile
+cat ~/.gitignore_global
+```
+
+然后在你的任意 Git 仓库里运行：
+
+```bash
+git status
+```
+
+确认 `cscope.out`、`GTAGS` 等文件不再显示为“未跟踪文件”。
+
+---
+
 ## .gitkeep
 
 - [git提交空文件夹_fengchao2016的博客-CSDN博客_git空文件夹不能提交](https://blog.csdn.net/fengchao2016/article/details/52769151)
