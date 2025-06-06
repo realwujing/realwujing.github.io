@@ -376,6 +376,8 @@ sudo apt install nfs-kernel-server
 id
 sudo su
 echo "/home/wujing/code 192.168.2.0/24(rw,sync,all_squash,anonuid=1000,anongid=1000,no_subtree_check)" >> /etc/exports # 创建共享目录
+# 较上方配置降低了安全性，避免客户端报错无权限
+echo "/root/code 192.168.122.0/24(rw,sync,no_subtree_check,no_root_squash)" >> /etc/exports"
 exportfs -arv # 更新exports配置
 showmount -e # 查看NFS共享情况
 ```
@@ -396,6 +398,17 @@ sudo mount -t nfs 192.168.2.128:/home/wujing/code /home/wujing/code # 临时挂�
 ```
 
 上述输出仅为warning，请忽略。
+
+持久化挂载，写入到虚拟机的 `/etc/fstab` 文件中：
+
+```bash
+# nfs
+192.168.2.128:/home/wujing/code      /home/wujing/code      nfs defaults,_netdev 0 0
+```
+
+```bash
+sudo mount -a # 挂载 /etc/fstab 中的所有文件系统
+```
 
 - [挂载NFS网络文件系统教程](https://www.cnblogs.com/lizhuming/p/13946107.html)
 - [NFS原理详解](https://blog.51cto.com/atong/1343950)
