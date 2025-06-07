@@ -468,6 +468,18 @@ echo 'module phytium_dc_drm +p; module snd_soc_phytium_i2s +p; module snd_soc_pm
 - [如何手动安装(并配置)GRUB？](https://www.zhihu.com/question/610484788?utm_id=0)
 - [Linux中使用grub2-install重新生成引导程序](https://mp.weixin.qq.com/s/aP27bamroQeb27VZtMLJ9w)
 
+#### /etc/defualt/grub
+
+/etc/default/grub示例配置:
+```bash
+GRUB_DEFAULT=saved
+GRUB_SAVEDEFAULT=true
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR=`lsb_release -i -s 2> /dev/null || echo Debian`
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
+GRUB_CMDLINE_LINUX=""
+```
+
 ##### 开机进入GRUB修复
 
 - 使用`ls`命令列出分区：`(hd0),(hd1),(hd1,gpt3),(hd1,gpt2),(hd1,gpt1)`。
