@@ -55,7 +55,7 @@ wget https://download.qemu.org/qemu-2.8.1.tar.xz
 tar -xvJf qemu-2.8.1.tar.xz
 ```
 
-解压后的源码上传到了<https://github.com/realwujing/qemu-2.8.1.git>做备份，后面可以直接git clone:
+解压后的源码上传到了<https://github.com/realwujing/qemu-2.8.1.git>做备份，这个版本新增了debian目录，可以打成deb包，后面可以直接git clone:
 ```bash
 git clone https://github.com/realwujing/qemu-2.8.1.git
 ```
@@ -98,6 +98,10 @@ make
 | `--enable-debug-info`          | 显式要求生成调试符号（较新版本默认启用）                       |
 | `--disable-strip`              | 不剥离调试符号（默认有些包可能会 `strip`，加这个保证保留 `.debug`） |
 
+开启16线程并行编译，保留调试符号，避免剥离:
+```bash
+time DEB_BUILD_OPTIONS="parallel=16 nostrip" debian/rules binary-arch 2> make_error.log
+```
 
 ## 开始调试
 
