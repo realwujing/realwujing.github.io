@@ -55,17 +55,49 @@ wget https://download.qemu.org/qemu-2.8.1.tar.xz
 tar -xvJf qemu-2.8.1.tar.xz
 ```
 
+解压后的源码上传到了<https://github.com/realwujing/qemu-2.8.1.git>做备份，后面可以直接git clone:
+```bash
+git clone https://github.com/realwujing/qemu-2.8.1.git
+```
+
 ## 编译调试
 
 ```bash
 mkdir build
 cd build
 sudo apt install libglib2.0-dev libpixman-1-dev libfdt-dev
-export CFLAGS="-g -O0"
-export LDFLAGS="-g -O0"
-../configure
+
+# 编译debug版本,开启调试符号
+#export CFLAGS="-g -O0"
+#export LDFLAGS="-g -O0"
+#../configure
+
+# 也可通过--enable-debug开启调试符号
+# 通过--enable-kvm开启kvm支持
+../configure --enable-debug
+
+# 编译调试推荐编译选项
+../configure \
+  --target-list=x86_64-softmmu \
+  --enable-debug \
+  --enable-kvm \
+  --enable-trace-backends=log \
+  --enable-debug-info \
+  --disable-strip
+
 make
 ```
+
+各选项说明:
+| 选项                             | 含义                                         |
+| ------------------------------ | ------------------------------------------ |
+| `--target-list=x86_64-softmmu` | 只构建你要调试的目标架构，节省时间（可换为 `arm-softmmu` 等）     |
+| `--enable-debug`               | 启用调试模式，相当于 `CFLAGS=-O0 -g`，保留日志、DPRINTF    |
+| `--enable-kvm`                 | 编译支持 KVM，加速虚拟化调试                           |
+| `--enable-trace-backends=log`  | 启用 tracing 日志后端（支持 `trace-events` 调试）      |
+| `--enable-debug-info`          | 显式要求生成调试符号（较新版本默认启用）                       |
+| `--disable-strip`              | 不剥离调试符号（默认有些包可能会 `strip`，加这个保证保留 `.debug`） |
+
 
 ## 开始调试
 
