@@ -98,6 +98,10 @@ make
 | `--enable-debug-info`          | 显式要求生成调试符号（较新版本默认启用）                       |
 | `--disable-strip`              | 不剥离调试符号（默认有些包可能会 `strip`，加这个保证保留 `.debug`） |
 
+开启16线程并行编译，保留调试符号，避免剥离:
+```bash
+time DEB_BUILD_OPTIONS="parallel=16 nostrip" debian/rules binary-arch 2> make_error.log
+```
 
 ## 开始调试
 
