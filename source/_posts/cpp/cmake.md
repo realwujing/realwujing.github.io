@@ -1,6 +1,6 @@
 ---
-date: 2023/02/01 13:37:53
-updated: 2023/04/21 17:26:02
+date: 2023/04/21 15:49:27
+updated: 2024/02/02 17:38:22
 ---
 
 # CMake
@@ -107,3 +107,7 @@ make -j12 VERBOSE=1 CXX_FLAGS="$CXX_FLAGS -g -O3 -fPIC"
 
 - [cmake(12)：使用cpack生成DEB二进制文件](https://blog.csdn.net/rangfei/article/details/122817575)
 - [将工程使用CPack工具打包成为一个deb包](https://www.cnblogs.com/mxnote/articles/16816354.html)
+
+## checkinstall
+
+- [checkinstall 跟踪安装脚本创建或修改的所有文件，构建标准二进制包（.deb、.rpm、.tgz）并将其安装在系统中，使您能够使用发行版的标准包管理实用程序卸载它。](https://wiki.debian.org/CheckInstall)
