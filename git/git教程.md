@@ -722,6 +722,12 @@ b001adea66f0e0a7803adfbf9128a2d7969daa4e        refs/tags/v4.4.161^{}
 
 - [.gitignore 在已忽略文件夹中不忽略指定文件、文件夹... | Laravel China 社区 (learnku.com)](https://learnku.com/articles/18380)
 
+查看哪些文件被忽略：
+
+```bash
+ git status --ignored
+```
+
 ### .gitignore_global
 
 可以使用如下命令将这些常见的 `ctags` / `cscope` / `global` 索引文件添加到 `~/.gitignore_global` 中：
