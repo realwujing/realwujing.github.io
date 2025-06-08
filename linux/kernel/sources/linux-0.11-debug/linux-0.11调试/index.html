@@ -23,12 +23,12 @@
 <meta property="og:site_name" content="WuJing&#39;s Blog">
 <meta property="og:description" content="linux-0.11调试 本文档介绍如何在debian9上调试Linux 0.11内核。 os 环境 1wget https:&#x2F;&#x2F;get.debian.org&#x2F;images&#x2F;archive&#x2F;9.13.0&#x2F;amd64&#x2F;iso-dvd&#x2F;debian-9.13.0-amd64-DVD-1.iso 123uname -aLinux debian 4.9.0-13-amd64 #1 SMP Debian 4">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2025-06-09T01:03:41.000Z">
-<meta property="article:modified_time" content="2025-06-09T01:03:41.000Z">
+<meta property="article:published_time" content="2025-06-09T01:16:31.000Z">
+<meta property="article:modified_time" content="2025-06-09T01:16:31.000Z">
 <meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="git">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="qemu">
-<meta property="article:tag" content="git">
 <meta property="article:tag" content="assembly">
 <meta property="article:tag" content="linux">
 <meta property="article:tag" content="architect">
@@ -267,7 +267,7 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2025-06-09 01:03" pubdate>
+        <time datetime="2025-06-09 01:16" pubdate>
           2025年6月9日 凌晨
         </time>
       </span>
@@ -290,7 +290,7 @@
         
         
         
-          86 分钟
+          88 分钟
         
       </span>
     
@@ -357,19 +357,30 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">gdb tools/system<br></code></pre></td></tr></table></figure>
 <h3 id="位实模式">16 位实模式</h3>
 <p>调试引导阶段（16位实模式）。</p>
-<p>在gdb中输入以下命令：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs gdb">set architecture i8086 # 设置为 8086 架构，才能正确反汇编 16 位实模式代码<br>target remote localhost:1234 # 连接到qemu模拟器<br>set disassembly-flavor att # 设置反汇编风格为 AT&amp;T<br>set disassembly-flavor intel # 设置反汇编风格为 Intel<br>break *0x7C00<br>continue<br></code></pre></td></tr></table></figure>
+<p>检查当前 GDB 架构设置​:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs gdb">(gdb) show architecture<br>The target architecture is set automatically (currently i386)<br></code></pre></td></tr></table></figure>
 <ul>
-<li><p>set architecture i8086 是 GDB（GNU 调试器）中的一个命令，用于
+<li>i8086 → 调试器按 16 位实模式解析</li>
+<li>i386 → 调试器按 32 位保护模式解析</li>
+</ul>
+<p>当前gdb中架构位32位模式，但是调试引导阶段需要是16位实模式。</p>
+<p>在gdb中输入以下命令进入16位实模式：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs gdb">(gdb) set architecture i8086 # 设置为 8086 架构，才能正确反汇编 16 位实模式代码<br></code></pre></td></tr></table></figure>
+<ul>
+<li>set architecture i8086 是 GDB（GNU 调试器）中的一个命令，用于
 ​​设置当前调试目标的 CPU 架构为 Intel 8086​​。这个命令在调试 ​​实模式（Real
-Mode）​​ 程序（如 BIOS 引导扇区、MBR
-或早期操作系统内核）时特别有用。</p></li>
-<li><p>set disassembly-flavor intel 和 set disassembly-flavor att 是 GDB
+Mode）​​ 程序（如 BIOS 引导扇区、MBR 或早期操作系统内核）时特别有用。</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs gdb">(gdb) target remote localhost:1234 # 连接到qemu模拟器<br>(gdb) break *0x7C00<br>(gdb) continue<br></code></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs gdb">(gdb) info registers<br>eax            0xaa55   43605<br>ecx            0x0      0<br>edx            0x0      0<br>ebx            0x0      0<br>esp            0x6f04   0x6f04 &lt;interruptible_sleep_on+82&gt;<br>ebp            0x0      0x0 &lt;startup_32&gt;<br>esi            0x0      0<br>edi            0x0      0<br>eip            0x7c00   0x7c00 &lt;do_segment_not_present+10&gt;<br>eflags         0x202    [ IF ]<br>cs             0x0      0<br>ss             0x0      0<br>ds             0x0      0<br>es             0x0      0<br>fs             0x0      0<br>gs             0x0      0<br></code></pre></td></tr></table></figure>
+<h4 id="汇编风格">汇编风格</h4>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs gdb">(gdb) set disassembly-flavor att # 设置反汇编风格为 AT&amp;T<br>(gdb) set disassembly-flavor intel # 设置反汇编风格为 Intel<br></code></pre></td></tr></table></figure>
+<ul>
+<li>set disassembly-flavor intel 和 set disassembly-flavor att 是 GDB
 中的命令，用于设置反汇编输出的语法风格。Intel 和 AT&amp;T
 是两种不同的汇编语言语法风格，分别由 Intel 和 AT&amp;T
-公司定义。选择其中一种风格可以使反汇编代码更易于阅读和理解。</p></li>
+公司定义。选择其中一种风格可以使反汇编代码更易于阅读和理解。</li>
 </ul>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs gdb">(gdb) info registers<br>eax            0xaa55   43605<br>ecx            0x0      0<br>edx            0x0      0<br>ebx            0x0      0<br>esp            0x6f04   0x6f04 &lt;interruptible_sleep_on+82&gt;<br>ebp            0x0      0x0 &lt;startup_32&gt;<br>esi            0x0      0<br>edi            0x0      0<br>eip            0x7c00   0x7c00 &lt;do_segment_not_present+10&gt;<br>eflags         0x202    [ IF ]<br>cs             0x0      0<br>ss             0x0      0<br>ds             0x0      0<br>es             0x0      0<br>fs             0x0      0<br>gs             0x0      0<br></code></pre></td></tr></table></figure>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><code class="hljs gdb">(gdb) set disassembly-flavor att<br>(gdb) x/16i 0x7c00<br>=&gt; 0x7c00 &lt;do_segment_not_present+10&gt;:  ljmp   $0x7c0,$0x5<br>   0x7c05 &lt;do_segment_not_present+15&gt;:  mov    $0x7c0,%ax<br>   0x7c08 &lt;do_segment_not_present+18&gt;:  mov    %ax,%ds<br>   0x7c0a &lt;do_segment_not_present+20&gt;:  mov    $0x9000,%ax<br>   0x7c0d &lt;do_segment_not_present+23&gt;:  mov    %ax,%es<br>   0x7c0f &lt;do_segment_not_present+25&gt;:  mov    $0x100,%cx<br>   0x7c12 &lt;do_segment_not_present+28&gt;:  sub    %si,%si<br>   0x7c14 &lt;do_segment_not_present+30&gt;:  sub    %di,%di<br>   0x7c16 &lt;do_stack_segment&gt;:   rep movsw %ds:(%si),%es:(%di)<br>   0x7c18 &lt;do_stack_segment+2&gt;: ljmp   $0x9000,$0x1d<br>   0x7c1d &lt;do_stack_segment+7&gt;: mov    %cs,%ax<br>   0x7c1f &lt;do_stack_segment+9&gt;: mov    %ax,%ds<br>   0x7c21 &lt;do_stack_segment+11&gt;:        mov    %ax,%es<br>   0x7c23 &lt;do_stack_segment+13&gt;:        mov    %ax,%ss<br>   0x7c25 &lt;do_stack_segment+15&gt;:        mov    $0xff00,%sp<br>   0x7c28 &lt;do_stack_segment+18&gt;:        mov    $0x0,%dx<br>(gdb) set disassembly-flavor intel<br>(gdb) x/16i 0x7c00<br>=&gt; 0x7c00 &lt;do_segment_not_present+10&gt;:  jmp    0x7c0:0x5<br>   0x7c05 &lt;do_segment_not_present+15&gt;:  mov    ax,0x7c0<br>   0x7c08 &lt;do_segment_not_present+18&gt;:  mov    ds,ax<br>   0x7c0a &lt;do_segment_not_present+20&gt;:  mov    ax,0x9000<br>   0x7c0d &lt;do_segment_not_present+23&gt;:  mov    es,ax<br>   0x7c0f &lt;do_segment_not_present+25&gt;:  mov    cx,0x100<br>   0x7c12 &lt;do_segment_not_present+28&gt;:  sub    si,si<br>   0x7c14 &lt;do_segment_not_present+30&gt;:  sub    di,di<br>   0x7c16 &lt;do_stack_segment&gt;:   rep movs WORD PTR es:[di],WORD PTR ds:[si]<br>   0x7c18 &lt;do_stack_segment+2&gt;: jmp    0x9000:0x1d<br>   0x7c1d &lt;do_stack_segment+7&gt;: mov    ax,cs<br>   0x7c1f &lt;do_stack_segment+9&gt;: mov    ds,ax<br>   0x7c21 &lt;do_stack_segment+11&gt;:        mov    es,ax<br>   0x7c23 &lt;do_stack_segment+13&gt;:        mov    ss,ax<br>   0x7c25 &lt;do_stack_segment+15&gt;:        mov    sp,0xff00<br>   0x7c28 &lt;do_stack_segment+18&gt;:        mov    dx,0x0<br></code></pre></td></tr></table></figure>
 <p>以下是添加了详细中文注释的汇编代码，按两种语法格式（AT&amp;T 和
 Intel）分别标注关键操作的作用：</p>
@@ -493,11 +504,11 @@ id="临时解决方案清除错误符号关联">临时解决方案(清除错误�
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
+        <a href="/tags/git/">#git</a>
+      
         <a href="/tags/Linux/">#Linux</a>
       
         <a href="/tags/qemu/">#qemu</a>
-      
-        <a href="/tags/git/">#git</a>
       
         <a href="/tags/assembly/">#assembly</a>
       
@@ -564,8 +575,8 @@ id="临时解决方案清除错误符号关联">临时解决方案(清除错误�
                   <article class="post-next col-6">
                     
                     
-                      <a href="/linux/kernel/kvm/qemu/qemu%E7%BC%96%E8%AF%91%E8%B0%83%E8%AF%95/" title="qemu编译调试">
-                        <span class="hidden-mobile">qemu编译调试</span>
+                      <a href="/linux/kernel/kvm/qemu/qemu-2.8.1%E7%BC%96%E8%AF%91%E8%B0%83%E8%AF%95/" title="qemu-2">
+                        <span class="hidden-mobile">qemu-2</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
