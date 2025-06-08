@@ -484,6 +484,168 @@ v5.10.10
 
       在输出中，带有 `*` 的分支表示当前所在的分支，其他分支则表示包含指定提交的所有分支。如果输出为空，则表示没有分支包含该提交。
 
+## ls-remote
+
+| 想查看内容          | 正确命令                           | 等价于查看哪类引用                  |
+| -------------- | ------------------------------ | -------------------------- |
+| 远程所有 refs      | `git ls-remote origin`         | `refs/*`（所有引用）             |
+| 远程所有分支         | `git ls-remote --heads origin` | `refs/heads/*`（即 branches） |
+| 远程所有标签         | `git ls-remote --tags origin`  | `refs/tags/*`（即 tags）      |
+
+---
+
+### git ls-remote origin
+
+该命令从远程仓库 openeuler 获取所有引用(分支或标签)，并筛选显示名字包含 OLK-5.10 或 4.19.90-2505.5.0 的分支和标签信息。
+
+```bash
+git ls-remote openeuler | grep -E 'OLK-5.10|4.19.90-2505.5.0'
+```
+
+输出示例：
+
+```bash
+a6f78a2e772d1f32d57476a1ab4d5b98733eefbb        refs/heads/OLK-5.10
+d451decadbd4fa2c1eb6d9367411f06841cb794d        refs/remotes/origin/OLK-5.10
+fe768b6e8d1772a8938f62f0fdfdb3b9d9272c08        refs/tags/4.19.90-2505.5.0
+5ae76523ccf96ec8b8d73d541e305bf15b6b697e        refs/tags/4.19.90-2505.5.0^{}
+```
+
+遍历当前仓库的所有远程库，查找并打印包含指定分支（如 OLK-5.10）或 tag（如 4.19.90-2505.5.0）的远程引用信息，并显示该 branch 或 tag 存在哪些远程库中：
+
+```bash
+#!/bin/bash
+
+branch_tag="OLK-5.10"
+
+for r in $(git remote); do
+    matches=$(git ls-remote "$r" 2>/dev/null | grep "$branch_tag")
+    if [ -n "$matches" ]; then
+        echo "Remote: $r"
+        echo "$matches"
+        echo
+    fi
+done
+```
+
+一行式：
+
+```bash
+branch_tag="OLK-5.10"; for r in $(git remote); do matches=$(git ls-remote "$r" 2>/dev/null | grep "$branch_tag"); if [ -n "$matches" ]; then echo "Remote: $r"; echo "$matches"; echo; fi; done
+```
+
+输出示例：
+
+```bash
+Remote: openeuler
+a6f78a2e772d1f32d57476a1ab4d5b98733eefbb        refs/heads/OLK-5.10
+d451decadbd4fa2c1eb6d9367411f06841cb794d        refs/remotes/origin/OLK-5.10
+```
+
+---
+
+### git ls-remote --heads origin
+
+该命令从远程仓库 openeuler 获取所有分支，并筛选显示名字包含 OLK-5.10的分支。
+
+```bash
+git ls-remote --heads openeuler | grep 'OLK-5.10'
+```
+
+输出示例：
+
+```bash
+a6f78a2e772d1f32d57476a1ab4d5b98733eefbb        refs/heads/OLK-5.10
+```
+
+遍历当前仓库的所有远程库，查找并打印包含指定分支（如 OLK-5.10）的远程引用信息，并显示该分支存在哪些远程库中：
+
+```bash
+#!/bin/bash
+
+branch="OLK-5.10"
+
+for r in $(git remote); do
+    matches=$(git ls-remote --heads "$r" 2>/dev/null | grep "$branch")
+    if [ -n "$matches" ]; then
+        echo "Remote: $r"
+        echo "$matches"
+        echo
+    fi
+done
+```
+
+一行式：
+
+```bash
+branch="OLK-5.10"; for r in $(git remote); do matches=$(git ls-remote --heads "$r" 2>/dev/null | grep "$branch"); if [ -n "$matches" ]; then echo "Remote: $r"; echo "$matches"; echo; fi; done
+```
+
+输出示例：
+
+```bash
+Remote: openeuler
+a6f78a2e772d1f32d57476a1ab4d5b98733eefbb        refs/heads/OLK-5.10
+```
+
+---
+
+### git ls-remote --tags origin
+
+查看远程 linux-stable 仓库中是否包含 tag v4.4.161:
+
+```bash
+git ls-remote --tags linux-stable | grep v4.4.161
+```
+
+输出示例：
+
+```bash
+e121ec12de616a864a10cc45cb80bb22b2a80bd4        refs/tags/v4.4.161
+b001adea66f0e0a7803adfbf9128a2d7969daa4e        refs/tags/v4.4.161^{}
+```
+
+遍历当前仓库的所有远程库，查找并打印包含指定 tag（如 v4.4.161）的远程引用信息，并显示该 tag 存在哪些远程库中：
+
+```bash
+#!/bin/bash
+
+tag="v4.4.161"
+
+for r in $(git remote); do
+    matches=$(git ls-remote --tags "$r" 2>/dev/null | grep "$tag")
+    if [ -n "$matches" ]; then
+        echo "Remote: $r"
+        echo "$matches"
+        echo
+    fi
+done
+```
+
+一行式：
+
+```bash
+tag="v4.4.161"; for r in $(git remote); do matches=$(git ls-remote --tags "$r" 2>/dev/null | grep "$tag"); if [ -n "$matches" ]; then echo "Remote: $r"; echo "$matches"; echo; fi; done
+```
+
+输出示例：
+
+```bash
+Remote: WSL2-Linux-Kernel
+e121ec12de616a864a10cc45cb80bb22b2a80bd4        refs/tags/v4.4.161
+b001adea66f0e0a7803adfbf9128a2d7969daa4e        refs/tags/v4.4.161^{}
+
+Remote: gregkh
+e121ec12de616a864a10cc45cb80bb22b2a80bd4        refs/tags/v4.4.161
+b001adea66f0e0a7803adfbf9128a2d7969daa4e        refs/tags/v4.4.161^{}
+
+Remote: linux-stable
+e121ec12de616a864a10cc45cb80bb22b2a80bd4        refs/tags/v4.4.161
+b001adea66f0e0a7803adfbf9128a2d7969daa4e        refs/tags/v4.4.161^{}
+```
+
+---
+
 ## name-rev
 
 使用 `git name-rev` 命令可以帮助开发者更方便地识别提交在版本历史中的位置，提供一个更人性化的提交引用方式。
