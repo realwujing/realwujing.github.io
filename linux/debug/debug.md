@@ -660,6 +660,20 @@ sysctl -p
 - [Linux Kdump 机制详解](https://www.toutiao.com/article/7103352500777910821/)
 - [x86 and x86_64 - Some systems can take advantage of the nmi watchdog. Add nmi_watchdog=1 to the boot commandline to turn on the watchdog. The nmi interrupt will call panic if activated.](https://manpages.debian.org/testing/kdump-tools/kdump-tools.5.en.html)
 
+- [linux【服务】kdump配置详解](https://blog.csdn.net/xixihahalelehehe/article/details/118929257)
+
+  修改sysconfig kdump参数，禁用某些驱动:
+
+  ```bash
+  vim /etc/sysconfig/kdump
+
+  KDUMP_COMMANDLINE_APPEND="modprobe.blacklist=hisi_sas_v3_hw,hisi_sas_main"
+  ```
+
+  ```bash
+  systemctl restart kdump.service
+  ```
+
 ## carsh
 
 crash 是一个用于分析 Linux 内核转储文件（core dump）的工具，允许在不中断系统运行的情况下进行诊断。以下是 crash 的一些基本原理：
