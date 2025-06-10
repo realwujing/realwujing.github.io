@@ -861,6 +861,38 @@ netstat 查看22端口是否被占用:
 netstat  -anp  | grep   22
 ```
 
+netstat -s 通常会显示网络协议（如 TCP、UDP、IP）的统计信息，包括：
+
+- 数据包发送和接收的数量
+- 错误数（如丢包或校验错误）
+- 重传和连接状态
+
+```bash
+netstat -s | less -N
+```
+
+```bash
+     30 Tcp:
+     31     450966 active connection openings
+     32     2047 passive connection openings
+     33     17088 failed connection attempts
+     34     2423 connection resets received
+     35     16 connections established
+     36     8134759 segments received
+     37     10437736 segments sent out
+     38     3591 segments retransmitted
+     39     0 bad segments received
+     40     15896 resets sent
+     41 Udp:
+     42     306430 packets received
+     43     4 packets to unknown port received
+     44     0 packet receive errors
+     45     12051 packets sent
+     46     0 receive buffer errors
+     47     0 send buffer errors
+     48     IgnoredMulti: 5829
+```
+
 ##### lsof
 
 - [技术|Linux 命令神器：lsof 入门](https://linux.cn/article-4099-1.html)
