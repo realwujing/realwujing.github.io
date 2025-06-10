@@ -1731,6 +1731,7 @@ ps -eLf | grep -i vm-uuid | awk '{print $2}' | xargs -I {} sh -c 'echo "==== PID
 - [QEMU monitor控制台使用详解](https://blog.csdn.net/qq_43523618/article/details/106278245)
 - [如何退出 QEMU 退出快捷键：Ctrl + a，然后按 x 键。](https://zhuanlan.zhihu.com/p/518032838)
 
+- [在qemu中抓取vmcore](https://juejin.cn/post/7453754347969921060)
 导出压缩的内存快照:
 
 ```bash
@@ -1738,6 +1739,23 @@ virsh qemu-monitor-command vm-uuid --hmp "dump-guest-memory -z vmcore"
 ```
 
 导出的vmcore默认存放在根目录下。
+
+```bash
+virsh qemu-monitor-command --hmp [vm_name] "dump-guest-memory -z /custom/path/xxx.img"
+```
+
+```bash
+mkdir -p /var/lib/libvirt/crash/debian9
+chmod 777 /var/lib/libvirt/crash/debian9
+
+virsh qemu-monitor-command --hmp debian9 "dump-guest-memory -z /var/lib/libvirt/crash/debian9/vmcore"
+
+root@debian:/home/wujing/Downloads/crash/debian9# crash /usr/lib/debug/lib/modules/4.4.161/vmlinux vmcore
+
+crash 7.1.7
+
+crash: read error: kernel virtual address: ffffffff81a11df0  type: "cpu_possible_mask"
+```
 
 ### x86_64下qemu虚拟x86_64
 
