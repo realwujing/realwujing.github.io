@@ -1086,6 +1086,8 @@ Hosts/Net:      62                     # 可用主机数量（2^6 - 2 = 62）
 
 ### iptables
 
+- [<font color=Red>程序员必掌握的iptables五表五链</font>](https://mp.weixin.qq.com/s/GTAGMy2t0FIIUhq6CpFgWw)
+- [<font color=Red>iptables 备忘清单</font>](https://quickref.me/zh-CN/docs/iptables.html)
 - [Linux下 iptables 超详细教程和使用示例](https://mp.weixin.qq.com/s/_pszS9LaEJaEML8CJEUiXA)
 - [Iptables 介绍与使用](https://mp.weixin.qq.com/s/XRL1io-cGeljgU7880MB1A)
 - [防火墙和iptables](https://www.cnblogs.com/f-ck-need-u/p/7397146.html)
