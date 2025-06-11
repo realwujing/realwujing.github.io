@@ -69,7 +69,7 @@ docker run -it \
   -v /root/code/:/root/code \
   -v /root/code/rpmbuild:/root/rpmbuild \
   -v /root/Downloads:/root/Downloads \
-  ctyunos:22.06 /bin/bash
+  ctyunos2:22.06.1 /bin/bash
 ```
 
 容器ctyunos-22.06会默认进入bash，下方操作在容器ctyunos-22.06所在终端中执行。
@@ -84,17 +84,19 @@ mv ctyunos.repo ctyunos.repo.bak
 vim ctyunos.repo 并下方yum源写入：
 
 ```bash
+cat > /etc/yum.repos.d/ctyunos.repo << EOF
 [everything]
 name=ctyunos-22.06-everything
-baseurl=https://repo.ctyun.cn/hostos/ctyunos-22.06/everything/$basearch/
+baseurl=https://repo.ctyun.cn/hostos/ctyunos-22.06/everything/\$basearch/
 enabled=1
 gpgcheck=0
 
 [update]
 name=ctyunos-22.06-update
-baseurl=https://repo.ctyun.cn/hostos/ctyunos-22.06/update/$basearch/
+baseurl=https://repo.ctyun.cn/hostos/ctyunos-22.06/update/\$basearch/
 enabled=1
 gpgcheck=0
+EOF
 ```
 
 基于openeuler-4-19源码编译内核：
@@ -128,9 +130,7 @@ fi
 
 删除/root/code/rpmbuild所有子目录内容:
 ```bash
-for dir in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do
-    rm -rf /root/rpmbuild/"$dir"/*
-done
+find ~/rpmbuild/ -mindepth 2 -delete
 ```
 
 生成标准 RPM 构建目录结构:
