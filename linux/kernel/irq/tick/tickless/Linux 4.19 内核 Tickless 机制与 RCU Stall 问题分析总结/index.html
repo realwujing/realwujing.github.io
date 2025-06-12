@@ -1,0 +1,1360 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="Linux 4.19 内核 Tickless 机制与 RCU Stall 问题分析总结 问题描述 1. 内核版本及环境信息 1uname -a 结果： 1Linux gzinf-kunpeng-55e235e17e57 4.19.90-2102.2.0.0068.ctl2.aarch64 #1 SMP Tue Aug 22 10:53:53 UTC 2023 aarch64 aarch64 aar">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 4">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/irq/tick/tickless/Linux%204.19%20%E5%86%85%E6%A0%B8%20Tickless%20%E6%9C%BA%E5%88%B6%E4%B8%8E%20RCU%20Stall%20%E9%97%AE%E9%A2%98%E5%88%86%E6%9E%90%E6%80%BB%E7%BB%93/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="Linux 4.19 内核 Tickless 机制与 RCU Stall 问题分析总结 问题描述 1. 内核版本及环境信息 1uname -a 结果： 1Linux gzinf-kunpeng-55e235e17e57 4.19.90-2102.2.0.0068.ctl2.aarch64 #1 SMP Tue Aug 22 10:53:53 UTC 2023 aarch64 aarch64 aar">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-06-12T22:47:13.000Z">
+<meta property="article:modified_time" content="2025-06-12T22:47:13.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="linux">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>Linux 4 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Linux 4"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-06-12 22:47" pubdate>
+          2025年6月12日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          7.7k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          65 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">Linux 4</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="linux-4.19-内核-tickless-机制与-rcu-stall-问题分析总结">Linux
+4.19 内核 Tickless 机制与 RCU Stall 问题分析总结</h1>
+<h2 id="问题描述">问题描述</h2>
+<h3 id="内核版本及环境信息">1. 内核版本及环境信息</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">uname</span> -a<br></code></pre></td></tr></table></figure>
+<p>结果：</p>
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">Linux</span> gzinf-kunpeng-<span class="hljs-number">55</span>e235e17e57 <span class="hljs-number">4</span>.<span class="hljs-number">19</span>.<span class="hljs-number">90</span>-<span class="hljs-number">2102</span>.<span class="hljs-number">2</span>.<span class="hljs-number">0</span>.<span class="hljs-number">0068</span>.ctl2.aarch64 #<span class="hljs-number">1</span> SMP Tue Aug <span class="hljs-number">22</span> <span class="hljs-number">10</span>:<span class="hljs-number">53</span>:<span class="hljs-number">53</span> UTC <span class="hljs-number">2023</span> aarch64 aarch64 aarch64 GNU/Linux<br></code></pre></td></tr></table></figure>
+<hr />
+<h3 id="内核启动参数">2. 内核启动参数</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/cmdline<br></code></pre></td></tr></table></figure>
+<p>结果：</p>
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">BOOT_IMAGE</span>=(hd0,<span class="hljs-number">3</span>)/vmlinuz-<span class="hljs-number">4</span>.<span class="hljs-number">19</span>.<span class="hljs-number">90</span>-<span class="hljs-number">2102</span>.<span class="hljs-number">2</span>.<span class="hljs-number">0</span>.<span class="hljs-number">0068</span>.ctl2.aarch64 root=UUID=<span class="hljs-number">216</span>fa54f-<span class="hljs-number">9345</span>-<span class="hljs-number">4</span>f9a-<span class="hljs-number">8</span>fe2-dc3a44db7775 ro console=tty0 pci=realloc pciehp.pciehp_force=<span class="hljs-number">1</span> biosdevname=<span class="hljs-number">0</span> net.ifnames-<span class="hljs-number">0</span> console=ttyS0,<span class="hljs-number">115200</span>n8 crashkernel=<span class="hljs-number">1024</span>M,high smmu.bypassdev=<span class="hljs-number">0</span>x1000:<span class="hljs-number">0</span>x17 smmu.bypassdev=<span class="hljs-number">0</span>x1000:<span class="hljs-number">0</span>x15 video=efifb:<span class="hljs-literal">off</span><br></code></pre></td></tr></table></figure>
+<hr />
+<h3 id="内核配置相关">3. 内核配置相关</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">grep -E <span class="hljs-string">&quot;CONFIG_HZ|CONFIG_HIGH_RES_TIMERS|CONFIG_NO_HZ&quot;</span> /boot/config-$(<span class="hljs-built_in">uname</span> -r)<br></code></pre></td></tr></table></figure>
+<p>结果：</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs ini"><span class="hljs-comment"># CONFIG_HZ_PERIODIC is not set</span><br><span class="hljs-attr">CONFIG_HIGH_RES_TIMERS</span>=y<br><span class="hljs-comment"># CONFIG_HZ_100 is not set</span><br><span class="hljs-attr">CONFIG_HZ_250</span>=y<br><span class="hljs-comment"># CONFIG_HZ_300 is not set</span><br><span class="hljs-comment"># CONFIG_HZ_1000 is not set</span><br><span class="hljs-attr">CONFIG_HZ</span>=<span class="hljs-number">250</span><br><span class="hljs-attr">CONFIG_NO_HZ_COMMON</span>=y<br><span class="hljs-comment"># CONFIG_NO_HZ_IDLE is not set</span><br><span class="hljs-attr">CONFIG_NO_HZ_FULL</span>=y<br><span class="hljs-attr">CONFIG_NO_HZ</span>=y<br></code></pre></td></tr></table></figure>
+<hr />
+<h3 id="当前时钟源">4. 当前时钟源</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /sys/devices/system/clocksource/clocksource0/current_clocksource<br></code></pre></td></tr></table></figure>
+<p>结果：</p>
+<figure class="highlight ebnf"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs ebnf"><span class="hljs-attribute">arch_sys_counter</span><br></code></pre></td></tr></table></figure>
+<hr />
+<h3 id="cpu-tickless-状态">5. CPU Tickless 状态</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">grep <span class="hljs-string">&#x27;tick_stopped&#x27;</span> /proc/timer_list<br></code></pre></td></tr></table></figure>
+<p>部分结果（部分截取）：</p>
+<figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs jboss-cli"><span class="hljs-string">.tick_stopped</span>   : 1<br><span class="hljs-string">.tick_stopped</span>   : 1<br><span class="hljs-string">...</span><br><span class="hljs-string">.tick_stopped</span>   : 0<br><span class="hljs-string">.tick_stopped</span>   : 1<br><span class="hljs-string">...</span><br></code></pre></td></tr></table></figure>
+<p>说明有些 CPU 已进入 tickless（tick_stopped:1），部分尚未停止调度
+tick。</p>
+<ul>
+<li><p>通过 <code>CONFIG_NO_HZ</code> 及 <code>CONFIG_NO_HZ_FULL</code>
+启用，支持在 CPU 空闲时关闭周期调度
+tick，减少无用中断，提高能效。</p></li>
+<li><p><strong>CPU idle 或运行非内核态任务时，调度 tick
+会停止（tickless），只保留必要定时器。</strong></p></li>
+<li><p>必要保留的定时器主要包括：</p>
+<ul>
+<li><strong>hrtimer</strong>：用于高精度定时任务。</li>
+<li><strong>RCU 定时器</strong>：保障内核同步和回调机制。</li>
+<li><strong>watchdog 定时器</strong>：系统看门狗，防止死锁。</li>
+</ul></li>
+</ul>
+<hr />
+<h3 id="查看定时器详细状态cpu0为例">6.
+查看定时器详细状态（CPU0为例）</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/timer_list | grep -A10 <span class="hljs-string">&#x27;cpu: 0&#x27;</span><br></code></pre></td></tr></table></figure>
+<p>部分结果：</p>
+<figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">cpu</span><span class="hljs-punctuation">:</span> <span class="hljs-string">0</span><br> <span class="hljs-attribute">clock 0</span><span class="hljs-punctuation">:</span><br>  <span class="hljs-attribute">.base</span><span class="hljs-punctuation">:</span> <span class="hljs-string">      0000000059048cdc</span><br>  <span class="hljs-attribute">.index</span><span class="hljs-punctuation">:</span> <span class="hljs-string">     0</span><br>  <span class="hljs-attribute">.resolution</span><span class="hljs-punctuation">:</span> <span class="hljs-string">1 nsecs</span><br>  <span class="hljs-attribute">.get_time</span><span class="hljs-punctuation">:</span> <span class="hljs-string">  ktime_get</span><br>  <span class="hljs-attribute">.offset</span><span class="hljs-punctuation">:</span> <span class="hljs-string">    0 nsecs</span><br><span class="hljs-attribute">active timers</span><span class="hljs-punctuation">:</span><br> <span class="hljs-comment">#0: &lt;00000000410c4969&gt;, tick_sched_timer, S:01</span><br> <span class="hljs-comment"># expires at 9855148276000000-9855148276000000 nsecs [in 97383564 to 97383564 nsecs]</span><br> <span class="hljs-comment">#1: &lt;00000000e2898855&gt;, kvm_bg_timer_expire, S:01</span><br></code></pre></td></tr></table></figure>
+<p>其中 <code>tick_sched_timer</code> 是传统调度周期中断。</p>
+<hr />
+<h3 id="现象与问题">7. 现象与问题</h3>
+<ul>
+<li>CPU idle 后进入 tickless，<code>.tick_stopped</code> 为 1。</li>
+<li>但出现 RCU stall 和 rcu_sched 被饿死60秒，甚至 rcu hard
+lockup。</li>
+<li>该现象可能由深度睡眠导致时钟源暂停或失效，hrtimer
+无法触发软中断。</li>
+<li>导致 RCU 软中断得不到执行，内核同步受阻。</li>
+</ul>
+<hr />
+<h3 id="关闭-tickless-试验临时">8. 关闭 tickless 试验（临时）</h3>
+<ul>
+<li>在 grub 启动参数添加 <code>nohz=off</code></li>
+<li>运行后，<code>/proc/timer_list</code> 中 <code>.tick_stopped</code>
+应全为 0，表示调度 tick 不被停止。</li>
+<li>检查系统稳定性，若无 RCU stall，说明 tickless 相关导致问题。</li>
+</ul>
+<hr />
+<h3 id="传统时钟中断与高精度定时器hrtimer配合">9.
+传统时钟中断与高精度定时器（hrtimer）配合</h3>
+<ul>
+<li><code>sched tick</code> 以固定频率产生调度中断，驱动软中断执行
+RCU、调度等。</li>
+<li><code>hrtimer</code> 用于 tickless 模式替代传统
+tick，精准调度定时任务。</li>
+<li>两者结合，在 idle 及用户态运行时降低中断频率，节省功耗。</li>
+<li>但若硬件时钟源异常或深度睡眠影响 hrtimer，软中断无法及时触发，导致
+RCU stall。</li>
+</ul>
+<hr />
+<h4 id="关于-hrtimer-与传统调度-timersched_timer的关系">关于 hrtimer
+与传统调度 timer（sched_timer）的关系</h4>
+<ul>
+<li><p><strong>hrtimer（高精度定时器）</strong> 启用后， 它会
+<strong>代替传统的低精度周期定时器（如 jiffies-based
+timer）来调度高精度任务</strong>， 例如精确的超时和延时需求。</p></li>
+<li><p>但是，<strong>sched_timer（调度周期
+timer）并不会完全被移除</strong>，
+它依然保留着调度器基本的调度节奏控制作用， 特别是在非 tickless 模式或
+CPU 活跃状态下的调度周期维护。</p></li>
+<li><p>在 <strong>tickless 模式下（NO_HZ）</strong>，sched_timer
+可能会被停止（tick_stopped=1），
+但它仍作为“备胎”存在于内核中，方便恢复调度 tick，
+以及处理某些必须依赖传统周期 tick 的功能。</p></li>
+<li><p>hrtimer 和 sched_timer 是 <strong>协同工作的</strong>，
+保证调度的准确性和系统响应的灵活性。</p></li>
+</ul>
+<hr />
+<h2 id="hrtimer-与传统-tick-定时器的协同机制核心讲解">⏱️ hrtimer 与传统
+tick 定时器的协同机制（核心讲解）</h2>
+<h3 id="一传统低精度定时器机制timer-wheel">✅
+<strong>一、传统低精度定时器机制（timer wheel）</strong></h3>
+<ul>
+<li>依赖 <strong>周期性 tick 中断</strong> 驱动（来源于 CONFIG_HZ
+设置）。</li>
+<li>每次 tick 会推进 <code>jiffies</code>，并扫描当前 slot 触发
+callback。</li>
+<li>特点：<strong>粒度较粗（4ms）、延迟高、效率高（适合大批任务）</strong>。</li>
+</ul>
+<hr />
+<h3 id="二高精度定时器-hrtimer-的引入">✅ <strong>二、高精度定时器
+hrtimer 的引入</strong></h3>
+<ul>
+<li>由每个 CPU 的 <code>hrtimer_cpu_base</code>
+管理，用红黑树存储。</li>
+<li>可以精确到纳秒级的定时中断。</li>
+<li>定时器硬件只能同时服务一个 timeout → 选择最早的 hrtimer
+事件作为定时触发点。</li>
+</ul>
+<hr />
+<h3 id="三hrtimer-如何模拟tick以协同工作">✅ <strong>三、hrtimer
+如何模拟“tick”以协同工作？</strong></h3>
+<blockquote>
+<p>hrtimer 替代了部分传统 timer，但仍保留了 tick
+的周期性角色：<code>sched_timer</code>。</p>
+</blockquote>
+<h4 id="sched_timer-是一个周期性的-hrtimer用于模拟每个-tick">1.
+<strong>sched_timer 是一个周期性的 hrtimer，用于模拟每个
+tick</strong></h4>
+<ul>
+<li><p>其超时值设置为 <code>1 / CONFIG_HZ = 4ms</code>。</p></li>
+<li><p>触发后会：</p>
+<ul>
+<li>调用
+<code>update_process_times()</code>，驱动调度器、进程统计等。</li>
+<li><code>update_wall_time()</code>，驱动时钟更新。</li>
+<li>然后 <strong>再次插入下一个 tick 的
+hrtimer</strong>（即周期性重插）。</li>
+</ul></li>
+</ul>
+<h4 id="如果系统空闲可以关闭-ticktickless-模式">2.
+<strong>如果系统空闲，可以关闭 tick（tickless 模式）</strong></h4>
+<ul>
+<li>在你系统中，大量 <code>.tick_stopped: 1</code> → 多核已启用
+<strong>动态 tick 停止</strong>（NOHZ）。</li>
+<li>系统会判断未来是否有近期任务要做，如果没有，就不设置下一个
+sched_timer。</li>
+<li>等到下一个明确事件（比如 hrtimer 或唤醒）再启动 tick。</li>
+</ul>
+<h4 id="如果有-hrtimer-到期时间更早sched_timer-会被推后">3.
+<strong>如果有 hrtimer 到期时间更早，sched_timer 会被推后</strong></h4>
+<ul>
+<li>hrtimer 的红黑树中调度的是“最早到期时间”的事件。</li>
+<li>比如用户设定的 2ms 超时任务会抢占原本的 sched_timer 设置。</li>
+</ul>
+<hr />
+<h3 id="四协同机制小结">✅ <strong>四、协同机制小结：</strong></h3>
+<table>
+
+<thead>
+<tr class="header">
+<th>类型</th>
+<th>驱动来源</th>
+<th>精度</th>
+<th>应用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>jiffies</code> / <code>timer_list</code></td>
+<td>周期 tick（低精度）</td>
+<td>毫秒级（CONFIG_HZ）</td>
+<td>大量任务，性能友好</td>
+</tr>
+<tr class="even">
+<td><code>sched_timer</code></td>
+<td>hrtimer 驱动的模拟 tick</td>
+<td>纳秒级，但周期性为 4ms</td>
+<td>调度、统计、timekeeping</td>
+</tr>
+<tr class="odd">
+<td>其他 <code>hrtimer</code></td>
+<td>独立设置、单次/周期任务</td>
+<td>纳秒级</td>
+<td>睡眠唤醒、定时器精确唤醒</td>
+</tr>
+</tbody>
+</table>
+<p>当前系统的行为是：</p>
+<ul>
+<li>在不需要时<strong>停掉 tick
+中断</strong>（省电、减少上下文切换）；</li>
+<li>依赖 <code>hrtimer</code> 管理所有 timer，包括模拟 tick；</li>
+<li>保留 <code>CONFIG_HZ=250</code>，tick 模拟周期为 4ms，用于 fallback
+路径。</li>
+</ul>
+<hr />
+<h2 id="那当前的配置下cpu-idle状态默认会进入tickless">那当前的配置下cpu
+idle状态默认会进入tickless？</h2>
+<p>是的，根据提供的内核配置和系统信息，<strong>当前 CPU 在 idle
+状态下默认确实会进入 tickless 模式（即停止周期性 tick
+中断）</strong>。下面是分析依据：</p>
+<hr />
+<h3 id="一配置项分析">✅ 一、配置项分析</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">CONFIG_NO_HZ_COMMON=y<br>CONFIG_NO_HZ_FULL=y<br>CONFIG_NO_HZ=y<br><span class="hljs-comment"># CONFIG_NO_HZ_IDLE is not set</span><br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>CONFIG_NO_HZ=y</code>：说明启用了 tickless 支持；</li>
+<li><code>CONFIG_NO_HZ_COMMON=y</code>：是 <code>NO_HZ_IDLE</code> 和
+<code>NO_HZ_FULL</code> 的公共基础；</li>
+<li><code>CONFIG_NO_HZ_FULL=y</code>：表示系统<strong>启用了完整
+tickless 模式</strong>（NO_HZ_FULL），用于用户态；</li>
+<li><code># CONFIG_NO_HZ_IDLE is not set</code>：表示<strong>没有使用
+idle 专用 tickless 模式</strong>，因为被 <code>FULL</code> 替代。</li>
+</ul>
+<blockquote>
+<p>✅ <code>NO_HZ_IDLE</code> 是为了 idle 状态减少 tick；</p>
+<p>✅ <code>NO_HZ_FULL</code> 是为了用户态也能停 tick，更彻底。</p>
+</blockquote>
+<hr />
+<h3 id="二实际运行状态">✅ 二、实际运行状态</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">.tick_stopped : 1  ← 代表该 CPU 停止 tick（tickless）<br></code></pre></td></tr></table></figure>
+<p>这表明大多数 CPU 已经<strong>实际处于 tickless 状态</strong>。</p>
+<p>而 <code>.tick_stopped : 0</code> 的几个 CPU
+可能当前正在内核态，或者运行着内核线程（如
+ksoftirqd、rcu、kworker），需要保留调度 tick。</p>
+<hr />
+<h3 id="三cpu-idle-默认行为no_hz_full-下">✅ 三、CPU idle
+默认行为（NO_HZ_FULL 下）</h3>
+<blockquote>
+<p>✅ <strong>在 NO_HZ_FULL 模式下，非内核态、idle CPU 会自动停掉调度
+tick</strong>，只保留必要的定时器（如 hrtimer、RCU、watchdog）。</p>
+</blockquote>
+<p>除非：</p>
+<ol type="1">
+<li>正在运行内核线程</li>
+<li>发生频繁中断</li>
+<li>有 <code>isolcpus</code> 没设置导致不允许 full tickless</li>
+</ol>
+<hr />
+<h3 id="四总结">✅ 四、总结</h3>
+<table>
+
+<thead>
+<tr class="header">
+<th>条目</th>
+<th>当前配置是否满足</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>CONFIG_NO_HZ_FULL</code></td>
+<td>✅ 启用</td>
+</tr>
+<tr class="even">
+<td><code>sched_tick</code> 是否默认关闭</td>
+<td>✅ 在 idle CPU 和用户态 CPU 默认关闭</td>
+</tr>
+<tr class="odd">
+<td><code>.tick_stopped=1</code> 多数 CPU</td>
+<td>✅ 是</td>
+</tr>
+<tr class="even">
+<td>idle 是否默认进入 tickless</td>
+<td>✅ 是（只保留 hrtimer/RCU）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p>如需进一步验证，可以运行：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/timer_list | grep -A10 <span class="hljs-string">&#x27;cpu: 0&#x27;</span><br></code></pre></td></tr></table></figure>
+<p>观察是否只有极少数定时器（如 <code>tick_sched_timer</code> 和
+<code>rcu</code>）在活动，说明 CPU 正在运行于 tickless 状态。</p>
+<hr />
+<h2
+id="当前的系统在调度器选中idle时也会进入tickless">当前的系统在调度器选中idle时，也会进入tickless?</h2>
+<p><strong>当前系统在调度器选中 idle 任务时，会自动进入 tickless
+模式</strong>（也称为 <em>idle tickless</em>）。</p>
+<hr />
+<h3 id="依据如下">🔍 依据如下</h3>
+<h4 id="当前的内核配置来自-bootconfig-uname--r">✅ 当前的内核配置（来自
+<code>/boot/config-$(uname -r)</code>）</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">CONFIG_NO_HZ_COMMON=y<br><span class="hljs-comment"># CONFIG_NO_HZ_IDLE is not set</span><br>CONFIG_NO_HZ_FULL=y<br>CONFIG_NO_HZ=y<br></code></pre></td></tr></table></figure>
+<p>这说明：</p>
+<ul>
+<li>系统启用了 <code>NO_HZ_FULL</code> 模式；</li>
+<li><code>NO_HZ_IDLE</code> 虽未单独启用，但 <code>NO_HZ_FULL</code>
+包含了对 idle tickless 的支持；</li>
+<li><strong>只要某个 CPU 没有被 <code>nohz_full=</code>
+参数隔离出去，它就默认工作在 idle tickless 模式</strong>。</li>
+</ul>
+<hr />
+<h3 id="内核逻辑说明">🧠 内核逻辑说明</h3>
+<p>内核中 tickless 支持主要分为两部分：</p>
+<table>
+
+<thead>
+<tr class="header">
+<th>模式</th>
+<th>启动条件</th>
+<th>应用范围</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>NO_HZ_IDLE</strong></td>
+<td>默认对所有 CPU 启用</td>
+<td>CPU 进入 idle 时停止 tick</td>
+</tr>
+<tr class="even">
+<td><strong>NO_HZ_FULL</strong></td>
+<td>需要配置 <code>nohz_full=</code> 并隔离 CPU</td>
+<td>CPU 在用户态时也可停 tick</td>
+</tr>
+</tbody>
+</table>
+<p>你的内核配置中启用了 <code>NO_HZ_FULL</code>，则说明：</p>
+<ul>
+<li><strong>没有被隔离的 CPU 默认运行在 idle tickless 模式（与
+<code>NO_HZ_IDLE</code> 行为一致）</strong>；</li>
+<li>被隔离的 CPU（通过内核命令行 <code>nohz_full=</code>
+配置）则支持用户态停 tick。</li>
+</ul>
+<hr />
+<h3 id="举个例子">✅ 举个例子</h3>
+<p>之前运行的：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/timer_list | grep <span class="hljs-string">&#x27;tick_stopped&#x27;</span><br></code></pre></td></tr></table></figure>
+<p>输出中大多数 CPU 是：</p>
+<figure class="highlight ada"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs ada">.tick_stopped : 1<br></code></pre></td></tr></table></figure>
+<p>说明当前这些 CPU 已经进入 tickless 状态，而这在没有
+<code>nohz_full=</code> 参数的情况下，通常就是因为这些 CPU 当前
+idle，调度器选择了 idle 任务。</p>
+<hr />
+<h3 id="结论">✅ 结论</h3>
+<blockquote>
+<p><strong>是的，系统中未被 <code>nohz_full</code> 隔离的
+CPU，只要调度器选择了 idle 任务（即进入空闲），就会自动停止调度用
+tick，进入 tickless 模式。</strong></p>
+</blockquote>
+<p>这正是 idle tickless 的标准行为。</p>
+<p>如需进一步分析哪些 CPU 被 nohz_full 隔离，可以查看：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /sys/devices/system/cpu/nohz_full<br></code></pre></td></tr></table></figure>
+<p>或者确认内核启动参数是否包含：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">nohz_full=1-15  <span class="hljs-comment"># 举例</span><br></code></pre></td></tr></table></figure>
+<h2
+id="只保留必要的定时器如-hrtimerrcuwatchdog这三种保留的定时器讲一下">只保留必要的定时器（如
+hrtimer、RCU、watchdog），这三种保留的定时器讲一下？</h2>
+<p>在 <code>NO_HZ_FULL</code> 模式下，系统尽量停掉周期性调度
+tick，但仍<strong>必须保留少量关键定时器</strong>，以保障内核基本功能的正常运行。你提到的
+<code>hrtimer</code>、<code>RCU</code>、<code>watchdog</code>
+是典型的三种<strong>不能省略</strong>的定时器，下面分别讲清楚它们的作用和运行机制：</p>
+<hr />
+<h3 id="hrtimer高精度定时器">①
+<strong>hrtimer（高精度定时器）</strong></h3>
+<h4 id="作用">🔹 作用</h4>
+<ul>
+<li>用于替代旧的 <code>timer_list</code>，提供纳秒级定时精度。</li>
+<li>支撑周期性任务（如
+<code>sched_tick</code>）、单次定时器、延迟唤醒等功能。</li>
+<li>是 tickless
+模式中<strong>最核心的定时器框架</strong>，用于调度精度更高的事件。</li>
+</ul>
+<h4 id="特点">🔹 特点</h4>
+<ul>
+<li>每个 CPU 有独立的 <code>hrtimer_cpu_base</code>。</li>
+<li>使用红黑树管理定时器，按时间排序，优先触发最近的定时器。</li>
+<li>硬件层通过 <code>clockevent</code> 设置唤醒时间。</li>
+</ul>
+<h4 id="举例">🔹 举例</h4>
+<ul>
+<li>睡眠中的进程设置了 <code>nanosleep()</code> 或
+<code>clock_nanosleep()</code>。</li>
+<li>用户态运行时需要周期性唤醒，如 perf sampling、周期 timerfd。</li>
+<li>替代 <code>sched_tick</code>，精确控制重新调度时间点。</li>
+</ul>
+<hr />
+<h3 id="rcuread-copy-update定时器">② <strong>RCU（Read-Copy
+Update）定时器</strong></h3>
+<h4 id="作用-1">🔹 作用</h4>
+<ul>
+<li>确保并发读写情况下内核数据结构的一致性。</li>
+<li>在写操作时，RCU 需要等待所有 CPU 经过一个 <em>“RCU grace
+period”</em>，即所有旧版本读操作完成之后，才能释放旧数据。</li>
+</ul>
+<h4 id="tickless-下的难点">🔹 tickless 下的难点</h4>
+<ul>
+<li>如果一个 CPU 一直在用户态、无中断、无调度，RCU
+就<strong>无法确认它是否已经完成了读操作</strong>。</li>
+<li>所以，即使在 <code>NO_HZ_FULL</code> 模式下，RCU
+也必须设置<strong>周期性定时器</strong>，适时检查 CPU
+是否“Quiescent”（安静态）。</li>
+</ul>
+<h4 id="技术手段">🔹 技术手段</h4>
+<ul>
+<li>使用 <strong>RCU callback timer</strong> 和
+<code>rcu_sched_clock_irq()</code> 来主动触发检查。</li>
+<li>或者在 kernel exit to user 模式下调用 <code>rcu_user_exit()</code>
+让 RCU 知道可以推进 grace period。</li>
+</ul>
+<hr />
+<h3 id="watchdog看门狗定时器">③
+<strong>watchdog（看门狗定时器）</strong></h3>
+<h4 id="作用-2">🔹 作用</h4>
+<ul>
+<li>检测 CPU 是否卡死或长时间无响应。</li>
+<li>常用于软锁死（soft lockup）、硬锁死（hard lockup）等 bug
+的自动触发检测。</li>
+</ul>
+<h4 id="特点-1">🔹 特点</h4>
+<ul>
+<li>定时器周期性触发 watchdog 检查函数（如
+<code>watchdog_timer_fn()</code>）。</li>
+<li>检查当前 CPU 的调度器心跳、软中断等活动迹象。</li>
+<li>如果发现某个 CPU 长时间没有响应（如 N 秒无调度），就触发
+BUG/WARNING。</li>
+</ul>
+<h4 id="在-no_hz_full-模式中">🔹 在 NO_HZ_FULL 模式中</h4>
+<ul>
+<li>某些 watchdog 功能会主动在用户态暂停；</li>
+<li>但 CPU 一旦进入内核态或中断上下文，watchdog 会继续运作；</li>
+<li>可以通过 <code>watchdog_thresh</code> 配置超时时间。</li>
+</ul>
+<hr />
+<h3 id="总结表">✅ 总结表</h3>
+<table>
+
+<thead>
+<tr class="header">
+<th>定时器</th>
+<th>用途</th>
+<th>是否每 CPU 保留</th>
+<th>是否依赖 hrtimer</th>
+<th>与 tickless 的关系</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>hrtimer</td>
+<td>纳秒级通用定时器，支撑所有延时/周期事件</td>
+<td>是</td>
+<td>本身就是</td>
+<td>Tickless 的核心，替代 tick</td>
+</tr>
+<tr class="even">
+<td>RCU</td>
+<td>管理内核并发数据一致性，推进 grace period</td>
+<td>是</td>
+<td>是</td>
+<td>为推进 RCU 状态，tickless 中必须保留</td>
+</tr>
+<tr class="odd">
+<td>watchdog</td>
+<td>防止软/硬死锁，保障内核可靠性</td>
+<td>是</td>
+<td>是</td>
+<td>Tickless 中 watchdog 会适度放宽但保留监控能力</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2
+id="tickless下的rcu会注册自己的htimer定时器这时候怎么不起作用了">tickless下的rcu会注册自己的htimer定时器，这时候怎么不起作用了？</h2>
+<p>很好的问题！既然 <strong>tickless 模式下 RCU 会注册自己的 hrtimer
+定时器</strong>，理论上它应该可以独立驱动 RCU 任务的触发，为什么会出现
+RCU stall 和 <code>rcu_sched</code> 被饿死的情况呢？</p>
+<hr />
+<h3 id="核心点rcu-的-hrtimer-为什么不起作用">核心点：RCU 的 hrtimer
+为什么不起作用？</h3>
+<h4
+id="hrtimer-依赖底层时钟事件驱动但-tickless-模式下有可能-clockevent-设备进入停顿状态">1.
+<strong>hrtimer 依赖底层时钟事件驱动，但 tickless 模式下有可能
+ClockEvent 设备进入停顿状态</strong></h4>
+<ul>
+<li>在 tickless idle 模式，内核会尝试关闭周期性 tick，底层 ClockEvent
+硬件可能也进入“停止”或“单次触发”模式。</li>
+<li>如果硬件定时器（ClockEvent
+device）没有正常设置下一次超时（例如，时钟事件停止或设置失败），hrtimer
+的超时回调就不会被硬件触发，软中断不会被激活，导致 RCU
+定时任务无法被执行。</li>
+</ul>
+<h4
+id="hrtimer-的触发依赖于-cpu-不是处于深度睡眠且硬件定时器正常工作">2.
+<strong>hrtimer 的触发依赖于 CPU
+不是处于深度睡眠且硬件定时器正常工作</strong></h4>
+<ul>
+<li>CPU 如果处于较深的 idle 状态（如 C3、C6
+等），硬件定时器可能被屏蔽或者不精准，导致 hrtimer 触发延迟或丢失。</li>
+<li>因为 tickless idle 让 CPU
+尽可能省电，部分深度睡眠模式对定时器有影响。</li>
+</ul>
+<h4 id="内核中-rcu-hrtimer-定时器管理可能被长时间延迟">3. <strong>内核中
+RCU hrtimer 定时器管理可能被长时间延迟</strong></h4>
+<ul>
+<li>RCU 的 hrtimer 触发后会产生软中断，驱动 RCU 任务执行。</li>
+<li>软中断处理依赖内核的调度机制，如果软中断处理被长时间阻塞（如高中断上下文、锁竞争），任务依然得不到执行。</li>
+</ul>
+<h4 id="竞争与优先级">4. <strong>竞争与优先级</strong></h4>
+<ul>
+<li>其他更高优先级的硬件中断或软中断抢占，导致 RCU hrtimer
+软中断延迟。</li>
+<li>RCU hrtimer
+超时后生成软中断，但软中断调度优先级不够高，长时间积压。</li>
+</ul>
+<hr />
+<h3 id="系统中的可能具体表现">系统中的可能具体表现</h3>
+<ul>
+<li>CPU 进入 tickless idle，硬件 ClockEvent 停止周期性 tick
+以省电。</li>
+<li>RCU 注册的 hrtimer 依赖该 ClockEvent 来设置超时触发，但 ClockEvent
+被停用或触发延迟。</li>
+<li>因此，尽管 RCU
+定时器存在，底层硬件或软中断机制没有及时触发对应回调。</li>
+<li>导致 RCU 任务未被调度，最终被判定为 <code>rcu_sched</code> stall 和
+hard lockup。</li>
+</ul>
+<hr />
+<h3 id="结论-1">结论</h3>
+<p><strong>RCU 的 hrtimer
+起作用的前提是底层时钟事件和软中断机制正常工作。tickless idle
+模式下，如果 ClockEvent 设备停止或软中断处理被阻塞，hrtimer
+就“看起来”不起作用了。</strong></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/irq/" class="category-chain-item">irq</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/irq/tick/" class="category-chain-item">tick</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/irq/tick/tickless/" class="category-chain-item">tickless</a>
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Linux 4</div>
+      <div>https://realwujing.github.io/linux/kernel/irq/tick/tickless/Linux 4.19 内核 Tickless 机制与 RCU Stall 问题分析总结/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年6月12日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/net/win11%20wsl2%20vm%E5%B5%8C%E5%A5%97%E7%BD%91%E7%BB%9C%E6%8B%93%E6%89%91/" title="win11 wsl2 vm嵌套网络拓扑">
+                        <span class="hidden-mobile">win11 wsl2 vm嵌套网络拓扑</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '794d19fc220367be8d47fdbf40139e68'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
