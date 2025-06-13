@@ -84,19 +84,44 @@ mv ctyunos.repo ctyunos.repo.bak
 vim ctyunos.repo 并下方yum源写入：
 
 ```bash
-cat > /etc/yum.repos.d/ctyunos.repo << EOF
 [everything]
 name=ctyunos-22.06-everything
-baseurl=https://repo.ctyun.cn/hostos/ctyunos-22.06/everything/\$basearch/
+baseurl=https://repo.ctyun.cn/hostos/ctyunos-22.06/everything/$basearch/
 enabled=1
 gpgcheck=0
 
 [update]
 name=ctyunos-22.06-update
-baseurl=https://repo.ctyun.cn/hostos/ctyunos-22.06/update/\$basearch/
+baseurl=https://repo.ctyun.cn/hostos/ctyunos-22.06/update/$basearch/
 enabled=1
 gpgcheck=0
-EOF
+
+[debuginfo]
+name=ctyunos-22.06-debuginfo
+baseurl=https://repo.ctyun.cn/hostos/ctyunos-22.06/debuginfo/$basearch/
+enabled=1
+gpgcheck=0
+
+# access by aone
+[ctyunos2-22.06.02-all]
+name = ctyunos2-22.06.2-all
+baseurl =http://121.237.176.8:50001/ctyun/ctyunos/ctyunos-2/22.06/22.06.2/$basearch/
+enabled = 1
+gpgcheck = 0
+
+# access by aone
+[ctyunos-21.06.04-all]
+name=ctyunos-21.06.04-all
+baseurl=http://121.237.176.8:50001/ctyun/ctyunos/ctyunos-2/2.0.1/21.06.4/$basearch/
+enabled=1
+gpgcheck=0
+
+# access by aone
+[ctyunos2-debug]
+name = ctyunos2 - debug
+baseurl =http://121.237.176.8:50001/ctyun/ctyunos/ctyunos-2/22.06/debuginfo/$basearch/
+enabled = 1
+gpgcheck = 0
 ```
 
 基于openeuler-4-19源码编译内核：
@@ -180,6 +205,69 @@ docker run -it \
   -v /root/code/rpmbuild:/root/rpmbuild \
   -v /root/Downloads:/root/Downloads \
   ctyunos:23.01 /bin/bash
+```
+
+ctyunos3-docker-230117-x86_64中的yum源有问题，需进行替换：
+
+```bash
+cd /etc/yum.repos.d
+mv ctyunos.repo ctyunos.repo.bak
+```
+
+vim ctyunos.repo 并下方yum源写入：
+
+```bash
+[everything]
+name=ctyunos-everything
+baseurl=https://repo.ctyun.cn/hostos/ctyunos-23.01/everything/$basearch/
+enabled=1
+gpgcheck=0
+
+[update]
+name=ctyunos-update
+baseurl=https://repo.ctyun.cn/hostos/ctyunos-23.01/update/$basearch/
+enabled=1
+gpgcheck=0
+
+[debuginfo]
+name=ctyunos-debuginfo
+baseurl=https://repo.ctyun.cn/hostos/ctyunos-23.01/debuginfo/$basearch/
+enabled=1
+gpgcheck=0
+
+[extras]
+name=ctyunos-extras
+baseurl=https://repo.ctyun.cn/hostos/ctyunos-23.01/extras/$basearch/
+gpgcheck=0
+enabled=1
+
+# access by aone
+[aone-everything]
+name=ctyunos-aone-everything
+baseurl=http://121.237.176.8:50001/ctyun/ctyunos/ctyunos-23.01/everything/$basearch/
+enabled=1
+gpgcheck=0
+
+# access by aone
+[aone-update]
+name=ctyunos-aone-update
+baseurl=http://121.237.176.8:50001/ctyun/ctyunos/ctyunos-23.01/update/$basearch/
+enabled=1
+gpgcheck=0
+
+# access by aone
+[aone-debuginfo]
+name=ctyunos-aone-debuginfo
+baseurl=http://121.237.176.8:50001/ctyun/ctyunos/ctyunos-23.01/debuginfo/$basearch/
+enabled=1
+gpgcheck=0
+
+# access by aone
+[aone-extras]
+name=ctyunos-aone-extras
+baseurl=http://121.237.176.8:50001/ctyun/ctyunos/ctyunos-23.01/extras/$basearch/
+enabled=1
+gpgcheck=0
 ```
 
 基于CTKernel-LTS-5.10源码编译内核：
