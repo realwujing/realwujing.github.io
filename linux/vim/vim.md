@@ -570,4 +570,8 @@ cscope、grep等都可以创建新的快速修复列表。
 
 ### Source Insight
 
-- [Source Insight 查看函数调用关系使用技巧](https://blog.csdn.net/lyndon_li/article/details/121504277)
+- [Source Insight 4.0 破解(修改文件，无需注册码)，手把手教学一步到胃](https://blog.csdn.net/qq_45009309/article/details/135303089)
+- [<font color=Red>Source Insight 4.0的日常使用操作（保姆级）</font>](https://blog.csdn.net/mjy520123/article/details/120297021)
+- [强大的Source Insight查找操作和代码查看](https://blog.csdn.net/STCNXPARM/article/details/107901368)
+- [<font color=Red>Source Insight 查看函数调用关系使用技巧</font>](https://blog.csdn.net/lyndon_li/article/details/121504277)
+- [Source Insight 4.0打开一会就闪退 解决方法](https://blog.csdn.net/qq_41714908/article/details/123101837)
