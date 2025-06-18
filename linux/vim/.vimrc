@@ -24,7 +24,7 @@ set foldmethod=indent   " 缩进折叠
 "set background=dark "背景使用黑色
 set nocompatible  "去掉讨厌的有关vi一致性模式，避免以前版本的一些bug和局限
 
-"可视化地显示空格、制表符、行尾等特殊字符
+"可视化地显示空格、制表符、行尾等特殊字符，通过:set list启用，通过:set nolist关闭
 set listchars=tab:»·,trail:·,extends:>,precedes:<,nbsp:␣
 
 " 显示中文帮助
