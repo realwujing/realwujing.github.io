@@ -24,6 +24,9 @@ set foldmethod=indent   " 缩进折叠
 "set background=dark "背景使用黑色
 set nocompatible  "去掉讨厌的有关vi一致性模式，避免以前版本的一些bug和局限
 
+"可视化地显示空格、制表符、行尾等特殊字符
+set listchars=tab:»·,trail:·,extends:>,precedes:<,nbsp:␣
+
 " 显示中文帮助
 if version >= 603
 	set helplang=cn
@@ -367,6 +370,8 @@ Plugin 'altercation/vim-colors-solarized'
 
 Plugin 'kien/ctrlp.vim'
 
+Plugin 'Yggdroot/indentLine'
+
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
 filetype plugin indent on    " required
@@ -487,3 +492,10 @@ nmap <C-\>f :cs find f <C-R>=expand("<cfile>")<CR><CR>
 nmap <C-\>i :cs find i ^<C-R>=expand("<cfile>")<CR>$<CR>
 nmap <C-\>d :cs find d <C-R>=expand("<cword>")<CR><CR>
 " 使用时，将光标停留在要查找的对象上，按下<C->g，即先按“Ctrl+\”，然后很快再按“g”，将会查找该对象的定义。
+
+"QuickFix列表快捷键
+" 覆盖默认命令，底部打开但不固定高度
+command! Cwindow botright cwindow
+command! Copen botright copen
+cnoreabbrev cw Cwindow
+cnoreabbrev copen Copen
