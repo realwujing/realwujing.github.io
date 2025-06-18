@@ -76,3 +76,5 @@ ln -s /home/wujing/code/realwujing.github.io/git/.gitignore_global .gitignore_gl
 git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
 ln -s /home/wujing/code/realwujing.github.io/linux/vim/.vimrc .vimrc
 vim +PluginInstall +qall
+
+tar -zcvf ~/vim-git.tar.gz ~/code/realwujing.github.io/git/.gitcommit_template ~/code/realwujing.github.io/git/.gitconfig ~/code/realwujing.github.io/git/.gitignore_global ~/.vim ~/.vimrc
