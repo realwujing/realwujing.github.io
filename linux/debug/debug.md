@@ -966,7 +966,31 @@ struct kmem_cache_cpu {
 - [/proc/sysrq-trigger 详解](https://cloud.tencent.com/developer/article/2139743)
 - [Linux死机解决办法](https://blog.csdn.net/openswc/article/details/9105071)
 
-“Alt+PrtSc+C”：手动触发kdump，触发后服务器会自动重启。（正常情况下勿按该组合键。）
+使能魔法键c:
+```bash
+echo 1 > /proc/sys/kernel/sysrq
+```
+
+魔法键c主动生成kdump:
+```bash
+echo c > /proc/sysrq-trigger
+```
+
+等价于echo c > /proc/sysrq-trigger:
+```bash
+Alt+PrtSc+C
+```
+
+- 手动触发kdump，触发后服务器会自动重启。(正常情况下勿按该组合键)
+
+## ipmitool
+
+IPMI可通过发送NMI（Non-Maskable Interrupt）强制触发内核崩溃，进而生成vmcore：
+```bash
+ipmitool -I lanplus -H {ipmi lan IP address} -U {username} -P {passwd} chassis power diag
+```
+
+- [ipmitool带外发送NMI命令](https://support.huawei.com/enterprise/zh/knowledge/EKB1100054709?idAbsPath=23710424|251364409|21782478|8060757)
 
 ## pstore
 
