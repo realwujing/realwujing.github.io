@@ -369,6 +369,53 @@ git log --oneline | grep "arm64: implement ftrace with regs"
 - [GIT 清除本地 REMOTES/ORIGIN/*](https://www.freesion.com/article/2366930198/)
 - [git-警告：忽略损坏的ref refs / remotes / origin / HEAD](https://www.itranslater.com/qa/details/2583713236583449600)
 
+## worktree
+
+### **总结这两个 `git worktree` 命令的区别：**  
+
+#### **1. `git worktree add ../linux-0.11 Linux-0.11/master`**  
+
+- **作用**：在 `../linux-0.11` 目录下创建一个新的工作树（worktree），并检出 **已存在的分支 `Linux-0.11/master`**。  
+- **特点**：  
+  - 不会创建新分支，只是检出已有分支。  
+  - 适用于 **直接使用现有分支** 进行开发或测试。  
+
+#### **2. `git worktree add -b linux-stable/linux-6.6.y ../linux-6.6.y linux-stable/linux-6.6.y`**  
+
+- **作用**：在 `../linux-6.6.y` 目录下创建一个新的工作树，并 **基于 `linux-stable/linux-6.6.y` 分支创建一个同名的新分支 `linux-stable/linux-6.6.y`**。  
+- **特点**：  
+  - `-b` 表示 **创建新分支**（即使分支名相同，也会新建一个分支）。  
+  - 适用于 **需要基于某个分支创建新分支** 进行开发（比如 `linux-stable/linux-6.6.y-dev`）。  
+  - 如果 `linux-stable/linux-6.6.y` 已经存在，Git 会报错（除非加上 `-B` 强制覆盖）。  
+
+---
+
+### **关键区别**  
+
+| 命令 | 是否创建新分支 | 适用场景 |
+|------|--------------|----------|
+| `git worktree add ../linux-0.11 Linux-0.11/master` | ❌ 不创建 | 直接使用已有分支 |
+| `git worktree add -b linux-stable/linux-6.6.y ../linux-6.6.y linux-stable/linux-6.6.y` | ✅ 创建 | 基于某个分支创建新分支 |
+
+### **推荐用法**
+
+- **如果只是想在另一个目录使用已有分支**（如 `Linux-0.11/master`），直接用 `git worktree add` **不加 `-b`**。  
+- **如果想基于某个分支创建新分支**（如 `linux-stable/linux-6.6.y-dev`），用 `git worktree add -b`。  
+
+这样能避免意外创建重复分支，同时保持工作树清晰。
+
+---
+
+### worktree remove
+
+移除某个工作树（worktree）：
+
+```bash
+git worktree remove ../linux-6.6.y/
+```
+
+---
+
 ## tag
 
 - [<font color=Red>2.6 Git基础-打标签</font>](https://git-scm.com/book/zh/v2/Git-%E5%9F%BA%E7%A1%80-%E6%89%93%E6%A0%87%E7%AD%BE)
