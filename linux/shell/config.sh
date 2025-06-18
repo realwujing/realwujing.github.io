@@ -70,6 +70,7 @@ ln -s /home/wujing/code/realwujing.github.io/linux/ssh/config .ssh/config
 # git
 ln -s /home/wujing/code/realwujing.github.io/git/.gitcommit_template .gitcommit_template
 ln -s /home/wujing/code/realwujing.github.io/git/.gitconfig .gitconfig
+ln -s /home/wujing/code/realwujing.github.io/git/.gitignore_global .gitignore_global
 
 # vim
 git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
