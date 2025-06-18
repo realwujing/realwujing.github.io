@@ -9,9 +9,24 @@
 
 ## 问题分析
 
+```bash
 git log openeuler/OLK-5.10 --grep='zap_huge_pmd' > zap_huge_pmd.log
+```
 
+```bash
 deferred_split_scan
+```
+
+```bash
+root@wujing:~/code/linux# git branch --contains c5e3a0eda5fb
+  ctkernel-4.19/publish-ALL
+  ctkernel-lts-4.19/develop
+  openeuler-4-19/master
+  openeuler-4-19/tag/release-0062.y
+* openeuler-4-19/tag/release-0068
+  openeuler-4-19/yuanql9/bugfix-pr-assert_list_leaf_cfs_rq
+  openeuler/openEuler-1.0-LTS
+```
 
 ## 问题结果
 
