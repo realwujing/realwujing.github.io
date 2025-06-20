@@ -496,3 +496,40 @@ nohz_full=1-15  # 举例
 ### 结论
 
 **RCU 的 hrtimer 起作用的前提是底层时钟事件和软中断机制正常工作。tickless idle 模式下，如果 ClockEvent 设备停止或软中断处理被阻塞，hrtimer 就“看起来”不起作用了。**
+
+### More
+
+```c
+1450 /*
+1451  * This code is invoked when a CPU goes idle, at which point we want
+1452  * to have the CPU do everything required for RCU so that it can enter
+1453  * the energy-efficient dyntick-idle mode.  This is handled by a
+1454  * state machine implemented by rcu_prepare_for_idle() below.
+1455  *
+1456  * The following three proprocessor symbols control this state machine:
+1457  *
+1458  * RCU_IDLE_GP_DELAY gives the number of jiffies that a CPU is permitted
+1459  *  to sleep in dyntick-idle mode with RCU callbacks pending.  This
+1460  *  is sized to be roughly one RCU grace period.  Those energy-efficiency
+1461  *  benchmarkers who might otherwise be tempted to set this to a large
+1462  *  number, be warned: Setting RCU_IDLE_GP_DELAY too high can hang your
+1463  *  system.  And if you are -that- concerned about energy efficiency,
+1464  *  just power the system down and be done with it!
+1465  * RCU_IDLE_LAZY_GP_DELAY gives the number of jiffies that a CPU is
+1466  *  permitted to sleep in dyntick-idle mode with only lazy RCU
+1467  *  callbacks pending.  Setting this too high can OOM your system.
+1468  *
+1469  * The values below work well in practice.  If future workloads require
+1470  * adjustment, they can be converted into kernel config parameters, though
+1471  * making the state machine smarter might be a better option.
+1472  */
+1473 #define RCU_IDLE_GP_DELAY 4     /* Roughly one grace period. */
+1474 #define RCU_IDLE_LAZY_GP_DELAY (6 * HZ) /* Roughly six seconds. */
+1475
+1476 static int rcu_idle_gp_delay = RCU_IDLE_GP_DELAY;
+1477 module_param(rcu_idle_gp_delay, int, 0644);
+1478 static int rcu_idle_lazy_gp_delay = RCU_IDLE_LAZY_GP_DELAY;
+1479 module_param(rcu_idle_lazy_gp_delay, int, 0644);
+```
+
+![rcu_needs_cpu](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/rcu_needs_cpu.png)
