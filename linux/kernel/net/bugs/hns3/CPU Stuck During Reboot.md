@@ -728,7 +728,7 @@ vim /usr/bin/kdumpctl，注释掉prepare_cmdline()函数的cmdline变量赋值�
 ```bash
 vim /usr/bin/kdumpctl
 
-cmdline="BOOT_IMAGE=/vmlinuz-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64 root=/dev/mapper/system-lv_root ro console=tty0 pci=realloc hardened_usercopy=off noirqdebug pciehp.pciehp_force=1 crashkernel=512M initcall_blacklist=mlx5_ib_init,mx5_core_init module_blacklist=mlx5_ib,mlx5_core modprobe.blacklist=hisi_sas_v3_hw,hisi_sas_main biosdevname=0 net.ifnames=0 console=ttyS0,115200n8"
+cmdline="BOOT_IMAGE=/vmlinuz-4.14.0-115.el7.0.1.ctyun.panic.soft_lockup.aarch64 root=/dev/mapper/system-lv_root ro console=tty0 pci=realloc hardened_usercopy=off noirqdebug pciehp.pciehp_force=1 crashkernel=512M initcall_blacklist=mlx5_ib_init,mlx5_core_init module_blacklist=mlx5_ib,mlx5_core modprobe.blacklist=hisi_sas_v3_hw,hisi_sas_main biosdevname=0 net.ifnames=0 console=ttyS0,115200n8"
 ```
 
 ![modprobe.blacklist=hisi_sas_v3_hw,hisi_sas_main](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240725221906.png)

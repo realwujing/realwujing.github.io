@@ -667,7 +667,7 @@ sysctl -p
   ```bash
   vim /etc/sysconfig/kdump
 
-  KDUMP_COMMANDLINE_APPEND="modprobe.blacklist=hisi_sas_v3_hw,hisi_sas_main"
+  KDUMP_COMMANDLINE_APPEND="initcall_blacklist=mlx5_ib_init,mlx5_core_init module_blacklist=mlx5_ib,mlx5_core modprobe.blacklist=hisi_sas_v3_hw,hisi_sas_main"
   ```
 
   ```bash
