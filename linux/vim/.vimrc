@@ -366,7 +366,7 @@ Plugin 'vim-airline/vim-airline'
 
 Plugin 'altercation/vim-colors-solarized'
 
-"Plugin 'valloric/youcompleteme'
+Plugin 'ycm-core/YouCompleteMe'
 
 Plugin 'kien/ctrlp.vim'
 
