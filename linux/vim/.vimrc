@@ -25,7 +25,7 @@ set foldmethod=indent   " 缩进折叠
 set nocompatible  "去掉讨厌的有关vi一致性模式，避免以前版本的一些bug和局限
 
 "可视化地显示空格、制表符、行尾等特殊字符，通过:set list启用，通过:set nolist关闭
-set listchars=tab:»·,trail:·,extends:>,precedes:<,nbsp:␣
+"set listchars=tab:»·,trail:·,extends:>,precedes:<,nbsp:␣
 
 " 显示中文帮助
 if version >= 603
@@ -402,8 +402,8 @@ filetype plugin indent on    " required
 " let NERDTreeQuitOnOpen=1 "打开文件时关闭树
 let NERDTreeShowBookmarks=1 "显示书签
 
-
-let mapleader = ","
+" 默认mapleader是\
+"let mapleader = ","
 map <leader>ne :NERDTreeToggle<CR>
 map <leader>nd :NERDTreeFind<CR>
 map <leader>tl :TlistToggle<CR>
@@ -413,7 +413,7 @@ nnoremap <leader>mu :set mouse=<cr>
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 "   tagbar
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-let mapleader = ","
+"let mapleader = ","
 nmap <leader>tb :TagbarToggle<CR>
 
 
@@ -499,3 +499,42 @@ command! Cwindow botright cwindow
 command! Copen botright copen
 cnoreabbrev cw Cwindow
 cnoreabbrev copen Copen
+
+" 启用 indentLine 插件
+let g:indentLine_enabled = 1
+
+" 设置缩进线字符（默认是 '|'，你可以换成更清晰的，比如 '┆'、'¦' 等）
+let g:indentLine_char = '┆'
+
+" 不显示 tab 符号字符
+let g:indentLine_showFirstIndentLevel = 1
+let g:indentLine_setColors = 0         " 不自动修改颜色，方便你自定义
+
+" 在特定文件类型下禁用（例如 markdown、help 等）
+autocmd FileType markdown,help let b:indentLine_enabled = 0
+
+" 如果你使用 conceal 特性（比如 markdown preview），关闭 conceallevel 可能更好
+set conceallevel=0
+
+" 为更好的兼容性，设置缩进字符的宽度
+let g:indentLine_char_list = ['│', '┆', '¦', '┊']
+
+" 与其他插件兼容（比如 airline）
+let g:indentLine_faster = 1
+
+" 设置颜色（可选）
+highlight IndentLine ctermfg=darkgray guifg=#A4A4A4
+
+" 此插件用于在用空格缩进的代码的每个缩进级别显示细垂直线。对于用制表符缩进的代码，我认为没有必要支持它，因为你可以使用 :set list lcs=tab:\|\ (here is a space) .
+"set list lcs=tab:\|\ 
+" 显示所有空白字符（Tab/空格/行尾/不可见字符等）
+set listchars=
+    \tab:\│\ ,    " Tab显示为│加填充空格（需转义和末尾空格）
+    \trail:·,     " 行尾空格显示为·
+    \extends:>,   " 行右超界显示>
+    \precedes:<,  " 行左超界显示<
+    \nbsp:␣       " 不可断空格显示为␣
+set listchars=tab:\│\ ,space:·  "展示行中空格
+highlight SpecialKey ctermfg=8 guifg=#555555  " 设置空白字符颜色为灰色
+" 默认展示不可见字符，可通过:set nolist取消
+set list
