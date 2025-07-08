@@ -60,8 +60,10 @@ if [ ! -d .gdb/qt5printers ]; then
     git clone https://github.com/Lekensteyn/qt5printers.git
 fi
 
+cd
+
 ln -s /home/wujing/code/gef/gef.py .gdbinit-gef.py
-ln -s /home/wujing/code/realwujing.github.io/debug/gdb/.gdbinit .gdbinit
+ln -s /home/wujing/code/realwujing.github.io/linux/debug/gdb/.gdbinit .gdbinit
 
 # ssh
 ssh-keygen
