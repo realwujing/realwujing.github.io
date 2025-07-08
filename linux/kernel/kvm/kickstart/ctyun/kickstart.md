@@ -160,6 +160,21 @@ virt-install --virt-type kvm \
 --extra-args="inst.stage2=hd:LABEL=ctyunos-23.01-x86_64 console=ttyS0"
 ```
 
+```bash
+virt-install --virt-type kvm \
+--initrd-inject=/mnt/52data_bak/yql/images/anaconda-ks-amd64-22.06.cfg \
+--name yql-ctyunos-22.06-230831-x86_64 \
+--memory 16384 \
+--vcpus=16 \
+--location /mnt/52data_bak/yql/images/ctyunos-22.06-230831-x86_64-dvd.iso \
+--disk path=/mnt/52data_bak/yql/images/ctyunos-22.06-230831-x86_64.qcow2,size=256,device=disk,bus=virtio \
+--network network=default \
+--os-type=linux \
+--os-variant=rhel7.0 \
+--graphics none \
+--extra-args="inst.stage2=hd:LABEL=ctyunos-22.06-x86_64 console=ttyS0 inst.ks=file:/anaconda-ks-amd64-22.06.cfg"
+```
+
 ### 4. 验证磁盘设备名称
 
 如果虚拟机创建成功后，你可以通过以下命令验证磁盘设备名称是否正确：
