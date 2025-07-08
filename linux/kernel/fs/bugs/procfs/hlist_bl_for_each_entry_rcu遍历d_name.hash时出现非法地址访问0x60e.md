@@ -1,4 +1,4 @@
-# hlist_bl_for_each_entry_rcu遍历时访问dentry->d_name.hash时出现非法地址访问0x60e
+# hlist_bl_for_each_entry_rcu遍历d_name.hash时出现非法地址访问0x60e
 
 BUG: kernel NULL pointer dereference, address: 000000000000060e
 
