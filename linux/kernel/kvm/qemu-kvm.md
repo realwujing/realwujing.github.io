@@ -559,6 +559,95 @@ sudo mount -a
 
 通过这种方式，可以在不重启虚拟机的情况下，动态调整虚拟机的网络配置，提高系统的灵活性和可用性。
 
+### virsh domifaddr 68
+
+![20250709101026](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20250709101026.png)
+
+根据图片中的信息，核心问题是：**虽然虚拟机内部有IP地址（192.168.122.29），但 `virsh domifaddr 68` 命令无法显示该IP**，而通过 `virsh qemu-agent-command` 能获取到网络接口信息（包括IP）。以下是原因和解决方案：
+
+---
+
+#### **原因分析**
+
+1. **`domifaddr` 默认依赖ARP缓存**  
+   `virsh domifaddr` 默认从宿主机ARP缓存中获取IP信息。如果虚拟机未主动发送ARP包（例如网络空闲），宿主机可能无法记录其IP，导致命令返回空。
+
+2. **Guest Agent数据未被`domifaddr`解析**  
+   虽然 `qemu-agent-command` 能通过Guest Agent获取完整网络信息（包括IP），但 `domifaddr` 可能未正确调用Guest Agent或未解析其返回的JSON数据。
+
+3. **命令参数或版本兼容性问题**  
+   旧版Libvirt可能未完全支持通过Agent获取IP的功能。
+
+---
+
+#### **解决方案**
+
+##### 1. **强制`domifaddr`使用Guest Agent**  
+
+   显式指定数据来源为Agent：
+
+   ```bash
+   virsh domifaddr 68 --source agent
+   ```
+
+   若仍无输出，说明Agent返回的数据格式未被`domifaddr`兼容。
+
+##### 2. **直接通过Agent查询IP**  
+
+   使用 `qemu-agent-command` 手动获取IP（图片中已验证此方法有效）：
+
+   ```bash
+   virsh qemu-agent-command 68 '{"execute":"guest-network-get-interfaces"}'
+   ```
+
+   从返回的JSON中提取IP（如 `192.168.122.29`）。
+
+##### 3. **检查ARP缓存**  
+
+   通过宿主机ARP表验证虚拟机IP是否可见：
+
+   ```bash
+   # 获取虚拟机的MAC地址
+   virsh dumpxml 68 | grep -i mac
+   # 查询ARP记录
+   arp -an | grep <MAC地址>
+   ```
+
+   若无记录，可尝试在虚拟机内发送ARP包（如 `ping 网关IP`）。
+
+##### 4. **更新Libvirt和QEMU**  
+
+   升级软件包以修复潜在兼容性问题：
+
+   ```bash
+   yum update libvirt qemu-kvm    # RHEL/CentOS
+   apt-get upgrade libvirt qemu   # Ubuntu/Debian
+   ```
+
+##### 5. **修改虚拟机网络配置**  
+
+   在虚拟机XML中为接口添加 `<address>` 属性，确保Libvirt可追踪其IP：
+
+   ```xml
+   <interface type='network'>
+       <mac address='52:54:00:ca:38:bb'/>
+       <source network='default'/>
+       <model type='virtio'/>
+   </interface>
+   ```
+
+   修改后需重启虚拟机。
+
+---
+
+#### **总结**  
+
+- **优先方案**：使用 `virsh qemu-agent-command` 直接获取IP（已验证有效）。  
+- **调试建议**：检查ARP缓存和Guest Agent状态，确认网络通信正常。  
+- **长期解决**：升级Libvirt或调整虚拟机配置，确保 `domifaddr` 能正确解析Agent数据。  
+
+若需进一步排查，请提供 `virsh dumpxml 68` 中网络接口的完整配置。
+
 ### 网络虚拟化类型对比
 
 ---
