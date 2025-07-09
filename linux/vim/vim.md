@@ -37,6 +37,72 @@ vim .
 :PluginInstall
 ```
 
+#### Plugin 'ycm-core/YouCompleteMe'
+
+YouCompleteMe unavailable: requires Vim 9.1.0016+.
+
+这个错误提示vim 版本太低，需要安装Vim 9.1.0016+.
+
+YouCompleteMe unavailable: requires Vim compiled with Python (3.8.0+) support.
+
+这个错误提示表明 **YouCompleteMe (YCM) 插件无法加载**，原因是当前 Vim **没有 Python 3.8+ 的支持**，即使你的系统 Python 版本满足要求（3.11.2）。以下是解决方案：
+
+**检查 Vim 的 Python 支持**
+
+在终端运行：
+
+```bash
+vim --version | grep python
+```
+
+- **如果有 `+python3`**：说明 Vim 支持 Python 3，但可能版本不匹配。
+- **如果是 `-python3`**：说明 Vim **完全没有编译 Python 3 支持**。
+
+**解决方法 1**
+
+1. 下载vim源码，编译支持python3的版本：
+
+```bash
+git clone https://gitee.com/mirrors/vim.git
+```
+
+2. 进入 Vim 源码目录：
+
+```bash
+./configure --enable-python3interp=yes --with-python3-command=/usr/bin/python3 --with-python3-config-dir=$(python3-config --configdir) --prefix=/usr/local
+
+make
+
+sudo make install
+```
+
+**解决方法 2**
+
+在debian12可以通过 debian testing 源安装支持python3且vim版本高于9.1.0016的vim:
+
+将 debian testing 源加入 /etc/apt/sources.list 中：
+```bash
+# 默认注释了源码镜像以提高 apt update 速度，如有需要可自行取消注释
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ testing main contrib non-free non-free-firmware
+deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ testing main contrib non-free non-free-firmware
+
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ testing-updates main contrib non-free non-free-firmware
+deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ testing-updates main contrib non-free non-free-firmware
+
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ testing-backports main contrib non-free non-free-firmware
+deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ testing-backports main contrib non-free non-free-firmware
+
+# 以下安全更新软件源包含了官方源与镜像站配置，如有需要可自行修改注释切换
+deb https://mirrors.tuna.tsinghua.edu.cn/debian-security testing-security main contrib non-free non-free-firmware
+deb-src https://mirrors.tuna.tsinghua.edu.cn/debian-security testing-security main contrib non-free non-free-firmware
+```
+
+```bash
+sudo apt update
+
+sudo apt install vim
+```
+
 ## 快速执行上一条命令
 
 - **`@:`**：在普通模式下，重复上一条 Ex 命令。
