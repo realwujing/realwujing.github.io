@@ -33,6 +33,10 @@ if version >= 603
 	set encoding=utf-8
 endif
 
+" 使用 256 色模式
+let $TERM = 'xterm-256color'
+set t_Co=256
+
 " 设置配色方案
 colorscheme murphy
 "colorscheme molokai
