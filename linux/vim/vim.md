@@ -628,6 +628,45 @@ cscope、grep等都可以创建新的快速修复列表。
 
 这些快捷键可以帮助你更高效地在 NERDTree 中进行文件和目录的导航和操作。
 
+## vim 配色方案
+
+在 .vimrc 中设置配色方案如下：
+
+```bash
+" 使用 256 色模式
+let $TERM = 'xterm-256color'
+set t_Co=256
+
+" 设置配色方案
+colorscheme murphy
+```
+
+在 tmux 中会遇到配色方案不生效的问题，这通常是因为终端不支持 256 色或更高的颜色深度。
+
+在 ~/.bashrc 或 ~/.zshrc 中添加以下配置后，终端颜色才生效：
+
+```bash
+if [ "$TERM" = "xterm" ]; then
+  export TERM=xterm-256color
+fi
+```
+
+重新加载配置文件使其生效：
+```bash
+source ~/.bashrc
+```
+
+一般重新加载配置文件后 tmux 中的 vim 配色方案会生效，但有时仍然会遇到问题。
+
+在tmux中，即使设置了256色或更高的颜色深度，Vim 的配色方案仍然可能不生效，需要在 ~/.tmux.conf 中添加以下配置：
+
+```bash
+set -g default-terminal "xterm-256color"
+set-option -ga terminal-overrides ",*256col*:Tc" 
+```
+
+- [[Vim] Vim在tmux中颜色改变/不同的问题](https://blog.csdn.net/qq_37151416/article/details/122917222)
+
 ## 其它
 
 ### nano
