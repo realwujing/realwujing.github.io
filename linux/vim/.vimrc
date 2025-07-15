@@ -542,3 +542,19 @@ set listchars=tab:\│\ ,space:·  "展示行中空格
 highlight SpecialKey ctermfg=8 guifg=#555555  " 设置空白字符颜色为灰色
 " 默认展示不可见字符，可通过:set nolist取消
 set list
+
+" 给不可见字符（list）和缩进线（IndentLines）定义切换函数
+function! ToggleInvisibles()
+    if &list
+        set nolist
+        IndentLinesDisable
+        echo "Invisibles OFF"
+    else
+        set list
+        IndentLinesEnable
+        echo "Invisibles ON"
+    endif
+endfunction
+
+"绑定 <leader>li 来切换
+nnoremap <silent> <leader>li :call ToggleInvisibles()<CR>
