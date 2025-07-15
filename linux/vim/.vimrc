@@ -557,5 +557,8 @@ function! ToggleInvisibles()
     endif
 endfunction
 
-"绑定 <leader>li 来切换
+" 绑定 <leader>li 来切换
 nnoremap <silent> <leader>li :call ToggleInvisibles()<CR>
+
+" 绑定 <leader>cc 切换 colorcolumn，按 <leader>cc开启/关闭 80 列竖线
+nnoremap <leader>cc :let &colorcolumn = (&colorcolumn == '' ? '80' : '')<CR>
