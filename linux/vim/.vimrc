@@ -412,7 +412,8 @@ map <leader>ne :NERDTreeToggle<CR>
 map <leader>nd :NERDTreeFind<CR>
 map <leader>tl :TlistToggle<CR>
 nnoremap <leader>ma :set mouse=a<cr>
-nnoremap <leader>mu :set mouse=<cr>
+"nnoremap <leader>mu :set mouse=<cr>
+nnoremap <leader>mu :set mouse=<CR>:TlistClose<CR>:set nolist<CR>:IndentLinesDisable<CR>
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 "   tagbar
