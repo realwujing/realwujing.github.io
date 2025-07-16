@@ -37,7 +37,7 @@ vim .
 :PluginInstall
 ```
 
-#### Plugin 'ycm-core/YouCompleteMe'
+### Plugin 'ycm-core/YouCompleteMe'
 
 YouCompleteMe unavailable: requires Vim 9.1.0016+.
 
@@ -58,7 +58,9 @@ vim --version | grep python
 - **如果有 `+python3`**：说明 Vim 支持 Python 3，但可能版本不匹配。
 - **如果是 `-python3`**：说明 Vim **完全没有编译 Python 3 支持**。
 
-**解决方法 1**
+推荐使用下方的解决方法 3。
+
+#### **解决方法 1**
 
 1. 下载vim源码，编译支持python3的版本：
 
@@ -76,7 +78,7 @@ make
 sudo make install
 ```
 
-**解决方法 2**
+### **解决方法 2**
 
 在debian12可以通过 debian testing 源安装支持python3且vim版本高于9.1.0016的vim:
 
@@ -101,6 +103,62 @@ deb-src https://mirrors.tuna.tsinghua.edu.cn/debian-security testing-security ma
 sudo apt update
 
 sudo apt install vim
+```
+
+#### **解决方法 3**
+
+在debian12可以通过安装vim-nox包来解决：
+
+```bash
+sudo apt install vim-nox
+```
+
+```bash
+sudo update-alternatives --config editor
+
+There are 4 choices for the alternative editor (providing /usr/bin/editor).
+
+  Selection    Path                Priority   Status
+------------------------------------------------------------
+  0            /usr/bin/vim.nox     40        auto mode
+  1            /bin/nano            40        manual mode
+  2            /usr/bin/vim.basic   30        manual mode
+* 3            /usr/bin/vim.nox     40        manual mode
+  4            /usr/bin/vim.tiny    15        manual mode
+
+Press <enter> to keep the current choice[*], or type selection number: 3
+```
+
+​从 GitHub 克隆 YouCompleteMe 插件的特定分支（legacy-vim-8.2）到本地 ~/.vim/bundle/YouCompleteMe目录：
+
+```bash
+git clone --branch legacy-vim-8.2 https://github.com/ycm-core/YouCompleteMe.git ~/.vim/bundle/YouCompleteMe
+```
+
+Vim 配置​​：在 ~/.vimrc中添加启用代码：
+
+```bash
+Plugin 'ycm-core/YouCompleteMe'
+```
+
+编译 YCM：
+
+```bash
+cd ~/.vim/bundle/YouCompleteMe
+```
+
+参考下方链接安装编译依赖：
+
+```bash
+sudo apt install build-essential cmake vim-nox python3-dev
+sudo apt install mono-complete golang nodejs openjdk-17-jdk openjdk-17-jre npm
+```
+
+- <https://gitee.com/mirrors/youcompleteme/tree/legacy-vim-8.2/#linux-64-bit>
+
+
+```bash
+python3 install.py --all
 ```
 
 ## 快速执行上一条命令
