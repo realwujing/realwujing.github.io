@@ -6,14 +6,14 @@
 
 # 定义虚拟机参数
 # 基础目录（复用路径）
-ISO_DIR="/mnt/52data_bak/yql/images/tmp"
+ISO_DIR="/data/yql"
 
 # ISO配置
-ISO_URL="https://get.debian.org/images/archive/12.10.0/amd64/iso-cd/debian-12.10.0-amd64-netinst.iso"
+ISO_URL="https://get.debian.org/cdimage/archive/12.0.0/arm64/iso-cd/debian-12.0.0-arm64-netinst.iso"
 ISO_FILE="${ISO_DIR}/${ISO_URL##*/}"
 
 # 虚拟机配置
-VM_NAME="yql-tmp1-debian12"
+VM_NAME="yql-debian12"
 VM_RAM="16384"       # 16GB内存
 VM_VCPUS="16"        # 16个vCPU
 VM_DISK_SIZE="256"    # 256GB磁盘
@@ -79,15 +79,15 @@ d-i passwd/user-password-crypted password $ENCRYPTED_PWD
 
 # ========== 磁盘分区（系统自动推荐方案） ==========
 d-i partman-auto/method string regular
-d-i partman-auto/disk string /dev/vda
+d-i partman-auto/disk string /dev/[sv]da
 d-i partman-auto/choose_recipe select atomic
 d-i partman-partitioning/confirm_write_new_label boolean true
 d-i partman/choose_partition select finish
 d-i partman/confirm boolean true
 d-i partman/confirm_nooverwrite boolean true
 
-# ========== Apt 软件源设置 ==========
-# 启用 non-free 软件包源
+## ========== Apt 软件源设置 ==========
+## 启用 non-free 软件包源
 d-i apt-setup/non-free boolean true
 
 # 启用 contrib 软件包源
@@ -146,7 +146,7 @@ fi
 # 清理旧虚拟机（关键修改：放在virt-install之前）
 echo "正在清理旧虚拟机..."
 virsh destroy "$VM_NAME" 2>/dev/null
-virsh undefine "$VM_NAME" 2>/dev/null
+virsh undefine "$VM_NAME" --nvram 2>/dev/null
 rm -f "$VM_DISK_PATH" 2>/dev/null
 
 # 执行全自动安装
@@ -154,10 +154,10 @@ virt-install \
  --name "$VM_NAME" \
  --memory "$VM_RAM" \
  --vcpus "$VM_VCPUS" \
- --disk path="$VM_DISK_PATH",size=$VM_DISK_SIZE,format=qcow2 \
+ --disk path="$VM_DISK_PATH",size=$VM_DISK_SIZE,format=qcow2,bus=virtio \
  --location "$ISO_FILE" \
  --os-type linux \
- --os-variant debian11 \
+ --os-variant debiantesting \
  --network bridge=virbr0 \
  --graphics none \
  --console pty,target_type=serial \
