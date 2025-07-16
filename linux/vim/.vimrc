@@ -562,3 +562,13 @@ nnoremap <silent> <leader>li :call ToggleInvisibles()<CR>
 
 " 绑定 <leader>cc 切换 colorcolumn，按 <leader>cc开启/关闭 80 列竖线
 nnoremap <leader>cc :let &colorcolumn = (&colorcolumn == '' ? '80' : '')<CR>
+
+" 禁用按回车自动延续注释
+"set formatoptions-=r
+"autocmd VimEnter * set formatoptions-=r
+autocmd BufEnter * set formatoptions-=r
+" 启用按回车自动延续注释
+"set formatoptions+=r
+" 按 <leader>cr（默认是 \cr）切换回车自动延续注释（启用/禁用 r）
+nnoremap <leader>cr :set formatoptions^=r<CR>
+
