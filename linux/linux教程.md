@@ -1000,6 +1000,10 @@ LISTEN   0        128                 [::]:22                [::]:*        users
 
 例如，`sudo ss -tulnp` 可以显示当前系统中监听的所有网络端口及其对应的进程。
 
+### bond
+
+- [彻底搞懂网卡绑定：RedHat/CentOS 7+ 下 Bond & Team配置指南](https://mp.weixin.qq.com/s/0EVlYMqGRu8tQhoeSk3Tkg)
+
 ### ip
 
 - [通过 12 个样例掌握 Linux IP 命令](https://www.toutiao.com/article/7196522780065006138)
