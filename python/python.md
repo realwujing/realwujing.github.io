@@ -109,6 +109,10 @@ conda config --append channels conda-forge
 - [机器学习&数据挖掘笔记_16（常见面试之机器学习算法思想简单梳理）](https://www.cnblogs.com/tornadomeet/p/3395593.html)
 - [机器学习笔试面试超详细总结（一）](https://blog.csdn.net/jiaoyangwm/article/details/79805939)
 
+### book
+
+- [机器学习 周志华.pdf](https://git.nju.edu.cn/201300035/NJUAI-Notes/-/blob/master/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%20%E5%91%A8%E5%BF%97%E5%8D%8E.pdf)
+
 ## 其他
 
 - [Python实例方法、静态方法和类方法详解（包含区别和用法） (biancheng.net)](http://c.biancheng.net/view/4552.html)
