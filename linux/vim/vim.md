@@ -595,6 +595,10 @@ Vim 中使用 Quickfix 窗口的常用快捷键简写:
 
 8. `:clast` - 跳转到最后一个 Quickfix 条目
 
+### 在 Quickfix 中查找关键字
+
+`:clist` 命令列出所有 Quickfix 条目后，可以使用`:filter /keyword/ clist`进行过滤，支持正则表达式，如:`:filter /x86\|NUMA\|NODE/ clist`。
+
 ### 导航旧Quickfix
 
 Vim 在每个会话中保留多达 10 个快速修复列表，在每个窗口中保留 10 个位置列表。
