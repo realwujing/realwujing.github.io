@@ -114,6 +114,11 @@ conda config --append channels conda-forge
 - [机器学习 周志华.pdf](https://git.nju.edu.cn/201300035/NJUAI-Notes/-/blob/master/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%20%E5%91%A8%E5%BF%97%E5%8D%8E.pdf)
 - [《机器学习》PDF下载(西瓜书)](https://pdfs.top/book/dpdyt)
 
+## deepseek
+
+- [基于WSL2上的Docker部署DeepSeek镜像，亲测可用](https://blog.csdn.net/BigCookies/article/details/145512825)
+- [CUDA Toolkit 12.9 Update 1 Downloads](https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=WSL-Ubuntu&target_version=2.0&target_type=deb_network)
+
 ## 其他
 
 - [Python实例方法、静态方法和类方法详解（包含区别和用法） (biancheng.net)](http://c.biancheng.net/view/4552.html)
