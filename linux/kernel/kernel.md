@@ -24,6 +24,7 @@
 
 - [<font color=Red>Linux内核解读</font>](https://www.toutiao.com/article/7333073522220089867)
 - [#linux内核 ｜ 嵌入式小生](https://mp.weixin.qq.com/mp/appmsgalbum?action=getalbum&album_id=2267430745143066629)
+- [<font color=Red>Linux-LoyenWang</font>](https://mp.weixin.qq.com/mp/homepage?__biz=MzU1MDkzMzQzNQ==&hid=1&sn=ec602d5894317550f2d927b1b6c04ab4&scene=1&devicetype=android-35&version=28003d52&lang=zh_CN&nettype=ctnet&ascene=7&session_us=gh_c2d6274a957c)
 
 ## kernel docs
 
