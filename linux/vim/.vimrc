@@ -472,7 +472,7 @@ if has("cscope")
 	":tag/Ctrl-]/vim -t将使用:cstag，而不是默认的:tag
 	set cst
 	" +(将结果追加到quickfix窗口)、-(清空上一次的结果)、0(不使用quickfix。没有指定也相当于标志为0)))
-	set cscopequickfix=s-,c-,d-,i-,t-,e- " 使用QuickFix窗口来显示cscope查找结果
+	set cscopequickfix=s-,c-,d-,i-,t-,e-,g- " 使用QuickFix窗口来显示cscope查找结果
 	set nocsverb "增加cscope数据库时，将不会打印成功或失败信息
 	"set cspc=3 "指定在查找结果中显示多少级文件路径,默认值0表示显示全路径,1表示只显示文件名"
 	if filereadable("cscope.out")
@@ -487,7 +487,7 @@ if has("cscope")
 	endif
 	set nocsverb
 endif
-set cscopequickfix=s-,c-,d-,i-,t-,e-
+set cscopequickfix=s-,c-,d-,i-,t-,e-,g-
 nmap <C-\>s :cs find s <C-R>=expand("<cword>")<CR><CR>
 nmap <C-\>g :cs find g <C-R>=expand("<cword>")<CR><CR>
 nmap <C-\>c :cs find c <C-R>=expand("<cword>")<CR><CR>
@@ -504,6 +504,14 @@ command! Cwindow botright cwindow
 command! Copen botright copen
 cnoreabbrev cw Cwindow
 cnoreabbrev copen Copen
+
+" 在执行 :cscope find 命令后：
+"   - 若 quickfix 列表条目数大于1：
+"       ✅ 自动在底部打开 quickfix（botright copen）
+"       ✅ 自动跳转焦点到 quickfix 窗口（wincmd j）
+"   - 使用 timer_start 延迟执行，确保不被 :cs find 的默认跳转干扰
+autocmd QuickFixCmdPost cscope call timer_start(100, { -> execute(len(getqflist()) > 1 ? 'botright copen | wincmd j' : '') })
+autocmd QuickFixCmdPost cscope call timer_start(100, { -> execute(len(getqflist()) == 1 ? 'cclose' : '') })
 
 " 启用 indentLine 插件
 let g:indentLine_enabled = 1
