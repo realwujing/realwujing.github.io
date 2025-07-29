@@ -436,6 +436,33 @@ nohz_full=1-15  # 举例
 
 ## rcu_needs_cpu() 函数
 
+当前内核配置中如果没有启用 RCU 的 fast nohz 模式， `rcu_needs_cpu()` 函数的实现如下：
+
+```c
+// vim kernel/rcu/tree_plugin.h +1418
+
+1407 #if !defined(CONFIG_RCU_FAST_NO_HZ)
+1408
+1409 /*
+1410  * Check to see if any future RCU-related work will need to be done
+1411  * by the current CPU, even if none need be done immediately, returning
+1412  * 1 if so.  This function is part of the RCU implementation; it is -not-
+1413  * an exported member of the RCU API.
+1414  *
+1415  * Because we not have RCU_FAST_NO_HZ, just check whether this CPU needs
+1416  * any flavor of RCU.
+1417  */
+1418 int rcu_needs_cpu(u64 basemono, u64 *nextevt)
+1419 {
+1420     *nextevt = KTIME_MAX;
+1421     return rcu_cpu_has_callbacks(NULL);
+1422 }
+```
+
+CONFIG_RCU_FAST_NO_HZ 内核编译选项会影响 nextevt 的值。进一步对 get_next_timer_interrupt 中获取下一个到期时钟的判断。
+
+当前内核配置中如果启用了 RCU 的 fast nohz 模式，`rcu_needs_cpu()` 函数的实现如下：
+
 ```c
 // vim kernel/rcu/tree_plugin.h +1476
 
@@ -626,10 +653,10 @@ return 0;  // 允许空闲，但需在nextevt时唤醒
 
 ## 有待处理但未就绪的回调 → 允许空闲，但设置下次唤醒时间，这里展开讲讲？
 
-在 Linux 内核的 **RCU（Read-Copy-Update）机制** 中，当 CPU 进入空闲状态时，`rcu_needs_cpu()` 函数会判断当前是否有待处理的 RCU 回调，并根据回调的状态决定是否允许 CPU 进入空闲模式，以及何时唤醒它。  
+在 Linux 内核的 **RCU（Read-Copy-Update）机制** 中，当 CPU 进入空闲状态时，`rcu_needs_cpu()` 函数会判断当前是否有待处理的 RCU 回调，并根据回调的状态决定是否允许 CPU 进入空闲模式，以及何时唤醒它。
 
-**关键场景**：  
-**“有待处理但未就绪的回调”**（即回调已注册，但尚未达到 GP（Grace Period）结束条件）时，RCU 允许 CPU 进入空闲状态，但会设置一个 **下次唤醒时间（`nextevt`）**，以便在合适的时机检查回调是否就绪。  
+**关键场景**：
+**“有待处理但未就绪的回调”**（即回调已注册，但尚未达到 GP（Grace Period）结束条件）时，RCU 允许 CPU 进入空闲状态，但会设置一个 **下次唤醒时间（`nextevt`）**，以便在合适的时机检查回调是否就绪。
 
 ---
 
@@ -761,18 +788,18 @@ cat /sys/kernel/debug/rcu/rcu*/grace_period
 
 ### **1. 无回调时的行为**
 
-- **`*nextevt = KTIME_MAX`**  
+- **`*nextevt = KTIME_MAX`**
   表示该 CPU **不需要被 RCU 唤醒**，可以长期保持空闲状态，直到其他事件（如中断、任务唤醒等）发生。
-* **`return 0`**  
+* **`return 0`**
   通知调用者（如 `tick_nohz_stop_tick`）**当前 CPU 无需为 RCU 回调保持唤醒状态**。
 
 ---
 
 ### **2. 对 `CONFIG_NO_HZ_FULL` 的影响**
 
-- **彻底无唤醒**  
+- **彻底无唤醒**
   在无回调的情况下，RCU 不会强制设置任何唤醒时间，CPU 可以完全关闭时钟中断（Tickless），进入**深度空闲状态**，显著节省功耗。
-* **依赖其他事件唤醒**  
+* **依赖其他事件唤醒**
   唤醒可能由以下事件触发：
   * 非 RCU 事件（如硬件中断、调度器任务唤醒）。
   * 后续新到达的 RCU 回调（通过 `rdtp->nonlazy_posted_snap` 检测变更）。
@@ -873,18 +900,18 @@ DPDK 通常通过以下方式隔离核心：
 
 如果希望 **完全消除隔离核心的 RCU 回调**，需：
 
-1. **`rcu_nocbs` 参数**  
+1. **`rcu_nocbs` 参数**
    启动时添加 `rcu_nocbs=<cpu-list>`，将 RCU 回调卸载到其他核心（如 `rcuc` 线程）。
 
    ```sh
    grub_cmdline_linux="isolcpus=2,3 nohz_full=2,3 rcu_nocbs=2,3"
    ```
 
-2. **避免内核调用**  
+2. **避免内核调用**
    * 使用 **纯用户态 DPDK 驱动**（如 `vfio-pci` 而非 `igb_uio`）。
    * 禁用 `KNI`、`AF_XDP` 等内核交互组件。
    * 确保内存分配使用 `rte_malloc` 而非 `malloc`。
-3. **监控 RCU 活动**  
+3. **监控 RCU 活动**
 
    ```sh
    watch -n1 'cat /sys/kernel/debug/rcu/rcu*/rcu_pending'
@@ -904,3 +931,84 @@ DPDK 通常通过以下方式隔离核心：
 
 * **理想情况**：DPDK 运行在完全隔离的核心 + 无内核调用 + `rcu_nocbs` → **几乎无 RCU 回调**。
 * **实际情况**：若涉及内核交互（如内存分配、网卡控制），**仍可能有少量 RCU 回调**，但可通过调优最小化。
+
+## get_next_timer_interrupt
+
+```bash
+awk 'NR>=1648 && NR<=1706 {print NR, $0}' kernel/time/timer.c | clip.exe
+```
+
+```c
+1648  * get_next_timer_interrupt - return the time (clock mono) of the next timer
+1649  * @basej: base time jiffies
+1650  * @basem: base time clock monotonic
+1651  *
+1652  * Returns the tick aligned clock monotonic time of the next pending
+1653  * timer or KTIME_MAX if no timer is pending.
+1654  */
+1655 u64 get_next_timer_interrupt(unsigned long basej, u64 basem)
+1656 {
+1657    struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
+1658    u64 expires = KTIME_MAX;
+1659    unsigned long nextevt;
+1660    bool is_max_delta;
+1661
+1662    /*
+1663     * Pretend that there is no timer pending if the cpu is offline.
+1664     * Possible pending timers will be migrated later to an active cpu.
+1665     */
+1666    if (cpu_is_offline(smp_processor_id()))
+1667            return expires;
+1668
+1669    raw_spin_lock(&base->lock);
+1670    nextevt = __next_timer_interrupt(base);
+1671    is_max_delta = (nextevt == base->clk + NEXT_TIMER_MAX_DELTA);
+1672    base->next_expiry = nextevt;
+1673    /*
+1674     * We have a fresh next event. Check whether we can forward the
+1675     * base. We can only do that when @basej is past base->clk
+1676     * otherwise we might rewind base->clk.
+1677     */
+1678    if (time_after(basej, base->clk)) {
+1679            if (time_after(nextevt, basej))
+1680                    base->clk = basej;
+1681            else if (time_after(nextevt, base->clk))
+1682                    base->clk = nextevt;
+1683    }
+1684
+1685    if (time_before_eq(nextevt, basej)) {
+1686            expires = basem;
+1687            base->is_idle = false;
+1688    } else {
+1689            if (!is_max_delta)
+1690                    expires = basem + (u64)(nextevt - basej) * TICK_NSEC;
+1691            /*
+1692             * If we expect to sleep more than a tick, mark the base idle.
+1693             * Also the tick is stopped so any added timer must forward
+1694             * the base clk itself to keep granularity small. This idle
+1695             * logic is only maintained for the BASE_STD base, deferrable
+1696             * timers may still see large granularity skew (by design).
+1697             */
+1698            if ((expires - basem) > TICK_NSEC) {
+1699                    base->must_forward_clk = true;
+1700                    base->is_idle = true;
+1701            }
+1702    }
+1703    raw_spin_unlock(&base->lock);
+1704
+1705    return cmp_next_hrtimer_event(basem, expires); // 比较高精度定时器和普通定时器，返回最近的到期时间
+1706 }
+```
+
+在 `get_next_timer_interrupt` 函数的最后一行，通过调用 `cmp_next_hrtimer_event(basem, expires)` 来获取高精度定时器（hrtimer）的最先到期定时器：
+
+```c
+return cmp_next_hrtimer_event(basem, expires); // 比较高精度定时器和普通定时器，返回最近的到期时间
+```
+
+其中：
+* `expires` 是普通定时器（timer wheel）下一个到期的单调时钟时间。
+* `cmp_next_hrtimer_event` 内部会调用 `hrtimer_get_next_event()`，获取高精度定时器的下一个到期时间，然后与 `expires` 进行比较，返回两者中最早的那个。
+
+**总结：**
+> get_next_timer_interrupt 通过 cmp_next_hrtimer_event 这一行间接获取了高精度定时器的最先到期定时器。
