@@ -510,7 +510,7 @@ cnoreabbrev copen Copen
 "       ✅ 自动在底部打开 quickfix（botright copen）
 "       ✅ 自动跳转焦点到 quickfix 窗口（wincmd j）
 "   - 使用 timer_start 延迟执行，确保不被 :cs find 的默认跳转干扰
-autocmd QuickFixCmdPost cscope call timer_start(100, { -> execute(len(getqflist()) > 1 ? 'botright copen | wincmd j' : '') })
+autocmd QuickFixCmdPost cscope call timer_start(300, { -> execute(len(getqflist()) > 1 ? 'botright copen | wincmd j' : '') })
 autocmd QuickFixCmdPost cscope call timer_start(100, { -> execute(len(getqflist()) == 1 ? 'cclose' : '') })
 
 " 启用 indentLine 插件
