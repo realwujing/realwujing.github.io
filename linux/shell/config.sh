@@ -74,14 +74,21 @@ ln -s /home/wujing/code/realwujing.github.io/git/.gitcommit_template .gitcommit_
 ln -s /home/wujing/code/realwujing.github.io/git/.gitconfig .gitconfig
 ln -s /home/wujing/code/realwujing.github.io/git/.gitignore_global .gitignore_global
 
+# tmux
+
+ln -s /home/wujing/code/realwujing.github.io/linux/tmux/.tmux.conf .tmux.conf
+
 # vim
 git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
 ln -s /home/wujing/code/realwujing.github.io/linux/vim/.vimrc .vimrc
 vim +PluginInstall +qall
 
-tar -zcvf ~/vim-git.tar.gz \
+tar -zcvf ~/custom-config.tar.gz \
     -C ~/code/realwujing.github.io/git .gitcommit_template \
     -C ~/code/realwujing.github.io/git .gitconfig \
     -C ~/code/realwujing.github.io/git .gitignore_global \
+    -C ~/code/realwujing.github.io/linux/tmux .tmux.conf \
     -C ~/code/realwujing.github.io/linux/vim .vimrc \
     -C ~ .vim
+
+tar -zxvf ~/custom-config.tar.gz

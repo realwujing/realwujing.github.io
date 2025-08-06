@@ -184,6 +184,68 @@ tmux setenv -ug TMOUT
 
 - [由于自动注销而关闭tmux窗口](https://cloud.tencent.com/developer/ask/sof/108640356/answer/118723989)
 
+#### 解决 tmux 中复制出来的文本尾部带很多空格
+
+1. `set -g set-clipboard on`
+
+   - 作用：让 tmux 直接把复制的内容同步到系统剪贴板（需要 tmux ≥ 3.2 且终端支持 OSC 52 协议）。
+   - 好处：
+
+     - 复制内容时，tmux 不会按默认的矩形块方式补空格，而是按实际文本长度发到系统剪贴板。
+     - 相当于跳过了“选区对齐补空格”这一步。
+
+2. `set -g mouse on`
+
+   - 作用：允许在 tmux 面板内用鼠标直接选择文本。
+   - 好处：
+
+     - 当启用了 `set-clipboard on` 后，用鼠标框选文本时，直接把选中的真实字符（不补空格）发到系统剪贴板。
+     - 不需要进入 tmux 的“复制模式”，因此也不会遇到块选区的补空格问题。
+
+---
+
+##### 1️⃣ 临时生效（只影响当前 tmux 会话）
+
+在 `tmux` 会话中直接执行：
+
+1. 按 `Ctrl + b :` 进入 tmux 命令行模式
+2. 依次输入：
+
+   ```bash
+   set -g set-clipboard on
+   set -g mouse on
+   ```
+
+   回车即可立即生效，退出 tmux 后会失效。
+
+---
+
+##### 2️⃣ 永久生效（每次启动 tmux 都有效）
+
+1. 编辑配置文件：
+
+   ```bash
+   vim ~/.tmux.conf
+   ```
+
+2. 加入：
+
+   ```tmux
+   # 启用系统剪贴板
+   set -g set-clipboard on
+
+   # 启用鼠标支持
+   set -g mouse on
+   ```
+
+3. 保存后让配置立即生效：
+
+   ```bash
+   tmux source-file ~/.tmux.conf
+   ```
+
+---
+
 #### xterm
 
 在 Linux 系统上安装 `xterm` 终端仿真器，并使用 `resize` 命令调整 tmux 会话窗口的大小，可以按照以下步骤进行操作：
