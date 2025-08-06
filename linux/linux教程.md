@@ -1301,6 +1301,7 @@ export https_proxy=http://172.27.16.1:7897 http_proxy=http://172.27.16.1:7897 al
 
 - [Linux手误rm可能不需要跑路](https://mp.weixin.qq.com/s/aVQj2Qz0eAQ2pYRCZhKAyg)
 - [改造rm命令，删除文件至回收站](https://segmentfault.com/a/1190000018464527)
+- [<font color=Red>终极防护：让你的Linux系统对"rm -rf /*"免疫！</font>](https://mp.weixin.qq.com/s/CSiMW9MWE5NnwPOnz5yYvg)
 
 #### trash-cli
 
