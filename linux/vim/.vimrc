@@ -4,10 +4,10 @@
 "set shortmess=atI   " 启动的时候不显示那个援助乌干达儿童的提示
 "winpos 5 5          " 设定窗口位置
 "set lines=40 columns=155    " 设定窗口大小
-set nu              " 显示行号
+"set nu              " 显示行号
 set go=             " 不要图形按钮
 "color asmanian2     " 设置背景主题
-set guifont=Courier_New:h10:cANSI   " 设置字体
+"set guifont=Courier_New:h10:cANSI   " 设置字体
 syntax on           " 语法高亮
 autocmd InsertLeave * se nocul  " 用浅色高亮当前行
 autocmd InsertEnter * se cul    " 用浅色高亮当前行
@@ -49,7 +49,7 @@ colorscheme murphy
 set fencs=utf-8,ucs-bom,shift-jis,gb18030,gbk,gb2312,cp936
 set termencoding=utf-8
 set encoding=utf-8
-set fileencodings=ucs-bom,utf-8,cp936
+"set fileencodings=ucs-bom,utf-8,cp936
 set fileencoding=utf-8
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -152,8 +152,42 @@ endfunc
 
 " 设置当文件被改动时自动载入
 set autoread
-" quickfix模式
-autocmd FileType c,cpp map <buffer> <leader><space> :w<cr>:make<cr>
+
+"quickfix模式
+"autocmd FileType c,cpp map <buffer> <leader><space> :w<cr>:make<cr>
+
+function! SetMakePrg()
+	" 获取逻辑核心数（减2缓冲）
+	let l:cores = system('nproc --all | tr -d "\n"') - 2
+	if l:cores < 1 | let l:cores = 1 | endif
+
+	" 优先级：CMakeLists.txt > Makefile > 单文件
+	if filereadable('CMakeLists.txt')
+		" CMake 项目：在 build/ 目录下编译
+		if !isdirectory('build')
+			call mkdir('build')
+		endif
+		let &makeprg = 'cd build && cmake .. && cmake --build . --parallel ' . l:cores
+
+	elseif filereadable('Makefile') || filereadable('makefile')
+		" Makefile 项目：多核编译
+		let &makeprg = 'make -j' . l:cores
+
+	else
+		" 单文件编译（C/C++）
+		if expand('%:e') == 'c'
+			let &makeprg = 'gcc -Wall % -o %<'
+		else
+			let &makeprg = 'g++ -Wall % -o %<'
+		endif
+	endif
+endfunction
+
+" 文件类型为 C/C++ 时自动设置
+autocmd FileType c,cpp call SetMakePrg()
+
+" 快捷键：保存并编译运行
+autocmd FileType c,cpp map <buffer> <leader><space> :w<CR>:call SetMakePrg()<CR>:make<CR>
 
 "代码补全
 set completeopt=preview,menu
@@ -167,17 +201,13 @@ set clipboard+=unnamed
 "从不备份
 set nobackup
 
-"make 运行
-:set makeprg=g++\ -Wall\ \ %
-
 "自动保存
-
 set autowrite
-set ruler                   " 打开状态栏标尺
-set cursorline              " 突出显示当前行
-set magic                   " 设置魔术
-set guioptions-=T           " 隐藏工具栏
-set guioptions-=m           " 隐藏菜单栏
+"set ruler                   " 打开状态栏标尺
+"set cursorline              " 突出显示当前行
+"set magic                   " 设置魔术
+"set guioptions-=T           " 隐藏工具栏
+"set guioptions-=m           " 隐藏菜单栏
 "set statusline=\ %<%F[%1*%M%*%n%R%H]%=\ %y\ %0(%{&fileformat}\ %{&encoding}\ %c:%l/%L%)\
 
 " 设置在状态行显示的信息
@@ -216,7 +246,7 @@ set noexpandtab
 set smarttab
 
 " 显示行号
-set number
+"set number
 
 " 历史记录数
 set history=1000
@@ -570,7 +600,7 @@ endfunction
 nnoremap <silent> <leader>li :call ToggleInvisibles()<CR>
 
 " 绑定 <leader>cc 切换 colorcolumn，按 <leader>cc开启/关闭 80 列竖线
-nnoremap <leader>cc :let &colorcolumn = (&colorcolumn == '' ? '80' : '')<CR>
+nnoremap <leader>80 :let &colorcolumn = (&colorcolumn == '' ? '80' : '')<CR>
 
 " 禁用按回车自动延续注释
 "set formatoptions-=r
