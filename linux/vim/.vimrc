@@ -449,7 +449,7 @@ let Tlist_Auto_Open=1
 """"""""""""""""""""""""""""""
 " Tag list (ctags)
 """"""""""""""""""""""""""""""""
-let Tlist_Ctags_Cmd = '/usr/bin/ctags'
+"let Tlist_Ctags_Cmd = '/usr/bin/ctags'
 let Tlist_Show_One_File = 1 "不同时显示多个文件的tag，只显示当前文件的
 let Tlist_Exit_OnlyWindow = 1 "如果taglist窗口是最后一个窗口，则退出vim
 let Tlist_Use_Right_Window = 1 "在右侧窗口中显示taglist窗口
@@ -465,7 +465,7 @@ let g:miniBufExplModSelTarget = 1
 " cscope的设定
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 if has("cscope")
-	set csprg=/usr/bin/cscope
+	"set csprg=/usr/bin/cscope
 	"指定:cstag的搜索顺序。0表示先搜索cscope数据库，若不匹配，再搜索tag文件，1
 	"则相反
 	set csto=0
