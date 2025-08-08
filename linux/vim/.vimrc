@@ -370,7 +370,8 @@ Plugin 'vim-airline/vim-airline'
 
 Plugin 'altercation/vim-colors-solarized'
 
-Plugin 'ycm-core/YouCompleteMe'
+Plugin 'valloric/youcompleteme'
+"Plugin 'ycm-core/YouCompleteMe'
 
 Plugin 'kien/ctrlp.vim'
 
@@ -413,7 +414,7 @@ map <leader>nd :NERDTreeFind<CR>
 map <leader>tl :TlistToggle<CR>
 nnoremap <leader>ma :set mouse=a<cr>
 "nnoremap <leader>mu :set mouse=<cr>
-nnoremap <leader>mu :set mouse=<CR>:TlistClose<CR>:set nolist<CR>:IndentLinesDisable<CR>
+nnoremap <leader>mu :set mouse=<CR>:TlistClose<CR>:set nolist<CR>:IndentLinesDisable<CR>:echo "已禁用: mouse / Taglist / listchars / indentlines"<CR>
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 "   tagbar
