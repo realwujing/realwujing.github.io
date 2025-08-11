@@ -9,6 +9,7 @@
     - [labuladong 公众号文章目录](https://mp.weixin.qq.com/s/sT6_sHuptgwg9A4KxQfGSg)
 
 - [soulmachine/leetcode: LeetCode题解，151道题完整版 (github.com)](https://github.com/soulmachine/leetcode)
+- [算法入门教程（十大经典算法图解）](https://c.biancheng.net/algorithm_tutorial/)
 
 ## 数据结构
 
