@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# 检查是否以root权限运行
+if [ "$(id -u)" -ne 0 ]; then
+  echo "错误：请以root权限运行此脚本（建议使用 sudo $0 ...）"
+  exit 1
+fi
+
 # =============================================
 # 全自动 Debian 12 安装脚本（系统推荐分区方案）
 # =============================================
@@ -114,7 +120,7 @@ echo "虚拟机磁盘路径: ${VM_DISK_PATH}"
 echo "ISO文件路径: ${ISO_FILE}"
 echo "Preseed配置路径: ${KS_CONFIG}"
 
-# 生成8位随机密码
+# 生成随机8位密码，包含数字、大小写字母
 VM_PASSWD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 8)
 ENCRYPTED_PWD=$(echo "$VM_PASSWD" | openssl passwd -6 -salt xyz123 -stdin)
 
@@ -228,9 +234,44 @@ fi
 
 # 清理旧虚拟机（关键修改：放在virt-install之前）
 echo "正在清理旧虚拟机..."
-virsh destroy "$VM_NAME" 2>/dev/null
-virsh undefine "$VM_NAME" 2>/dev/null
-rm -f "$VM_DISK_PATH" 2>/dev/null
+if virsh list --all | grep -qw "$VM_NAME"; then
+  echo "检测到虚拟机 $VM_NAME 已存在。"
+  for i in 1 2 3; do
+    read -p "确认要删除虚拟机 $VM_NAME 吗？(第 $i 次/共3次，输入 yes 确认): " confirm
+    if [ "$confirm" != "yes" ]; then
+      echo "未确认，跳过本次删除。"
+      exit 1
+    fi
+  done
+  echo "正在清理旧虚拟机..."
+  virsh destroy "$VM_NAME" 2>/dev/null
+  virsh undefine "$VM_NAME" 2>/dev/null
+  rm -f "$VM_DISK_PATH" 2>/dev/null
+else
+  echo "虚拟机 $VM_NAME 不存在，无需清理。"
+fi
+
+# 打印虚拟机信息方法
+print_vm_info() {
+  echo "正在获取虚拟机IP地址..."
+  VM_IP=$(virsh domifaddr "$VM_NAME" --source agent 2>/dev/null | awk '$1 != "lo" && /ipv4/ {print $4}' | cut -d'/' -f1 | head -n1)
+
+  echo "=============================================="
+  echo "虚拟机创建完成！"
+  echo "用户名: $VM_USER"
+  echo "密码:   $VM_PASSWD"
+  if [ -n "$VM_IP" ]; then
+    echo "SSH登录方式:"
+    echo "  ssh $VM_USER@$VM_IP"
+  else
+    echo "未能自动获取虚拟机IP，请稍后手动查询。"
+    echo "常用命令: virsh domifaddr $VM_NAME --source agent"
+  fi
+  echo "=============================================="
+
+  # 删除 Kickstart 配置文件
+  rm -rf $KS_CONFIG
+}
 
 # 执行全自动安装
 virt-install \
@@ -244,27 +285,11 @@ virt-install \
  --graphics none \
  --console pty,target_type=serial \
  --initrd-inject "$KS_CONFIG" \
- --noautoconsole \
  --extra-args "\
  console=ttyS0,115200n8 \
  auto=true \
  file=/$(basename "$KS_CONFIG") \
  DEBCONF_DEBUG=5 \
- -- quiet"
+ -- quiet" \
+ && print_vm_info
 
-# 获取虚拟机IP地址（通过qemu-guest-agent，排除lo）
-echo "正在获取虚拟机IP地址..."
-VM_IP=$(virsh domifaddr "$VM_NAME" --source agent 2>/dev/null | awk '$1 != "lo" && /ipv4/ {print $4}' | cut -d'/' -f1 | head -n1)
-
-echo "=============================================="
-echo "虚拟机创建完成！"
-echo "用户名: $VM_USER"
-echo "密码:   $VM_PASSWD"
-if [ -n "$VM_IP" ]; then
-  echo "SSH登录方式:"
-  echo "  ssh $VM_USER@$VM_IP"
-else
-  echo "未能自动获取虚拟机IP，请稍后手动查询。"
-  echo "常用命令: virsh domifaddr $VM_NAME --source agent"
-fi
-echo "=============================================="
