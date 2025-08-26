@@ -67,11 +67,11 @@ ln -s /home/wujing/code/realwujing.github.io/linux/debug/gdb/.gdbinit .gdbinit
 
 # ssh
 ssh-keygen
-ln -s /home/wujing/code/realwujing.github.io/linux/ssh/config .ssh/config
+ln -s /home/wujing/code/config/ssh/config .ssh/config
 
 # git
 ln -s /home/wujing/code/realwujing.github.io/git/.gitcommit_template .gitcommit_template
-ln -s /home/wujing/code/realwujing.github.io/git/.gitconfig .gitconfig
+ln -s /home/wujing/code/config/git/.gitconfig .gitconfig
 ln -s /home/wujing/code/realwujing.github.io/git/.gitignore_global .gitignore_global
 
 # tmux
