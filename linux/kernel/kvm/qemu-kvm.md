@@ -524,6 +524,10 @@ sudo mount -a
     sudo apt install systemd-timesyncd
     ```
 
+## qemu 模式外设
+
+- [在Qemu中实现一个PCIe设备：完整源代码分享](https://mp.weixin.qq.com/s/Xs-iB1tOMpzYKJuFRbfG0Q?from=industrynews&color_scheme=light)
+
 ## 网络虚拟化
 
 - [<font color=Red>QEMU用户模式网络</font>](https://blog.csdn.net/m0_43406494/article/details/124827927)
