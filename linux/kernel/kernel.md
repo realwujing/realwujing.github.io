@@ -1188,6 +1188,7 @@ time rpmbuild -ba --target=aarch64 --define "_host_cpu aarch64" build/kernel.spe
 
 - [Linux - Kernel Module 编译过程拆解](https://mp.weixin.qq.com/s/cvQevwrzUlTkyw81w59X9w)
 - [内核模块开发中__init和__exit的作用](https://blog.csdn.net/bhniunan/article/details/104082581)
+- [<font color=Red>BSP工程师的内核必修课：2.6 从编译链接到insmod，内核模块动态加载流程完全剖析</font>](https://mp.weixin.qq.com/s/JgkfBaDZCnxc6NpXG6jUoA?scene=1&click_id=3)
 
 ### KBUILD_EXTRA_SYMBOLS
 
