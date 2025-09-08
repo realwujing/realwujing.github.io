@@ -13,6 +13,7 @@
 - v0.2 多 ring/引擎支持＋单机时钟一致性（ktime、seq）
 - v0.3 事件模型稳定化（提交/完成/ctx 切换/fence 等）
 - v0.4 用户态工具链（grtrace、最小分析脚本）
+  （含阻塞点报告：per-job 指标与标签）
 - v0.5 性能与开销治理（背压、采样、开关策略、热路径审计）
 - v0.6 持久化格式 v1（紧凑二进制 + 元数据）
 - v0.7 供应商适配（amdgpu、i915、nouveau 首批覆盖）
@@ -54,7 +55,11 @@
 ## v0.3 事件模型稳定化
 
 - 内核
-  - [ ] 事件语义与字段冻结（submit/complete/ctx_switch/fence/bo-map 可选）
+  - [ ] 事件语义与字段冻结（提交/开始/结束/完成/ctx_switch/依赖等待/doorbell/可选 bo-map）
+  - [ ] 最小事件集可推导核心时序：
+    - [ ] COMMIT（命令落入 ring）/SUBMIT（doorbell）/START（硬件取指）/END（硬件完成）/IRQ（上抛）
+    - [ ] SYNC_WAIT_{ENTER,EXIT}（GPU 内同步等待片段）/CTX_SWITCH（上下文切换，含抢占标记）
+  - [ ] 使能按 job<ctx, ring, seqno> 聚合的字段，保证可计算 t_submit_host/t_queue/t_exec/t_gpu_wait/t_complete
   - [ ] 版本协商（MAGIC、VERSION、feature bits）
   - [ ] 错误路径与异常事件（reset/timeout）
 - 用户态
@@ -66,11 +71,14 @@
 
 - 用户态
   - [ ] grtrace：start/stop/status/config（debugfs/ioctl）
+  - [ ] report：阻塞点分析最小产出（per-job 指标与标签、per-ring 聚合、Top-N 类别）
   - [ ] 最小可视化示例（时间线/直方图/Top-N）
 - 文档
   - [ ] 快速开始、CLI 帮助、典型场景手册
 - 验收
-  - [ ] 一条命令完成采集，另一条生成分析素材
+  - [ ] 一条命令完成采集，另一条生成阻塞点报告：
+    - [ ] per-job 输出含 t_submit_host/t_queue/t_exec/t_gpu_wait/t_complete 与标签
+    - [ ] per-ring 汇总含标签占比与疑似结构性瓶颈提示
 
 ## v0.5 性能与开销治理
 
@@ -79,7 +87,8 @@
   - [ ] 开关/采样/级别策略（off/normal/verbose，采样 N）
   - [ ] 大量事件压力下的退化与保护（丢弃率、背压阈值）
 - 用户态
-  - [ ] 采集开销报告（事件率、丢弃、平均写入时长）
+  - [ ] 阈值与规则可配置（占比阈值、绝对时长、标签开关）
+  - [ ] 采集与分析开销报告（事件率、丢弃、平均写入时长、规则命中统计）
 - 验收
   - [ ] 在高事件率下内核无明显退化，丢弃率可控
 
@@ -87,7 +96,7 @@
 
 - 设计
   - [ ] 紧凑二进制格式（定长头 + 变长 payload）
-  - [ ] 元数据区（GPU/driver/ring 描述、时钟源、版本、特性）
+  - [ ] 元数据区（GPU/driver/ring 描述、时钟源、对时事件、版本、特性、规则版本）
 - 验收
   - [ ] v1 格式固化并出示参考解析器
 
@@ -141,6 +150,8 @@
   - [ ] nouveau hooks（可选）
 - 用户态工具
   - [ ] grtrace（控制面）
+  - [ ] report 工具（阻塞点画像：per-job 指标/标签、per-ring 汇总）
+  - [ ] 阈值与规则引擎（可配置阈值/标签开关，规则命中统计）
   - [ ] 可视化样例（脚本/Notebook）
 - 测试/CI
   - [ ] kselftest 用例
