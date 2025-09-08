@@ -1673,6 +1673,74 @@ static int gpu_trace_setup_debugfs(struct gpu_ring_trace *gt, const char *name)
    - 内存分配模式
    - 并发执行效率
 
+### 5.3 用grtrace定位GPU阻塞点（方法论与判定规则）
+
+本节给出一套可落地的“阻塞点”定位方法，目标是像blktrace定位IO瓶颈一样清晰直观：输入为ring buffer事件流，输出为每个GPU作业（job）的时序拆解与阻塞类型标签，并形成按上下文/引擎的归因汇总。
+
+- 术语约定：
+    - job：一次提交到某个ring的可执行单元（可用<ctx_id, ring_id, seqno>标识）。
+    - 时钟：统一使用单调CPU时间；如需GPU时钟，记录一次性同步点以换算（trace启动/停止时的对时事件）。
+    - 基础事件（建议命名，便于跨厂商映射）：
+        - ALLOC/COMMIT：命令在ring的写入准备/落盘完成。
+        - SUBMIT：doorbell/submit触发，表示可被硬件观察到。
+        - START：硬件开始执行该job（首条包被取走）。
+        - END：硬件完成该job（最后一条包执行完）。
+        - IRQ：完成中断或fence信号上升（面向上层可见）。
+        - CTX_SWITCH：上下文/引擎间切换发生（可含preempt标记）。
+        - SYNC_WAIT_{ENTER,EXIT}：GPU侧等待依赖/信号（如SEMAPHORE/WAIT包）。
+        - VM_FAULT/RETRY：页错误/重试等内存相关异常。
+
+- 核心时序与度量（对每个job计算）：
+    - Host提交开销：t_submit_host = ts(SUBMIT) - ts(COMMIT)
+    - 排队等待（队列拥塞/调度等待）：t_queue = ts(START) - ts(SUBMIT)
+    - 执行时长：t_exec = ts(END) - ts(START)
+    - 完成上抛：t_complete = ts(IRQ) - ts(END)（如无IRQ则忽略）
+    - GPU内部等待：t_gpu_wait = Σ[ts(SYNC_WAIT_EXIT) - ts(SYNC_WAIT_ENTER)]
+    - 故障开销：t_vm_fault = Σ[VM_FAULT 相关窗口]（若可采集）
+    - 总周期：t_total = ts(IRQ|END) - ts(COMMIT)
+
+- 阻塞类型判定规则（默认阈值可配置）：
+    - 主机侧提交瓶颈（host submit slow）：
+        - 条件：t_submit_host 占 t_total 比例 > 30% 且绝对值 > 200µs
+        - 归因：驱动/用户态构建命令、锁竞争、IOCTL路径慢
+    - 队列拥塞/调度等待（queue wait）：
+        - 条件：t_queue 占比 > 50% 且绝对值 > 500µs，且期内ring填充率高/有大量未完成job
+        - 归因：ring尺寸不足、同ring前序job长尾、调度器配额/优先级
+    - 执行长尾（execution long-tail）：
+        - 条件：t_exec 远高于同类job中位数（>P90×1.5），且伴随 t_gpu_wait 较小
+        - 归因：内核态编译不佳/算法本身重、算力不足
+    - 依赖/同步等待（gpu dependency wait）：
+        - 条件：t_gpu_wait 占比 > 40% 或多段SYNC_WAIT片段
+        - 归因：跨队列/跨引擎/跨进程同步不当
+    - 内存/页错误（memory/VM fault）：
+        - 条件：存在VM_FAULT/RETRY事件或 t_vm_fault 明显
+        - 归因：内存迁移、页置换、无效映射
+    - 抢占/切换抖动（preempt thrash）：
+        - 条件：邻近有频繁CTX_SWITCH，且单次执行被多次打断
+        - 归因：高优先级抢占、调度策略不稳
+
+- 分析流程（建议落地到 grtrace report 工具）：
+    1) 采集：按ring/进程过滤采集基础事件（上表），确保启用doorbell、START/END与同步事件。
+    2) 归并：以<ctx, ring, seqno>聚合为job，按时间排序。
+    3) 衍生：计算各t_*度量与占比，并统计环路期内ring填充率与未完成计数。
+    4) 分类：按规则打标签（可多标签），输出每job“阻塞画像”。
+    5) 汇总：按上下文/引擎/标签做聚合，产出Top-N阻塞类别与样本。
+
+- 最小可读输出（示例，省略列）：
+    - per-job：time, ctx, ring, seqno, t_submit_host, t_queue, t_exec, t_gpu_wait, tag[]
+    - per-ring：窗口均值/分位数、标签占比、疑似结构性瓶颈（如长期queue>50%）
+
+- 示例（简化时序）：
+    - 事件：COMMIT@0.0 → SUBMIT@0.2 → START@2.5 → END@3.0 → IRQ@3.1
+    - 推导：t_submit_host=0.2, t_queue=2.3, t_exec=0.5, t_complete=0.1
+    - 结论：队列拥塞（queue wait）主导；建议：检查同ring前序长尾或增大ring/并行度
+
+- 注意事项与边界：
+    - 时钟对齐：如含GPU时钟，需以对时事件线性换算并校验漂移
+    - 事件丢失：发现乱序/缺失时降级（例如以END代IRQ计算t_total）并打上“不完全”标记
+    - 批量提交：一次SUBMIT覆盖多个seqno时，需按包边界拆分或记录组ID
+    - 多引擎依赖：跨ring依赖会把等待投射到t_queue或t_gpu_wait，结合SYNC_WAIT与前序job完成时间判别
+
 ## 6. 实现挑战与解决方案
 
 ### 6.1 跨厂商适配挑战
