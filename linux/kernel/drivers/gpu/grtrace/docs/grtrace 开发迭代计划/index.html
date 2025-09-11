@@ -1,0 +1,1197 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="grtrace 开发迭代计划（Roadmap） 配套架构文档： GPU Ring Buffer追踪架构深度分析：从blktrace到grtrace的设计演进 语义化版本约定：  v0.x 为快速迭代期（可能发生不兼容变更） v1.0 起承诺基本事件语义与文件格式的稳定性  里程碑总览  v0.1 MVP：内核最小可用路径（relay 通道 + 基础事件 + 单供应商单 ring） v0.2 多 r">
+<meta property="og:type" content="article">
+<meta property="og:title" content="grtrace 开发迭代计划">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/drivers/gpu/grtrace/docs/grtrace%20%E5%BC%80%E5%8F%91%E8%BF%AD%E4%BB%A3%E8%AE%A1%E5%88%92/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="grtrace 开发迭代计划（Roadmap） 配套架构文档： GPU Ring Buffer追踪架构深度分析：从blktrace到grtrace的设计演进 语义化版本约定：  v0.x 为快速迭代期（可能发生不兼容变更） v1.0 起承诺基本事件语义与文件格式的稳定性  里程碑总览  v0.1 MVP：内核最小可用路径（relay 通道 + 基础事件 + 单供应商单 ring） v0.2 多 r">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-09-08T16:50:46.000Z">
+<meta property="article:modified_time" content="2025-09-08T17:27:16.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="bpf">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>grtrace 开发迭代计划 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="grtrace 开发迭代计划"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-09-08 16:50" pubdate>
+          2025年9月8日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          28 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">grtrace 开发迭代计划</h1>
+            
+              <p class="note note-info">
+                
+                  
+                    本文最后更新于：2025年9月8日 下午
+                  
+                
+              </p>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="grtrace-开发迭代计划roadmap">grtrace
+开发迭代计划（Roadmap）</h1>
+<p>配套架构文档： <a
+href="./GPU%20Ring%20Buffer追踪架构深度分析：从blktrace到grtrace的设计演进.md">GPU
+Ring Buffer追踪架构深度分析：从blktrace到grtrace的设计演进</a></p>
+<p>语义化版本约定：</p>
+<ul>
+<li>v0.x 为快速迭代期（可能发生不兼容变更）</li>
+<li>v1.0 起承诺基本事件语义与文件格式的稳定性</li>
+</ul>
+<h2 id="里程碑总览">里程碑总览</h2>
+<ul>
+<li>v0.1 MVP：内核最小可用路径（relay 通道 + 基础事件 + 单供应商单
+ring）</li>
+<li>v0.2 多 ring/引擎支持＋单机时钟一致性（ktime、seq）</li>
+<li>v0.3 事件模型稳定化（提交/完成/ctx 切换/fence 等）</li>
+<li>v0.4 用户态工具链（grtrace、最小分析脚本） （含阻塞点报告：per-job
+指标与标签）</li>
+<li>v0.5 性能与开销治理（背压、采样、开关策略、热路径审计）</li>
+<li>v0.6 持久化格式 v1（紧凑二进制 + 元数据）</li>
+<li>v0.7 供应商适配（amdgpu、i915、nouveau 首批覆盖）</li>
+<li>v0.8 与 ftrace/perf/eBPF 联动（时间轴对齐、跨域关联）</li>
+<li>v0.9 稳定化（kselftest、自测基准、文档与示例）</li>
+<li>v1.0 基线发布（接口/格式稳定、兼容性承诺）</li>
+</ul>
+<hr />
+<h2 id="v0.1-mvp最小可用">v0.1 MVP（最小可用）</h2>
+<p>目标：跑通从驱动 hook → 内核 relay → debugfs 消费 →
+简单用户态读取的闭环。</p>
+<ul>
+<li>内核
+<ul class="task-list">
+<li><label><input type="checkbox" />基础事件类型：提交 submit、完成
+complete（fence signal）、上下文切换 ctx_switch</label></li>
+<li><label><input type="checkbox" />relay 通道与 per-CPU
+序列号（最简实现可先单通道）</label></li>
+<li><label><input type="checkbox" />debugfs
+控制与数据出口：/sys/kernel/debug/grtrace/</label></li>
+<li><label><input type="checkbox" />单供应商单 ring 打通（推荐 i915 或
+amdgpu 二选一）</label></li>
+</ul></li>
+<li>用户态
+<ul class="task-list">
+<li><label><input type="checkbox" />原型读出工具（最简：cat/用户态
+reader 示例）</label></li>
+<li><label><input type="checkbox" />最小解析脚本（事件序列 +
+时间戳）</label></li>
+</ul></li>
+<li>文档/CI
+<ul class="task-list">
+<li><label><input type="checkbox" />启动/停止/读取使用说明（README
+片段）</label></li>
+<li><label><input type="checkbox" />简单 smoke test（插入 N 次提交，观察
+N 次完成）</label></li>
+</ul></li>
+<li>验收
+<ul class="task-list">
+<li><label><input type="checkbox" />Demo 展示单 ring
+的提交→完成闭环，数据可读可视</label></li>
+</ul></li>
+</ul>
+<h2 id="v0.2-多-ring引擎-时钟一致性">v0.2 多 ring/引擎 + 时钟一致性</h2>
+<ul>
+<li>内核
+<ul class="task-list">
+<li><label><input type="checkbox" />多
+ring/引擎（graphics/compute/copy）识别与标注</label></li>
+<li><label><input type="checkbox" />全局单调时间戳与跨 CPU
+一致性（ktime_get_* + per-CPU seq 方案）</label></li>
+<li><label><input
+type="checkbox" />事件丢弃与水位（丢包计数、背压策略雏形）</label></li>
+</ul></li>
+<li>用户态
+<ul class="task-list">
+<li><label><input type="checkbox" />ring/engine
+维度的视图与过滤</label></li>
+</ul></li>
+<li>验收
+<ul class="task-list">
+<li><label><input type="checkbox" />同一 GPU 多 ring
+同时追踪，时间顺序一致</label></li>
+</ul></li>
+</ul>
+<h2 id="v0.3-事件模型稳定化">v0.3 事件模型稳定化</h2>
+<ul>
+<li>内核
+<ul class="task-list">
+<li><label><input
+type="checkbox" />事件语义与字段冻结（提交/开始/结束/完成/ctx_switch/依赖等待/doorbell/可选
+bo-map）</label></li>
+<li><label><input type="checkbox" />最小事件集可推导核心时序：</label>
+<ul class="task-list">
+<li><label><input type="checkbox" />COMMIT（命令落入
+ring）/SUBMIT（doorbell）/START（硬件取指）/END（硬件完成）/IRQ（上抛）</label></li>
+<li><label><input type="checkbox" />SYNC_WAIT_{ENTER,EXIT}（GPU
+内同步等待片段）/CTX_SWITCH（上下文切换，含抢占标记）</label></li>
+</ul></li>
+<li><label><input type="checkbox" />使能按 job&lt;ctx, ring, seqno&gt;
+聚合的字段，保证可计算
+t_submit_host/t_queue/t_exec/t_gpu_wait/t_complete</label></li>
+<li><label><input type="checkbox" />版本协商（MAGIC、VERSION、feature
+bits）</label></li>
+<li><label><input
+type="checkbox" />错误路径与异常事件（reset/timeout）</label></li>
+</ul></li>
+<li>用户态
+<ul class="task-list">
+<li><label><input type="checkbox" />版本/特性探测与兼容回退</label></li>
+</ul></li>
+<li>验收
+<ul class="task-list">
+<li><label><input type="checkbox" />事件 schema
+审核通过，提交兼容性基线</label></li>
+</ul></li>
+</ul>
+<h2 id="v0.4-工具链grtrace">v0.4 工具链（grtrace）</h2>
+<ul>
+<li>用户态
+<ul class="task-list">
+<li><label><input
+type="checkbox" />grtrace：start/stop/status/config（debugfs/ioctl）</label></li>
+<li><label><input type="checkbox" />report：阻塞点分析最小产出（per-job
+指标与标签、per-ring 聚合、Top-N 类别）</label></li>
+<li><label><input
+type="checkbox" />最小可视化示例（时间线/直方图/Top-N）</label></li>
+</ul></li>
+<li>文档
+<ul class="task-list">
+<li><label><input type="checkbox" />快速开始、CLI
+帮助、典型场景手册</label></li>
+</ul></li>
+<li>验收
+<ul class="task-list">
+<li><label><input
+type="checkbox" />一条命令完成采集，另一条生成阻塞点报告：</label>
+<ul class="task-list">
+<li><label><input type="checkbox" />per-job 输出含
+t_submit_host/t_queue/t_exec/t_gpu_wait/t_complete 与标签</label></li>
+<li><label><input type="checkbox" />per-ring
+汇总含标签占比与疑似结构性瓶颈提示</label></li>
+</ul></li>
+</ul></li>
+</ul>
+<h2 id="v0.5-性能与开销治理">v0.5 性能与开销治理</h2>
+<ul>
+<li>内核
+<ul class="task-list">
+<li><label><input
+type="checkbox" />热路径剖析与优化（分支预测、缓存友好、最小化锁/原子）</label></li>
+<li><label><input
+type="checkbox" />开关/采样/级别策略（off/normal/verbose，采样
+N）</label></li>
+<li><label><input
+type="checkbox" />大量事件压力下的退化与保护（丢弃率、背压阈值）</label></li>
+</ul></li>
+<li>用户态
+<ul class="task-list">
+<li><label><input
+type="checkbox" />阈值与规则可配置（占比阈值、绝对时长、标签开关）</label></li>
+<li><label><input
+type="checkbox" />采集与分析开销报告（事件率、丢弃、平均写入时长、规则命中统计）</label></li>
+</ul></li>
+<li>验收
+<ul class="task-list">
+<li><label><input
+type="checkbox" />在高事件率下内核无明显退化，丢弃率可控</label></li>
+</ul></li>
+</ul>
+<h2 id="v0.6-持久化格式-v1">v0.6 持久化格式 v1</h2>
+<ul>
+<li>设计
+<ul class="task-list">
+<li><label><input type="checkbox" />紧凑二进制格式（定长头 + 变长
+payload）</label></li>
+<li><label><input type="checkbox" />元数据区（GPU/driver/ring
+描述、时钟源、对时事件、版本、特性、规则版本）</label></li>
+</ul></li>
+<li>验收
+<ul class="task-list">
+<li><label><input type="checkbox" />v1
+格式固化并出示参考解析器</label></li>
+</ul></li>
+</ul>
+<h2 id="v0.7-供应商适配">v0.7 供应商适配</h2>
+<ul>
+<li>内核
+<ul class="task-list">
+<li><label><input type="checkbox" />amdgpu：gfx/comp/copy ring
+hooks</label></li>
+<li><label><input type="checkbox" />i915：execlists/GuC 路径
+hooks</label></li>
+<li><label><input type="checkbox" />nouveau：pushbuf 提交流程
+hooks（可择期）</label></li>
+</ul></li>
+<li>验收
+<ul class="task-list">
+<li><label><input
+type="checkbox" />至少两家驱动稳定产出可解析数据</label></li>
+</ul></li>
+</ul>
+<h2 id="v0.8-与系统追踪联动">v0.8 与系统追踪联动</h2>
+<ul>
+<li>集成
+<ul class="task-list">
+<li><label><input type="checkbox" />ftrace/perf
+时间对齐与关联字段（pid/tid/ctx/engine）</label></li>
+<li><label><input type="checkbox" />eBPF
+辅助场景（进程标注、跨域事件拼接）</label></li>
+</ul></li>
+<li>验收
+<ul class="task-list">
+<li><label><input type="checkbox" />能将 GPU 事件与 CPU 调度/IO
+事件在同一时间轴展示</label></li>
+</ul></li>
+</ul>
+<h2 id="v0.9-稳定化">v0.9 稳定化</h2>
+<ul>
+<li>测试
+<ul class="task-list">
+<li><label><input
+type="checkbox" />kselftest/内核自测用例（功能/压力/回归）</label></li>
+<li><label><input
+type="checkbox" />CI：格式校验、静态检查、风格检查</label></li>
+</ul></li>
+<li>文档
+<ul class="task-list">
+<li><label><input
+type="checkbox" />贡献指南、维护策略、FAQ、故障排查</label></li>
+</ul></li>
+<li>验收
+<ul class="task-list">
+<li><label><input
+type="checkbox" />覆盖主路径的自动化测试稳定通过</label></li>
+</ul></li>
+</ul>
+<h2 id="v1.0-基线发布">v1.0 基线发布</h2>
+<ul>
+<li>承诺
+<ul class="task-list">
+<li><label><input type="checkbox" />事件语义与 v1 格式稳定</label></li>
+<li><label><input type="checkbox" />同 minor 版本向后兼容</label></li>
+</ul></li>
+<li>发布物
+<ul class="task-list">
+<li><label><input
+type="checkbox" />内核补丁集、用户态工具、示例与文档</label></li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="按职能拆分的任务清单">按职能拆分的任务清单</h2>
+<ul>
+<li>内核（core）
+<ul class="task-list">
+<li><label><input type="checkbox" />事件定义与 fast path</label></li>
+<li><label><input
+type="checkbox" />relay/debugfs/RCU/锁策略</label></li>
+<li><label><input type="checkbox" />多 ring/engine
+标注与枚举</label></li>
+<li><label><input type="checkbox" />版本与特性协商</label></li>
+</ul></li>
+<li>驱动适配（vendors）
+<ul class="task-list">
+<li><label><input type="checkbox" />amdgpu hooks</label></li>
+<li><label><input type="checkbox" />i915 hooks</label></li>
+<li><label><input type="checkbox" />nouveau hooks（可选）</label></li>
+</ul></li>
+<li>用户态工具
+<ul class="task-list">
+<li><label><input type="checkbox" />grtrace（控制面）</label></li>
+<li><label><input type="checkbox" />report 工具（阻塞点画像：per-job
+指标/标签、per-ring 汇总）</label></li>
+<li><label><input
+type="checkbox" />阈值与规则引擎（可配置阈值/标签开关，规则命中统计）</label></li>
+<li><label><input
+type="checkbox" />可视化样例（脚本/Notebook）</label></li>
+</ul></li>
+<li>测试/CI
+<ul class="task-list">
+<li><label><input type="checkbox" />kselftest 用例</label></li>
+<li><label><input type="checkbox" />压测脚本与基准</label></li>
+<li><label><input type="checkbox" />风格/静态检查</label></li>
+</ul></li>
+<li>文档
+<ul class="task-list">
+<li><label><input type="checkbox" />架构、接口、格式说明</label></li>
+<li><label><input type="checkbox" />快速开始与故障排查</label></li>
+</ul></li>
+</ul>
+<h2 id="时间线建议示例">时间线建议（示例）</h2>
+<ul>
+<li>Sprint 1-2（v0.1）：MVP 闭环（单供应商单 ring）</li>
+<li>Sprint 3-4（v0.2-0.3）：多 ring/时钟一致性 + 事件模型冻结</li>
+<li>Sprint 5-6（v0.4-0.5）：工具链 + 开销治理</li>
+<li>Sprint 7（v0.6）：格式 v1 固化</li>
+<li>Sprint 8-9（v0.7-0.8）：供应商适配 + 系统联动</li>
+<li>Sprint 10（v0.9）：稳定化</li>
+<li>Sprint 11（v1.0）：发布</li>
+</ul>
+<h2 id="开发周期预估">开发周期预估</h2>
+<ul>
+<li>假设
+<ul>
+<li>两周一 Sprint；团队 2–3 人（内核/驱动/用户态），70–80% 投入</li>
+</ul></li>
+<li>总体
+<ul>
+<li>11 个 Sprint ≈ 22 周 ≈ 5.5 个月；含 20% 缓冲 ≈ 6–6.5 个月</li>
+</ul></li>
+<li>里程碑分配（与上节时间线一致）
+<ul>
+<li>v0.1：2 Sprint（4 周）</li>
+<li>v0.2–0.3：2 Sprint（4 周）</li>
+<li>v0.4–0.5：2 Sprint（4 周）</li>
+<li>v0.6：1 Sprint（2 周）</li>
+<li>v0.7–0.8：2 Sprint（4 周）</li>
+<li>v0.9：1 Sprint（2 周）</li>
+<li>v1.0：1 Sprint（2 周）</li>
+</ul></li>
+<li>其他节奏（参考）
+<ul>
+<li>1 周一 Sprint：≈ 11 周；含 20% 缓冲 ≈ 3 个月</li>
+<li>3 周一 Sprint：≈ 33 周；含 20% 缓冲 ≈ 7.5–8 个月</li>
+<li>单人全栈（两周节奏）：在基线基础上 +60–80% → ≈ 9–10 个月</li>
+</ul></li>
+<li>风险缓冲建议
+<ul>
+<li>供应商适配、性能开销治理、系统联动不确定性较高；建议预留 2–3 个
+Sprint 风险缓冲，并从 Sprint 4 起并行推进适配以降低尾部风险</li>
+</ul></li>
+</ul>
+<h2 id="依赖与前置">依赖与前置</h2>
+<ul>
+<li>内核最低版本与配置：relay、debugfs、RCU、ktime</li>
+<li>目标驱动版本（amdgpu/i915/nouveau）与开启的调试选项</li>
+<li>构建与 CI 环境：编译器版本、静态检查工具、kselftest 框架</li>
+</ul>
+<h2 id="风险与缓解">风险与缓解</h2>
+<ul>
+<li>热路径开销过高 → 采样/级别控制、批量写入、预分配、缓存友好</li>
+<li>不同驱动差异大 → 事件语义抽象、分层适配、先覆盖主路径</li>
+<li>时间戳/序列一致性问题 → 明确源、统一转换、一致性校验</li>
+<li>数据量与磁盘压力 → 可调环形缓冲、滚动文件、阈值报警</li>
+</ul>
+<hr />
+<p>更新策略：每个里程碑结束后补充“变更记录/经验教训/后续计划”，并滚动维护本路线图。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/drivers/gpu/grtrace/" class="category-chain-item">grtrace</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/drivers/gpu/grtrace/docs/" class="category-chain-item">docs</a>
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/bpf/">#bpf</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>grtrace 开发迭代计划</div>
+      <div>https://realwujing.github.io/linux/kernel/drivers/gpu/grtrace/docs/grtrace 开发迭代计划/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年9月8日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/drivers/gpu/grtrace/docs/GPU%20Ring%20Buffer%E8%BF%BD%E8%B8%AA%E6%9E%B6%E6%9E%84%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90%EF%BC%9A%E4%BB%8Eblktrace%E5%88%B0grtrace%E7%9A%84%E8%AE%BE%E8%AE%A1%E6%BC%94%E8%BF%9B/" title="GPU Ring Buffer追踪架构深度分析：从blktrace到grtrace的设计演进">
+                        <span class="hidden-mobile">GPU Ring Buffer追踪架构深度分析：从blktrace到grtrace的设计演进</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '9f4235930c80e24939cdbdeedd184022'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
