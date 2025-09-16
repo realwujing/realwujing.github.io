@@ -24,8 +24,9 @@
 <meta property="og:description" content="grtrace 开发迭代计划（Roadmap） 配套架构文档： GPU Ring Buffer追踪架构深度分析：从blktrace到grtrace的设计演进 语义化版本约定：  v0.x 为快速迭代期（可能发生不兼容变更） v1.0 起承诺基本事件语义与文件格式的稳定性  里程碑总览  v0.1 MVP：内核最小可用路径（relay 通道 + 基础事件 + 单供应商单 ring） v0.2 多 r">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-09-08T16:50:46.000Z">
-<meta property="article:modified_time" content="2025-09-15T13:43:52.000Z">
+<meta property="article:modified_time" content="2025-09-16T14:37:24.000Z">
 <meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="git">
 <meta property="article:tag" content="bpf">
 <meta name="twitter:card" content="summary_large_image">
   
@@ -274,7 +275,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          3.7k 字
+          15k 字
         
       </span>
     
@@ -285,7 +286,7 @@
         
         
         
-          32 分钟
+          124 分钟
         
       </span>
     
@@ -328,7 +329,7 @@
               <p class="note note-info">
                 
                   
-                    本文最后更新于：2025年9月15日 下午
+                    本文最后更新于：2025年9月16日 下午
                   
                 
               </p>
@@ -355,7 +356,8 @@ ring）</li>
 <li>v0.4 用户态工具链（grtrace、最小分析脚本） （含阻塞点报告：per-job
 指标与标签）</li>
 <li>v0.5 性能与开销治理（背压、采样、开关策略、热路径审计）</li>
-<li>v0.6 持久化格式 v1（紧凑二进制 + 元数据）</li>
+<li>v0.6 固化持久化文件格式（format_version=1，紧凑二进制 +
+METADATA）</li>
 <li>v0.7 供应商适配（amdgpu、i915、nouveau 首批覆盖）</li>
 <li>v0.8 与 ftrace/perf/eBPF 联动（时间轴对齐、跨域关联）</li>
 <li>v0.9 稳定化（kselftest、自测基准、文档与示例）</li>
@@ -398,6 +400,59 @@ N 次完成）</label></li>
 </ul></li>
 <li>代码开发量预估：800 行</li>
 </ul>
+<h3 id="v0.1-详细拆解sprint-12执行清单">v0.1 详细拆解（Sprint
+1–2，执行清单）</h3>
+<ul>
+<li>内核（drivers/gpu/grtrace/grtrace.c）
+<ul>
+<li>基础骨架：模块注册/卸载、debugfs 根目录、relay 通道创建/关闭
+<ul>
+<li>函数：grtrace_create_channel、grtrace_emit、grtrace_init/grtrace_exit</li>
+<li>DoD：M=drivers/gpu/grtrace 可编译；/sys/kernel/debug/grtrace
+存在</li>
+</ul></li>
+<li>事件与公共 API（最小集：SUBMIT/COMPLETE/CTX_SWITCH）
+<ul>
+<li>结构：grtrace_event_hdr、各 payload 结构</li>
+<li>函数：grtrace_submit/complete/ctx_switch（导出符号）、grtrace_write_event（最简写入）</li>
+<li>DoD：emit 三类事件后，relay 有数据可读</li>
+</ul></li>
+<li>控制与统计视图（最小）
+<ul>
+<li>debugfs：control（start/stop）、stats（文本）、emit（测试注入）</li>
+<li>DoD：start→emit×3→stop 后，stats 显示 written=3</li>
+</ul></li>
+<li>估计 LOC：内核侧 ~600–700 行（含结构/视图/控制）</li>
+</ul></li>
+<li>用户态（tools/grtrace/）
+<ul>
+<li>最小控制：start/stop/status；最小 reader：顺序读出、打印计数</li>
+<li>DoD：一条命令可启动采集，另一条可读出并统计事件数</li>
+<li>估计 LOC：~100–150 行</li>
+</ul></li>
+<li>冒烟用例（人工步骤）
+<ol type="1">
+<li>加载模块</li>
+<li>echo start &gt; /sys/kernel/debug/grtrace/control</li>
+<li>echo "submit CTX ENG RING SEQ" &gt; /sys/kernel/debug/grtrace/emit
+（重复 3 次）</li>
+<li>cat /sys/kernel/debug/grtrace/stats 并看到 written=3</li>
+<li>echo stop &gt; /sys/kernel/debug/grtrace/control</li>
+</ol></li>
+<li>提交与度量
+<ul>
+<li>用 -F 文件方式提交英文标题+空行+分点；标题仅 ASCII</li>
+<li>每日净增 ≥150 行；失败次日补足；每晚跑一次冒烟</li>
+</ul></li>
+</ul>
+<p>【v0.1 DoD 检查表】</p>
+<ul>
+<li>代码：grtrace.c 可编译；control/stats/emit 可读写；relay 可写入</li>
+<li>文档：config/视图说明与示例命令已补充</li>
+<li>冒烟：start→emit×3→stop，stats written=3 截图/日志</li>
+<li>提交：英文/多行/分点，使用 -F 文件；标题 ASCII</li>
+<li>度量：git numstat 展示新增/删除/净增；本周累计≥800 行</li>
+</ul>
 <h2 id="v0.2-多-ring引擎-时钟一致性">v0.2 多 ring/引擎 + 时钟一致性</h2>
 <ul>
 <li>内核
@@ -420,6 +475,80 @@ type="checkbox" />事件丢弃与水位（丢包计数、背压策略雏形）</
 同时追踪，时间顺序一致</label></li>
 </ul></li>
 <li>代码开发量预估：700 行</li>
+</ul>
+<h3 id="v0.2-详细拆解sprint-34">v0.2 详细拆解（Sprint 3–4）</h3>
+<ul>
+<li>内核（grtrace.c）
+<ul>
+<li>多引擎标注：engine_class/ring_id 贯穿 payload 与过滤</li>
+<li>全局时间/序列：ktime_get_ns + gseq/cseq（已具备基础，完善 wrap/race
+处理）</li>
+<li>丢弃/水位：最小丢包计数与短写计数（writes_short/bytes_dropped）</li>
+<li>DoD：同一 GPU 多 ring 事件可按 gseq 有序；stats 能显示丢弃计数</li>
+<li>预估 LOC：~350–400</li>
+</ul></li>
+<li>用户态（tools/grtrace）
+<ul>
+<li>ring/engine 过滤与简单聚合输出</li>
+<li>DoD：命令行可指定 ring/engine 并统计行数</li>
+<li>预估 LOC：~200–250</li>
+</ul></li>
+<li>冒烟：双 ring 同时 emit，用户态按 ring 聚合计数</li>
+</ul>
+<p>【v0.2 DoD 检查表】</p>
+<ul>
+<li>代码：engine_class/ring_id 全路径打通；gseq/cseq 正常递增</li>
+<li>文档：新增字段与过滤用法说明</li>
+<li>冒烟：两 ring 并发，按 ring 计数一致</li>
+<li>提交：多行英文；包含 before/after 行为说明</li>
+<li>度量：本期净增 ≥700 行</li>
+</ul>
+<h4 id="实施任务文件函数键">实施任务（文件/函数/键）</h4>
+<ul>
+<li>内核（drivers/gpu/grtrace/grtrace.c）
+<ul>
+<li>字段与统计：engine_class/ring_id 贯穿 hdr/payload；补齐
+writes_short/bytes_written/bytes_dropped；events_by_type[] 按 type
+计数</li>
+<li>过滤：grtrace_should_drop_by_filter() 串接
+filter_engine_mask、filter_ring_id；config_write
+支持键：filter_engine_mask、filter_ring_id</li>
+<li>时间与序列：统一使用 ktime_get_ns()；gseq 为全局 64 位单调；cseq 为
+per-CPU 32/64 位（当前实现存在）</li>
+<li>视图：events_by_type、pc_cseq、pc_stats（现已具备，需对齐字段）</li>
+</ul></li>
+<li>用户态（tools/grtrace）
+<ul>
+<li>CLI：--engine [MASK]、--ring [ID] 过滤参数；统计按 ring
+聚合打印</li>
+<li>解析：保留对未知 type 的跳读（按 hdr.size）</li>
+</ul></li>
+</ul>
+<h4 id="契约与单位">契约与单位</h4>
+<ul>
+<li>ts：ns，monotonic；gseq：u64 单调递增；cseq：per-CPU 单调</li>
+<li>engine_class：u16（bitmask）；ring_id：u16；ctx_id：u32</li>
+<li>计数与单位：使用通配后缀说明：bytes[...]=字节；writes[...]=次；filtered[...]=条</li>
+</ul>
+<h4 id="冒烟脚本可复制">冒烟脚本（可复制）</h4>
+<ol type="1">
+<li>echo start &gt; /sys/kernel/debug/grtrace/control</li>
+<li>echo "filter_ring_id=1" &gt; /sys/kernel/debug/grtrace/config</li>
+<li>echo "emit submit 100 0 1 1" &gt;
+/sys/kernel/debug/grtrace/emit</li>
+<li>echo "emit submit 100 0 2 1" &gt;
+/sys/kernel/debug/grtrace/emit</li>
+<li>cat /sys/kernel/debug/grtrace/stats | grep -E
+"events_by_type|filtered_|writes_"</li>
+<li>echo stop &gt; /sys/kernel/debug/grtrace/control</li>
+</ol>
+<p>预期：ring=1 事件被计入，ring=2
+被过滤或在聚合中区分；无内核错误日志。</p>
+<h4 id="风险与回退">风险与回退</h4>
+<ul>
+<li>多 CPU 时间序列穿插导致全局顺序感知困难 → 以 gseq 兜底排序，按 ring
+局部有序</li>
+<li>engine/ring 枚举不一致 → 以 METADATA 导出枚举表；用户态按表映射</li>
 </ul>
 <h2 id="v0.3-事件模型稳定化">v0.3 事件模型稳定化</h2>
 <ul>
@@ -454,6 +583,70 @@ type="checkbox" />错误路径与异常事件（reset/timeout）</label></li>
 </ul></li>
 <li>代码开发量预估：900 行</li>
 </ul>
+<h3 id="v0.3-详细拆解sprint-34-交叠">v0.3 详细拆解（Sprint 3–4
+交叠）</h3>
+<ul>
+<li>内核（grtrace.c）
+<ul>
+<li>事件冻结：COMMIT/SUBMIT/START/END/IRQ/CTX_SWITCH/SYNC_WAIT_{ENTER,EXIT}/ERROR</li>
+<li>STREAM_INFO + METADATA（现已实现）：feature bits/clock 源/版本</li>
+<li>DoD：全部事件导出，用户态能解析并生成时间线</li>
+<li>预估 LOC：~500–600（含结构体、路径打通）</li>
+</ul></li>
+<li>用户态（tools/grtrace）
+<ul>
+<li>解析并导出 per-job 指标（t_queue/t_exec 等）</li>
+<li>DoD：对一组事件输出每 job 的关键时长</li>
+<li>预估 LOC：~250–300</li>
+</ul></li>
+</ul>
+<p>【v0.3 DoD 检查表】</p>
+<ul>
+<li>代码：全部事件类型落地；payload 与 hdr.size 对齐</li>
+<li>文档：事件语义/字段说明与时序示意图</li>
+<li>冒烟：生成每 job 关键时长 CSV</li>
+<li>提交：列出新增/修改事件与兼容性说明</li>
+<li>度量：本期净增 ≥900 行</li>
+</ul>
+<h4 id="v0.3-实施任务文件函数键">v0.3 实施任务（文件/函数/键）</h4>
+<ul>
+<li>内核（grtrace.c）
+<ul>
+<li>事件枚举与结构：
+<ul>
+<li>COMMIT/SUBMIT/START/END/IRQ/CTX_SWITCH/SYNC_WAIT_{ENTER,EXIT}/ERROR</li>
+<li>结构统一以 hdr(size,u16) + payload，新增字段置于末尾，保持对齐</li>
+</ul></li>
+<li>METADATA：增加 feature_bits（bit0: size-skip; bit1: token-bucket;
+bit2: watchlist; …）</li>
+<li>错误路径：ERROR 事件包含 code（reset/timeout）、ring、ctx、ts</li>
+<li>校验：编解码自测（大小端、对齐、size 校验）</li>
+</ul></li>
+<li>用户态（tools/grtrace）
+<ul>
+<li>解析：按 hdr.size 跳读；未知 type 计数到 unknown_events</li>
+<li>导出：per-job 指标
+CSV（submit_ts、start_ts、end_ts、complete_ts、t_queue、t_exec…）</li>
+</ul></li>
+</ul>
+<h4 id="v0.3-契约与单位">v0.3 契约与单位</h4>
+<ul>
+<li>hdr.size：含头+payload，总是偶数对齐；payload 字段小端</li>
+<li>job key：{ctx_id, ring_id, seqno}；允许 seqno 回绕（u32），以 gseq
+协助 disambiguation</li>
+<li>CTX_SWITCH：标记 preempt:boolean，from_ctx→to_ctx</li>
+</ul>
+<h4 id="v0.3-冒烟脚本可复制">v0.3 冒烟脚本（可复制）</h4>
+<ol type="1">
+<li>start + 发一组 submit/commit/start/end/irq + ctx_switch</li>
+<li>userspace 解析生成 per-job CSV</li>
+<li>校验 t_exec = end-start，t_queue = start-submit 为正</li>
+</ol>
+<h4 id="v0.3-风险与回退">v0.3 风险与回退</h4>
+<ul>
+<li>事件缺失或乱序 → per-job 容错：缺失填 NA；乱序按 gseq 校正</li>
+<li>大 payload 引入对齐问题 → 统一 u8 填充，hdr.size 保障跳读</li>
+</ul>
 <h2 id="v0.4-工具链grtrace">v0.4 工具链（grtrace）</h2>
 <ul>
 <li>用户态
@@ -483,6 +676,67 @@ t_submit_host/t_queue/t_exec/t_gpu_wait/t_complete 与标签</label></li>
 </ul></li>
 <li>代码开发量预估：1200 行</li>
 </ul>
+<h3 id="v0.4-详细拆解sprint-56">v0.4 详细拆解（Sprint 5–6）</h3>
+<ul>
+<li>用户态（tools/grtrace）
+<ul>
+<li>控制面：start/stop/status/config 一体化 CLI</li>
+<li>报告：Top-N 阻塞类别、直方图、简单时间线</li>
+<li>DoD：一条命令采集、另一条生成报告；生成 CSV/文本</li>
+<li>预估 LOC：~700–800</li>
+</ul></li>
+<li>内核（grtrace.c）
+<ul>
+<li>可选 CSV 视图（events_by_type、latency_hist、pc_*、sec_stats
+已具备）</li>
+<li>DoD：视图 read 有效，stats 与视图一致</li>
+<li>预估 LOC：~200–300（补齐）</li>
+</ul></li>
+</ul>
+<p>【v0.4 DoD 检查表】</p>
+<ul>
+<li>代码：CLI 可 start/stop/status/config；报告可生成 Top-N/直方图</li>
+<li>文档：CLI 帮助与示例、典型场景</li>
+<li>冒烟：一条采集一条报告，文件产出可打开</li>
+<li>提交：分点描述 CLI 子命令与示例</li>
+<li>度量：本期净增 ≥1200 行</li>
+</ul>
+<h4 id="v0.4-实施任务文件函数键">v0.4 实施任务（文件/函数/键）</h4>
+<ul>
+<li>用户态（tools/grtrace）
+<ul>
+<li>子命令：grtrace start|stop|status|config|report</li>
+<li>report 选项：--topn N、--hist
+[lat|size|result]、--per-ring、--per-ctx</li>
+<li>输出：CSV（per-job、per-ring 汇总）、文本 Top-N；可选简单图（ASCII
+直方图）</li>
+</ul></li>
+<li>内核（grtrace.c）
+<ul>
+<li>视图对齐：latency_hist、events_by_type、pc_stats、sec_stats 与 stats
+一致</li>
+<li>config：保持键语义稳定；非法键返回 -EINVAL</li>
+</ul></li>
+</ul>
+<h4 id="v0.4-契约与单位">v0.4 契约与单位</h4>
+<ul>
+<li>report
+列：job_key、t_queue、t_exec、t_gpu_wait、t_complete、label（如长队列/执行慢/抢占多）</li>
+<li>hist：默认 12 桶，2^k 对数刻度；桶边界输出在视图首行</li>
+</ul>
+<h4 id="v0.4-冒烟脚本可复制">v0.4 冒烟脚本（可复制）</h4>
+<ol type="1">
+<li>grtrace start</li>
+<li>运行示例 workload（或 emit 注入）</li>
+<li>grtrace report --topn 5 --hist lat --per-ring &gt; report.txt</li>
+<li>打开 report.txt 检查列/非空</li>
+</ol>
+<h4 id="v0.4-风险与回退">v0.4 风险与回退</h4>
+<ul>
+<li>CLI 行为变化影响脚本 → 保持向后兼容的别名（如 --engine-mask 与
+--engine）</li>
+<li>大文件输出耗时 → 加 --limit / --since / --until 选项</li>
+</ul>
 <h2 id="v0.5-性能与开销治理">v0.5 性能与开销治理</h2>
 <ul>
 <li>内核
@@ -509,6 +763,67 @@ type="checkbox" />在高事件率下内核无明显退化，丢弃率可控</lab
 </ul></li>
 <li>代码开发量预估：800 行</li>
 </ul>
+<h3 id="v0.5-详细拆解sprint-56-交叠">v0.5 详细拆解（Sprint 5–6
+交叠）</h3>
+<ul>
+<li>内核（grtrace.c）
+<ul>
+<li>采样/级别（level/sample/verbose）、回压阈值、自适应采样</li>
+<li>速率限制（窗口/令牌桶，已实现）、细分丢弃计数（已实现）</li>
+<li>写入耗时直方图/最大值/总时长（已实现）</li>
+<li>DoD：高事件率下可控丢弃；stats 能量化治理效果</li>
+<li>预估 LOC：~300–400（补齐/优化）</li>
+</ul></li>
+<li>用户态（tools/grtrace）
+<ul>
+<li>采集开销报告与阈值/规则开关</li>
+<li>DoD：报告中可见事件率、丢弃率、直方图</li>
+<li>预估 LOC：~250–300</li>
+</ul></li>
+</ul>
+<p>【v0.5 DoD 检查表】</p>
+<ul>
+<li>代码：level/sample/限速/回压/直方图均可配置/可观测</li>
+<li>文档：参数与指标定义、调优指南</li>
+<li>冒烟：高事件率场景下，丢弃率与直方图随配置变化</li>
+<li>提交：列出新增配置键及默认值</li>
+<li>度量：本期净增 ≥800 行</li>
+</ul>
+<h4 id="v0.5-实施任务文件函数键">v0.5 实施任务（文件/函数/键）</h4>
+<ul>
+<li>内核（grtrace.c）
+<ul>
+<li>限速：窗口与令牌桶（rate_limiter_mode=0/1）；配置键
+max_events_per_sec、rate_limiter_mode</li>
+<li>回压：backpressure_threshold；自适应采样 adaptive_sampling</li>
+<li>直方图：写入耗时 latency_hist；新增
+result_hist（ok/short/disabled/reserve_fail）</li>
+<li>stats：rate_limited_drops、backpressure_drops、filtered_<em>、writes_short/ok、bytes_</em></li>
+</ul></li>
+<li>用户态（tools/grtrace）
+<ul>
+<li>开销报告：事件率、丢弃率、平均写入耗时、直方图导出</li>
+</ul></li>
+</ul>
+<h4 id="v0.5-契约与单位">v0.5 契约与单位</h4>
+<ul>
+<li>max_events_per_sec：整数，0 表示不限速；令牌桶补充速率与余量</li>
+<li>backpressure_threshold：0–100（百分比），&gt;
+阈值触发自适应采样</li>
+</ul>
+<h4 id="v0.5-冒烟脚本可复制">v0.5 冒烟脚本（可复制）</h4>
+<ol type="1">
+<li>echo "max_events_per_sec=1000" &gt; .../config</li>
+<li>高速 emit N 条；观察 stats 中 rate_limited_drops &gt; 0</li>
+<li>设置 backpressure_threshold=30；再次压测，观察 writes_short 比例与
+sampled 变化</li>
+</ol>
+<h4 id="v0.5-风险与回退">v0.5 风险与回退</h4>
+<ul>
+<li>令牌补给计算误差 → 使用 ktime_get_ns
+基于纳秒计算补给量，饱和裁剪</li>
+<li>回压判定抖动 → 增加滑动窗口平滑（sec_stats 聚合）</li>
+</ul>
 <h2 id="v0.6-持久化格式">v0.6 持久化格式</h2>
 <ul>
 <li>设计
@@ -524,6 +839,61 @@ payload）</label></li>
 type="checkbox" />格式固化并出示参考解析器</label></li>
 </ul></li>
 <li>代码开发量预估：400 行</li>
+</ul>
+<h3 id="v0.6-详细拆解sprint-7">v0.6 详细拆解（Sprint 7）</h3>
+<ul>
+<li>内核（grtrace.c）
+<ul>
+<li>发送顺序：先 STREAM_INFO，紧接 METADATA（已实现）；依赖 hdr.size 做
+forward-compat 跳读</li>
+<li>DoD：参考解析器可跳读未知 payload，用户态工具零修改可读</li>
+<li>预估 LOC：~50–100（补注释/一致性）</li>
+</ul></li>
+<li>用户态（tools/grtrace）
+<ul>
+<li>参考解析器完善与单测</li>
+<li>DoD：面对 METADATA/STREAM_INFO 顺序仍正确</li>
+<li>预估 LOC：~150–200</li>
+</ul></li>
+</ul>
+<p>【v0.6 DoD 检查表】</p>
+<ul>
+<li>代码：STREAM_INFO→METADATA 顺序正确；hdr.size 驱动兼容</li>
+<li>文档：格式描述与兼容性说明</li>
+<li>冒烟：带 METADATA 的流用户态零改动解析通过</li>
+<li>提交：说明兼容策略与保留字段</li>
+<li>度量：本期净增 ≥400 行</li>
+</ul>
+<h4 id="v0.6-实施任务文件函数键">v0.6 实施任务（文件/函数/键）</h4>
+<ul>
+<li>内核（grtrace.c）
+<ul>
+<li>STREAM_INFO：version、session_id、feature_bits、clock_src、start_ts</li>
+<li>METADATA：驱动名、GPU 型号、ring/engine 枚举表、字段尺寸</li>
+<li>发送顺序：先 STREAM_INFO，紧接 METADATA（已实现），每次 start
+发送一次</li>
+</ul></li>
+<li>用户态（tools/grtrace）
+<ul>
+<li>参考解析器：顺序无关（按 hdr.type 识别），未知字段按 size 跳过</li>
+<li>单元测试：构造含未知扩展字段的缓冲并验证解析</li>
+</ul></li>
+</ul>
+<h4 id="v0.6-契约与单位">v0.6 契约与单位</h4>
+<ul>
+<li>向后兼容：新字段仅追加在尾部；旧解析器依赖 hdr.size 跳过</li>
+<li>feature_bits：bit0:size-skip、bit1:token-bucket、bit2:watchlist、bit3:sec_stats…</li>
+</ul>
+<h4 id="v0.6-冒烟脚本可复制">v0.6 冒烟脚本（可复制）</h4>
+<ol type="1">
+<li>start 后立即抓取缓冲前两条记录，确认 STREAM_INFO→METADATA 顺序</li>
+<li>使用旧版本用户态解析，验证不崩并能读主体事件</li>
+</ol>
+<h4 id="v0.6-风险与回退">v0.6 风险与回退</h4>
+<ul>
+<li>多次 start/stop 的元信息重复 → 约定每次 start 发送；用户态以
+session_id 分段</li>
+<li>大版本不兼容 → 提前预留 version/feature_bits 并文档化</li>
 </ul>
 <h2 id="v0.7-供应商适配">v0.7 供应商适配</h2>
 <ul>
@@ -543,6 +913,24 @@ type="checkbox" />至少两家驱动稳定产出可解析数据</label></li>
 </ul></li>
 <li>代码开发量预估：900 行</li>
 </ul>
+<h3 id="v0.7-详细拆解sprint-89">v0.7 详细拆解（Sprint 8–9）</h3>
+<ul>
+<li>内核（新增文件）
+<ul>
+<li>grtrace_i915.c：提交/完成/ctxsw 钩子骨架，能编译，后续逐步实现</li>
+<li>grtrace_amdgpu.c：gfx/comp/copy 钩子骨架，能编译</li>
+<li>DoD：至少两家驱动骨架合入并可编译</li>
+<li>预估 LOC：~800–1000</li>
+</ul></li>
+</ul>
+<p>【v0.7 DoD 检查表】</p>
+<ul>
+<li>代码：i915/amdgpu 骨架文件可编译，导出符号正确</li>
+<li>文档：各驱动挂钩点与最小示例</li>
+<li>冒烟：构建通过，加载后核心路径不崩</li>
+<li>提交：每驱动单独提交，清晰描述挂钩范围</li>
+<li>度量：本期净增 ≥900 行</li>
+</ul>
 <h2 id="v0.8-与系统追踪联动">v0.8 与系统追踪联动</h2>
 <ul>
 <li>集成
@@ -558,6 +946,30 @@ type="checkbox" />至少两家驱动稳定产出可解析数据</label></li>
 事件在同一时间轴展示</label></li>
 </ul></li>
 <li>代码开发量预估：500 行</li>
+</ul>
+<h3 id="v0.8-详细拆解sprint-89-交叠">v0.8 详细拆解（Sprint 8–9
+交叠）</h3>
+<ul>
+<li>内核
+<ul>
+<li>对时标记事件、必要的 pid/tid/ctx/engine 关联字段</li>
+<li>DoD：与 ftrace/perf 时间轴对齐的示例</li>
+<li>预估 LOC：~200–300</li>
+</ul></li>
+<li>用户态
+<ul>
+<li>合并 CPU/GPU 事件的时间线对齐脚本</li>
+<li>DoD：出一张对齐图或文本报告</li>
+<li>预估 LOC：~200–250</li>
+</ul></li>
+</ul>
+<p>【v0.8 DoD 检查表】</p>
+<ul>
+<li>代码：对时标记事件与 PID/TID/CTX 关联字段就绪</li>
+<li>文档：对齐方法与示例输出</li>
+<li>冒烟：CPU/GPU 时间线对齐展示</li>
+<li>提交：描述对时来源与误差</li>
+<li>度量：本期净增 ≥500 行</li>
 </ul>
 <h2 id="v0.9-稳定化">v0.9 稳定化</h2>
 <ul>
@@ -580,11 +992,35 @@ type="checkbox" />覆盖主路径的自动化测试稳定通过</label></li>
 </ul></li>
 <li>代码开发量预估：200 行</li>
 </ul>
+<h3 id="v0.9-详细拆解sprint-10">v0.9 详细拆解（Sprint 10）</h3>
+<ul>
+<li>测试
+<ul>
+<li>kselftest：功能/回归/压力覆盖主要路径</li>
+<li>DoD：CI 中自测通过率 100%，关键路径无回归</li>
+<li>预估 LOC：~150–200</li>
+</ul></li>
+<li>内核
+<ul>
+<li>锁/RCU 审核、热路径微优化、常量折叠</li>
+<li>DoD：无性能回退，风格/静态检查干净</li>
+<li>预估 LOC：~50–100</li>
+</ul></li>
+</ul>
+<p>【v0.9 DoD 检查表】</p>
+<ul>
+<li>代码：kselftest 覆盖主路径；锁/RCU 审核通过</li>
+<li>文档：FAQ/故障排查更新</li>
+<li>冒烟：CI 自测 100% 通过</li>
+<li>提交：仅修复/性能提交，避免大改</li>
+<li>度量：本期净增 ≥200 行</li>
+</ul>
 <h2 id="v1.0-基线发布">v1.0 基线发布</h2>
 <ul>
 <li>承诺
 <ul class="task-list">
-<li><label><input type="checkbox" />事件语义与 v1 格式稳定</label></li>
+<li><label><input
+type="checkbox" />事件语义与持久化文件格式（format_version=1）稳定</label></li>
 <li><label><input type="checkbox" />同 minor 版本向后兼容</label></li>
 </ul></li>
 <li>发布物
@@ -593,6 +1029,24 @@ type="checkbox" />覆盖主路径的自动化测试稳定通过</label></li>
 type="checkbox" />内核补丁集、用户态工具、示例与文档</label></li>
 </ul></li>
 <li>代码开发量预估：100 行</li>
+</ul>
+<h3 id="v1.0-详细拆解sprint-11">v1.0 详细拆解（Sprint 11）</h3>
+<ul>
+<li>发布标准
+<ul>
+<li>接口/格式冻结，minor 版本向后兼容承诺</li>
+<li>完整文档（架构、接口、格式、FAQ、Troubleshooting）</li>
+<li>DoD：在干净环境 1 小时内完成“构建→加载→采集→报告”演示</li>
+<li>预估 LOC：~100（文档/脚手架）</li>
+</ul></li>
+</ul>
+<p>【v1.0 DoD 检查表】</p>
+<ul>
+<li>代码：接口/格式冻结；版本协商健壮</li>
+<li>文档：完整发布文档与示例</li>
+<li>冒烟：1 小时演示链路可复现</li>
+<li>提交：Release notes 与标签</li>
+<li>度量：收尾净增 ≥100 行</li>
 </ul>
 <hr />
 <h2 id="按职能拆分的任务清单">按职能拆分的任务清单</h2>
@@ -758,6 +1212,42 @@ type="checkbox" />可视化样例（脚本/Notebook）</label></li>
 Sprint 风险缓冲，并从 Sprint 4 起并行推进适配以降低尾部风险</li>
 </ul></li>
 </ul>
+<h2 id="冲刺提速计划方案-b">冲刺提速计划（方案 B）</h2>
+<p>目标：在保持 11 个 Sprint 不变的前提下，集中提升 Sprint 8–11
+的产出以逼近最初 6500 行目标。</p>
+<ul>
+<li>现状与差距（截至 v0.6 / Sprint 7）
+<ul>
+<li>实际净增约 1585 行（作者口径，自 8eacb27 起）</li>
+<li>计划累计应为 4800 行 → 差距 ≈ 3215 行</li>
+</ul></li>
+<li>调整后的 Sprint 目标（每周净增目标）
+<ul>
+<li>Sprint 8：≥ 1000 行</li>
+<li>Sprint 9：≥ 1000 行</li>
+<li>Sprint 10：≥ 700 行</li>
+<li>Sprint 11：≥ 700 行</li>
+<li>合计新增 ≥ 3400 行（在现状基础上逼近或达到 6500 总目标）</li>
+</ul></li>
+<li>高产出任务池（优先投入，可并行）
+<ul>
+<li>供应商适配（amdgpu/i915）：核心 hook 覆盖 + 最小闭环（每家 ≈
+800–1000 行）</li>
+<li>用户态工具链增强（report/分析）：Top-N、标签器、直方图与时间线（≈
+600–800 行/周）</li>
+<li>自测与基准（kselftest/压力脚本）：功能/回归/基准（≈ 500–800
+行/周）</li>
+<li>系统联动（ftrace/perf/eBPF）：时间对齐与关联字段（≈ 400–600
+行/周）</li>
+</ul></li>
+<li>保障措施
+<ul>
+<li>明确模块 Owner 与合并窗口，日更进度板；每日提交净增 ≥ 150–200
+行</li>
+<li>代码评审 fast-track：&lt; 24 小时首评，&lt; 48 小时合入或反馈</li>
+<li>度量上报：以 git numstat 为准的新增/删除/净增与通过率（周累计）</li>
+</ul></li>
+</ul>
 <h2 id="依赖与前置">依赖与前置</h2>
 <ul>
 <li>内核最低版本与配置：relay、debugfs、RCU、ktime</li>
@@ -773,6 +1263,151 @@ Sprint 风险缓冲，并从 Sprint 4 起并行推进适配以降低尾部风险
 </ul>
 <hr />
 <p>更新策略：每个里程碑结束后补充“变更记录/经验教训/后续计划”，并滚动维护本路线图。</p>
+<hr />
+<h2 id="definition-of-donedod与执行准则强约束">Definition of
+Done（DoD）与执行准则（强约束）</h2>
+<ul>
+<li>DoD（每个交付最少满足）
+<ul>
+<li>代码：可编译（内核模块
+M=drivers/gpu/grtrace）、无未定义符号、静态检查无新增严重告警</li>
+<li>文档：debugfs 接口与新配置项在文档中有说明与示例（读/写示例）</li>
+<li>演示：1 个最小化冒烟步骤（加载模块→start→发 3 条事件→stop→读取
+stats/视图）</li>
+<li>提交：英文、分点、无转义“”；使用 commit 模板文件 -F 提交</li>
+</ul></li>
+<li>实施节奏
+<ul>
+<li>每日净增 ≥ 150 行（以 git numstat 为准），失败则下日补足；每晚 1
+次最小冒烟</li>
+<li>每新增核心行为（过滤/限速/计数/视图）必须：代码+文档+冒烟三联，同时完成</li>
+<li>功能优先于输出花样：先内核核心路径（事件→过滤→速率→写入→统计）</li>
+</ul></li>
+</ul>
+<h2 id="可执行-wbs按文件函数">可执行 WBS（按文件/函数）</h2>
+<ul>
+<li>内核核心（drivers/gpu/grtrace/grtrace.c）
+<ul>
+<li>事件发射：grtrace_write_event()（采样/过滤/限速/回压/写入/计时/直方图/计数）</li>
+<li>过滤：grtrace_should_drop_by_filter()（engine/ring/type +
+watchlist）</li>
+<li>控制面：ctrl_fops/config_fops/emit_fops（start/stop、配置读写、手动发射）</li>
+<li>视图：events_by_type_fops/latency_hist_fops/pc_*_fops/sec_stats_fops</li>
+<li>每秒统计：grtrace_stats_workfn() + sec_stats ring</li>
+<li>新增（已落地）：
+<ul>
+<li>type 掩码过滤（filter_type_mask）</li>
+<li>ctx watchlist（watch_ctx_add/clear、watch_allow_mode）</li>
+<li>速率限制：窗口/令牌桶（rate_limiter_mode=0/1）</li>
+<li>丢弃细分：disabled/payload_oversize/reserve_fail</li>
+</ul></li>
+</ul></li>
+<li>供应商适配（新增文件，按里程碑推进）
+<ul>
+<li>drivers/gpu/grtrace/grtrace_i915.c（挂钩提交/完成/ctx 切换）</li>
+<li>drivers/gpu/grtrace/grtrace_amdgpu.c（gfx/comp/copy
+提交/完成/irq）</li>
+</ul></li>
+</ul>
+<h2 id="api数据契约片段">API/数据契约（片段）</h2>
+<ul>
+<li>事件头 grtrace_event_hdr：{type,u16 size,cpu,ts,gseq,cseq}</li>
+<li>STREAM_INFO 紧随 METADATA（现已实现）；向后兼容：用户态按 size
+跳读</li>
+<li>debugfs/config 支持键：
+<ul>
+<li>level, sample, profile, max_events_per_sec,</li>
+<li>rate_limiter_mode, backpressure_threshold, adaptive_sampling,</li>
+<li>filter_engine_mask, filter_ring_id, filter_type_mask,</li>
+<li>watch_allow_mode, watch_ctx_add, watch_ctx_clear, reset_stats</li>
+</ul></li>
+<li>stats 增量字段：filtered_type, filtered_watch, rate_limited_drops,
+backpressure_drops</li>
+</ul>
+<h2 id="sprint-811-可执行-backlog文件函数级含-loc-预估">Sprint 8–11
+可执行 Backlog（文件/函数级，含 LOC 预估）</h2>
+<ul>
+<li>Sprint 8（≥1000 LOC）
+<ul>
+<li>[core] 事件大小直方图（payload
+buckets）与写入结果直方图（ok/short/disabled/reserve_fail）
+<ul>
+<li>grtrace_write_event()/stats_read（+120 LOC）</li>
+</ul></li>
+<li>[core] ring_id 观察名单（allow/deny + AND/OR 与 ctx）
+<ul>
+<li>config_fops + grtrace_should_drop_by_filter（+180 LOC）</li>
+</ul></li>
+<li>[core] STREAM_INFO 增加 session_id/feature
+bits（用户态兼容不变）（+80 LOC）</li>
+<li>[vendor] i915
+最小闭环（提交/完成/ctxsw）骨架文件与空实现（可编译占位）（+350
+LOC）</li>
+<li>[kselftest]
+最小用例：加载→start→emit→读取→断言计数（tools/testing/selftests/grtrace/）（+300
+LOC）</li>
+</ul></li>
+<li>Sprint 9（≥1000 LOC）
+<ul>
+<li>[vendor] amdgpu 最小闭环（gfx 提交/完成/irq 钩子骨架）（+500
+LOC）</li>
+<li>[core] 规则引擎雏形（简单阈值：t_queue/t_exec 超阈置标记字段）
+<ul>
+<li>在 submit/complete 路径增加规则命中计数与 debugfs 视图（+250
+LOC）</li>
+</ul></li>
+<li>[core] sec_stats 扩展：支持 burst/max_rate 观测、token 槽位（+120
+LOC）</li>
+<li>[userspace] tools/grtrace 增加统计打印选项（可选）（+200 LOC）</li>
+</ul></li>
+<li>Sprint 10（≥700 LOC）
+<ul>
+<li>[core] ftrace/perf 对时标记事件（对齐 CPU 调度）（+200 LOC）</li>
+<li>[vendor] i915/AMDGPU 补齐 ring/引擎维度与错误事件（+300 LOC）</li>
+<li>[kselftest] 压测用例：高事件率/采样/限速/回压组合（+200 LOC）</li>
+</ul></li>
+<li>Sprint 11（≥700 LOC）
+<ul>
+<li>[core] 稳定化：锁/RCU 审核、热路径微优化、直方图常量优化（+250
+LOC）</li>
+<li>[doc+test] 文档齐套、FAQ、kselftest 覆盖到主要路径（+250 LOC）</li>
+<li>[vendor] nouveau 骨架（可选）（+200 LOC）</li>
+</ul></li>
+</ul>
+<p>说明：每项包含 DoD（三联）与 commit 模板，按日推进并校验净增
+LOC。</p>
+<h2 id="最小冒烟脚本人工步骤">最小冒烟脚本（人工步骤）</h2>
+<ol type="1">
+<li>modprobe grtrace 或 insmod grtrace.ko</li>
+<li>echo start &gt; /sys/kernel/debug/grtrace/control</li>
+<li>echo "submit CTX ENG RING SEQ" &gt; /sys/kernel/debug/grtrace/emit
+（x3）</li>
+<li>cat /sys/kernel/debug/grtrace/stats | grep -E
+"^(written|filtered_)"</li>
+<li>echo stop &gt; /sys/kernel/debug/grtrace/control</li>
+</ol>
+<h2 id="提交分支规范避免糊成一坨">提交/分支规范（避免“糊成一坨”）</h2>
+<ul>
+<li>一律使用文件 -F 方式提交信息（含标题 + 空行 + 列表）</li>
+<li>标题只用 ASCII 字符（避免长破折号等 Unicode）</li>
+<li>示例：</li>
+</ul>
+<p>grtrace: add ctx watchlist and token-bucket mode</p>
+<ul>
+<li>Add ctx_id watchlist (allow/deny) wired into filter path.</li>
+<li>Add token-bucket rate limiter alongside windowed limiter.</li>
+<li>Extend stats with filtered_watch, update sec_stats ring.</li>
+</ul>
+<hr />
+<h2 id="风险到行动具体化">风险到行动（具体化）</h2>
+<ul>
+<li>高事件率导致短写：令牌桶/回压阈值→在 sec_stats 观察
+short/write_calls 比例并自适应采样</li>
+<li>供应商接口差异：先提交空骨架 + 编译通过，再逐步替换钩子实现</li>
+<li>LOC
+产出不足：每日净增达不到时，从“骨架/占位”切入（视图、kselftest、vendor
+空函数）填充</li>
+</ul>
 
                 
               </div>
@@ -840,6 +1475,8 @@ Sprint 风险缓冲，并从 Sprint 4 起并行推进适配以降低尾部风险
   
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/git/">#git</a>
       
         <a href="/tags/bpf/">#bpf</a>
       
