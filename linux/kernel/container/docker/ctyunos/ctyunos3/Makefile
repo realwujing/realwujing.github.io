@@ -150,14 +150,19 @@ setup-cross-compile: download-cross-compile	## Extract cross-compile toolchain
 rpmbuild-5.10-amd64: setup-container	## Build kernel RPM package (ctkernel-lts-5.10, AMD64)
 	@echo "======= Building RPM Package (5.10/AMD64) ======="
 	@echo "Using branch: $(KERNEL_5_10_BRANCH)"
-	@if [ ! -d "/home/wujing/code/linux" ]; then \
-		echo "Error: Linux source directory /home/wujing/code/linux not found!"; \
-		echo "Please ensure the Linux kernel source is available at this location."; \
-		exit 1; \
-	fi
 	@docker exec -i $(CONTAINER_NAME) bash -c "\
-		cd /root/code/linux && \
-		git checkout $(KERNEL_5_10_BRANCH) && \
+		echo '======= Finding appropriate source directory =======' && \
+		WORK_DIR='' && \
+		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_5_10_BRANCH)'; then \
+			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_5_10_BRANCH)' | awk '{print \$$1}' | head -1); \
+			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
+			echo \"Using existing worktree: \$$WORK_DIR\"; \
+		else \
+			WORK_DIR='/root/code/linux'; \
+			echo \"Using main repository and checking out branch\"; \
+			cd \$$WORK_DIR && git checkout $(KERNEL_5_10_BRANCH); \
+		fi && \
+		cd \$$WORK_DIR && \
 		yum-builddep build/kernel.spec -y && \
 		for dir in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do \
 			rm -rf /root/rpmbuild/\$$dir/*; \
@@ -177,8 +182,18 @@ rpmbuild-6.6-amd64: setup-container	## Build kernel RPM package (ctkernel-lts-6.
 	@echo "======= Building RPM Package (6.6/AMD64) ======="
 	@echo "Using branch: $(KERNEL_6_6_BRANCH)"
 	@docker exec -i $(CONTAINER_NAME) bash -c "\
-		cd /root/code/linux && \
-		git checkout $(KERNEL_6_6_BRANCH) && \
+		echo '======= Finding appropriate source directory =======' && \
+		WORK_DIR='' && \
+		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_6_6_BRANCH)'; then \
+			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_6_6_BRANCH)' | awk '{print \$$1}' | head -1); \
+			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
+			echo \"Using existing worktree: \$$WORK_DIR\"; \
+		else \
+			WORK_DIR='/root/code/linux'; \
+			echo \"Using main repository and checking out branch\"; \
+			cd \$$WORK_DIR && git checkout $(KERNEL_6_6_BRANCH); \
+		fi && \
+		cd \$$WORK_DIR && \
 		yum-builddep build/spec/kernel.spec -y && \
 		for dir in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do \
 			rm -rf /root/rpmbuild/\$$dir/*; \
@@ -198,8 +213,18 @@ rpmbuild-5.10-arm64: setup-container setup-cross-compile	## Build kernel RPM pac
 	@echo "======= Building RPM Package (5.10/ARM64) ======="
 	@echo "Using branch: $(KERNEL_5_10_BRANCH)"
 	@docker exec -i $(CONTAINER_NAME) bash -c "\
-		cd /root/code/linux && \
-		git checkout $(KERNEL_5_10_BRANCH) && \
+		echo '======= Finding appropriate source directory =======' && \
+		WORK_DIR='' && \
+		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_5_10_BRANCH)'; then \
+			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_5_10_BRANCH)' | awk '{print \$$1}' | head -1); \
+			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
+			echo \"Using existing worktree: \$$WORK_DIR\"; \
+		else \
+			WORK_DIR='/root/code/linux'; \
+			echo \"Using main repository and checking out branch\"; \
+			cd \$$WORK_DIR && git checkout $(KERNEL_5_10_BRANCH); \
+		fi && \
+		cd \$$WORK_DIR && \
 		export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu- && \
 		export ARCH=arm64 && \
 		make openeuler_defconfig && \
@@ -214,8 +239,18 @@ rpmbuild-6.6-arm64: setup-container setup-cross-compile	## Build kernel RPM pack
 	@echo "======= Building RPM Package (6.6/ARM64) ======="
 	@echo "Using branch: $(KERNEL_6_6_BRANCH)"
 	@docker exec -i $(CONTAINER_NAME) bash -c "\
-		cd /root/code/linux && \
-		git checkout $(KERNEL_6_6_BRANCH) && \
+		echo '======= Finding appropriate source directory =======' && \
+		WORK_DIR='' && \
+		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_6_6_BRANCH)'; then \
+			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_6_6_BRANCH)' | awk '{print \$$1}' | head -1); \
+			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
+			echo \"Using existing worktree: \$$WORK_DIR\"; \
+		else \
+			WORK_DIR='/root/code/linux'; \
+			echo \"Using main repository and checking out branch\"; \
+			cd \$$WORK_DIR && git checkout $(KERNEL_6_6_BRANCH); \
+		fi && \
+		cd \$$WORK_DIR && \
 		export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu- && \
 		export ARCH=arm64 && \
 		make openeuler_defconfig && \
@@ -233,8 +268,18 @@ build-5.10-amd64: setup-container	## Compile kernel only (ctkernel-lts-5.10, AMD
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
 	docker exec -i $(CONTAINER_NAME) bash -c "\
-		cd /root/code/linux && \
-		git checkout $(KERNEL_5_10_BRANCH) && \
+		echo '======= Finding appropriate source directory =======' && \
+		WORK_DIR='' && \
+		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_5_10_BRANCH)'; then \
+			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_5_10_BRANCH)' | awk '{print \$$1}' | head -1); \
+			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
+			echo \"Using existing worktree: \$$WORK_DIR\"; \
+		else \
+			WORK_DIR='/root/code/linux'; \
+			echo \"Using main repository and checking out branch\"; \
+			cd \$$WORK_DIR && git checkout $(KERNEL_5_10_BRANCH); \
+		fi && \
+		cd \$$WORK_DIR && \
 		echo '======= Installing build dependencies via yum-builddep =======' && \
 		yum-builddep build/kernel.spec -y && \
 		echo '======= Configuring kernel =======' && \
@@ -255,8 +300,19 @@ build-6.6-amd64: setup-container	## Compile kernel only (ctkernel-lts-6.6, AMD64
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
 	docker exec -i $(CONTAINER_NAME) bash -c "\
-		cd /root/code/linux && \
-		git checkout $(KERNEL_6_6_BRANCH) && \
+		echo '======= Finding appropriate source directory =======' && \
+		WORK_DIR='' && \
+		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_6_6_BRANCH)'; then \
+			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_6_6_BRANCH)' | awk '{print \$$1}' | head -1); \
+			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
+			echo \"Using existing worktree: \$$WORK_DIR (mapped from \$$HOST_WORK_DIR)\"; \
+		else \
+			WORK_DIR='/root/code/linux'; \
+			echo \"Using main repository and checking out branch\"; \
+			cd \$$WORK_DIR && git checkout $(KERNEL_6_6_BRANCH); \
+		fi && \
+		cd \$$WORK_DIR && \
+		echo \"Working in directory: \$$PWD\" && \
 		echo '======= Installing build dependencies via yum-builddep =======' && \
 		yum-builddep build/spec/kernel.spec -y && \
 		echo '======= Configuring kernel =======' && \
@@ -277,8 +333,18 @@ build-5.10-arm64: setup-container setup-cross-compile	## Compile kernel only (ct
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
 	docker exec -i $(CONTAINER_NAME) bash -c "\
-		cd /root/code/linux && \
-		git checkout $(KERNEL_5_10_BRANCH) && \
+		echo '======= Finding appropriate source directory =======' && \
+		WORK_DIR='' && \
+		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_5_10_BRANCH)'; then \
+			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_5_10_BRANCH)' | awk '{print \$$1}' | head -1); \
+			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
+			echo \"Using existing worktree: \$$WORK_DIR\"; \
+		else \
+			WORK_DIR='/root/code/linux'; \
+			echo \"Using main repository and checking out branch\"; \
+			cd \$$WORK_DIR && git checkout $(KERNEL_5_10_BRANCH); \
+		fi && \
+		cd \$$WORK_DIR && \
 		echo '======= Installing build dependencies via yum-builddep =======' && \
 		yum-builddep build/kernel.spec -y && \
 		export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu- && \
@@ -301,8 +367,18 @@ build-6.6-arm64: setup-container setup-cross-compile	## Compile kernel only (ctk
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
 	docker exec -i $(CONTAINER_NAME) bash -c "\
-		cd /root/code/linux && \
-		git checkout $(KERNEL_6_6_BRANCH) && \
+		echo '======= Finding appropriate source directory =======' && \
+		WORK_DIR='' && \
+		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_6_6_BRANCH)'; then \
+			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_6_6_BRANCH)' | awk '{print \$$1}' | head -1); \
+			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
+			echo \"Using existing worktree: \$$WORK_DIR\"; \
+		else \
+			WORK_DIR='/root/code/linux'; \
+			echo \"Using main repository and checking out branch\"; \
+			cd \$$WORK_DIR && git checkout $(KERNEL_6_6_BRANCH); \
+		fi && \
+		cd \$$WORK_DIR && \
 		echo '======= Installing build dependencies via yum-builddep =======' && \
 		yum-builddep build/spec/kernel.spec -y && \
 		export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu- && \
