@@ -20,6 +20,7 @@ CROSS_COMPILE_TAR := gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
 # Branch configuration (can be overridden via command line)
 KERNEL_5_10_BRANCH ?= ctkernel-lts-5.10/develop
 KERNEL_6_6_BRANCH ?= ctkernel-lts-6.6/develop
+
 HOST_RPMBUILD_DIR := /home/wujing/code/rpmbuild
 HOST_DOWNLOADS_DIR := /home/wujing/Downloads
 HOST_CODE_DIR := /home/wujing/code
@@ -27,8 +28,9 @@ HOST_CODE_DIR := /home/wujing/code
 # Docker run options
 DOCKER_RUN_OPTS := -it \
 	--name $(CONTAINER_NAME) \
-	-v /home/wujing:/root \
+	-v $(HOST_CODE_DIR):/root/code \
 	-v $(HOST_RPMBUILD_DIR):/root/rpmbuild \
+	-v $(HOST_DOWNLOADS_DIR):/root/Downloads \
 	-w /root/code
 
 .PHONY: help download-image load-image build-image run-container stop-container clean rpmbuild-5.10-amd64 rpmbuild-6.6-amd64 download-cross-compile setup-cross-compile rpmbuild-5.10-arm64 rpmbuild-6.6-arm64 build-5.10-amd64 build-6.6-amd64 build-5.10-arm64 build-6.6-arm64 setup-container
