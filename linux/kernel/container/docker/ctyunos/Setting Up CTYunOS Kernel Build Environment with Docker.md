@@ -207,6 +207,21 @@ docker run -it \
   ctyunos:23.01 /bin/bash
 ```
 
+```bash
+docker run -it \
+  --name ctyunos-23.01 \
+  -v /home/wujing/code:/home/wujing/code \
+  -v /home/wujing/code/rpmbuild:/home/wujing/rpmbuild \
+  -v /home/wujing/Downloads:/home/wujing/Downloads \
+  -w /home/wujing/code \
+  ctyunos:23.01 \
+  /bin/bash
+```
+
+```bash
+git config --global --add safe.directory "*"
+```
+
 ctyunos3-docker-230117-x86_64中的yum源有问题，需进行替换：
 
 ```bash
