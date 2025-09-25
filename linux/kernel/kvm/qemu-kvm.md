@@ -652,6 +652,16 @@ sudo mount -a
 
 若需进一步排查，请提供 `virsh dumpxml 68` 中网络接口的完整配置。
 
+### dnsmasq
+
+```bash
+root@wujing:/home/wujing# virsh net-start default error: Failed to start network default error: internal error: Child process (VIR_BRIDGE_NAME=virbr0 /usr/sbin/dnsmasq --conf-file=/var/lib/libvirt/dnsmasq/default.conf --leasefile-ro --dhcp-script=/usr/lib/libvirt/libvirt_leaseshelper) unexpected exit status 2: dnsmasq: failed to bind DHCP server socket: Address already in use
+```
+
+在 Windows 里把 VMware Workstation + Hyper-V 虚拟机管理启动项禁掉之后就能好了。
+
+![20250925144242](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20250925144242.png)
+
 ### 网络虚拟化类型对比
 
 ---
