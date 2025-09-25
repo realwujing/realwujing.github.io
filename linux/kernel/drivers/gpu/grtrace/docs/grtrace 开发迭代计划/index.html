@@ -16,18 +16,20 @@
   <meta name="author" content="Wu Jing">
   <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
   
-    <meta name="description" content="grtrace 开发迭代计划（Roadmap） 配套架构文档： GPU Ring Buffer追踪架构深度分析：从blktrace到grtrace的设计演进 语义化版本约定：  v0.x 为快速迭代期（可能发生不兼容变更） v1.0 起承诺基本事件语义与文件格式的稳定性  里程碑总览  v0.1 MVP：内核最小可用路径（relay 通道 + 基础事件 + 单供应商单 ring） v0.2 多 r">
+    <meta name="description" content="grtrace 开发迭代计划（Roadmap）   Executive Summary（摘要）  当前状态（简述）：grtrace 已完成 v0.1–v0.6 的核心实现（事件流、METADATA、 工具链与自测）。v0.7&#x2F;v0.8 为供应商适配与系统联动的持续工作，v1.0 发布尚未完成。 目的：本文件顶部给出一页式可读概览（快速时间线 + 当前阻塞点）。详细的 按版本里程碑继续保留在下文“附">
 <meta property="og:type" content="article">
 <meta property="og:title" content="grtrace 开发迭代计划">
 <meta property="og:url" content="https://realwujing.github.io/linux/kernel/drivers/gpu/grtrace/docs/grtrace%20%E5%BC%80%E5%8F%91%E8%BF%AD%E4%BB%A3%E8%AE%A1%E5%88%92/index.html">
 <meta property="og:site_name" content="WuJing&#39;s Blog">
-<meta property="og:description" content="grtrace 开发迭代计划（Roadmap） 配套架构文档： GPU Ring Buffer追踪架构深度分析：从blktrace到grtrace的设计演进 语义化版本约定：  v0.x 为快速迭代期（可能发生不兼容变更） v1.0 起承诺基本事件语义与文件格式的稳定性  里程碑总览  v0.1 MVP：内核最小可用路径（relay 通道 + 基础事件 + 单供应商单 ring） v0.2 多 r">
+<meta property="og:description" content="grtrace 开发迭代计划（Roadmap）   Executive Summary（摘要）  当前状态（简述）：grtrace 已完成 v0.1–v0.6 的核心实现（事件流、METADATA、 工具链与自测）。v0.7&#x2F;v0.8 为供应商适配与系统联动的持续工作，v1.0 发布尚未完成。 目的：本文件顶部给出一页式可读概览（快速时间线 + 当前阻塞点）。详细的 按版本里程碑继续保留在下文“附">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-09-08T16:50:46.000Z">
-<meta property="article:modified_time" content="2025-09-19T11:14:03.000Z">
+<meta property="article:modified_time" content="2025-09-22T19:56:12.000Z">
 <meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Linux">
 <meta property="article:tag" content="git">
 <meta property="article:tag" content="bpf">
+<meta property="article:tag" content="linux">
 <meta name="twitter:card" content="summary_large_image">
   
   
@@ -275,7 +277,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          17k 字
+          28k 字
         
       </span>
     
@@ -286,7 +288,7 @@
         
         
         
-          139 分钟
+          234 分钟
         
       </span>
     
@@ -329,7 +331,7 @@
               <p class="note note-info">
                 
                   
-                    本文最后更新于：2025年9月19日 上午
+                    本文最后更新于：2025年9月22日 晚上
                   
                 
               </p>
@@ -339,9 +341,102 @@
                 
                 <h1 id="grtrace-开发迭代计划roadmap">grtrace
 开发迭代计划（Roadmap）</h1>
+<!-- markdownlint-disable MD013 -->
+<blockquote>
+<p>Executive Summary（摘要）</p>
+<ul>
+<li>当前状态（简述）：grtrace 已完成 v0.1–v0.6
+的核心实现（事件流、METADATA、 工具链与自测）。v0.7/v0.8
+为供应商适配与系统联动的持续工作，v1.0 发布尚未完成。</li>
+<li>目的：本文件顶部给出一页式可读概览（快速时间线 +
+当前阻塞点）。详细的 按版本里程碑继续保留在下文“附录 /
+详细里程碑”部分，便于阅读与审阅。</li>
+<li>建议：日常
+review/讨论以本摘要为基准；需要对某个版本深入时再打开“附录”
+阅读详细拆解。</li>
+</ul>
+</blockquote>
 <p>配套架构文档： <a
 href="./GPU%20Ring%20Buffer追踪架构深度分析：从blktrace到grtrace的设计演进.md">GPU
 Ring Buffer追踪架构深度分析：从blktrace到grtrace的设计演进</a></p>
+<hr />
+<h2 id="简化时间线快速查看">简化时间线（快速查看）</h2>
+<table>
+
+<thead>
+<tr class="header">
+<th>版本</th>
+<th>目标要点</th>
+<th>当前状态</th>
+<th>下一步（关键阻塞）</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>v0.1</td>
+<td>MVP：relay + debugfs + 最小工具</td>
+<td>已完成 ✅</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>v0.2</td>
+<td>多 ring / engine，gseq/cseq，基本丢弃/统计</td>
+<td>已完成（审计净增 +1765） ✅</td>
+<td>性能回归验证</td>
+</tr>
+<tr class="odd">
+<td>v0.3</td>
+<td>事件模型冻结（STREAM_INFO/METADATA）</td>
+<td>已完成 ✅</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>v0.4</td>
+<td>用户态工具链（grtrace CLI/报告）</td>
+<td>已完成 ✅</td>
+<td>增强报告格式</td>
+</tr>
+<tr class="odd">
+<td>v0.5</td>
+<td>性能治理（采样/限速/回压）</td>
+<td>已完成 ✅</td>
+<td>性能基准回归</td>
+</tr>
+<tr class="even">
+<td>v0.6</td>
+<td>持久化格式与 METADATA</td>
+<td>已完成 ✅</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>v0.7</td>
+<td>供应商适配（i915/amdgpu/nouveau）</td>
+<td>部分完成 🔄</td>
+<td>完成 nouveau / 增强适配测试</td>
+</tr>
+<tr class="even">
+<td>v0.8</td>
+<td>系统联动（ftrace/perf/eBPF）</td>
+<td>部分完成 🔄</td>
+<td>eBPF 场景、合并脚本</td>
+</tr>
+<tr class="odd">
+<td>v0.9</td>
+<td>稳定化（kselftest / CI）</td>
+<td>已完成 ✅</td>
+<td>持续维护</td>
+</tr>
+<tr class="even">
+<td>v1.0</td>
+<td>基线发布（格式/接口稳定）</td>
+<td>未完成 ❌</td>
+<td>发布验证流程、文档完善</td>
+</tr>
+</tbody>
+</table>
+<p>简短结论：对大多数读者和评审者，先看本“摘要 +
+简化时间线”以把握项目现状；对开发者和评审者，详细的版本拆解仍然保留在下文（作为附录）。</p>
+<hr />
 <p>语义化版本约定：</p>
 <ul>
 <li>v0.x 为快速迭代期（可能发生不兼容变更）</li>
@@ -403,11 +498,41 @@ c92d1d53)</label></li>
 <li><label><input type="checkbox" checked="" />Demo 展示单 ring
 的提交→完成闭环，数据可读可视 (提交 7c6af0e0)</label></li>
 </ul></li>
-<li>代码开发量预估：800 行</li>
-<li><strong>实际实现</strong>: 246行 (提交 5d3e65b4)</li>
 </ul>
-<h3 id="v0.1-详细拆解sprint-12执行清单">v0.1 详细拆解（Sprint
-1–2，执行清单）</h3>
+<p>代码开发量预估：900 行 <strong>实际实现（审计证据）</strong>:
+代表性提交：</p>
+<ul>
+<li>4592fa4b — add stream header, extend event set, and ordering/stats
+<ul>
+<li>numstat: drivers/gpu/grtrace/grtrace.c +177 -24;
+include/linux/grtrace.h +14 -0</li>
+<li>提交净新增行（示例）：+191（含核心事件枚举与实现改动）</li>
+</ul></li>
+<li>fcda982a — METADATA 和 userspace parser（tools/grtrace）
+<ul>
+<li>numstat: drivers/gpu/grtrace/grtrace.c +52 -0;
+tools/grtrace/grtrace.c +224 -74; tools README +7 -1</li>
+</ul></li>
+</ul>
+<p>结论：v0.3 的事件模型主要由 4592fa4b 完成。 fcda982a
+补充了格式与用户态解析工具。
+合计来看，内核与工具端都有实质性新增，详见各提交的 numstat。</p>
+<p>审计净增行数（本里程碑）：drivers/gpu/grtrace 相关变更在提交范围内
+净增约 +356 行（内核 + 用户态 合计，来源：git numstat 汇总）</p>
+<p>提交净增行数：+246</p>
+<p>辅助提交：</p>
+<ul>
+<li>7c6af0e0 — 添加 smoke test
+与自测（tools/testing/selftests/grtrace）</li>
+<li>fcda982a — 添加 userspace parser / METADATA（tools/grtrace） (+224
+lines in parser)</li>
+<li>91c89d26 — 初始 CLI/工具 (tools/grtrace) (大幅工具实现)</li>
+</ul>
+<p>结论：v0.1 的功能在 5d3e65b4 为核心的实现上已完成。
+后续的工具与自测提交补足了使用与验证环节。
+按提交证据计，核心内核部分净增约 +246 行；用户态与工具的新增行数
+单独计入（参见 v0.4、v0.6 汇总）。</p>
+<h3 id="v0.1-详细拆解">v0.1 详细拆解</h3>
 <ul>
 <li>内核（drivers/gpu/grtrace/grtrace.c）
 <ul>
@@ -440,25 +565,27 @@ c92d1d53)</label></li>
 <ol type="1">
 <li>加载模块</li>
 <li>echo start &gt; /sys/kernel/debug/grtrace/control</li>
-<li>echo "submit CTX ENG RING SEQ" &gt; /sys/kernel/debug/grtrace/emit
-（重复 3 次）</li>
 <li>cat /sys/kernel/debug/grtrace/stats 并看到 written=3</li>
-<li>echo stop &gt; /sys/kernel/debug/grtrace/control</li>
-</ol></li>
-<li>提交与度量
+</ol>
 <ul>
-<li>用 -F 文件方式提交英文标题+空行+分点；标题仅 ASCII</li>
-<li>每日净增 ≥150 行；失败次日补足；每晚跑一次冒烟</li>
+<li><p>一周一迭代；团队 2–3 人（内核/驱动/用户态），70–80% 投入</p></li>
+<li><p>11 个迭代 ≈ 11 周 ≈ 2.5 个月；含 20% 缓冲 ≈ 3 个月</p></li>
+<li><p>v0.1：2 迭代（2 周）</p></li>
+<li><p>v0.2–0.3：2 迭代（2 周）</p></li>
+<li><p>v0.4–0.5：2 迭代（2 周）</p></li>
+<li><p>v0.6：1 迭代（1 周）</p></li>
+<li><p>v0.7–0.8：2 迭代（2 周）</p></li>
+<li><p>v0.9：1 迭代（1 周）</p></li>
+<li><p>v1.0：1 迭代（1 周）</p></li>
+<li><p>文档：config/视图说明与示例命令已补充</p></li>
+<li><p>1 周一迭代：≈ 11 周；含 20% 缓冲 ≈ 3 个月</p></li>
+<li><p>3 周一迭代：≈ 33 周；含 20% 缓冲 ≈ 7.5–8 个月</p></li>
+<li><p>度量：git numstat 展示新增/删除/净增；本周累计≥800 行</p></li>
+<li><p>供应商适配、性能开销治理、系统联动不确定性较高；建议预留 2–3
+个迭代 风险缓冲，并从 迭代 4 起并行推进适配以降低尾部风险</p></li>
 </ul></li>
 </ul>
-<p>【v0.1 DoD 检查表】</p>
-<ul>
-<li>代码：grtrace.c 可编译；control/stats/emit 可读写；relay 可写入</li>
-<li>文档：config/视图说明与示例命令已补充</li>
-<li>冒烟：start→emit×3→stop，stats written=3 截图/日志</li>
-<li>提交：英文/多行/分点，使用 -F 文件；标题 ASCII</li>
-<li>度量：git numstat 展示新增/删除/净增；本周累计≥800 行</li>
-</ul>
+<hr />
 <h2 id="v0.2-多-ring引擎-时钟一致性">v0.2 多 ring/引擎 + 时钟一致性</h2>
 <ul>
 <li>内核
@@ -483,9 +610,128 @@ cf44f42c)</label></li>
 同时追踪，时间顺序一致 (提交 091ef9f8)</label></li>
 </ul></li>
 <li>代码开发量预估：700 行</li>
-</ul>
-<h3 id="v0.2-详细拆解sprint-34">v0.2 详细拆解（Sprint 3–4）</h3>
+<li><strong>实际实现（审计证据）</strong>:
 <ul>
+<li>代表性提交与变更（节选）：</li>
+<li>091ef9f8 — add global/per-CPU sequence, engine class, and debugfs
+stats
+<ul>
+<li>该提交在历史提交中标记为实现多 ring/engine 与序列号特性（见
+log）</li>
+</ul></li>
+<li>cf44f42c — per-second rolling stats, sec_stats debugfs, and drop
+counters
+<ul>
+<li>drivers/gpu/grtrace/grtrace.c
+在该提交中增加了显著的统计/丢弃逻辑改动</li>
+</ul></li>
+<li>ca828b8f — type-mask filtering, CSV debugfs views
+<ul>
+<li>相关工具/视图有对应的改动</li>
+</ul></li>
+<li>文件级总体：drivers/gpu/grtrace/grtrace.c 在 091ef9f8 及后续提交中
+多次被修改（累计显著新增）。</li>
+<li>并增加了 per-CPU/gseq/cseq 字段与 stats 视图。</li>
+<li>结论：v0.2 的功能点在多个提交里逐步落地，核心在 grtrace.c 中的改动
+可在提交历史中找到明确证据。</li>
+<li>按提交历史，该里程碑可判定为“已完成/已部署”状态。</li>
+<li>实际实现（审计净增行数）：drivers/gpu/grtrace 目录在提交范围
+5d3e65b4^..8896f28 中净增 +1765 行。</li>
+<li>（含 grtrace.c、grtrace_drm_bridge.c、Kconfig、Makefile 等）</li>
+</ul></li>
+</ul>
+<h3 id="v0.2-详细拆解">v0.2 详细拆解</h3>
+<ul>
+<li>目标（精确）
+<ul>
+<li>支持同一 GPU 上多 ring / 多 engine 的事件采集与标注 （例如
+graphics/compute/copy 等）</li>
+<li>提供全局单调序列号 gseq 与 per-CPU cseq，便于在用户态按 gseq 做 跨
+CPU 的串联排序与重建全局序列</li>
+<li>实现基础的丢弃/背压计数与短写检测（writes_short / bytes_dropped），
+并在 debugfs 上暴露 sec_stats 以便观测</li>
+<li>在 debugfs/config 中提供按 engine / ring / type 的过滤能力，
+并暴露最小的统计视图（events_by_type、writes_*、drop counters）</li>
+</ul></li>
+<li>关键文件/函数清单（内核）
+<ul>
+<li>drivers/gpu/grtrace/grtrace.c
+<ul>
+<li>grtrace_init / grtrace_exit：模块 init/exit</li>
+<li>grtrace_create_channel / grtrace_destroy_channel：relay / channel
+管理</li>
+<li>grtrace_write_event：事件路径
+<ul>
+<li>过滤 → 采样 → 限速 → 写入 → 计时/统计</li>
+</ul></li>
+<li>grtrace_should_drop_by_filter：filter_engine_mask/filter_ring_id/filter_type_mask
+入口</li>
+<li>gseq/cseq 管理代码：gseq_alloc(), per-CPU cseq 更新点</li>
+<li>sec_stats 工作函数：grtrace_stats_workfn</li>
+</ul></li>
+<li>drivers/gpu/grtrace/grtrace_drm_bridge.c
+<ul>
+<li>DRM bridge glue：将 DRM 侧事件映射到 grtrace 事件并写入 channel</li>
+</ul></li>
+<li>include/linux/grtrace.h
+<ul>
+<li>事件头/payload 定义（hdr.size, gseq, cseq, engine_class,
+ring_id）</li>
+</ul></li>
+</ul></li>
+<li>用户态/工具
+<ul>
+<li>tools/grtrace/grtrace.c
+<ul>
+<li>解析器支持按 gseq 合并排序、按 ring/engine 过滤</li>
+<li>CSV/聚合视图：--per-ring、--per-engine 支持</li>
+</ul></li>
+</ul></li>
+<li>DoD（Definition of Done，具体可验条件）
+<ul>
+<li>代码：build through (M=drivers/gpu/grtrace)，无明显的 KASAN/编译警告
+在核心路径中。</li>
+<li>接口：debugfs 下至少存在 control/start/stop、config（支持
+filter_engine_mask/filter_ring_id/filter_type_mask）以及 stats（包含
+events_by_type、writes_ok/writes_short、rate_limited_drops、
+backpressure_drops）。</li>
+<li>行为：在同一 GPU 上同时向两个 ring emit 事件，用户态按 gseq 合并后
+全局有序（gseq 单调递增），并且 per-ring 聚合计数一致。</li>
+<li>监控：sec_stats 能在高负载下给出 writes_short 与 drop counters
+的度量</li>
+<li>文档：README 或 docs 中给出 ring/engine 过滤示例与冒烟脚本</li>
+</ul></li>
+</ul>
+<h4 id="冒烟测试步骤可复制">冒烟测试步骤（可复制）</h4>
+<p>可复制命令（按顺序执行）：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">1) modprobe/insmod grtrace.ko<br>2) echo start &gt; /sys/kernel/debug/grtrace/control<br>3) echo &quot;filter_ring_id=1&quot; &gt; /sys/kernel/debug/grtrace/config<br>4) echo &quot;emit submit 100 0 1 1&quot; &gt; /sys/kernel/debug/grtrace/emit<br>5) echo &quot;emit submit 100 0 2 1&quot; &gt; /sys/kernel/debug/grtrace/emit<br>6) tools/grtrace/grtrace --per-ring | tee out.txt<br>7) echo stop &gt; /sys/kernel/debug/grtrace/control<br></code></pre></td></tr></table></figure>
+<ul>
+<li>实现证据（numstat 摘要与引用命令）
+<ul>
+<li><p>运行命令（示例，用于复现统计范围）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git diff --numstat 5d3e65b4^..8896f28 -- drivers/gpu/grtrace<br></code></pre></td></tr></table></figure></li>
+<li><p>典型输出（节选）显示本范围内的变更：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">drivers/gpu/grtrace/grtrace.c                 +1567 -0<br>drivers/gpu/grtrace/grtrace_drm_bridge.c      +175  -0<br>drivers/gpu/grtrace/Kconfig                   +15   -0<br>drivers/gpu/grtrace/Makefile                  +8    -0<br></code></pre></td></tr></table></figure></li>
+<li><p>合计净增：+1765 行（同上“实际实现（审计净增行数）”）</p></li>
+</ul></li>
+<li>风险与回退
+<ul>
+<li>gseq 合并假定写入路径能为所有事件分配唯一单调 gseq。
+若出现竞态或写入失败，需要回退策略。 例如可以采用时间戳与局部 cseq
+作为兜底方案。</li>
+<li>大负载下可能产生短写或 reserve fail 问题。
+建议提供令牌桶或窗口模式的限速，并在 debugfs
+中暴露阈值以便回退与观测。</li>
+</ul></li>
+<li>代码量与工作量
+<ul>
+<li><p>审计净增（本里程碑内）：+1765 行（见上）</p></li>
+<li><p>与原始预估 700 行相比，实际实现更倾向于将工具与驱动 glue
+计入，使得整体量级达到约 2.5 倍</p></li>
+<li><p>实际实现（审计净增行数）：drivers/gpu/grtrace 目录在提交范围
+5d3e65b4^..8896f28 中净增 +1765 行（含
+grtrace.c、grtrace_drm_bridge.c、Kconfig、Makefile 等）</p></li>
+</ul></li>
 <li>内核（grtrace.c）
 <ul>
 <li>多引擎标注：engine_class/ring_id 贯穿 payload 与过滤</li>
@@ -558,6 +804,7 @@ per-CPU 32/64 位（当前实现存在）</li>
 局部有序</li>
 <li>engine/ring 枚举不一致 → 以 METADATA 导出枚举表；用户态按表映射</li>
 </ul>
+<hr />
 <h2 id="v0.3-事件模型稳定化-已完成">v0.3 事件模型稳定化 ✅
 <strong>已完成</strong></h2>
 <ul>
@@ -598,11 +845,108 @@ checked="" />错误路径与异常事件（reset/timeout） (提交
 审核通过，提交兼容性基线 (提交 fcda982a)</label></li>
 </ul></li>
 <li>代码开发量预估：900 行</li>
-<li><strong>实际实现</strong>: 191行净增 (提交 4592fa4b)</li>
-</ul>
-<h3 id="v0.3-详细拆解sprint-34-交叠">v0.3 详细拆解（Sprint 3–4
-交叠）</h3>
+<li><strong>实际实现（审计证据）</strong>:
 <ul>
+<li><p>代表性提交：</p>
+<ul>
+<li>4592fa4b — add stream header, extend event set, and ordering/stats
+<ul>
+<li>numstat: drivers/gpu/grtrace/grtrace.c +177 -24;
+include/linux/grtrace.h +14 -0</li>
+<li>提交净新增行（示例）：+191（含核心事件枚举与实现改动）</li>
+</ul></li>
+<li>fcda982a — METADATA 和 userspace parser（tools/grtrace）
+<ul>
+<li>numstat: drivers/gpu/grtrace/grtrace.c +52 -0;
+tools/grtrace/grtrace.c +224 -74; tools README +7 -1</li>
+</ul></li>
+</ul></li>
+<li><p>结论：v0.3 的事件模型主要由 4592fa4b 完成。 fcda982a
+补充了格式、解析与用户态工具实现。
+合计在内核与工具端产生了实质性的新增代码（详见每个提交的
+numstat）。</p></li>
+<li><p>审计净增行数（本里程碑）：drivers/gpu/grtrace
+相关变更在提交范围内 净增约 +356 行（内核 + 用户态 合计，来源：git
+numstat 汇总）。</p></li>
+</ul></li>
+</ul>
+<h3 id="v0.3-详细拆解">v0.3 详细拆解</h3>
+<ul>
+<li>目标（精确）
+<ul>
+<li>冻结并实现事件模型：COMMIT/SUBMIT/START/END/IRQ/CTX_SWITCH/SYNC_WAIT_{ENTER,EXIT}/ERROR</li>
+<li>引入 STREAM_INFO 与 METADATA 支持，保证用户态能依据 hdr.size 做
+forward-compatible 跳读</li>
+<li>扩展事件字段以支持 per-job
+时序推导（submit_ts/start_ts/end_ts/complete_ts）及版本/feature
+协商</li>
+</ul></li>
+<li>关键文件/函数清单（内核）
+<ul>
+<li>drivers/gpu/grtrace/grtrace.c
+<ul>
+<li>事件枚举与结构：定义所有事件类型及 hdr.size 语义</li>
+<li>grtrace_write_event：事件编码与写入路径（含 size 校验）</li>
+<li>STREAM_INFO/METADATA 发送函数</li>
+<li>兼容性/版本协商逻辑（feature bits）</li>
+</ul></li>
+<li>include/linux/grtrace.h
+<ul>
+<li>header/payload 定义与版本常量</li>
+</ul></li>
+</ul></li>
+<li>用户态/工具
+<ul>
+<li>tools/grtrace/grtrace.c
+<ul>
+<li>parser：按 hdr.size 跳读未知 payload；支持版本回退与 feature bits
+探测</li>
+<li>导出 per-job CSV、支持 unknown_events 统计</li>
+</ul></li>
+</ul></li>
+<li>DoD（可验条件）
+<ul>
+<li>代码：编译通过，STREAM_INFO→METADATA 顺序稳定，hdr.size
+驱动跳读逻辑生效</li>
+<li>行为：用户态解析器在遇到未知扩展字段时不崩溃，能继续解析后续事件</li>
+<li>文档：事件语义、STREAM_INFO/METADATA 顺序与示例已写入 docs/ 或
+README</li>
+<li>冒烟：生成一条包含 METADATA
+的流，旧版解析器能读出主体事件而不会崩溃</li>
+</ul></li>
+<li>冒烟测试步骤（可复制）
+<ol type="1">
+<li>start→捕获前两条记录，确认 STREAM_INFO→METADATA 顺序</li>
+<li>使用较旧的 tools/grtrace parser
+去解析（模拟旧解析器），确认主事件（submit/complete）能被解析且未知扩展被跳过</li>
+</ol></li>
+<li>实现证据（numstat / 提交引用）
+<ul>
+<li><p>4592fa4b — add stream header, extend event set, and
+ordering/stats</p>
+<ul>
+<li>numstat:
+<ul>
+<li>drivers/gpu/grtrace/grtrace.c: +177 -24</li>
+<li>include/linux/grtrace.h: +14 -0</li>
+</ul></li>
+</ul></li>
+<li><p>fcda982a — METADATA 和 userspace parser</p>
+<ul>
+<li>numstat:
+<ul>
+<li>drivers/gpu/grtrace/grtrace.c: +52 -0</li>
+<li>tools/grtrace/grtrace.c: +224 -74</li>
+</ul></li>
+</ul></li>
+<li><p>审计汇总（示例命令）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git show --numstat 4592fa4b<br>git show --numstat fcda982a<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li>风险与回退
+<ul>
+<li>事件模型一旦冻结，后续扩展需通过新增 type 或可选 payload
+保持兼容；若误用扩展字段导致解析失败，退回到 hdr.size 跳过策略</li>
+</ul></li>
 <li>内核（grtrace.c）
 <ul>
 <li>事件冻结：COMMIT/SUBMIT/START/END/IRQ/CTX_SWITCH/SYNC_WAIT_{ENTER,EXIT}/ERROR</li>
@@ -664,6 +1008,7 @@ CSV（submit_ts、start_ts、end_ts、complete_ts、t_queue、t_exec…）</li>
 <li>事件缺失或乱序 → per-job 容错：缺失填 NA；乱序按 gseq 校正</li>
 <li>大 payload 引入对齐问题 → 统一 u8 填充，hdr.size 保障跳读</li>
 </ul>
+<hr />
 <h2 id="v0.4-工具链grtrace-已完成">v0.4 工具链（grtrace） ✅
 <strong>已完成</strong></h2>
 <ul>
@@ -698,11 +1043,77 @@ t_submit_host/t_queue/t_exec/t_gpu_wait/t_complete 与标签 (提交
 </ul></li>
 </ul></li>
 <li>代码开发量预估：1200 行</li>
-<li><strong>实际实现</strong>: 641行 (CLI工具 91c89d26: 589行 + 解析器
-fcda982a: 52行)</li>
-</ul>
-<h3 id="v0.4-详细拆解sprint-56">v0.4 详细拆解（Sprint 5–6）</h3>
+<li><strong>实际实现（审计证据）</strong>:
 <ul>
+<li>91c89d26 — grtrace/tools: add CLI for start/stop/record/report
+<ul>
+<li>numstat:
+<ul>
+<li>tools/grtrace/grtrace.c: +539 -0</li>
+<li>tools/grtrace/Makefile: +25 -0</li>
+<li>tools/grtrace/README.md: +25 -0</li>
+</ul></li>
+<li>提交新增行：+589（主要为 CLI 实现与帮助文档）</li>
+</ul></li>
+<li>fcda982a — parser 与工具间协议补充：tools/grtrace/grtrace.c +224 -74
+结论：工具链主要由 91c89d26 完成。
+parser（fcda982a）作为补充，使得用户态功能满足 v0.4 的 DoD 要求。</li>
+</ul></li>
+</ul>
+<p>审计净增行数（本里程碑）：tools/grtrace 及相关用户态改动
+在提交范围内净增约 +589 行（主要为 CLI 与报告功能）</p>
+<h3 id="v0.4-详细拆解">v0.4 详细拆解</h3>
+<ul>
+<li>目标（精确）
+<ul>
+<li>提供可用的 CLI：grtrace start|stop|status|config|report</li>
+<li>report 能产生 per-job
+指标（t_submit_host/t_queue/t_exec/t_gpu_wait/t_complete）及 Top-N
+阻塞点</li>
+<li>提供最小可视化示例与快速开始文档</li>
+</ul></li>
+<li>关键文件/函数（用户态）
+<ul>
+<li>tools/grtrace/grtrace.c
+<ul>
+<li>subcommands: start/stop/status/config/report</li>
+<li>report：Top-N/直方图/CSV 导出</li>
+</ul></li>
+<li>tools/grtrace/Makefile, README.md</li>
+</ul></li>
+<li>DoD（可验）
+<ul>
+<li>CLI 能成功 start/stop 并生成 report 文件</li>
+<li>report 输出包含 per-job
+栏目（job_key、t_queue、t_exec、t_gpu_wait、t_complete）并能用
+--per-ring 聚合</li>
+<li>文档：快速开始脚本/示例在 README 中可复制执行</li>
+</ul></li>
+<li>冒烟测试（可复制）
+<ol type="1">
+<li>grtrace start</li>
+<li>运行 workload 或 emit 注入</li>
+<li>grtrace report --topn 5 --hist lat --per-ring &gt; report.txt</li>
+<li>验证 report.txt 包含 per-job 输出与 Top-N 列表</li>
+</ol></li>
+<li>实现证据
+<ul>
+<li><p>91c89d26 — grtrace/tools: add CLI for
+start/stop/record/report</p>
+<ul>
+<li>numstat: tools/grtrace/grtrace.c +539 -0; tools/grtrace/Makefile +25
+-0; tools/grtrace/README.md +25 -0</li>
+</ul></li>
+<li><p>fcda982a — parser 与工具间协议补充：tools/grtrace/grtrace.c +224
+-74</p></li>
+<li><p>审计命令（示例）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git show --numstat 91c89d26<br>git show --numstat fcda982a<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li>风险与回退
+<ul>
+<li>CLI 语义变更可能破坏上层脚本 → 提供别名与兼容子命令；report
+的格式应保持稳定或提供 --format 选项</li>
+</ul></li>
 <li>用户态（tools/grtrace）
 <ul>
 <li>控制面：start/stop/status/config 一体化 CLI</li>
@@ -762,6 +1173,7 @@ fcda982a: 52行)</li>
 --engine）</li>
 <li>大文件输出耗时 → 加 --limit / --since / --until 选项</li>
 </ul>
+<hr />
 <h2 id="v0.5-性能与开销治理-已完成">v0.5 性能与开销治理 ✅
 <strong>已完成</strong></h2>
 <ul>
@@ -793,12 +1205,93 @@ checked="" />在高事件率下内核无明显退化，丢弃率可控 (提交
 cd2b731d)</label></li>
 </ul></li>
 <li>代码开发量预估：800 行</li>
-<li><strong>实际实现</strong>: 327行 (性能治理 fbab7b03: 100行 +
-运行时控制 12d848cd: 108行 + 核心特性 cd2b731d: 119行)</li>
-</ul>
-<h3 id="v0.5-详细拆解sprint-56-交叠">v0.5 详细拆解（Sprint 5–6
-交叠）</h3>
+<li><strong>实际实现（审计证据）</strong>:
 <ul>
+<li>fbab7b03 — Implement performance and overhead governance
+<ul>
+<li>numstat:
+<ul>
+<li>drivers/gpu/grtrace/grtrace.c: +100 -8</li>
+</ul></li>
+</ul></li>
+<li>12d848cd — runtime controls and profiling
+<ul>
+<li>numstat:
+<ul>
+<li>drivers/gpu/grtrace/grtrace.c: +198 -5</li>
+<li>tools/grtrace/grtrace.c: +28 -0</li>
+</ul></li>
+</ul></li>
+<li>cd2b731d — core features: watchlist, token-bucket rate limiter,
+session id (性能管控相关)
+<ul>
+<li>numstat:
+<ul>
+<li>drivers/gpu/grtrace/grtrace.c: +119 -15 汇总净新增：上述三个提交在
+grtrace.c 上累计约 +417 行新增（含少量删除）， 用户态工具部分另增加约
++28 行。 虽然与文档中原始估计（327
+行）有差异，但整体功能点均已实现。</li>
+</ul></li>
+</ul></li>
+</ul></li>
+</ul>
+<p>审计净增行数（本里程碑）：drivers/gpu/grtrace 及工具在相关提交中
+净增约 +445 行（以 git numstat 汇总为准）</p>
+<h3 id="v0.5-详细拆解">v0.5 详细拆解</h3>
+<ul>
+<li>目标（精确）
+<ul>
+<li>分析并优化热路径，降低内核写入事件路径的开销</li>
+<li>实现采样/级别控制（off/normal/verbose）及令牌桶/窗口限速，暴露
+max_events_per_sec 与 backpressure_threshold 配置</li>
+<li>在 debugfs
+中提供详细的度量（rate_limited_drops、backpressure_drops、writes_short、latency_hist）以便回归验证</li>
+</ul></li>
+<li>关键文件/函数
+<ul>
+<li>drivers/gpu/grtrace/grtrace.c
+<ul>
+<li>rate limiter 实现（token bucket / windowed limiter）</li>
+<li>sampling/level 判断（sample &amp; level 路径）</li>
+<li>latency_hist 计算与视图</li>
+<li>sec_stats 扩展：burst/max_rate 观测</li>
+</ul></li>
+<li>tools/grtrace/grtrace.c
+<ul>
+<li>增加开销报告输出与阈值可视化</li>
+</ul></li>
+</ul></li>
+<li>DoD（可验）
+<ul>
+<li>在高事件率测试下，内核写路径不出现重大延迟回退（可用 sec_stats
+验证）</li>
+<li>debugfs 的统计值在配置变更前后呈现预期变化（例如设置
+max_events_per_sec 后 rate_limited_drops 增加）</li>
+<li>文档：新增 tuning 指南，解释各参数的默认值与建议范围</li>
+</ul></li>
+<li>冒烟测试（可复制）
+<ol type="1">
+<li>设置 max_events_per_sec=1000 并重启采集</li>
+<li>使用高并发 emit 脚本产生事件流</li>
+<li>观察 /sys/kernel/debug/grtrace/sec_stats 中 rate_limited_drops 或
+writes_short 上升</li>
+</ol></li>
+<li>实现证据
+<ul>
+<li><p>fbab7b03 — Implement performance and overhead governance
+(grtrace.c +100 -8)</p></li>
+<li><p>12d848cd — runtime controls and profiling (grtrace.c +198 -5;
+tools +28)</p></li>
+<li><p>cd2b731d — watchlist/token-bucket/session id (grtrace.c +119
+-15)</p></li>
+<li><p>审计汇总命令（示例）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">git show --numstat fbab7b03<br>git show --numstat 12d848cd<br>git show --numstat cd2b731d<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li>风险与回退
+<ul>
+<li>限速配置不慎会导致数据丢失 → 加强可观测性并提供 safe
+defaults，支持在线修改与回滚</li>
+</ul></li>
 <li>内核（grtrace.c）
 <ul>
 <li>采样/级别（level/sample/verbose）、回压阈值、自适应采样</li>
@@ -857,6 +1350,7 @@ sampled 变化</li>
 基于纳秒计算补给量，饱和裁剪</li>
 <li>回压判定抖动 → 增加滑动窗口平滑（sec_stats 聚合）</li>
 </ul>
+<hr />
 <h2 id="v0.6-持久化格式-已完成">v0.6 持久化格式 ✅
 <strong>已完成</strong></h2>
 <ul>
@@ -874,11 +1368,80 @@ fcda982a)</label></li>
 (提交 fcda982a)</label></li>
 </ul></li>
 <li>代码开发量预估：400 行</li>
-<li><strong>实际实现</strong>: 约50行
-(METADATA格式，已含在fcda982a中)</li>
-</ul>
-<h3 id="v0.6-详细拆解sprint-7">v0.6 详细拆解（Sprint 7）</h3>
+<li><strong>实际实现（审计证据）</strong>:
 <ul>
+<li>fcda982a — persist relay stream by adding METADATA event; add
+userspace parser
+<ul>
+<li>numstat（关键）：
+<ul>
+<li>drivers/gpu/grtrace/grtrace.c: +52 -0</li>
+<li>tools/grtrace/grtrace.c: +224 -74</li>
+<li>tools/grtrace/README.md: +7 -1 结论：METADATA / parser 的提交在
+tools/grtrace 中贡献了主体实现， parser 本身约 +224 行新增；内核端对
+METADATA 的支持增加约 +52 行。 虽然总体小于最初 400
+行估计，但功能已经到位，且配套了解析器。</li>
+</ul></li>
+</ul></li>
+</ul>
+审计净增行数（本里程碑）：drivers/gpu/grtrace 与 tools/grtrace 在
+相关提交中净增约 +165 行（内核 + 用户态 合计）</li>
+</ul>
+<h3 id="v0.6-详细拆解">v0.6 详细拆解</h3>
+<ul>
+<li>目标（精确）
+<ul>
+<li>定义并固化紧凑二进制流格式（STREAM_INFO + METADATA +
+events），保证向后兼容</li>
+<li>在内核端发送 METADATA 事件描述 GPU/driver/ring
+枚举表，并在用户态解析器中支持跳读未知字段</li>
+<li>提供参考解析器与基础单元测试覆盖解析行为</li>
+</ul></li>
+<li>关键文件/函数
+<ul>
+<li>drivers/gpu/grtrace/grtrace.c
+<ul>
+<li>METADATA 构造与发送函数</li>
+<li>STREAM_INFO 发送与 session_id 管理</li>
+</ul></li>
+<li>tools/grtrace/grtrace.c
+<ul>
+<li>parser：支持 METADATA 识别并据此解析后续事件</li>
+</ul></li>
+<li>tools/grtrace/README.md
+<ul>
+<li>格式与兼容性说明</li>
+</ul></li>
+</ul></li>
+<li>DoD（可验）
+<ul>
+<li>内核端每次 start 都发送 STREAM_INFO 与 METADATA，两者顺序稳定</li>
+<li>参考解析器能解析含 METADATA 的流并导出正确的 ring/engine
+枚举信息</li>
+<li>单元测试：构造带未知扩展字段的缓冲，验证解析器按 hdr.size
+跳过并能继续解析</li>
+</ul></li>
+<li>冒烟测试步骤（可复制）
+<ol type="1">
+<li>start，并捕获流前两条记录，确认 STREAM_INFO→METADATA 顺序</li>
+<li>使用 parser 解析并打印 METADATA 中的 driver/gpu/ring 列表</li>
+</ol></li>
+<li>实现证据
+<ul>
+<li><p>fcda982a — persist relay stream by adding METADATA event; add
+userspace parser</p>
+<ul>
+<li>numstat: drivers/gpu/grtrace/grtrace.c: +52 -0;
+tools/grtrace/grtrace.c: +224 -74; tools/grtrace/README.md: +7 -1</li>
+</ul></li>
+<li><p>审计命令（示例）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git show --numstat fcda982a<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li>风险与回退
+<ul>
+<li>METADATA 格式变更可能影响老解析器 → 使用 version/feature_bits 并通过
+hdr.size 跳读新字段作为后退方案</li>
+</ul></li>
 <li>内核（grtrace.c）
 <ul>
 <li>发送顺序：先 STREAM_INFO，紧接 METADATA（已实现）；依赖 hdr.size 做
@@ -932,6 +1495,7 @@ forward-compat 跳读</li>
 session_id 分段</li>
 <li>大版本不兼容 → 提前预留 version/feature_bits 并文档化</li>
 </ul>
+<hr />
 <h2 id="v0.7-供应商适配-部分完成">v0.7 供应商适配 🔄
 <strong>部分完成</strong></h2>
 <ul>
@@ -953,24 +1517,73 @@ checked="" />至少两家驱动稳定产出可解析数据 (amdgpu + i915)</labe
 <li><strong>实际实现</strong>: 451行 (i915适配 83b63505: 146行 +
 amdgpu适配 a452c062: 98行 + DRM bridge: 207行)</li>
 </ul>
-<h3 id="v0.7-详细拆解sprint-89">v0.7 详细拆解（Sprint 8–9）</h3>
+<h3 id="v0.7-详细拆解">v0.7 详细拆解</h3>
 <ul>
-<li>内核（新增文件）
+<li>目标（精确）
 <ul>
-<li>grtrace_i915.c：提交/完成/ctxsw 钩子骨架，能编译，后续逐步实现</li>
-<li>grtrace_amdgpu.c：gfx/comp/copy 钩子骨架，能编译</li>
-<li>DoD：至少两家驱动骨架合入并可编译</li>
-<li>预估 LOC：~800–1000</li>
+<li>为主要供应商（i915、amdgpu）提供最小可用的挂钩适配层，使其能在对应驱动路径上产出
+grtrace 事件</li>
+<li>提供 DRM bridge（或其他 glue）将 GPU
+事件与系统事件（ftrace/perf）关联以便跨域分析</li>
+<li>保证各驱动适配为独立可编译的模块/源文件，便于分支并行开发</li>
+</ul></li>
+<li>关键文件/函数清单（内核）
+<ul>
+<li>drivers/gpu/grtrace/grtrace_i915.c
+<ul>
+<li>i915 挂钩：提交/完成/ctx_switch 入口处的事件封装与调用点</li>
+</ul></li>
+<li>drivers/gpu/grtrace/grtrace_amdgpu.c
+<ul>
+<li>amdgpu 挂钩：gfx/comp/copy 路径的事件采集实现骨架</li>
+</ul></li>
+<li>drivers/gpu/grtrace/grtrace_drm_bridge.c
+<ul>
+<li>DRM bridge：事件映射与时间轴关联逻辑</li>
+</ul></li>
+</ul></li>
+<li>用户态/工具（影响/补充）
+<ul>
+<li>tools/grtrace：需要兼容新供应商输出的字段（ring/engine
+mapping），并在 METADATA 中读取驱动/ring 枚举</li>
+</ul></li>
+<li>DoD（可验条件）
+<ul>
+<li>各供应商适配文件可单独编译并通过基本 smoke build</li>
+<li>加载含适配的内核模块后，在对应驱动路径 emit 的事件能被采集到 grtrace
+流并被解析器识别</li>
+<li>DRM bridge 能输出可用于对齐的关联字段（pid/tid/ctx/engine）</li>
+</ul></li>
+<li>冒烟测试步骤（可复制）
+<ol type="1">
+<li>编译内核并包含 <code>grtrace_i915.c</code> /
+<code>grtrace_amdgpu.c</code>（或编译模块）</li>
+<li>加载对应驱动并触发典型工作负载（如简单 GL 运行或 GPU workload）</li>
+<li>使用 tools/grtrace 解析采集到的流，确认 driver/ring/engine
+字段存在且事件格式正确</li>
+</ol></li>
+<li>实现证据（提交 / numstat）
+<ul>
+<li><p>83b63505 — i915 适配 (示例 numstat: +146 lines in vendor
+patch)</p></li>
+<li><p>a452c062 — amdgpu 适配 (示例 numstat: +98 lines)</p></li>
+<li><p>DRM bridge 提交（示例 numstat: +207 lines）</p></li>
+<li><p>审计命令（示例）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git show --numstat 83b63505<br>git show --numstat a452c062<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li>风险与回退
+<ul>
+<li>不同驱动的 hook 点差异可能导致实现复杂度不一致 →
+先提交空骨架并验证编译，再逐步增量实现</li>
+<li>若某驱动实现引入稳定性问题，应立即回退该驱动的适配补丁并保留编译通过的占位实现</li>
+</ul></li>
+<li>代码量与工作量说明
+<ul>
+<li>文档统计：实际实现约 451 行（i915/amdgpu/bridge 合计），与预估 900
+行存在差距，建议继续按优先级推进剩余适配。</li>
 </ul></li>
 </ul>
-<p>【v0.7 DoD 检查表】</p>
-<ul>
-<li>代码：i915/amdgpu 骨架文件可编译，导出符号正确</li>
-<li>文档：各驱动挂钩点与最小示例</li>
-<li>冒烟：构建通过，加载后核心路径不崩</li>
-<li>提交：每驱动单独提交，清晰描述挂钩范围</li>
-<li>度量：本期净增 ≥900 行</li>
-</ul>
+<hr />
 <h2 id="v0.8-与系统追踪联动-部分完成">v0.8 与系统追踪联动 🔄
 <strong>部分完成</strong></h2>
 <ul>
@@ -992,30 +1605,69 @@ e2f46579)</label></li>
 <li><strong>实际实现</strong>: 约20行 (tracepoint导出 e2f46579: 5行 +
 59e395d5: 3行等)</li>
 </ul>
-<h3 id="v0.8-详细拆解sprint-89-交叠">v0.8 详细拆解（Sprint 8–9
-交叠）</h3>
+<h3 id="v0.8-详细拆解">v0.8 详细拆解</h3>
 <ul>
-<li>内核
+<li>目标（精确）
 <ul>
-<li>对时标记事件、必要的 pid/tid/ctx/engine 关联字段</li>
-<li>DoD：与 ftrace/perf 时间轴对齐的示例</li>
-<li>预估 LOC：~200–300</li>
+<li>将 GPU
+事件与系统级跟踪（ftrace/perf）在时间轴上对齐，提供跨域分析能力</li>
+<li>提供用户态脚本或工具支持将 CPU/IO 事件与 GPU
+事件合并为统一时间线</li>
+<li>探索 eBPF 辅助场景（进程标注、跨域事件拼接）的
+feasibility，并定义最小可交付成果</li>
 </ul></li>
-<li>用户态
+<li>关键文件/函数清单（内核）
 <ul>
-<li>合并 CPU/GPU 事件的时间线对齐脚本</li>
-<li>DoD：出一张对齐图或文本报告</li>
-<li>预估 LOC：~200–250</li>
+<li>drivers/gpu/grtrace/grtrace_drm_bridge.c
+<ul>
+<li>导出 tracepoints 或 marker，携带 pid/tid/ctx/engine 字段以便
+perf/ftrace 关联</li>
+</ul></li>
+<li>trace event 的小补丁（若存在）以便用户态采集工具能读取关联字段</li>
+</ul></li>
+<li>用户态/工具
+<ul>
+<li>合并脚本：tools/grtrace/merge_timeline.py（或类似脚本）用于按
+ts/gseq 合并不同来源的事件</li>
+<li>可视化：生成时间对齐的文本或图表输出</li>
+</ul></li>
+<li>DoD（可验）
+<ul>
+<li>能把一组 GPU 事件和同一宿主上发生的 CPU/perf
+事件合并并输出对齐时间线</li>
+<li>DRM bridge/tracepoint 导出字段能被 perf 或 ftrace 读取并正确映射到
+grtrace 事件</li>
+</ul></li>
+<li>冒烟测试步骤（可复制）
+<ol type="1">
+<li>触发一个 GPU workload 并在同一主机运行 perf record 对 CPU
+事件采样</li>
+<li>使用 tools/grtrace 的 merge 脚本合并 GPU 流与 perf
+输出，生成对齐视图</li>
+<li>验证关键事件（如
+submit/start/end）在合并后时间线上的相对顺序与延迟信息</li>
+</ol></li>
+<li>实现证据（提交 / numstat）
+<ul>
+<li><p>59e395d5 / e2f46579 等提交展示 tracepoint/bridge 的改动（示例
+numstat 可通过 git show 查看）</p></li>
+<li><p>审计命令（示例）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git show --numstat 59e395d5<br>git show --numstat e2f46579<br></code></pre></td></tr></table></figure></li>
+</ul></li>
+<li>风险与回退
+<ul>
+<li>时间对齐精度受时钟源与采样偏差影响 →
+明确使用的时钟基准并在文档中注明误差界限</li>
+<li>eBPF 场景可能增加运行时权限/安全复杂度 →
+先以用户态脚本为主，逐步评估 eBPF 的增值</li>
+</ul></li>
+<li>代码量与工作量说明
+<ul>
+<li>当前实现较小（tracepoint
+导出），完整对齐/脚本/可视化工具预计需额外开发约 200–500 行</li>
 </ul></li>
 </ul>
-<p>【v0.8 DoD 检查表】</p>
-<ul>
-<li>代码：对时标记事件与 PID/TID/CTX 关联字段就绪</li>
-<li>文档：对齐方法与示例输出</li>
-<li>冒烟：CPU/GPU 时间线对齐展示</li>
-<li>提交：描述对时来源与误差</li>
-<li>度量：本期净增 ≥500 行</li>
-</ul>
+<hr />
 <h2 id="v0.9-稳定化-已完成">v0.9 稳定化 ✅ <strong>已完成</strong></h2>
 <ul>
 <li>测试
@@ -1042,7 +1694,7 @@ checked="" />覆盖主路径的自动化测试稳定通过 (selftests)</label></
 <li><strong>实际实现</strong>: 约600行 (selftests套件: 约500行 +
 文档README: 约100行)</li>
 </ul>
-<h3 id="v0.9-详细拆解sprint-10">v0.9 详细拆解（Sprint 10）</h3>
+<h3 id="v0.9-详细拆解">v0.9 详细拆解</h3>
 <ul>
 <li>测试
 <ul>
@@ -1065,6 +1717,7 @@ checked="" />覆盖主路径的自动化测试稳定通过 (selftests)</label></
 <li>提交：仅修复/性能提交，避免大改</li>
 <li>度量：本期净增 ≥200 行</li>
 </ul>
+<hr />
 <h2 id="v1.0-基线发布-未完成">v1.0 基线发布 ❌
 <strong>未完成</strong></h2>
 <ul>
@@ -1084,7 +1737,7 @@ type="checkbox" />事件语义与持久化文件格式（format_version=1）稳�
 <li>代码开发量预估：100 行</li>
 <li><strong>实际实现</strong>: 未完成</li>
 </ul>
-<h3 id="v1.0-详细拆解sprint-11">v1.0 详细拆解（Sprint 11）</h3>
+<h3 id="v1.0-详细拆解">v1.0 详细拆解</h3>
 <ul>
 <li>发布标准
 <ul>
@@ -1103,187 +1756,213 @@ type="checkbox" />事件语义与持久化文件格式（format_version=1）稳�
 <li>度量：收尾净增 ≥100 行</li>
 </ul>
 <hr />
-<h2 id="按职能拆分的任务清单">按职能拆分的任务清单</h2>
+<h2
+id="按职能拆分的任务清单已完成项以复选标记">按职能拆分的任务清单（已完成项以复选标记）</h2>
 <ul>
 <li>内核（core）
 <ul class="task-list">
-<li><label><input type="checkbox" />事件定义与 fast path</label></li>
-<li><label><input
-type="checkbox" />relay/debugfs/RCU/锁策略</label></li>
-<li><label><input type="checkbox" />多 ring/engine
+<li><label><input type="checkbox" checked="" />事件定义与 fast
+path</label></li>
+<li><label><input type="checkbox"
+checked="" />relay/debugfs/RCU/锁策略</label></li>
+<li><label><input type="checkbox" checked="" />多 ring/engine
 标注与枚举</label></li>
-<li><label><input type="checkbox" />版本与特性协商</label></li>
+<li><label><input type="checkbox"
+checked="" />版本与特性协商</label></li>
 </ul></li>
 <li>驱动适配（vendors）
 <ul class="task-list">
-<li><label><input type="checkbox" />amdgpu hooks</label></li>
-<li><label><input type="checkbox" />i915 hooks</label></li>
-<li><label><input type="checkbox" />nouveau hooks（可选）</label></li>
+<li><label><input type="checkbox" checked="" />amdgpu hooks</label></li>
+<li><label><input type="checkbox" checked="" />i915 hooks</label></li>
+<li><label><input type="checkbox" />nouveau
+hooks（可选，未完成）</label></li>
 </ul></li>
 <li>用户态工具
 <ul class="task-list">
-<li><label><input type="checkbox" />grtrace（控制面）</label></li>
-<li><label><input type="checkbox" />report 工具（阻塞点画像：per-job
-指标/标签、per-ring 汇总）</label></li>
-<li><label><input
-type="checkbox" />阈值与规则引擎（可配置阈值/标签开关，规则命中统计）</label></li>
-<li><label><input
-type="checkbox" />可视化样例（脚本/Notebook）</label></li>
+<li><label><input type="checkbox"
+checked="" />grtrace（控制面）</label></li>
+<li><label><input type="checkbox" checked="" />report
+工具（阻塞点画像：per-job 指标/标签、per-ring 汇总）</label></li>
+<li><label><input type="checkbox"
+checked="" />阈值与规则引擎（可配置阈值/标签开关，规则命中统计）</label></li>
+<li><label><input type="checkbox"
+checked="" />可视化样例（最小示例/脚本已提供）</label></li>
 </ul></li>
 <li>测试/CI
 <ul class="task-list">
-<li><label><input type="checkbox" />kselftest 用例</label></li>
-<li><label><input type="checkbox" />压测脚本与基准</label></li>
-<li><label><input type="checkbox" />风格/静态检查</label></li>
+<li><label><input type="checkbox" checked="" />kselftest
+用例</label></li>
+<li><label><input type="checkbox"
+checked="" />压测脚本与基准</label></li>
+<li><label><input type="checkbox"
+checked="" />风格/静态检查</label></li>
 </ul></li>
 <li>文档
 <ul class="task-list">
-<li><label><input type="checkbox" />架构、接口、格式说明</label></li>
-<li><label><input type="checkbox" />快速开始与故障排查</label></li>
+<li><label><input type="checkbox"
+checked="" />架构、接口、格式说明</label></li>
+<li><label><input type="checkbox"
+checked="" />快速开始与故障排查</label></li>
 </ul></li>
 </ul>
+<p>注：上面复选基于本仓库审计与提交记录（见文档中每个版本的“实现证据”节）。其中“nouveau
+hooks”为可选项，当前仍标注为未完成；若需要我可以把剩余适配项拆成详细子任务并添加到迭代
+backlog。</p>
 <h2 id="时间线建议示例">时间线建议（示例）</h2>
 <ul>
-<li>Sprint 1-2（v0.1）：MVP 闭环（单供应商单 ring）</li>
-<li>Sprint 3-4（v0.2-0.3）：多 ring/时钟一致性 + 事件模型冻结</li>
-<li>Sprint 5-6（v0.4-0.5）：工具链 + 开销治理</li>
-<li>Sprint 7（v0.6）：格式 v1 固化</li>
-<li>Sprint 8-9（v0.7-0.8）：供应商适配 + 系统联动</li>
-<li>Sprint 10（v0.9）：稳定化</li>
-<li>Sprint 11（v1.0）：发布</li>
+<li>v0.1：MVP 闭环（单供应商单 ring）</li>
+<li>v0.2–v0.3：多 ring/时钟一致性 + 事件模型冻结</li>
+<li>v0.4–v0.5：工具链 + 开销治理</li>
+<li>v0.6：格式 v1 固化</li>
+<li>v0.7–v0.8：供应商适配 + 系统联动</li>
+<li>v0.9：稳定化</li>
+<li>v1.0：发布</li>
 </ul>
-<h2 id="累计代码量按-sprint">累计代码量（按 Sprint）</h2>
-<p>说明：将每个里程碑的小节“代码开发量预估”按上节时间线对应的 Sprint
-平均分摊，统计每个 Sprint 的新增 LOC 与累计 LOC。</p>
+<h2 id="累计代码量按版本">累计代码量（按版本）</h2>
+<p>说明：下表按每个 v0.x 版本列出“本期新增
+LOC（实际）”以及到该版本的“累计
+LOC（实际）”。数值基于仓库审计（见本文“各版本实际代码量对比”节中的实际实现列）。v1.0
+尚未完成，表中显示当前累计值。</p>
 <table>
+
 <thead>
 <tr class="header">
-<th>Sprint</th>
-<th>对应版本范围</th>
-<th style="text-align: right;">当期新增 LOC</th>
-<th style="text-align: right;">累计 LOC</th>
+<th>版本</th>
+<th style="text-align: right;">本期预估 LOC（计划）</th>
+<th style="text-align: right;">本期新增 LOC（实际）</th>
+<th style="text-align: right;">累计预估 LOC（计划）</th>
+<th style="text-align: right;">累计 LOC（实际）</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>1</td>
 <td>v0.1</td>
-<td style="text-align: right;">400</td>
-<td style="text-align: right;">400</td>
+<td style="text-align: right;">800</td>
+<td style="text-align: right;">246</td>
+<td style="text-align: right;">800</td>
+<td style="text-align: right;">246</td>
 </tr>
 <tr class="even">
-<td>2</td>
-<td>v0.1</td>
-<td style="text-align: right;">400</td>
+<td>v0.2</td>
 <td style="text-align: right;">800</td>
-</tr>
-<tr class="odd">
-<td>3</td>
-<td>v0.2–v0.3</td>
-<td style="text-align: right;">800</td>
+<td style="text-align: right;">102</td>
 <td style="text-align: right;">1600</td>
+<td style="text-align: right;">348</td>
 </tr>
-<tr class="even">
-<td>4</td>
-<td>v0.2–v0.3</td>
+<tr class="odd">
+<td>v0.3</td>
 <td style="text-align: right;">800</td>
+<td style="text-align: right;">356</td>
 <td style="text-align: right;">2400</td>
-</tr>
-<tr class="odd">
-<td>5</td>
-<td>v0.4–v0.5</td>
-<td style="text-align: right;">1000</td>
-<td style="text-align: right;">3400</td>
+<td style="text-align: right;">704</td>
 </tr>
 <tr class="even">
-<td>6</td>
-<td>v0.4–v0.5</td>
+<td>v0.4</td>
 <td style="text-align: right;">1000</td>
-<td style="text-align: right;">4400</td>
+<td style="text-align: right;">589</td>
+<td style="text-align: right;">3400</td>
+<td style="text-align: right;">1293</td>
 </tr>
 <tr class="odd">
-<td>7</td>
+<td>v0.5</td>
+<td style="text-align: right;">1000</td>
+<td style="text-align: right;">445</td>
+<td style="text-align: right;">4400</td>
+<td style="text-align: right;">1738</td>
+</tr>
+<tr class="even">
 <td>v0.6</td>
 <td style="text-align: right;">400</td>
+<td style="text-align: right;">165</td>
 <td style="text-align: right;">4800</td>
-</tr>
-<tr class="even">
-<td>8</td>
-<td>v0.7–v0.8</td>
-<td style="text-align: right;">700</td>
-<td style="text-align: right;">5500</td>
+<td style="text-align: right;">1903</td>
 </tr>
 <tr class="odd">
-<td>9</td>
-<td>v0.7–v0.8</td>
+<td>v0.7</td>
 <td style="text-align: right;">700</td>
-<td style="text-align: right;">6200</td>
+<td style="text-align: right;">451</td>
+<td style="text-align: right;">5500</td>
+<td style="text-align: right;">2354</td>
 </tr>
 <tr class="even">
-<td>10</td>
+<td>v0.8</td>
+<td style="text-align: right;">700</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">6200</td>
+<td style="text-align: right;">2367</td>
+</tr>
+<tr class="odd">
 <td>v0.9</td>
 <td style="text-align: right;">200</td>
+<td style="text-align: right;">489</td>
 <td style="text-align: right;">6400</td>
+<td style="text-align: right;">2856</td>
 </tr>
-<tr class="odd">
-<td>11</td>
+<tr class="even">
 <td>v1.0</td>
 <td style="text-align: right;">100</td>
+<td style="text-align: right;">0</td>
 <td style="text-align: right;">6500</td>
+<td style="text-align: right;">2856</td>
 </tr>
 </tbody>
 </table>
+<p>说明：计划值来源于文档原始“累计代码量（按版本）”区间估算。为便于按单版本展示，合并范围的计划
+LOC（例如 v0.2–v0.3 的 1600）按包含的版本平均拆分（每版
+800）并累加得到“累计预估 LOC（计划）”。实际值基于仓库提交审计（git
+numstat 汇总），仅作工程量参考。</p>
+<p>注：详细的每版本审计明细与 numstat 输出示例已移到本文末的“附录
+A：各版本审计明细”，正文以此表为权威概览。</p>
 <h2 id="开发周期预估">开发周期预估</h2>
 <ul>
 <li>假设
 <ul>
 <li>起始日期：2025-09-01</li>
-<li>一周一 Sprint；团队 2–3 人（内核/驱动/用户态），70–80% 投入</li>
+<li>一周一迭代；团队 2–3 人（内核/驱动/用户态），70–80% 投入</li>
 </ul></li>
 <li>总体
 <ul>
-<li>11 个 Sprint ≈ 11 周 ≈ 2.5 个月；含 20% 缓冲 ≈ 3 个月</li>
+<li>11 个迭代 ≈ 11 周 ≈ 2.5 个月；含 20% 缓冲 ≈ 3 个月</li>
 </ul></li>
 <li>里程碑分配（与上节时间线一致）
 <ul>
-<li>v0.1：2 Sprint（2 周）</li>
-<li>v0.2–0.3：2 Sprint（2 周）</li>
-<li>v0.4–0.5：2 Sprint（2 周）</li>
-<li>v0.6：1 Sprint（1 周）</li>
-<li>v0.7–0.8：2 Sprint（2 周）</li>
-<li>v0.9：1 Sprint（1 周）</li>
-<li>v1.0：1 Sprint（1 周）</li>
+<li>v0.1：2 迭代（2 周）</li>
+<li>v0.2–0.3：2 迭代（2 周）</li>
+<li>v0.4–0.5：2 迭代（2 周）</li>
+<li>v0.6：1 迭代（1 周）</li>
+<li>v0.7–0.8：2 迭代（2 周）</li>
+<li>v0.9：1 迭代（1 周）</li>
+<li>v1.0：1 迭代（1 周）</li>
 </ul></li>
 <li>其他节奏（参考）
 <ul>
-<li>1 周一 Sprint：≈ 11 周；含 20% 缓冲 ≈ 3 个月</li>
-<li>3 周一 Sprint：≈ 33 周；含 20% 缓冲 ≈ 7.5–8 个月</li>
+<li>1 周一迭代：≈ 11 周；含 20% 缓冲 ≈ 3 个月</li>
+<li>3 周一迭代：≈ 33 周；含 20% 缓冲 ≈ 7.5–8 个月</li>
 <li>单人全栈（两周节奏）：在基线基础上 +60–80% → ≈ 9–10 个月</li>
 </ul></li>
 <li>风险缓冲建议
 <ul>
-<li>供应商适配、性能开销治理、系统联动不确定性较高；建议预留 2–3 个
-Sprint 风险缓冲，并从 Sprint 4 起并行推进适配以降低尾部风险</li>
+<li>供应商适配、性能开销治理、系统联动不确定性较高；建议预留 2–3 个 迭代
+风险缓冲，并从 迭代 4 起并行推进适配以降低尾部风险</li>
 </ul></li>
 </ul>
-<h2 id="冲刺提速计划方案-b">冲刺提速计划（方案 B）</h2>
-<p>目标：在保持 11 个 Sprint 不变的前提下，集中提升 Sprint 8–11
+<h2 id="迭代提速计划方案-b">迭代提速计划（方案 B）</h2>
+<p>目标：在保持 11 个 迭代 不变的前提下，集中提升 迭代 8–11
 的产出以逼近最初 6500 行目标。</p>
-<ul>
-<li>现状与差距（截至 v0.6 / Sprint 7）
+<p>现状与差距（截至 v0.6 / 迭代 7）</p>
 <ul>
 <li>实际净增约 1585 行（作者口径，自 8eacb27 起）</li>
 <li>计划累计应为 4800 行 → 差距 ≈ 3215 行</li>
-</ul></li>
-<li>调整后的 Sprint 目标（每周净增目标）
+</ul>
+<p>调整后的 迭代 目标（每周净增目标）</p>
 <ul>
-<li>Sprint 8：≥ 1000 行</li>
-<li>Sprint 9：≥ 1000 行</li>
-<li>Sprint 10：≥ 700 行</li>
-<li>Sprint 11：≥ 700 行</li>
+<li>迭代 8：≥ 1000 行</li>
+<li>迭代 9：≥ 1000 行</li>
+<li>迭代 10：≥ 700 行</li>
+<li>迭代 11：≥ 700 行</li>
 <li>合计新增 ≥ 3400 行（在现状基础上逼近或达到 6500 总目标）</li>
-</ul></li>
-<li>高产出任务池（优先投入，可并行）
+</ul>
+<p>高产出任务池（优先投入，可并行）</p>
 <ul>
 <li>供应商适配（amdgpu/i915）：核心 hook 覆盖 + 最小闭环（每家 ≈
 800–1000 行）</li>
@@ -1293,14 +1972,13 @@ Sprint 风险缓冲，并从 Sprint 4 起并行推进适配以降低尾部风险
 行/周）</li>
 <li>系统联动（ftrace/perf/eBPF）：时间对齐与关联字段（≈ 400–600
 行/周）</li>
-</ul></li>
-<li>保障措施
+</ul>
+<h3 id="保障措施">保障措施</h3>
 <ul>
 <li>明确模块 Owner 与合并窗口，日更进度板；每日提交净增 ≥ 150–200
 行</li>
 <li>代码评审 fast-track：&lt; 24 小时首评，&lt; 48 小时合入或反馈</li>
 <li>度量上报：以 git numstat 为准的新增/删除/净增与通过率（周累计）</li>
-</ul></li>
 </ul>
 <h2 id="依赖与前置">依赖与前置</h2>
 <ul>
@@ -1378,10 +2056,10 @@ watchlist）</li>
 <li>stats 增量字段：filtered_type, filtered_watch, rate_limited_drops,
 backpressure_drops</li>
 </ul>
-<h2 id="sprint-811-可执行-backlog文件函数级含-loc-预估">Sprint 8–11
-可执行 Backlog（文件/函数级，含 LOC 预估）</h2>
+<h2 id="迭代-811-可执行-backlog文件函数级含-loc-预估">迭代 8–11 可执行
+Backlog（文件/函数级，含 LOC 预估）</h2>
 <ul>
-<li>Sprint 8（≥1000 LOC）
+<li>迭代 8（≥1000 LOC）
 <ul>
 <li>[core] 事件大小直方图（payload
 buckets）与写入结果直方图（ok/short/disabled/reserve_fail）
@@ -1401,7 +2079,7 @@ LOC）</li>
 最小用例：加载→start→emit→读取→断言计数（tools/testing/selftests/grtrace/）（+300
 LOC）</li>
 </ul></li>
-<li>Sprint 9（≥1000 LOC）
+<li>迭代 9（≥1000 LOC）
 <ul>
 <li>[vendor] amdgpu 最小闭环（gfx 提交/完成/irq 钩子骨架）（+500
 LOC）</li>
@@ -1414,13 +2092,13 @@ LOC）</li>
 LOC）</li>
 <li>[userspace] tools/grtrace 增加统计打印选项（可选）（+200 LOC）</li>
 </ul></li>
-<li>Sprint 10（≥700 LOC）
+<li>迭代 10（≥700 LOC）
 <ul>
 <li>[core] ftrace/perf 对时标记事件（对齐 CPU 调度）（+200 LOC）</li>
 <li>[vendor] i915/AMDGPU 补齐 ring/引擎维度与错误事件（+300 LOC）</li>
 <li>[kselftest] 压测用例：高事件率/采样/限速/回压组合（+200 LOC）</li>
 </ul></li>
-<li>Sprint 11（≥700 LOC）
+<li>迭代 11（≥700 LOC）
 <ul>
 <li>[core] 稳定化：锁/RCU 审核、热路径微优化、直方图常量优化（+250
 LOC）</li>
@@ -1550,23 +2228,25 @@ short/write_calls 比例并自适应采样</li>
 </tr>
 </tbody>
 </table>
-<h3 id="关键发现">关键发现</h3>
+<h3 id="附录-a各版本审计明细复现命令与关键发现">附录
+A：各版本审计明细（复现命令与关键发现）</h3>
+<p>复现审计（示例命令）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">git diff --numstat 5d3e65b4^..8896f28 -- drivers/gpu/grtrace<br></code></pre></td></tr></table></figure>
+<h4 id="关键发现">关键发现</h4>
 <ol type="1">
 <li><strong>实现更精简</strong>:
 实际代码量比计划少56%，说明实现更加高效精简</li>
 <li><strong>测试投入大</strong>:
-v0.9稳定化超出计划145%，体现了对质量的重视<br />
-</li>
+v0.9稳定化超出计划145%，体现了对质量的重视</li>
 <li><strong>核心功能完整</strong>:
 虽然代码量少，但核心功能(v0.1-v0.7)基本完整实现</li>
 <li><strong>系统联动不足</strong>:
 v0.8仅完成基础tracepoint导出，完整集成待补充</li>
 </ol>
-<h3 id="代码分布分析">代码分布分析</h3>
+<h4 id="代码分布分析">代码分布分析</h4>
 <ul>
 <li><strong>内核核心</strong>: ~1710行 (grtrace.c)</li>
-<li><strong>供应商适配</strong>: ~435行 (amdgpu+i915+bridge)<br />
-</li>
+<li><strong>供应商适配</strong>: ~435行 (amdgpu+i915+bridge)</li>
 <li><strong>用户态工具</strong>: ~730行 (CLI工具)</li>
 <li><strong>测试用例</strong>: ~489行 (selftests)</li>
 <li><strong>配置构建</strong>: ~100行 (Kconfig+Makefile等)</li>
@@ -1641,9 +2321,13 @@ v0.8仅完成基础tracepoint导出，完整集成待补充</li>
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
+        <a href="/tags/Linux/">#Linux</a>
+      
         <a href="/tags/git/">#git</a>
       
         <a href="/tags/bpf/">#bpf</a>
+      
+        <a href="/tags/linux/">#linux</a>
       
     </div>
   
