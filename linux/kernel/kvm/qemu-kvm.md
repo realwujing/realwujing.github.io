@@ -453,8 +453,10 @@ virsh undefine wujing --nvram
 
 #### win11共享剪切板
 
+- [Windows 11 Installation on KVM with Virt-Manager](https://cloudspinx.com/windows-11-installation-on-kvm-with-virt-manager/)
 - [kvm安装windows11](https://www.cnblogs.com/studywithallofyou/p/17788892.html)
   - [virtio-win-guest-tools.exe](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/virtio-win-0.1.240-1/)
+- [玩机日记 4 PVE中安装Windows11，安装virtio驱动，并配置虚拟核显和独显直通](https://blog.csdn.net/handsome_Druid/article/details/145598129)
 
 ### 共享目录
 
@@ -1639,6 +1641,7 @@ MSI（Message Signaled Interrupts）和 MSI-X 是现代设备使用的中断机�
 
 - [FT2000+ openEuler 20.03 LTS SP3 yum install qemu手动创建虚拟机 图形界面安装openEuler 20.03系统](https://blog.csdn.net/hknaruto/article/details/130154674)
 - [解决qemu-system-aarch64 Guest has not initialized the display (yet)](https://blog.csdn.net/hknaruto/article/details/127515804)
+- [RTX4090 云显卡如何推动 GPU 即服务平台化](https://blog.csdn.net/weixin_42515842/article/details/152270693)
 
 ## 内存虚拟化
 
