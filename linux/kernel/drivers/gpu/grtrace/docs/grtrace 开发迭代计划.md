@@ -27,7 +27,7 @@
 | v0.4 | 用户态工具链（grtrace CLI/报告） | 已完成 ✅ | 增强报告格式 |
 | v0.5 | 性能治理（采样/限速/回压） | 已完成 ✅ | 性能基准回归 |
 | v0.6 | 持久化格式与 METADATA | 已完成 ✅ | — |
-| v0.7 | 供应商适配（i915/amdgpu/nouveau） | 部分完成 🔄 | 完成 nouveau / 增强适配测试 |
+| v0.7 | 供应商适配（i915/amdgpu/nouveau/virtio-gpu） | 部分完成 🔄 | 完成 nouveau/virtio-gpu / 增强适配测试 |
 | v0.8 | 系统联动（ftrace/perf/eBPF） | 部分完成 🔄 | eBPF 场景、合并脚本 |
 | v0.9 | 稳定化（kselftest / CI） | 已完成 ✅ | 持续维护 |
 | v1.0 | 基线发布（格式/接口稳定） | 未完成 ❌ | 发布验证流程、文档完善 |
@@ -50,7 +50,7 @@
   （含阻塞点报告：per-job 指标与标签）
 - v0.5 性能与开销治理（背压、采样、开关策略、热路径审计）
 - v0.6 固化持久化文件格式（format_version=1，紧凑二进制 + METADATA）
-- v0.7 供应商适配（amdgpu、i915、nouveau 首批覆盖）
+- v0.7 供应商适配（amdgpu、i915、nouveau、virtio-gpu 首批覆盖）
 - v0.8 与 ftrace/perf/eBPF 联动（时间轴对齐、跨域关联）
 - v0.9 稳定化（kselftest、自测基准、文档与示例）
 - v1.0 基线发布（接口/格式稳定、兼容性承诺）
@@ -800,6 +800,7 @@
   - [x] amdgpu：gfx/comp/copy ring hooks (提交 a452c062, 59e395d5)
   - [x] i915：execlists/GuC 路径 hooks (提交 83b63505, e2f46579)
   - [ ] nouveau：pushbuf 提交流程 hooks（可择期） **未实现**
+  - [ ] virtio-gpu：virtio queue 提交流程 hooks **未实现**
 - 验收
   - [x] 至少两家驱动稳定产出可解析数据 (amdgpu + i915)
 
@@ -809,7 +810,7 @@
 ### v0.7 详细拆解
 
 - 目标（精确）
-  - 为主要供应商（i915、amdgpu）提供最小可用的挂钩适配层，使其能在对应驱动路径上产出 grtrace 事件
+  - 为主要供应商（i915、amdgpu、nouveau、virtio-gpu）提供最小可用的挂钩适配层，使其能在对应驱动路径上产出 grtrace 事件
   - 提供 DRM bridge（或其他 glue）将 GPU 事件与系统事件（ftrace/perf）关联以便跨域分析
   - 保证各驱动适配为独立可编译的模块/源文件，便于分支并行开发
 
@@ -818,6 +819,10 @@
     - i915 挂钩：提交/完成/ctx_switch 入口处的事件封装与调用点
   - drivers/gpu/grtrace/grtrace_amdgpu.c
     - amdgpu 挂钩：gfx/comp/copy 路径的事件采集实现骨架
+  - drivers/gpu/grtrace/grtrace_nouveau.c（待实现）
+    - nouveau 挂钩：pushbuf 提交流程的事件采集实现
+  - drivers/gpu/grtrace/grtrace_virtio_gpu.c（待实现）
+    - virtio-gpu 挂钩：virtio queue 提交流程的事件采集实现
   - drivers/gpu/grtrace/grtrace_drm_bridge.c
     - DRM bridge：事件映射与时间轴关联逻辑
 
