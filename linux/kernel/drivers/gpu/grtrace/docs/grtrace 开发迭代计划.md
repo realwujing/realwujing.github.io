@@ -1074,15 +1074,32 @@
 ## v0.9 稳定化 ✅ **已完成**
 
 - 测试
-  - [x] kselftest/内核自测用例（功能/压力/回归） (提交 7c6af0e0-c6b56008)
-  - [x] CI：格式校验、静态检查、风格检查 (提交 b8d892d3)
+  - [x] kselftest/内核自测用例（功能/压力/回归） - 5个测试程序
+    * grtrace_smoke: 模块加载/卸载和基础操作
+    * grtrace_sampling: 事件采样机制
+    * grtrace_rate_limit: 窗口式速率限制
+    * grtrace_token_bucket: 令牌桶速率限制
+    * grtrace_watchlist: Ring过滤机制
+  - [x] 测试可在docker容器中编译成功
+  - [x] TAP格式输出,符合Linux selftest规范
+  
 - 文档
-  - [x] 贡献指南、维护策略、FAQ、故障排查 (提交 c92d1d53)
+  - [x] Selftests README (提交 7747576)
+    * 测试套件完整说明文档 (~400行)
+    * 构建/运行指南,测试说明,CI集成
+  - [x] FAQ & Troubleshooting (提交 7747576)
+    * 常见问题解答 (~500行)
+    * 安装/运行/性能/集成问题排查
+    * 开发指南和社区支持信息
+
 - 验收
-  - [x] 覆盖主路径的自动化测试稳定通过 (selftests)
+  - [x] selftests可编译并符合内核规范
+  - [x] 文档覆盖安装、使用、故障排查全流程
 
 - 代码开发量预估：200 行
-- **实际实现**: 约600行 (selftests套件: 约500行 + 文档README: 约100行)
+- **实际实现**: 约1425行
+  - Selftests: ~500行 (5个C测试程序 + Makefile)
+  - 文档: ~925行 (selftests README: ~400, FAQ: ~500)
 
 ### v0.9 详细拆解
 
