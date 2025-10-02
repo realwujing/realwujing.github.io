@@ -1,72 +1,24 @@
 # CTYunOS 3 Kernel Build Environment
-FROM ctyunos:23.01
+# This Dockerfile creates a development image with user configuration
+FROM ctyunos:23.01-build
 
-# Configure yum repositories
-RUN cd /etc/yum.repos.d && mv ctyunos.repo ctyunos.repo.bak || true
+# Add argument for user/group IDs (will be passed from Makefile)
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG USER_NAME=builder
 
-COPY <<EOF /etc/yum.repos.d/ctyunos.repo
-[everything]
-name=ctyunos-everything
-baseurl=https://repo.ctyun.cn/hostos/ctyunos-23.01/everything/\$basearch/
-enabled=1
-gpgcheck=0
+# Create user with same UID/GID as host user
+RUN groupadd -g ${GROUP_ID} ${USER_NAME} && \
+    useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash ${USER_NAME} && \
+    echo "${USER_NAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-[update]
-name=ctyunos-update
-baseurl=https://repo.ctyun.cn/hostos/ctyunos-23.01/update/\$basearch/
-enabled=1
-gpgcheck=0
+# Create working directories
+RUN mkdir -p /home/${USER_NAME}/{code,rpmbuild,Downloads}
 
-[debuginfo]
-name=ctyunos-debuginfo
-baseurl=https://repo.ctyun.cn/hostos/ctyunos-23.01/debuginfo/\$basearch/
-enabled=1
-gpgcheck=0
-
-[extras]
-name=ctyunos-extras
-baseurl=https://repo.ctyun.cn/hostos/ctyunos-23.01/extras/\$basearch/
-gpgcheck=0
-enabled=1
-
-# access by aone
-[aone-everything]
-name=ctyunos-aone-everything
-baseurl=http://121.237.176.8:50001/ctyun/ctyunos/ctyunos-23.01/everything/\$basearch/
-enabled=1
-gpgcheck=0
-
-# access by aone
-[aone-update]
-name=ctyunos-aone-update
-baseurl=http://121.237.176.8:50001/ctyun/ctyunos/ctyunos-23.01/update/\$basearch/
-enabled=1
-gpgcheck=0
-
-# access by aone
-[aone-debuginfo]
-name=ctyunos-aone-debuginfo
-baseurl=http://121.237.176.8:50001/ctyun/ctyunos/ctyunos-23.01/debuginfo/\$basearch/
-enabled=1
-gpgcheck=0
-
-# access by aone
-[aone-extras]
-name=ctyunos-aone-extras
-baseurl=http://121.237.176.8:50001/ctyun/ctyunos/ctyunos-23.01/extras/\$basearch/
-enabled=1
-gpgcheck=0
-EOF
-
-# Install basic tools
-RUN yum makecache && \
-    yum install -y git dnf-plugins-core bash-completion rpm-build rpmdevtools && \
-    yum clean all
-
-# Create directories
-RUN mkdir -p /root/{code,rpmbuild,Downloads}
+# Switch to non-root user
+USER ${USER_NAME}
 
 # Set working directory
-WORKDIR /root/code
+WORKDIR /home/${USER_NAME}/code
 
 CMD ["/bin/bash"]

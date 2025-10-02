@@ -1,49 +1,100 @@
 # CTYunOS 3 Docker Environment Makefile
 # Based on ctyunos3-docker-230117-x86_64.tar.xz
 
+# Get host user UID and GID first (needed for other paths)
+HOST_UID := $(shell id -u)
+HOST_GID := $(shell id -g)
+HOST_USER := $(shell whoami)
+HOST_HOME := $(shell echo $$HOME)
+
+# Host directories
+HOST_CODE_DIR := $(HOST_HOME)/code
+HOST_RPMBUILD_DIR := $(HOST_CODE_DIR)/rpmbuild
+HOST_DOWNLOADS_DIR := $(HOST_HOME)/Downloads
+
 # Docker image configuration
 IMAGE_NAME := ctyunos
-IMAGE_TAG := 23.01
-IMAGE_FULL := $(IMAGE_NAME):$(IMAGE_TAG)
-CONTAINER_NAME := ctyunos-23.01
+BASE_TAG := 23.01
+BUILD_TAG := $(BASE_TAG)-build
+DEV_TAG := $(BASE_TAG)-dev
+
+BASE_IMAGE := $(IMAGE_NAME):$(BASE_TAG)
+BUILD_IMAGE := $(IMAGE_NAME):$(BUILD_TAG)
+DEV_IMAGE := $(IMAGE_NAME):$(DEV_TAG)
+CONTAINER_NAME := $(IMAGE_NAME)-$(DEV_TAG)
 
 # Source files
 DOCKER_IMAGE_SOURCE := ctyunos3-docker-230117-x86_64.tar.xz
 DOCKER_IMAGE_URL := https://repo.ctyun.cn/hostos/ctyunos-23.01/docker_img/x86_64/$(DOCKER_IMAGE_SOURCE)
-DOCKER_IMAGE_DIR := /home/wujing/Downloads/docker
+DOCKER_IMAGE_DIR := $(HOST_DOWNLOADS_DIR)/docker
 DOCKER_IMAGE_PATH := $(DOCKER_IMAGE_DIR)/$(DOCKER_IMAGE_SOURCE)
 
 # Cross-compile toolchain
 CROSS_COMPILE_URL := https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
 CROSS_COMPILE_TAR := gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
+CROSS_COMPILE_DIR := gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu
+CROSS_COMPILE_PATH := /home/$(HOST_USER)/Downloads/cross_compile/$(CROSS_COMPILE_DIR)/bin/aarch64-none-linux-gnu-
 
 # Branch configuration (can be overridden via command line)
 KERNEL_5_10_BRANCH ?= ctkernel-lts-5.10/develop
 KERNEL_6_6_BRANCH ?= ctkernel-lts-6.6/develop
 
-HOST_RPMBUILD_DIR := /home/wujing/code/rpmbuild
-HOST_DOWNLOADS_DIR := /home/wujing/Downloads
-HOST_CODE_DIR := /home/wujing/code
-
-# Docker run options
+# Docker run options with user mapping
 DOCKER_RUN_OPTS := -it \
 	--name $(CONTAINER_NAME) \
-	-v $(HOST_CODE_DIR):/root/code \
-	-v $(HOST_RPMBUILD_DIR):/root/rpmbuild \
-	-v $(HOST_DOWNLOADS_DIR):/root/Downloads \
-	-w /root/code
+	-v $(HOST_CODE_DIR):/home/$(HOST_USER)/code \
+	-v $(HOST_RPMBUILD_DIR):/home/$(HOST_USER)/rpmbuild \
+	-v $(HOST_DOWNLOADS_DIR):/home/$(HOST_USER)/Downloads \
+	-w /home/$(HOST_USER)/code
 
-.PHONY: help download-image load-image build-image run-container stop-container clean rpmbuild-5.10-amd64 rpmbuild-6.6-amd64 download-cross-compile setup-cross-compile rpmbuild-5.10-arm64 rpmbuild-6.6-arm64 build-5.10-amd64 build-6.6-amd64 build-5.10-arm64 build-6.6-arm64 setup-container
+# Docker build arguments
+DOCKER_BUILD_ARGS := --build-arg USER_ID=$(HOST_UID) \
+	--build-arg GROUP_ID=$(HOST_GID) \
+	--build-arg USER_NAME=$(HOST_USER)
+
+# Common shell functions for container execution
+define FIND_WORKTREE
+echo '======= Finding appropriate source directory =======' && \
+WORK_DIR='' && \
+if git -C /home/$(HOST_USER)/code/linux worktree list | grep -q '$(1)'; then \
+	HOST_WORK_DIR=$$(git -C /home/$(HOST_USER)/code/linux worktree list | grep '$(1)' | awk '{print $$1}' | head -1); \
+	WORK_DIR=$$(echo $$HOST_WORK_DIR | sed 's|/home/$(HOST_USER)/code|/home/$(HOST_USER)/code|'); \
+	echo "Using existing worktree: $$WORK_DIR"; \
+else \
+	WORK_DIR='/home/$(HOST_USER)/code/linux'; \
+	echo "Using main repository and checking out branch"; \
+	cd $$WORK_DIR && git checkout $(1); \
+fi && \
+cd $$WORK_DIR
+endef
+
+define SETUP_ARM64_ENV
+export CROSS_COMPILE=$(CROSS_COMPILE_PATH) && \
+export ARCH=arm64
+endef
+
+define PRINT_BUILD_TIME
+END_TIME=$$(date +%s) && \
+DURATION=$$((END_TIME - START_TIME)) && \
+echo "======= Build Summary =======" && \
+echo "Build completed at: $$(date '+%Y-%m-%d %H:%M:%S')" && \
+echo "Total build time: $$((DURATION / 60)) minutes $$((DURATION % 60)) seconds"
+endef
+
+.PHONY: help download-image load-image build-base-image build-image stop-container clean rpmbuild-5.10-amd64 rpmbuild-6.6-amd64 download-cross-compile setup-cross-compile rpmbuild-5.10-arm64 rpmbuild-6.6-arm64 build-5.10-amd64 build-6.6-amd64 build-5.10-arm64 build-6.6-arm64 setup-container restart-container remove-container clean-images shell status clean-container
 
 help:	## Show this help message
 	@echo "CTYunOS 3 Docker Environment Makefile"
 	@echo ""
 	@echo "Core commands:"
-	@echo "  help                      Show this help message"
-	@echo "  setup                     Setup development environment (download, build, run)"
+	@echo "  setup-container           Setup and start development container"
 	@echo "  shell                     Open shell in running container"
-	@echo "  clean                     Clean up containers and images"
+	@echo "  restart-container         Restart existing container"
+	@echo "  stop-container            Stop running container"
+	@echo "  clean-container           Stop and remove container (keep images)"
+	@echo "  clean                     Clean up everything (containers + images)"
 	@echo "  status                    Show container and image status"
+	@echo "  help                      Show this help message"
 	@echo ""
 	@echo "Build commands:"
 	@echo "  Default branches: 5.10=$(KERNEL_5_10_BRANCH), 6.6=$(KERNEL_6_6_BRANCH)"
@@ -62,13 +113,20 @@ help:	## Show this help message
 		grep '^  rpmbuild-' | sort
 	@echo ""
 	@echo "Advanced commands (for debugging):"
+	@echo ""
+	@echo "  Image architecture (build order):"
+	@echo "    $(BASE_IMAGE)           Base OS image (from tar.xz)"
+	@echo "    $(BUILD_IMAGE)     + Build tools (installed as root)"
+	@echo "    $(DEV_IMAGE)       + User mapping (final dev image)"
+	@echo ""
 	@grep -E '^[a-zA-Z0-9_.-]+:.*##' $(MAKEFILE_LIST) | \
 		sed 's/:.*##/##/' | \
 		awk -F'##' '{printf "  %-25s %s\n", $$1, $$2}' | \
 		grep -v '^  build-[0-9]' | grep -v '^  rpmbuild-' | grep -v '^  help' | \
-		grep -v '^  setup' | grep -v '^  shell' | grep -v '^  clean' | grep -v '^  status' | sort
+		grep -v '^  setup-container' | grep -v '^  shell' | \
+		grep -v '^  restart-container' | grep -v '^  stop-container' | grep -v '^  clean' | grep -v '^  status'
 
-download-image:	## Download CTYunOS 3 docker image
+download-image:	# Internal: Download CTYunOS 3 docker image (use 'load-image' instead)
 	@echo "Downloading CTYunOS 3 docker image to $(DOCKER_IMAGE_DIR)..."
 	@mkdir -p $(DOCKER_IMAGE_DIR)
 	@if [ ! -f $(DOCKER_IMAGE_PATH) ]; then \
@@ -77,41 +135,47 @@ download-image:	## Download CTYunOS 3 docker image
 		echo "$(DOCKER_IMAGE_PATH) already exists"; \
 	fi
 
-load-image: download-image	## Load CTYunOS 3 docker image from tar.xz
+load-image: download-image	## Load base OS image (→ ctyunos:23.01)
 	@echo "Extracting and loading CTYunOS 3 docker image..."
 	@TAR_FILE=$(DOCKER_IMAGE_DIR)/ctyunos3-docker-230117-x86_64.tar; \
 	if [ ! -f $$TAR_FILE ]; then \
 		cd $(DOCKER_IMAGE_DIR) && xz -d -k $(DOCKER_IMAGE_SOURCE); \
 	fi; \
 	docker load < $$TAR_FILE
-	@echo "Tagging image as $(IMAGE_FULL)..."
-	@docker tag $$(docker images --format "{{.Repository}}:{{.Tag}}" | grep ctyunos | head -1) $(IMAGE_FULL)
+	@echo "Tagging image as $(DEV_IMAGE)..."
+	@docker tag $$(docker images --format "{{.Repository}}:{{.Tag}}" | grep ctyunos | head -1) $(DEV_IMAGE)
 
-build-image:	## Build custom CTYunOS 3 image from Dockerfile
-	@echo "Building CTYunOS 3 image from Dockerfile..."
-	@if ! docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "^ctyunos:23.01$$"; then \
-		echo "Base image ctyunos:23.01 not found, loading..."; \
+build-base-image:	## Build image with build tools (→ ctyunos:23.01-build)
+	@echo "Building CTYunOS 3 base image with build tools..."
+	@if ! docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "^$(BASE_IMAGE)$$"; then \
+		echo "Base image $(BASE_IMAGE) not found, loading..."; \
 		make load-image; \
 	fi
-	@docker build -t $(IMAGE_FULL) -f Dockerfile .
+	@docker build -t $(BUILD_IMAGE) -f Dockerfile.base .
 
-run-container: build-image	## Run CTYunOS 3 container
-	@echo "Starting CTYunOS 3 container..."
-	@if [ $$(docker ps -a -q -f name=$(CONTAINER_NAME)) ]; then \
-		echo "Container $(CONTAINER_NAME) already exists. Use 'make restart-container' to restart it."; \
-	else \
-		docker run -d $(DOCKER_RUN_OPTS) $(IMAGE_FULL) /bin/bash -c "while true; do sleep 30; done"; \
+build-image:	## Build development image with user mapping (→ ctyunos:23.01-dev)
+	@echo "Building CTYunOS 3 image from Dockerfile..."
+	@echo "Using UID=$(HOST_UID), GID=$(HOST_GID), USER=$(HOST_USER)"
+	@if ! docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "^$(BUILD_IMAGE)$$"; then \
+		echo "Base build image $(BUILD_IMAGE) not found, building..."; \
+		make build-base-image; \
 	fi
+	@docker build $(DOCKER_BUILD_ARGS) -t $(DEV_IMAGE) -f Dockerfile .
 
-setup-container: build-image	## Ensure container is running
+setup-container:	## Ensure container is running
 	@echo "Ensuring container is running..."
+	@# Check if image exists, build if needed
+	@if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^$(DEV_IMAGE)$$"; then \
+		echo "Image $(DEV_IMAGE) not found, building..."; \
+		$(MAKE) build-image; \
+	fi
 	@if [ ! $$(docker ps -q -f name=$(CONTAINER_NAME)) ]; then \
 		if [ $$(docker ps -a -q -f name=$(CONTAINER_NAME)) ]; then \
 			echo "Starting existing container..."; \
 			docker start $(CONTAINER_NAME); \
 		else \
 			echo "Creating new container..."; \
-			docker run -d $(DOCKER_RUN_OPTS) $(IMAGE_FULL) /bin/bash -c "while true; do sleep 30; done"; \
+			docker run -d $(DOCKER_RUN_OPTS) $(DEV_IMAGE) /bin/bash -c "while true; do sleep 30; done"; \
 		fi \
 	else \
 		echo "Container $(CONTAINER_NAME) is already running"; \
@@ -121,17 +185,13 @@ setup-container: build-image	## Ensure container is running
 
 restart-container:	## Restart existing container
 	@echo "Restarting container $(CONTAINER_NAME)..."
-	@docker start -ai $(CONTAINER_NAME) || make run-container
+	@docker restart $(CONTAINER_NAME) 2>/dev/null || make setup-container
 
 stop-container:	## Stop running container
 	@echo "Stopping container $(CONTAINER_NAME)..."
-	@docker stop $(CONTAINER_NAME) 2>/dev/null || true
+	@docker stop $(CONTAINER_NAME) 2>/dev/null
 
-remove-container:	## Remove container
-	@echo "Removing container $(CONTAINER_NAME)..."
-	@docker rm $(CONTAINER_NAME) 2>/dev/null || true
-
-download-cross-compile:	## Download ARM64 cross-compile toolchain
+download-cross-compile:	# Internal: Download ARM64 cross-compile toolchain (use 'setup-cross-compile' instead)
 	@echo "Downloading ARM64 cross-compile toolchain..."
 	@mkdir -p $(HOST_DOWNLOADS_DIR)/cross_compile
 	@if [ ! -f $(HOST_DOWNLOADS_DIR)/cross_compile/$(CROSS_COMPILE_TAR) ]; then \
@@ -144,122 +204,72 @@ setup-cross-compile: download-cross-compile	## Extract cross-compile toolchain
 	@echo "Setting up cross-compile toolchain..."
 	@cd $(HOST_DOWNLOADS_DIR)/cross_compile && tar -xJf $(CROSS_COMPILE_TAR)
 	@echo "Cross-compile toolchain extracted to $(HOST_DOWNLOADS_DIR)/cross_compile/"
-	@echo "To use in container: export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-"
+	@echo "To use in container: export CROSS_COMPILE=$(CROSS_COMPILE_PATH)"
 	@echo "                     export ARCH=arm64"
 
 rpmbuild-5.10-amd64: setup-container	## Build kernel RPM package (ctkernel-lts-5.10, AMD64)
 	@echo "======= Building RPM Package (5.10/AMD64) ======="
 	@echo "Using branch: $(KERNEL_5_10_BRANCH)"
-	@docker exec -i $(CONTAINER_NAME) bash -c "\
-		echo '======= Finding appropriate source directory =======' && \
-		WORK_DIR='' && \
-		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_5_10_BRANCH)'; then \
-			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_5_10_BRANCH)' | awk '{print \$$1}' | head -1); \
-			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
-			echo \"Using existing worktree: \$$WORK_DIR\"; \
-		else \
-			WORK_DIR='/root/code/linux'; \
-			echo \"Using main repository and checking out branch\"; \
-			cd \$$WORK_DIR && git checkout $(KERNEL_5_10_BRANCH); \
-		fi && \
-		cd \$$WORK_DIR && \
-		yum-builddep build/kernel.spec -y && \
+	@docker exec -i $(CONTAINER_NAME) bash -c " \
+		$(call FIND_WORKTREE,$(KERNEL_5_10_BRANCH)) && \
+		sudo yum-builddep build/kernel.spec -y && \
 		for dir in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do \
-			rm -rf /root/rpmbuild/\$$dir/*; \
+			rm -rf /home/$(HOST_USER)/rpmbuild/\$$dir/*; \
 		done && \
-		mkdir -p /root/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
-		rm -rf /root/rpmbuild/SOURCES/kernel.tar.gz && \
-		tar --xform='s/^./kernel/' --exclude='.git' -chzf /root/rpmbuild/SOURCES/kernel.tar.gz . && \
-		cp build/* /root/rpmbuild/SOURCES && \
+		mkdir -p /home/$(HOST_USER)/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+		rm -rf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz && \
+		tar --xform='s/^./kernel/' --exclude='.git' -chzf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz . && \
+		cp build/* /home/$(HOST_USER)/rpmbuild/SOURCES && \
 		echo '======= Starting RPM Build Process =======' && \
 		time rpmbuild -ba build/kernel.spec && \
 		echo '======= RPM Build Completed =======' && \
-		echo 'RPM packages location: /root/rpmbuild/RPMS/'" && \
-	echo "RPM build completed successfully, stopping container..." && \
-	docker stop $(CONTAINER_NAME) || true
+		echo 'RPM packages location: /home/$(HOST_USER)/rpmbuild/RPMS/'" && \
+	docker stop $(CONTAINER_NAME)
 
 rpmbuild-6.6-amd64: setup-container	## Build kernel RPM package (ctkernel-lts-6.6, AMD64)
 	@echo "======= Building RPM Package (6.6/AMD64) ======="
 	@echo "Using branch: $(KERNEL_6_6_BRANCH)"
-	@docker exec -i $(CONTAINER_NAME) bash -c "\
-		echo '======= Finding appropriate source directory =======' && \
-		WORK_DIR='' && \
-		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_6_6_BRANCH)'; then \
-			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_6_6_BRANCH)' | awk '{print \$$1}' | head -1); \
-			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
-			echo \"Using existing worktree: \$$WORK_DIR\"; \
-		else \
-			WORK_DIR='/root/code/linux'; \
-			echo \"Using main repository and checking out branch\"; \
-			cd \$$WORK_DIR && git checkout $(KERNEL_6_6_BRANCH); \
-		fi && \
-		cd \$$WORK_DIR && \
-		yum-builddep build/spec/kernel.spec -y && \
+	@docker exec -i $(CONTAINER_NAME) bash -c " \
+		$(call FIND_WORKTREE,$(KERNEL_6_6_BRANCH)) && \
+		sudo yum-builddep build/spec/kernel.spec -y && \
 		for dir in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do \
-			rm -rf /root/rpmbuild/\$$dir/*; \
+			rm -rf /home/$(HOST_USER)/rpmbuild/\$$dir/*; \
 		done && \
-		mkdir -p /root/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
-		rm -rf /root/rpmbuild/SOURCES/kernel.tar.gz && \
-		tar --xform='s/^./kernel/' --exclude='.git' -chzf /root/rpmbuild/SOURCES/kernel.tar.gz . && \
-		cp build/* /root/rpmbuild/SOURCES && \
+		mkdir -p /home/$(HOST_USER)/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+		rm -rf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz && \
+		tar --xform='s/^./kernel/' --exclude='.git' -chzf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz . && \
+		cp build/* /home/$(HOST_USER)/rpmbuild/SOURCES && \
 		echo '======= Starting RPM Build Process =======' && \
 		time rpmbuild -ba build/spec/kernel.spec && \
 		echo '======= RPM Build Completed =======' && \
-		echo 'RPM packages location: /root/rpmbuild/RPMS/'" && \
-	echo "RPM build completed successfully, stopping container..." && \
-	docker stop $(CONTAINER_NAME) || true
+		echo 'RPM packages location: /home/$(HOST_USER)/rpmbuild/RPMS/'" && \
+	docker stop $(CONTAINER_NAME)
 
 rpmbuild-5.10-arm64: setup-container setup-cross-compile	## Build kernel RPM package (ctkernel-lts-5.10, ARM64)
 	@echo "======= Building RPM Package (5.10/ARM64) ======="
 	@echo "Using branch: $(KERNEL_5_10_BRANCH)"
-	@docker exec -i $(CONTAINER_NAME) bash -c "\
-		echo '======= Finding appropriate source directory =======' && \
-		WORK_DIR='' && \
-		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_5_10_BRANCH)'; then \
-			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_5_10_BRANCH)' | awk '{print \$$1}' | head -1); \
-			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
-			echo \"Using existing worktree: \$$WORK_DIR\"; \
-		else \
-			WORK_DIR='/root/code/linux'; \
-			echo \"Using main repository and checking out branch\"; \
-			cd \$$WORK_DIR && git checkout $(KERNEL_5_10_BRANCH); \
-		fi && \
-		cd \$$WORK_DIR && \
-		export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu- && \
-		export ARCH=arm64 && \
+	@docker exec -i $(CONTAINER_NAME) bash -c " \
+		$(call FIND_WORKTREE,$(KERNEL_5_10_BRANCH)) && \
+		$(SETUP_ARM64_ENV) && \
 		make openeuler_defconfig && \
 		echo '======= Starting RPM Build Process (ARM64) =======' && \
 		make binrpm-pkg -j\$$(nproc) && \
 		echo '======= RPM Build Completed =======' && \
 		echo 'RPM packages location: ~/rpmbuild/RPMS/'" && \
-	echo "RPM build completed successfully, stopping container..." && \
-	docker stop $(CONTAINER_NAME) || true
+	docker stop $(CONTAINER_NAME)
 
 rpmbuild-6.6-arm64: setup-container setup-cross-compile	## Build kernel RPM package (ctkernel-lts-6.6, ARM64)
 	@echo "======= Building RPM Package (6.6/ARM64) ======="
 	@echo "Using branch: $(KERNEL_6_6_BRANCH)"
-	@docker exec -i $(CONTAINER_NAME) bash -c "\
-		echo '======= Finding appropriate source directory =======' && \
-		WORK_DIR='' && \
-		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_6_6_BRANCH)'; then \
-			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_6_6_BRANCH)' | awk '{print \$$1}' | head -1); \
-			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
-			echo \"Using existing worktree: \$$WORK_DIR\"; \
-		else \
-			WORK_DIR='/root/code/linux'; \
-			echo \"Using main repository and checking out branch\"; \
-			cd \$$WORK_DIR && git checkout $(KERNEL_6_6_BRANCH); \
-		fi && \
-		cd \$$WORK_DIR && \
-		export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu- && \
-		export ARCH=arm64 && \
+	@docker exec -i $(CONTAINER_NAME) bash -c " \
+		$(call FIND_WORKTREE,$(KERNEL_6_6_BRANCH)) && \
+		$(SETUP_ARM64_ENV) && \
 		make openeuler_defconfig && \
 		echo '======= Starting RPM Build Process (ARM64) =======' && \
 		make binrpm-pkg -j\$$(nproc) && \
 		echo '======= RPM Build Completed =======' && \
 		echo 'RPM packages location: ~/rpmbuild/RPMS/'" && \
-	echo "RPM build completed successfully, stopping container..." && \
-	docker stop $(CONTAINER_NAME) || true
+	docker stop $(CONTAINER_NAME)
 
 # Compile targets (without RPM packaging)
 build-5.10-amd64: setup-container	## Compile kernel only (ctkernel-lts-5.10, AMD64)
@@ -267,133 +277,67 @@ build-5.10-amd64: setup-container	## Compile kernel only (ctkernel-lts-5.10, AMD
 	@echo "Using branch: $(KERNEL_5_10_BRANCH)"
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
-	docker exec -i $(CONTAINER_NAME) bash -c "\
-		echo '======= Finding appropriate source directory =======' && \
-		WORK_DIR='' && \
-		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_5_10_BRANCH)'; then \
-			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_5_10_BRANCH)' | awk '{print \$$1}' | head -1); \
-			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
-			echo \"Using existing worktree: \$$WORK_DIR\"; \
-		else \
-			WORK_DIR='/root/code/linux'; \
-			echo \"Using main repository and checking out branch\"; \
-			cd \$$WORK_DIR && git checkout $(KERNEL_5_10_BRANCH); \
-		fi && \
-		cd \$$WORK_DIR && \
+	docker exec -i $(CONTAINER_NAME) bash -c " \
+		$(call FIND_WORKTREE,$(KERNEL_5_10_BRANCH)) && \
 		echo '======= Installing build dependencies via yum-builddep =======' && \
-		yum-builddep build/kernel.spec -y && \
+		sudo yum-builddep build/kernel.spec -y && \
 		echo '======= Configuring kernel =======' && \
 		time make openeuler_defconfig && \
 		echo '======= Starting compilation =======' && \
 		time make -j\$$(nproc)" && \
-	END_TIME=$$(date +%s) && \
-	DURATION=$$((END_TIME - START_TIME)) && \
-	echo "======= Build Summary =======" && \
-	echo "Build completed at: $$(date '+%Y-%m-%d %H:%M:%S')" && \
-	echo "Total build time: $$((DURATION / 60)) minutes $$((DURATION % 60)) seconds" && \
-	echo "Build completed successfully, stopping container..." && \
-	docker stop $(CONTAINER_NAME) || true
+	$(PRINT_BUILD_TIME) && \
+	docker stop $(CONTAINER_NAME)
 
 build-6.6-amd64: setup-container	## Compile kernel only (ctkernel-lts-6.6, AMD64)
 	@echo "======= Starting Kernel Build (6.6/AMD64) ======="
 	@echo "Using branch: $(KERNEL_6_6_BRANCH)"
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
-	docker exec -i $(CONTAINER_NAME) bash -c "\
-		echo '======= Finding appropriate source directory =======' && \
-		WORK_DIR='' && \
-		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_6_6_BRANCH)'; then \
-			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_6_6_BRANCH)' | awk '{print \$$1}' | head -1); \
-			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
-			echo \"Using existing worktree: \$$WORK_DIR (mapped from \$$HOST_WORK_DIR)\"; \
-		else \
-			WORK_DIR='/root/code/linux'; \
-			echo \"Using main repository and checking out branch\"; \
-			cd \$$WORK_DIR && git checkout $(KERNEL_6_6_BRANCH); \
-		fi && \
-		cd \$$WORK_DIR && \
+	docker exec -i $(CONTAINER_NAME) bash -c " \
+		$(call FIND_WORKTREE,$(KERNEL_6_6_BRANCH)) && \
 		echo \"Working in directory: \$$PWD\" && \
 		echo '======= Installing build dependencies via yum-builddep =======' && \
-		yum-builddep build/spec/kernel.spec -y && \
+		sudo yum-builddep build/spec/kernel.spec -y && \
 		echo '======= Configuring kernel =======' && \
 		time make openeuler_defconfig && \
 		echo '======= Starting compilation =======' && \
 		time make -j\$$(nproc)" && \
-	END_TIME=$$(date +%s) && \
-	DURATION=$$((END_TIME - START_TIME)) && \
-	echo "======= Build Summary =======" && \
-	echo "Build completed at: $$(date '+%Y-%m-%d %H:%M:%S')" && \
-	echo "Total build time: $$((DURATION / 60)) minutes $$((DURATION % 60)) seconds" && \
-	echo "Build completed successfully, stopping container..." && \
-	docker stop $(CONTAINER_NAME) || true
+	$(PRINT_BUILD_TIME) && \
+	docker stop $(CONTAINER_NAME)
 
 build-5.10-arm64: setup-container setup-cross-compile	## Compile kernel only (ctkernel-lts-5.10, ARM64)
 	@echo "======= Starting Kernel Build (5.10/ARM64) ======="
 	@echo "Using branch: $(KERNEL_5_10_BRANCH)"
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
-	docker exec -i $(CONTAINER_NAME) bash -c "\
-		echo '======= Finding appropriate source directory =======' && \
-		WORK_DIR='' && \
-		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_5_10_BRANCH)'; then \
-			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_5_10_BRANCH)' | awk '{print \$$1}' | head -1); \
-			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
-			echo \"Using existing worktree: \$$WORK_DIR\"; \
-		else \
-			WORK_DIR='/root/code/linux'; \
-			echo \"Using main repository and checking out branch\"; \
-			cd \$$WORK_DIR && git checkout $(KERNEL_5_10_BRANCH); \
-		fi && \
-		cd \$$WORK_DIR && \
+	docker exec -i $(CONTAINER_NAME) bash -c " \
+		$(call FIND_WORKTREE,$(KERNEL_5_10_BRANCH)) && \
 		echo '======= Installing build dependencies via yum-builddep =======' && \
-		yum-builddep build/kernel.spec -y && \
-		export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu- && \
-		export ARCH=arm64 && \
+		sudo yum-builddep build/kernel.spec -y && \
+		$(SETUP_ARM64_ENV) && \
 		echo '======= Configuring kernel (ARM64) =======' && \
 		time make openeuler_defconfig && \
 		echo '======= Starting compilation (ARM64) =======' && \
 		time make -j\$$(nproc)" && \
-	END_TIME=$$(date +%s) && \
-	DURATION=$$((END_TIME - START_TIME)) && \
-	echo "======= Build Summary =======" && \
-	echo "Build completed at: $$(date '+%Y-%m-%d %H:%M:%S')" && \
-	echo "Total build time: $$((DURATION / 60)) minutes $$((DURATION % 60)) seconds" && \
-	echo "Build completed successfully, stopping container..." && \
-	docker stop $(CONTAINER_NAME) || true
+	$(PRINT_BUILD_TIME) && \
+	docker stop $(CONTAINER_NAME)
 
 build-6.6-arm64: setup-container setup-cross-compile	## Compile kernel only (ctkernel-lts-6.6, ARM64)
 	@echo "======= Starting Kernel Build (6.6/ARM64) ======="
 	@echo "Using branch: $(KERNEL_6_6_BRANCH)"
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
-	docker exec -i $(CONTAINER_NAME) bash -c "\
-		echo '======= Finding appropriate source directory =======' && \
-		WORK_DIR='' && \
-		if git -C /root/code/linux worktree list | grep -q '$(KERNEL_6_6_BRANCH)'; then \
-			HOST_WORK_DIR=\$$(git -C /root/code/linux worktree list | grep '$(KERNEL_6_6_BRANCH)' | awk '{print \$$1}' | head -1); \
-			WORK_DIR=\$$(echo \$$HOST_WORK_DIR | sed 's|/home/wujing/code|/root/code|'); \
-			echo \"Using existing worktree: \$$WORK_DIR\"; \
-		else \
-			WORK_DIR='/root/code/linux'; \
-			echo \"Using main repository and checking out branch\"; \
-			cd \$$WORK_DIR && git checkout $(KERNEL_6_6_BRANCH); \
-		fi && \
-		cd \$$WORK_DIR && \
+	docker exec -i $(CONTAINER_NAME) bash -c " \
+		$(call FIND_WORKTREE,$(KERNEL_6_6_BRANCH)) && \
 		echo '======= Installing build dependencies via yum-builddep =======' && \
-		yum-builddep build/spec/kernel.spec -y && \
-		export CROSS_COMPILE=/root/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu- && \
-		export ARCH=arm64 && \
+		sudo yum-builddep build/spec/kernel.spec -y && \
+		$(SETUP_ARM64_ENV) && \
 		echo '======= Configuring kernel (ARM64) =======' && \
 		time make openeuler_defconfig && \
 		echo '======= Starting compilation (ARM64) =======' && \
 		time make -j\$$(nproc)" && \
-	END_TIME=$$(date +%s) && \
-	DURATION=$$((END_TIME - START_TIME)) && \
-	echo "======= Build Summary =======" && \
-	echo "Build completed at: $$(date '+%Y-%m-%d %H:%M:%S')" && \
-	echo "Total build time: $$((DURATION / 60)) minutes $$((DURATION % 60)) seconds" && \
-	echo "Build completed successfully, stopping container..." && \
-	docker stop $(CONTAINER_NAME) || true
+	$(PRINT_BUILD_TIME) && \
+	docker stop $(CONTAINER_NAME)
 
 shell:	## Open shell in running container
 	@echo "Opening shell in container $(CONTAINER_NAME)..."
@@ -403,25 +347,21 @@ shell:	## Open shell in running container
 	fi
 	@docker exec -it $(CONTAINER_NAME) /bin/bash
 
-logs:	## Show container logs
-	@if [ $$(docker ps -a -q -f name=$(CONTAINER_NAME)) ]; then \
-		docker logs $(CONTAINER_NAME); \
-	else \
-		echo "Container $(CONTAINER_NAME) does not exist. Run 'make setup-container' first."; \
-	fi
-
-clean-images:	## Remove CTYunOS docker images
+clean-images:	## Remove CTYunOS docker images (including base images)
+	@echo "WARNING: This will remove all CTYunOS images!"
 	@echo "Removing CTYunOS docker images..."
-	@docker rmi $(IMAGE_FULL) 2>/dev/null || true
+	@docker rmi $(DEV_IMAGE)
+	@docker rmi $(BUILD_IMAGE)
+	@docker rmi $(BASE_IMAGE)
 
-clean-dangling:	## Remove dangling (none) images
-	@echo "Removing dangling images..."
-	@docker image prune -f
+clean-container:	## Stop and remove container only (keep all images)
+	@echo "Stopping and removing container $(CONTAINER_NAME)..."
+	@docker stop $(CONTAINER_NAME)
+	@docker rm $(CONTAINER_NAME)
+	@echo "Container removed. All images ($(BASE_IMAGE), $(BUILD_IMAGE), $(DEV_IMAGE)) preserved."
+	@echo "Use 'make setup-container' to quickly recreate container from existing images."
 
-clean: stop-container remove-container	## Clean up containers and images
-	@echo "Cleaning up..."
-	@make clean-images
-	@make clean-dangling
+clean: clean-container clean-images	## Clean up everything (containers + all images)
 
 status:	## Show container and image status
 	@echo "=== Docker Images ==="
@@ -429,13 +369,3 @@ status:	## Show container and image status
 	@echo ""
 	@echo "=== Container Status ==="
 	@docker ps -a | grep -E "($(CONTAINER_NAME)|CONTAINER)" || echo "No containers found"
-
-# Development shortcuts
-setup: build-image run-container	## Setup development environment (download, build, run)
-	@echo "Development environment ready! Use 'make shell' to enter container."
-
-dev-setup: build-image run-container	## Quick setup for development
-	@echo "Development environment ready!"
-
-dev-clean: clean	## Clean development environment
-	@echo "Development environment cleaned!"
