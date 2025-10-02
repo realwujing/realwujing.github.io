@@ -865,27 +865,30 @@
 - 集成
   - [x] Tracepoint 导出 (提交 a765207e, 994325085, 4407535c, 66be7cfec, 4dfda065)
   - [x] DRM scheduler bridge 适配器 (提交 b1997c22, 44afc172)
-  - [x] 用户态合并工具 (tools/grtrace/merge_timeline.py) (提交 000d0f5c)
-  - [ ] 可视化工具 **未实现 (v0.8.1 计划)**
-  - [x] eBPF 辅助场景（进程标注、跨域事件拼接） (提交 d27b1344)
+  - [x] 用户态合并工具 (tools/grtrace/merge_timeline.py) (提交 8e55d03e)
+  - [x] 可视化工具 (tools/grtrace/visualize_timeline.py) (提交 381446fa) ✅ **已完成**
+  - [x] eBPF 辅助场景（进程标注、跨域事件拼接） (提交 feb45c7c)
 - 验收
   - [x] DRM bridge 能导出关联字段（pid/tid/ctx/engine）
   - [x] eBPF 能捕获 DRM ioctl 调用并记录进程上下文
   - [x] 能将 GPU 事件与 CPU 调度/IO 事件在同一时间轴展示 (merge_timeline.py)
+  - [x] 能以文本模式可视化时间线和延迟分析 (visualize_timeline.py)
 
 - 代码开发量预估：500 行
-- **实际实现**: 1656行 (内核: 228行 + eBPF: 639行 + merger: 789行)
+- **实际实现**: 2399行 (内核: 228行 + eBPF: 639行 + 合并: 789行 + 可视化: 743行)
   - 内核态: DRM scheduler:5 + i915:5 + amdgpu:3 + virtio-gpu:8 + DRM bridge:207 = 228行
-  - eBPF: grtrace_annotate.bpf.c:253 + grtrace_bpf_loader.c:298 + Makefile:88 = 639行
+  - eBPF工具: grtrace_annotate.bpf.c:253 + grtrace_bpf_loader.c:298 + Makefile:88 = 639行
   - 合并工具: merge_timeline.py:545 + README_MERGE.md:244 = 789行
+  - 可视化工具: visualize_timeline.py:466 + README_VISUALIZE.md:277 = 743行
 
 ### v0.8 详细拆解
 
 - 目标（精确）
   - 导出 GPU 驱动 tracepoints 使其可被外部模块（grtrace adapters）访问
   - 提供 DRM scheduler bridge 作为供应商中立的追踪入口
-  - 【已完成】提供用户态工具将 GPU 事件与 CPU/IO 事件合并为统一时间线 (提交 000d0f5c)
-  - 【已完成】探索 eBPF 辅助场景（进程标注、跨域事件拼接） (提交 d27b1344)
+  - 【已完成】提供用户态工具将 GPU 事件与 CPU/IO 事件合并为统一时间线 (提交 8e55d03e)
+  - 【已完成】提供文本模式可视化工具用于时间线分析 (提交 381446fa)
+  - 【已完成】探索 eBPF 辅助场景（进程标注、跨域事件拼接） (提交 feb45c7c)
 
 - 关键文件/函数清单（内核）✅ 已完成
   - drivers/gpu/drm/scheduler/sched_main.c
@@ -900,7 +903,7 @@
     - DRM scheduler bridge 模块,挂钩 drm_sched_job/drm_run_job/drm_sched_process_job (提交 b1997c22, 44afc172)
 
 - 用户态/工具 ✅ 已完成
-  - ✅ tools/grtrace/merge_timeline.py - 合并 GPU 和 CPU/eBPF 事件 (提交 000d0f5c)
+  - ✅ tools/grtrace/merge_timeline.py - 合并 GPU 和 CPU/eBPF 事件 (提交 8e55d03e)
     - 功能:
       - 二进制解析 grtrace relay buffer 格式 (所有事件类型)
       - 文本解析 eBPF annotator 输出 (ioctl 事件)
@@ -910,8 +913,16 @@
       - 灵活输出 (stdout 或文件)
     - 代码: 545 行 Python (merge_timeline.py)
     - 文档: 244 行 Markdown (README_MERGE.md)
-  - 可视化工具 - 生成图形化时间线 **待开发 (v0.8.1)**
-  - ✅ tools/grtrace/bpf/ - eBPF 进程标注工具 (提交 d27b1344)
+  - ✅ tools/grtrace/visualize_timeline.py - 文本模式时间线可视化 (提交 381446fa)
+    - 功能:
+      - ASCII 时间线 (1ms 粒度事件分布, ●=CPU, ▲=GPU)
+      - 甘特图 (事件对持续时间和时序关系)
+      - 延迟分析 (IOCTL/GPU/端到端统计和直方图)
+      - 事件摘要 (类型计数和字符条形图)
+      - 内核工具风格 (参考 perf report/trace-cmd)
+    - 代码: 466 行 Python (visualize_timeline.py)
+    - 文档: 277 行 Markdown (README_VISUALIZE.md)
+  - ✅ tools/grtrace/bpf/ - eBPF 进程标注工具 (提交 feb45c7c)
     - grtrace_annotate.bpf.c (253行) - eBPF 内核程序
     - grtrace_bpf_loader.c (298行) - 用户态加载器
     - 功能: 捕获 DRM ioctl, 记录进程上下文(PID/TID/comm), 测量 ioctl 延迟
@@ -920,14 +931,39 @@
   - ✅ DRM bridge 能导出关联字段（通过 tracepoint 参数）
   - ✅ eBPF 能捕获 DRM ioctl 并关联进程信息
   - ✅ 能把 GPU 事件和 CPU/eBPF 事件合并输出对齐时间线 (merge_timeline.py)
-  - ❌ DRM bridge tracepoint 能被 perf/ftrace 读取 **需要测试验证 (v0.8.1)**
+  - ✅ 能以文本模式可视化时间线、甘特图和延迟分析 (visualize_timeline.py)
+  - ❌ DRM bridge tracepoint 能被 perf/ftrace 读取 **需要测试验证 (v0.9)**
 
-- 冒烟测试步骤（部分完成）
+- 冒烟测试步骤（已完成）
   1) ✅ 加载 grtrace_drm_bridge 模块
   2) ✅ 验证 tracepoint 注册成功
   3) ✅ 使用 eBPF 捕获 DRM ioctl 事件
   4) ✅ 使用 merge_timeline.py 合并 GPU 和 CPU 事件
-  5) ❌ 使用 perf record 捕获 DRM scheduler 事件 **待测试 (v0.8.1)**
+  5) ✅ 使用 visualize_timeline.py 生成 ASCII 时间线和延迟分析
+  6) ❌ 使用 perf record 捕获 DRM scheduler 事件 **待测试 (v0.9)**
+
+- 完整工作流示例
+  ```bash
+  # 1. 捕获数据
+  echo 1 > /sys/kernel/debug/grtrace/enable
+  ./grtrace-bpf-annotate -p $(pidof glxgears) -o cpu_events.txt &
+  
+  # 2. 运行测试程序
+  glxgears &
+  sleep 5
+  killall glxgears
+  
+  # 3. 停止捕获
+  echo 0 > /sys/kernel/debug/grtrace/enable
+  cat /sys/kernel/debug/grtrace/buffer0 > gpu_events.bin
+  
+  # 4. 合并数据
+  ./merge_timeline.py --cpu cpu_events.txt --gpu gpu_events.bin -o merged.txt
+  
+  # 5. 可视化分析
+  ./visualize_timeline.py merged.txt
+  ./visualize_timeline.py --latency-only merged.txt
+  ```
 
 - 实现证据（提交 / numstat）
   - a765207e — DRM scheduler tracepoint 导出 (+5 lines)
