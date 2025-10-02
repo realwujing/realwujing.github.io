@@ -1123,7 +1123,136 @@
 
 ---
 
-## v1.0 基线发布 ❌ **未完成**
+## v1.0 内核态功能增强 ❌ **未完成**
+
+**目标**: 补齐内核态代码至3500行(当前2890行,还需610行)
+
+### 待开发功能模块
+
+#### 1. 事件聚合器 (grtrace_aggregator.c, ~220行)
+
+**功能**:
+- [ ] 按时间窗口聚合GPU事件
+- [ ] 计算per-ring统计信息(平均延迟、吞吐量、队列深度)
+- [ ] 提供`/sys/kernel/debug/grtrace/stats`统计接口
+- [ ] 支持可配置的聚合窗口(1s/5s/10s)
+
+**价值**: 减少用户态需要处理的原始事件量,提供内核级统计
+
+**接口设计**:
+```
+/sys/kernel/debug/grtrace/aggregator_enable  # 启用/禁用聚合
+/sys/kernel/debug/grtrace/aggregator_window  # 聚合时间窗口(秒)
+/sys/kernel/debug/grtrace/stats              # 读取统计结果
+```
+
+**DoD**:
+- 代码实现并集成到grtrace核心
+- 单元测试覆盖(selftests)
+- 文档更新(README + FAQ)
+
+**预估 LOC**: ~220行
+
+---
+
+#### 2. 高级采样器 (grtrace_sampler.c, ~180行)
+
+**功能**:
+- [ ] 自适应采样率(根据CPU/内存压力动态调整)
+- [ ] 基于延迟阈值的采样(只记录超过阈值的慢事件)
+- [ ] 多级采样策略(不同ring配置不同采样率)
+- [ ] Per-GPU采样率配置
+
+**价值**: 更智能的性能开销控制,在低开销下捕获关键事件
+
+**接口设计**:
+```
+/sys/kernel/debug/grtrace/sampler_mode       # static/adaptive/threshold
+/sys/kernel/debug/grtrace/sampler_threshold  # 延迟阈值(ms)
+/sys/kernel/debug/grtrace/sampler_rate       # 静态采样率(%)
+```
+
+**DoD**:
+- 三种采样模式实现
+- 性能测试(开销<0.5% CPU)
+- 文档更新
+
+**预估 LOC**: ~180行
+
+---
+
+#### 3. 动态过滤器 (grtrace_filter.c, ~150行)
+
+**功能**:
+- [ ] 基于进程PID/TID的过滤
+- [ ] 基于用户UID的过滤
+- [ ] 基于延迟阈值的过滤(>N ms才记录)
+- [ ] 基于事件类型的过滤(SUBMIT/START/COMPLETE)
+- [ ] 运行时动态配置过滤规则
+
+**价值**: 精确定位问题进程/用户,减少无关事件噪音
+
+**接口设计**:
+```
+/sys/kernel/debug/grtrace/filter_pid         # PID列表(逗号分隔)
+/sys/kernel/debug/grtrace/filter_uid         # UID列表
+/sys/kernel/debug/grtrace/filter_latency     # 最小延迟阈值(ms)
+/sys/kernel/debug/grtrace/filter_events      # 事件类型掩码
+```
+
+**DoD**:
+- 所有过滤类型实现
+- 组合过滤测试
+- 性能影响测试
+
+**预估 LOC**: ~150行
+
+---
+
+#### 4. 性能监控 (grtrace_perf_mon.c, ~100行)
+
+**功能**:
+- [ ] GPU utilization统计(活跃时间占比)
+- [ ] Ring队列深度监控(当前/峰值)
+- [ ] 事件丢失率跟踪(relay buffer overrun)
+- [ ] 导出到`/proc/grtrace_stats`
+
+**价值**: 提供系统级GPU健康指标,辅助性能调优
+
+**接口设计**:
+```
+/proc/grtrace_stats                          # 全局统计信息
+/sys/kernel/debug/grtrace/perf_mon_enable   # 启用/禁用监控
+```
+
+**统计输出格式**:
+```
+GPU Utilization: 85.3%
+Ring 0: depth=12/128, avg_latency=2.5ms
+Ring 1: depth=3/64, avg_latency=1.2ms
+Events lost: 0.01% (15/150000)
+```
+
+**DoD**:
+- 所有监控指标实现
+- 低开销验证(<0.1% CPU)
+- 文档和示例
+
+**预估 LOC**: ~100行
+
+---
+
+### v1.0 内核态增强总计
+
+- **总代码量**: ~650行
+- **完成后内核态总计**: 2890 + 650 = **3540行** ✓ (达成3500行目标)
+- **模块数**: 4个新增功能模块
+- **测试**: 每个模块需对应selftest
+- **文档**: README/FAQ/troubleshooting更新
+
+---
+
+## v1.1 基线发布 ❌ **未完成**
 
 - 承诺
   - [ ] 事件语义与持久化文件格式（format_version=1）稳定 **待完成**
