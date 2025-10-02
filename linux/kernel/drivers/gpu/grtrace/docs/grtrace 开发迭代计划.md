@@ -799,13 +799,14 @@
 - 内核
   - [x] amdgpu：gfx/comp/copy ring hooks (提交 a452c062, 59e395d5)
   - [x] i915：execlists/GuC 路径 hooks (提交 83b63505, e2f46579)
-  - [ ] nouveau：pushbuf 提交流程 hooks（可择期） **未实现**
-  - [ ] virtio-gpu：virtio queue 提交流程 hooks **未实现**
+  - [x] nouveau：pushbuf 提交流程 hooks **已实现(骨架版本,提交 2a17d2fc)**
+  - [x] virtio-gpu：virtio queue 提交流程 hooks **已实现(提交 b66ef541)**
 - 验收
   - [x] 至少两家驱动稳定产出可解析数据 (amdgpu + i915)
 
 - 代码开发量预估：900 行
-- **实际实现**: 451行 (i915适配 83b63505: 146行 + amdgpu适配 a452c062: 98行 + DRM bridge: 207行)
+- **实际实现**: 781行 (i915适配 83b63505: 146行 + amdgpu适配 a452c062: 98行 + DRM bridge: 207行 + nouveau适配 2a17d2fc: 158行 + virtio-gpu适配 b66ef541: 172行)
+
 
 ### v0.7 详细拆解
 
