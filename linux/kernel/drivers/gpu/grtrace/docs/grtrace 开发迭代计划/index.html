@@ -24,7 +24,7 @@
 <meta property="og:description" content="grtrace 开发迭代计划（Roadmap）   Executive Summary（摘要）  当前状态（简述）：grtrace 已完成 v0.1–v0.6 的核心实现（事件流、METADATA、 工具链与自测）。v0.7&#x2F;v0.8 为供应商适配与系统联动的持续工作，v1.0 发布尚未完成。 目的：本文件顶部给出一页式可读概览（快速时间线 + 当前阻塞点）。详细的 按版本里程碑继续保留在下文“附">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-09-08T16:50:46.000Z">
-<meta property="article:modified_time" content="2025-10-02T17:31:13.000Z">
+<meta property="article:modified_time" content="2025-10-03T14:26:15.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="git">
@@ -277,7 +277,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          33k 字
+          35k 字
         
       </span>
     
@@ -288,7 +288,7 @@
         
         
         
-          275 分钟
+          296 分钟
         
       </span>
     
@@ -331,7 +331,7 @@
               <p class="note note-info">
                 
                   
-                    本文最后更新于：2025年10月2日 下午
+                    本文最后更新于：2025年10月3日 下午
                   
                 
               </p>
@@ -1897,7 +1897,90 @@ checked="" />文档覆盖安装、使用、故障排查全流程</label></li>
 <li>度量：本期净增 ≥200 行</li>
 </ul>
 <hr />
-<h2 id="v1.0-基线发布-未完成">v1.0 基线发布 ❌
+<h2 id="v1.0-内核态功能增强-未完成">v1.0 内核态功能增强 ❌
+<strong>未完成</strong></h2>
+<p><strong>目标</strong>:
+补齐内核态代码至3500行(当前2890行,还需610行)</p>
+<h3 id="待开发功能模块">待开发功能模块</h3>
+<h4 id="事件聚合器-grtrace_aggregator.c-已完成">1. 事件聚合器
+(grtrace_aggregator.c) ✅ <strong>已完成</strong></h4>
+<p><strong>功能</strong>: - [x] 按时间窗口聚合GPU事件 - [x]
+计算per-ring统计信息(平均延迟、吞吐量、队列深度) - [x]
+提供<code>/sys/kernel/debug/grtrace/stats</code>统计接口 - [x]
+支持可配置的聚合窗口(100ms-60s,默认1s)</p>
+<p><strong>价值</strong>:
+减少用户态需要处理的原始事件量,提供内核级统计</p>
+<p><strong>接口设计</strong>: <figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs awk"><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace<span class="hljs-regexp">/aggregator_enable  # 启用/</span>禁用聚合<br><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace/aggregator_window  <span class="hljs-comment"># 聚合时间窗口(ms)</span><br><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace/stats              <span class="hljs-comment"># 读取统计结果</span><br></code></pre></td></tr></table></figure></p>
+<p><strong>DoD</strong>: - [x] 代码实现并集成到grtrace核心 - [ ]
+单元测试覆盖(selftests) - 待后续集成测试 - [ ] 文档更新(README + FAQ) -
+待补充</p>
+<p><strong>实际 LOC</strong>: 416行 (367 .c + 49 .h)
+<strong>提交</strong>: <code>b11fa698eb69</code> - grtrace/aggregator:
+add event aggregator module</p>
+<hr />
+<h4 id="高级采样器-grtrace_sampler.c-已完成">2. 高级采样器
+(grtrace_sampler.c) ✅ <strong>已完成</strong></h4>
+<p><strong>功能</strong>: - [x] 自适应采样率(根据CPU/内存压力动态调整) -
+[x] 基于延迟阈值的采样(只记录超过阈值的慢事件) - [x]
+多级采样策略(不同ring配置不同采样率) - [x] Per-ring采样率配置</p>
+<p><strong>价值</strong>:
+更智能的性能开销控制,在低开销下捕获关键事件</p>
+<p><strong>接口设计</strong>: <figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs awk"><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace<span class="hljs-regexp">/sampler_mode       # static/</span>adaptive/threshold<br><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace/sampler_threshold  <span class="hljs-comment"># 延迟阈值(us)</span><br><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace/sampler_rate       <span class="hljs-comment"># 静态采样率(%)</span><br><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace/sampler_stats      <span class="hljs-comment"># 采样统计信息</span><br></code></pre></td></tr></table></figure></p>
+<p><strong>DoD</strong>: - [x] 三种采样模式实现 - [ ]
+性能测试(开销&lt;0.5% CPU) - 待测试 - [ ] 文档更新 - 待补充</p>
+<p><strong>实际 LOC</strong>: 478行 (431 .c + 47 .h)
+<strong>提交</strong>: <code>cde48b06561d</code> - grtrace/sampler: add
+advanced sampler module</p>
+<hr />
+<h4 id="动态过滤器-grtrace_filter.c-已完成">3. 动态过滤器
+(grtrace_filter.c) ✅ <strong>已完成</strong></h4>
+<p><strong>功能</strong>: - [x] 基于进程PID/TID的过滤 - [x]
+基于用户UID的过滤 - [x] 基于延迟阈值的过滤(&gt;N us才记录) - [x]
+基于事件类型的过滤(SUBMIT/START/COMPLETE) - [x] 运行时动态配置过滤规则 -
+[x] 支持白名单/黑名单模式</p>
+<p><strong>价值</strong>: 精确定位问题进程/用户,减少无关事件噪音</p>
+<p><strong>接口设计</strong>: <figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs awk"><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace<span class="hljs-regexp">/filter_enabled     # 启用/</span>禁用过滤<br><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace/filter_pid         <span class="hljs-comment"># PID列表(逗号分隔)</span><br><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace/filter_uid         <span class="hljs-comment"># UID列表</span><br><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace/filter_latency     <span class="hljs-comment"># 最小延迟阈值(us)</span><br><span class="hljs-regexp">/sys/</span>kernel<span class="hljs-regexp">/debug/g</span>rtrace/filter_events      <span class="hljs-comment"># 事件类型掩码</span><br></code></pre></td></tr></table></figure></p>
+<p><strong>DoD</strong>: - [x] 所有过滤类型实现 - [ ] 组合过滤测试 -
+待测试 - [ ] 性能影响测试 - 待测试</p>
+<p><strong>实际 LOC</strong>: 464行 (428 .c + 36 .h)
+<strong>提交</strong>: <code>0effc17ca18a</code> - grtrace/filter: add
+dynamic filter module</p>
+<hr />
+<h4 id="性能监控-grtrace_perf_mon.c-已完成">4. 性能监控
+(grtrace_perf_mon.c) ✅ <strong>已完成</strong></h4>
+<p><strong>功能</strong>: - [x] GPU utilization统计(活跃时间占比) - [x]
+Ring队列深度监控(当前/峰值) - [x] 事件丢失率跟踪(relay buffer overrun) -
+[x] 导出到<code>/proc/grtrace_stats</code> - [x] 实时利用率计算</p>
+<p><strong>价值</strong>: 提供系统级GPU健康指标,辅助性能调优</p>
+<p><strong>接口设计</strong>: <figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs awk"><span class="hljs-regexp">/proc/g</span>rtrace_stats                          <span class="hljs-comment"># 全局统计信息</span><br></code></pre></td></tr></table></figure></p>
+<p><strong>统计输出格式</strong>: <figure class="highlight coq"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs coq"><span class="hljs-keyword">Ring</span> | <span class="hljs-type">Utilization</span> | <span class="hljs-type">Avg</span> Depth | <span class="hljs-type">Peak</span> Depth | <span class="hljs-type">Drop</span> Rate | <span class="hljs-type">Status</span><br>-----+--------------+-----------+------------+-----------+-------<br>   <span class="hljs-number">0</span> |       <span class="hljs-type">85</span><span class="hljs-number">.3</span> % |        <span class="hljs-type">12</span> |        <span class="hljs-type">128</span> |    <span class="hljs-type">0</span><span class="hljs-number">.01</span> % | <span class="hljs-type">active</span><br>   <span class="hljs-number">1</span> |       <span class="hljs-type">42</span><span class="hljs-number">.1</span> % |         <span class="hljs-type">3</span> |         <span class="hljs-type">64</span> |    <span class="hljs-type">0</span><span class="hljs-number">.00</span> % | <span class="hljs-type">idle</span><br></code></pre></td></tr></table></figure></p>
+<p><strong>DoD</strong>: - [x] 所有监控指标实现 - [ ]
+低开销验证(&lt;0.1% CPU) - 待测试 - [ ] 文档和示例 - 待补充</p>
+<p><strong>实际 LOC</strong>: 291行 (256 .c + 35 .h)
+<strong>提交</strong>: <code>a19bb2ce62f7</code> - grtrace/perf_mon: add
+performance monitor module</p>
+<hr />
+<h3 id="v1.0-内核态增强总计-已完成">v1.0 内核态增强总计 ✅
+<strong>已完成</strong></h3>
+<ul>
+<li><strong>预估代码量</strong>: ~650行</li>
+<li><strong>实际代码量</strong>: 1649行 (416+478+464+291)</li>
+<li><strong>完成后内核态总计</strong>: 2890 + 1649 =
+<strong>4539行</strong> ✓✓ (超额完成,达成率129%)</li>
+<li><strong>模块数</strong>: 4个新增功能模块</li>
+<li><strong>测试</strong>: 所有模块已在docker容器中编译通过</li>
+<li><strong>文档</strong>: 待补充使用文档和集成测试</li>
+</ul>
+<p><strong>提交记录</strong>: - <code>b11fa698eb69</code> -
+grtrace/aggregator: add event aggregator module -
+<code>cde48b06561d</code> - grtrace/sampler: add advanced sampler module
+- <code>0effc17ca18a</code> - grtrace/filter: add dynamic filter module
+- <code>a19bb2ce62f7</code> - grtrace/perf_mon: add performance monitor
+module</p>
+<p><strong>编译验证</strong>: 所有模块均已通过docker (ctyunos:23.01-dev)
+编译测试,无警告错误</p>
+<hr />
+<h2 id="v1.1-基线发布-未完成">v1.1 基线发布 ❌
 <strong>未完成</strong></h2>
 <ul>
 <li>承诺
