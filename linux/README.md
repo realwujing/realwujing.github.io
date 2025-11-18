@@ -2,13 +2,13 @@
 
 ## 目录结构说明
 
-### 📂 boot/
+### 📂 [boot](./boot/)
 
 系统启动相关技术
 
 - [grub](./boot/grub/): GRUB引导加载器配置和调试
 
-### 🔍 debug/
+### 🔍 [debug](./debug/)
 
 纯调试工具和技术
 
@@ -17,7 +17,7 @@
 - [gdb](./debug/gdb/): GDB调试器使用
 - [kdump](./debug/kdump/): 内核转储分析
 
-### 📊 performance/
+### 📊 [performance](./performance/)
 
 性能分析和优化工具
 
@@ -25,27 +25,27 @@
 - [bpf](./performance/bpf/): BPF/eBPF 追踪和性能分析
 - [stap](./performance/stap/): SystemTap 动态追踪
 
-### 🧪 testing/
+### 🧪 [testing](./testing/)
 
 测试框架和工具
 
 - [ltp](./testing/ltp/): Linux Test Project
 
-### 📈 monitoring/
+### 📈 [monitoring](./monitoring/)
 
 系统监控和日志分析
 
 - [log](./monitoring/log/): 日志管理和分析
 - [linux运维监控工具](./monitoring/linux运维监控工具/): 运维监控工具集
 
-### 🖥️ virtualization/
+### 🖥️ [virtualization](./virtualization/)
 
 虚拟化和容器技术
 
 - [kvm](./virtualization/kvm/): KVM虚拟机管理
 - [container](./virtualization/container/): Docker、K8s等容器技术
 
-### 🔧 tools/
+### 🔧 [tools](./tools/)
 
 日常使用的系统工具
 
@@ -54,20 +54,20 @@
 - [tmux](./tools/tmux/): 终端复用器
 - [ssh](./tools/ssh/): SSH配置和使用
 
-### 🐧 distro/
+### 🐧 [distro](./distro/)
 
 Linux发行版相关
 
 - [deepin](./distro/deepin/): Deepin系统相关
 - [pkg](./distro/pkg/): 包管理(deb/rpm)
 
-### 🎮 gpu/
+### 🎮 [gpu](./gpu/)
 
 GPU相关技术
 
 - [ascend](./gpu/ascend/): 昇腾AI加速卡
 
-### ⚙️ kernel/
+### ⚙️ [kernel](./kernel/)
 
 Linux内核开发
 
