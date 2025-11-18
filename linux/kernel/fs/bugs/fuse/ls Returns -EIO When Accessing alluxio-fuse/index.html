@@ -1,0 +1,1147 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="ls: 无法访问 &#39;&#x2F;mnt&#x2F;alluxio-fuse&#39;: 输入&#x2F;输出错误 bug复现 alluxio-fuse挂载前 再次ls上级目录: 1234567[root@clusterd-test ~]# ll &#x2F;runtime-mnt&#x2F;alluxio&#x2F;default&#x2F;hbase3&#x2F;总用量 0drwxr-xr-x 2 root root 6  9月 14 18:43 alluxio-12drwxr-x">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ls Returns -EIO When Accessing alluxio-fuse">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/fs/bugs/fuse/ls%20Returns%20-EIO%20When%20Accessing%20alluxio-fuse/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="ls: 无法访问 &#39;&#x2F;mnt&#x2F;alluxio-fuse&#39;: 输入&#x2F;输出错误 bug复现 alluxio-fuse挂载前 再次ls上级目录: 1234567[root@clusterd-test ~]# ll &#x2F;runtime-mnt&#x2F;alluxio&#x2F;default&#x2F;hbase3&#x2F;总用量 0drwxr-xr-x 2 root root 6  9月 14 18:43 alluxio-12drwxr-x">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-03-28T21:53:17.000Z">
+<meta property="article:modified_time" content="2025-03-28T21:53:17.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="bpf">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="bcc">
+<meta property="article:tag" content="namespace">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>ls Returns -EIO When Accessing alluxio-fuse - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="ls Returns -EIO When Accessing alluxio-fuse"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-03-28 21:53" pubdate>
+          2025年3月28日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          30k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          249 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">ls Returns -EIO When Accessing alluxio-fuse</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="ls-无法访问-mntalluxio-fuse-输入输出错误">ls: 无法访问
+'/mnt/alluxio-fuse': 输入/输出错误</h1>
+<h2 id="bug复现">bug复现</h2>
+<h3 id="alluxio-fuse挂载前">alluxio-fuse挂载前</h3>
+<p>再次ls上级目录:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># ll /runtime-mnt/alluxio/default/hbase3/</span><br>总用量 0<br>drwxr-xr-x 2 root root 6  9月 14 18:43 alluxio-12<br>drwxr-xr-x 2 root root 6  9月 19 10:40 alluxio-13<br>drwxr-xr-x 2 root root 6  9月 18 09:08 alluxio-18<br>drwxr-xr-x 2 root root 6  9月 18 12:08 alluxio-19<br>drwxr-x--- 2 root root 6  9月 13 14:42 alluxio-fuse<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># stat /runtime-mnt/alluxio/default/hbase3/alluxio-12</span><br>  文件：/runtime-mnt/alluxio/default/hbase3/alluxio-12<br>  大小：6               块：0          IO 块：65536  目录<br>设备：fd00h/64768d      Inode：120964219   硬链接：2<br>权限：(0755/drwxr-xr-x)  Uid：(    0/    root)   Gid：(    0/    root)<br>最近访问：2024-09-24 16:48:55.059422065 +0800<br>最近更改：2024-09-14 18:43:53.464275678 +0800<br>最近改动：2024-09-14 18:43:53.464275678 +0800<br>创建时间：2024-09-14 18:43:53.464275678 +0800<br></code></pre></td></tr></table></figure>
+<p>查看<code>/runtime-mnt/alluxio/default/hbase3/alluxio-12</code>所在文件系统的信息:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># stat -f /runtime-mnt/alluxio/default/hbase3/alluxio-12</span><br>  文件：<span class="hljs-string">&quot;/runtime-mnt/alluxio/default/hbase3/alluxio-12&quot;</span><br>    ID：fd0000000000 文件名长度：255     类型：xfs<br>块大小：4096       基本块大小：4096<br>    块：总计：41935360   空闲：20996469   可用：20996469<br>Inodes: 总计：83886080   空闲：83133048<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># df -T /runtime-mnt/alluxio/default/hbase3/alluxio-12</span><br>文件系统                   类型     1K-块     已用     可用 已用% 挂载点<br>/dev/mapper/system-lv_root xfs  167741440 83755564 83985876   50% /<br></code></pre></td></tr></table></figure>
+<h3 id="alluxio-fuse挂载">alluxio-fuse挂载</h3>
+<p>使用alluxio-fuse挂载fuse用户态文件系统:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># /entrypoint.sh fuse --fuse-opts=kernel_cache,ro,attr_timeout=7200,entry_timeout=7200,allow_other,max_readahead=0 /runtime-mnt/alluxio/default/hbase3/alluxio-12 /</span><br><br>Path /runtime-mnt/alluxio/default/hbase3/alluxio-12 is not mounted<br>Starting AlluxioFuse process: mounting alluxio path <span class="hljs-string">&quot;/&quot;</span> to <span class="hljs-built_in">local</span> mount point <span class="hljs-string">&quot;/runtime-mnt/alluxio/default/hbase3/alluxio-12&quot;</span><br>2024-09-24 19:45:46,760 INFO  AlluxioFuse - Alluxio version: 2.8.1-SNAPSHOT-5a002cedeb7b188aa83eca39c5ab9615929547b3<br>2024-09-24 19:45:47,041 INFO  LibFuse - JNIFUSE_SHAREDLIB_DIR / temp <span class="hljs-built_in">dir</span>: null<br>2024-09-24 19:45:47,043 INFO  NativeLibraryLoader - sharedLibraryName: jnifuse3, jniLibraryName: jnifuse3jni-linux-aarch64, sharedLibraryFileName: libjnifuse3.so, jniLibraryFileName: libjnifuse3jni-linux-aarch64.so.<br>2024-09-24 19:45:47,046 INFO  NativeLibraryLoader - loadLibraryFromJarToTemp params: libjnifuse3.so,libjnifuse3jni-linux-aarch64.so,null<br>2024-09-24 19:45:47,048 INFO  NativeLibraryLoader - temp file: /tmp/libjnifuse8025725468782352104.so<br>2024-09-24 19:45:47,052 INFO  NativeLibraryLoader - libPath /tmp/libjnifuse8025725468782352104.so<br>INFO ../../src/main/native/libjnifuse/jnifuse_onload.cc:25 Loaded libjnifuse<br>2024-09-24 19:45:47,052 INFO  NativeLibraryLoader - Loaded lib by jar from path /tmp/libjnifuse8025725468782352104.so.<br>2024-09-24 19:45:47,052 INFO  NativeLibraryLoader - Loaded libjnifuse with libfuse version 3.<br>2024-09-24 19:45:47,133 INFO  MetricsSystem - Starting sinks with config: &#123;&#125;.<br>2024-09-24 19:45:47,138 INFO  MetricsHeartbeatContext - Created metrics heartbeat with ID app-3246309585540611550. This ID will be used <span class="hljs-keyword">for</span> identifying info from the client. It can be <span class="hljs-built_in">set</span> manually through the alluxio.user.app.id property<br>2024-09-24 19:45:47,283 INFO  NettyUtils - EPOLL_MODE is available<br>2024-09-24 19:45:48,059 INFO  TieredIdentityFactory - Initialized tiered identity TieredIdentity(node=, rack=null)<br>2024-09-24 19:45:48,319 INFO  Reflections - Reflections took 156 ms to scan 1 urls, producing 58 keys and 199 values<br>2024-09-24 19:45:48,356 INFO  AlluxioFuse - Mounting AlluxioJniFuseFileSystem: mount point=<span class="hljs-string">&quot;/runtime-mnt/alluxio/default/hbase3/alluxio-12&quot;</span>, OPTIONS=<span class="hljs-string">&quot;[-okernel_cache, -oro, -oattr_timeout=7200, -oentry_timeout=7200, -oallow_other, -omax_readahead=0, -omax_write=131072]&quot;</span><br>2024-09-24 19:45:48,356 INFO  AbstractFuseFileSystem - Mounting /runtime-mnt/alluxio/default/hbase3/alluxio-12: blocking=<span class="hljs-literal">true</span>, debug=<span class="hljs-literal">true</span>, fuseOpts=<span class="hljs-string">&quot;[-okernel_cache, -oro, -oattr_timeout=7200, -oentry_timeout=7200, -oallow_other, -omax_readahead=0, -omax_write=131072]&quot;</span><br>INFO ../../src/main/native/libjnifuse/jnifuse_helper.cc:33 Start initializing JNIFuse<br>ERROR ../../src/main/native/libjnifuse/jnifuse_helper.cc:34 Validate standard errors can be logged as expected<br>FUSE library version: 3.9.2<br>nullpath_ok: 0<br>unique: 1, opcode: INIT (26), nodeid: 0, insize: 56, pid: 0<br></code></pre></td></tr></table></figure>
+<p>另起终端执行stat命令，报错如下:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># stat /runtime-mnt/alluxio/default/hbase3/alluxio-12</span><br><span class="hljs-built_in">stat</span>: cannot statx <span class="hljs-string">&#x27;/runtime-mnt/alluxio/default/hbase3/alluxio-12&#x27;</span>: 输入/输出错误<br></code></pre></td></tr></table></figure>
+<p>ls上级目录，报错如下:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># ll /runtime-mnt/alluxio/default/hbase3/</span><br><span class="hljs-built_in">ls</span>: 无法访问 <span class="hljs-string">&#x27;/runtime-mnt/alluxio/default/hbase3/alluxio-12&#x27;</span>: 输入/输出错误<br>总用量 0<br>d????????? ? ?    ?    ?             ? alluxio-12<br>drwxr-xr-x 2 root root 6  9月 19 10:40 alluxio-13<br>drwxr-xr-x 2 root root 6  9月 18 09:08 alluxio-18<br>drwxr-xr-x 2 root root 6  9月 18 12:08 alluxio-19<br>drwxr-x--- 2 root root 6  9月 13 14:42 alluxio-fuse<br></code></pre></td></tr></table></figure>
+<p>查看<code>/runtime-mnt/alluxio/default/hbase3/alluxio-12</code>所在文件系统的信息:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test openeuler-4-19]<span class="hljs-comment"># stat -f /runtime-mnt/alluxio/default/hbase3/alluxio-12</span><br>  文件：<span class="hljs-string">&quot;/runtime-mnt/alluxio/default/hbase3/alluxio-12&quot;</span><br>    ID：0        文件名长度：255     类型：fuseblk<br>块大小：16384      基本块大小：16384<br>    块：总计：131072     空闲：131072     可用：131072<br>Inodes: 总计：18446744073709551615 空闲：-1<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">df</span> -T /runtime-mnt/alluxio/default/hbase3/alluxio-12<br><span class="hljs-built_in">df</span>: /runtime-mnt/alluxio/default/hbase3/alluxio-12: 输入/输出错误<br></code></pre></td></tr></table></figure>
+<h3 id="alluxio-fuse-卸载">alluxio-fuse 卸载</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">/entrypoint.sh fuse --fuse-opts=kernel_cache,ro,attr_timeout=7200,entry_timeout=7200,allow_other,max_readahead=0 -o debug /runtime-mnt/alluxio/default/hbase3/alluxio-12 /<br><br>mount执行上面命令就行。 当<span class="hljs-built_in">kill</span>进程的时候，会自动umount<br></code></pre></td></tr></table></figure>
+<p>使用<code>ctrl + c</code>终止进程:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">^C2024-09-24 19:44:25,517 INFO  AbstractFuseFileSystem - Unmounting Fuse through shutdown hook<br>2024-09-24 19:44:25,517 INFO  AbstractFuseFileSystem - Umounting /runtime-mnt/alluxio/default/hbase3/alluxio-12<br>INFO ../../src/main/native/libjnifuse/jnifuse_helper.cc:88 JNIFuse initialized<br></code></pre></td></tr></table></figure>
+<h3 id="再次通过alluxio-fuse挂载">再次通过alluxio-fuse挂载</h3>
+<p>再次通过alluxio-fuse挂载后，立马执行下方命令:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">stat</span> /runtime-mnt/alluxio/default/hbase3/alluxio-12<br></code></pre></td></tr></table></figure>
+<p>可以观察到<code>/entrypoint.sh fuse --fuse-opts=kernel_cache,ro,attr_timeout=7200,entry_timeout=7200,allow_other,max_readahead=0 -o debug /runtime-mnt/alluxio/default/hbase3/alluxio-12 /</code>所在终端有如下内容输出:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">unique: 2, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 3002909<br>getattr[NULL] /<br>2024-09-24 20:47:37,335 DEBUG AlluxioJniFuseFileSystem - Enter: Fuse.Getattr(path=/)<br>2024-09-24 20:47:37,566 DEBUG AlluxioJniFuseFileSystem - Exit (0): Fuse.Getattr(path=/) <span class="hljs-keyword">in</span> 231 ms<br>   unique: 2, success, outsize: 120<br></code></pre></td></tr></table></figure>
+<p>之前反馈的挂载进程所在终端没有收到内核fuse转发过来的getattr应该是后续再次ls的时候，毕竟有缓存。</p>
+<p>这一部分日志显示了 Alluxio FUSE 文件系统处理 <code>GETATTR</code>
+请求的细节。以下是每一行的详细解释：</p>
+<h4 id="fuse-请求-getattr">1. FUSE 请求: <code>GETATTR</code></h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">unique: 2, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 3002909<br>getattr[NULL] /<br></code></pre></td></tr></table></figure>
+<ul>
+<li><strong>解释</strong>: 这是一条来自 FUSE 的 <code>GETATTR</code>
+请求，代表文件系统查询文件或目录的元数据。在此例中，<code>GETATTR</code>
+针对根目录 <code>/</code> 进行。
+<ul>
+<li><code>unique: 2</code>: 该请求的唯一标识符。</li>
+<li><code>opcode: GETATTR (3)</code>: 操作码 3 对应
+<code>GETATTR</code>，用于获取文件属性。</li>
+<li><code>nodeid: 1</code>: 这是文件系统根节点的 ID。</li>
+<li><code>insize: 56</code>: 请求的输入大小为 56 字节。</li>
+<li><code>pid: 3002909</code>: 这是发起该请求的进程 ID。</li>
+<li><code>getattr[NULL] /</code>: 表示获取根目录 <code>/</code>
+的属性。</li>
+</ul></li>
+</ul>
+<h4 id="alluxiojnifusefilesystem-处理-getattr-请求">2.
+AlluxioJniFuseFileSystem 处理 <code>GETATTR</code> 请求</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">2024-09-24 20:47:37,335 DEBUG AlluxioJniFuseFileSystem - Enter: Fuse.Getattr(path=/)<br></code></pre></td></tr></table></figure>
+<ul>
+<li><strong>解释</strong>: Alluxio FUSE 文件系统接收到
+<code>GETATTR</code> 请求，并开始处理。路径为根目录
+<code>/</code>。</li>
+</ul>
+<h4 id="处理完成并返回结果">3. 处理完成并返回结果</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">2024-09-24 20:47:37,566 DEBUG AlluxioJniFuseFileSystem - Exit (0): Fuse.Getattr(path=/) <span class="hljs-keyword">in</span> 231 ms<br></code></pre></td></tr></table></figure>
+<ul>
+<li><strong>解释</strong>: Alluxio FUSE 完成了 <code>GETATTR</code>
+请求的处理。整个过程耗时 231 毫秒，返回了成功状态码
+<code>(0)</code>，表示操作成功。</li>
+</ul>
+<h4 id="fuse-响应">4. FUSE 响应</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">unique: 2, success, outsize: 120<br></code></pre></td></tr></table></figure>
+<ul>
+<li><strong>解释</strong>: 请求 <code>unique: 2</code>
+成功，输出数据大小为 120 字节，返回了文件系统的属性信息。</li>
+</ul>
+<h4 id="getattr-操作的背景"><code>GETATTR</code> 操作的背景</h4>
+<ul>
+<li><code>GETATTR</code>
+请求通常用于查询文件或目录的元数据，比如文件大小、权限、最后修改时间等。在文件系统挂载时，系统通常会定期发出此请求来获取或验证文件系统的状态，尤其是针对根目录。</li>
+</ul>
+<p>通过这个日志，您可以看到 FUSE 通过 <code>GETATTR</code> 操作与
+Alluxio 文件系统通信，成功获取了根目录的属性并且快速返回了结果。</p>
+<h4 id="总结">总结</h4>
+<p><code>Getattr</code>
+操作主要用于获取路径的元数据信息，当前操作是针对根目录
+<code>/</code>。请求成功，并且在 125 毫秒内返回了所需信息。</p>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240924204129.png" srcset="/img/loading.gif" lazyload
+alt="ls /runtime-mnt/alluxio/default/hbase3/alluxio-12" />
+<figcaption aria-hidden="true">ls
+/runtime-mnt/alluxio/default/hbase3/alluxio-12</figcaption>
+</figure>
+<h2 id="alluxio-fuse-server">alluxio-fuse server</h2>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl logs hbase-fuse-sh7jm -f<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl get pod hbase-fuse-sh7jm -o wide<br>NAME               READY   STATUS    RESTARTS   AGE   IP           NODE            NOMINATED NODE   READINESS GATES<br>hbase-fuse-sh7jm   1/1     Running   0          15m   172.17.0.5   clusterd-test   &lt;none&gt;           &lt;none&gt;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">kubectl get nodes -o wide<br>NAME            STATUS   ROLES                  AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE        KERNEL-VERSION                         CONTAINER-RUNTIME<br>clusterd-test   Ready    control-plane,master   20d   v1.23.0   172.17.0.5    &lt;none&gt;        CTyunOS 22.06   4.19.90-2102.2.0.0068.3.ctl2.aarch64   docker://20.10.12<br></code></pre></td></tr></table></figure>
+<h2 id="根因定位">根因定位</h2>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd list -f | grep -i fuse | grep <span class="hljs-built_in">stat</span><br>fuse_statfs [fuse]<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd record -p function_graph -g fuse_statfs<br><br>trace-cmd report<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">strace -f -e trace=file -T -o ls.log -tt <span class="hljs-built_in">ls</span> /runtime-mnt/alluxio/default/hbase3/alluxio-12<br><br>vim ls.log<br><br>1756339 17:05:19.488111 statx(AT_FDCWD, <span class="hljs-string">&quot;/runtime-mnt/alluxio/default/hbase3/alluxio-12&quot;</span>, AT_STATX_SYNC_AS_STAT, STATX_MODE, 0xffffeffcfd28) = -1 EIO (输入/输出错误) &lt;0.000042&gt;<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">strace -e trace=statx <span class="hljs-built_in">ls</span> /runtime-mnt/alluxio/default/hbase3/alluxio-12<br>statx(AT_FDCWD, <span class="hljs-string">&quot;/runtime-mnt/alluxio/default/hbase3/alluxio-12&quot;</span>, AT_STATX_SYNC_AS_STAT, STATX_MODE, 0xffffd98b1e48) = -1 EIO (输入/输出错误)<br><span class="hljs-built_in">ls</span>: 无法访问 <span class="hljs-string">&#x27;/runtime-mnt/alluxio/default/hbase3/alluxio-12&#x27;</span>: 输入/输出错误<br>+++ exited with 2 +++<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">ltrace -e <span class="hljs-string">&#x27;statx&#x27;</span> <span class="hljs-built_in">ls</span> /runtime-mnt/alluxio/default/hbase3/alluxio-12<br><span class="hljs-built_in">ls</span>-&gt;statx(0xffffff9c, 0xffffeb51f5bb, 0, 2)                                                                                   = 0xffffffff<br><span class="hljs-built_in">ls</span>: 无法访问 <span class="hljs-string">&#x27;/runtime-mnt/alluxio/default/hbase3/alluxio-12&#x27;</span>: 输入/输出错误<br>+++ exited (status 2) +++<br></code></pre></td></tr></table></figure>
+<h3 id="mount">mount</h3>
+<h4 id="alluxio-fuse">alluxio-fuse</h4>
+<p>使用trace-cmd追踪alluxio-fuse mount关键流程:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd record -p function_graph -g fuse_mount /entrypoint.sh fuse --fuse-opts=kernel_cache,ro,attr_timeout=7200,entry_timeout=7200,allow_other,max_readahead=0 /runtime-mnt/alluxio/default/hbase3/alluxio-12 /<br>trace-cmd report &gt; trace-cmd-alluxio-12-mount.log<br>vim trace-cmd-alluxio-12-mount.log<br></code></pre></td></tr></table></figure>
+<p>比对<code>trace-cmd-alluxio-12-mount.log</code>、<code>trace-cmd-hello-mount.log</code>暂时未发现mount过程有异常。</p>
+<p>使用bpf trace追踪内核ksys_mount返回值:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># /usr/share/bcc/tools/trace -tKU &#x27;r::ksys_mount &quot;ret: %d&quot;, retval&#x27;</span><br>TIME     PID     TID     COMM            FUNC             -<br>39.40517 2923801 2924711 java            ksys_mount       ret: 0<br>        b<span class="hljs-string">&#x27;mount+0x8 [libc-2.28.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown] [libfuse3.so.3.9.2]&#x27;</span><br>        b<span class="hljs-string">&#x27;fuse_session_mount+0xa4 [libfuse3.so.3.9.2]&#x27;</span><br>        b<span class="hljs-string">&#x27;fuse_main_real+0x104 [libfuse3.so.3.9.2]&#x27;</span><br>        b<span class="hljs-string">&#x27;Java_alluxio_jnifuse_LibFuse_fuse_1main_1real+0x334 [libjnifuse6706649452947292067.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;JavaCalls::call_helper(JavaValue*, methodHandle*, JavaCallArguments*, Thread*)+0xe1c [libjvm.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;jni_invoke_static(JNIEnv_*, JavaValue*, _jobject*, JNICallType, _jmethodID*, JNI_ArgumentPusher*, Thread*) [clone .isra.82] [clone .constprop.125]+0x1c4 [libjvm.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;jni_CallStaticVoidMethod+0x150 [libjvm.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;JavaMain+0xb60 [libjli.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown] [libpthread-2.28.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown] [libc-2.28.so]&#x27;</span><br></code></pre></td></tr></table></figure>
+<p>使用bpf trace追踪内核do_mount返回值:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># /usr/share/bcc/tools/trace -tKU &#x27;r::do_mount &quot;ret: %d&quot;, retval&#x27;</span><br>TIME     PID     TID     COMM            FUNC             -<br>34.82073 2923801 2924711 java            do_mount         ret: 0<br>        b<span class="hljs-string">&#x27;mount+0x8 [libc-2.28.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown] [libfuse3.so.3.9.2]&#x27;</span><br>        b<span class="hljs-string">&#x27;fuse_session_mount+0xa4 [libfuse3.so.3.9.2]&#x27;</span><br>        b<span class="hljs-string">&#x27;fuse_main_real+0x104 [libfuse3.so.3.9.2]&#x27;</span><br>        b<span class="hljs-string">&#x27;Java_alluxio_jnifuse_LibFuse_fuse_1main_1real+0x334 [libjnifuse6706649452947292067.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown]&#x27;</span><br>        b<span class="hljs-string">&#x27;JavaCalls::call_helper(JavaValue*, methodHandle*, JavaCallArguments*, Thread*)+0xe1c [libjvm.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;jni_invoke_static(JNIEnv_*, JavaValue*, _jobject*, JNICallType, _jmethodID*, JNI_ArgumentPusher*, Thread*) [clone .isra.82] [clone .constprop.125]+0x1c4 [libjvm.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;jni_CallStaticVoidMethod+0x150 [libjvm.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;JavaMain+0xb60 [libjli.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown] [libpthread-2.28.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;[unknown] [libc-2.28.so]&#x27;</span><br></code></pre></td></tr></table></figure>
+<h4 id="fuse-hello">fuse hello</h4>
+<p>借助fuse使用手册编写demo hello协助定位问题。</p>
+<p>fuse hello 挂载命令:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">/root/jalon/fuse/libfuse/build/example/hello /runtime-mnt/alluxio/default/hbase/alluxio-13<br></code></pre></td></tr></table></figure>
+<p>确认fuse hello是否挂载成功:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">mount | grep -i hello<br>hello on /runtime-mnt/alluxio/default/hbase3/alluxio-13 <span class="hljs-built_in">type</span> fuse.hello (rw,nosuid,nodev,relatime,user_id=0,group_id=0)<br></code></pre></td></tr></table></figure>
+<p>fuse hello 卸载命令:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">umount /runtime-mnt/alluxio/default/hbase/alluxio-13<br></code></pre></td></tr></table></figure>
+<p>使用trace-cmd追踪fuse hello mount关键流程:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd record -p function_graph -g fuse_mount /root/jalon/fuse/libfuse/build/example/hello /runtime-mnt/alluxio/default/hbase/alluxio-13<br>trace-cmd report &gt; trace-cmd-hello-mount.log<br>vim trace-cmd-hello-mount.log<br></code></pre></td></tr></table></figure>
+<p>使用bpf trace追踪内核do_mount返回值:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash">/usr/share/bcc/tools/trace -tKU <span class="hljs-string">&#x27;r::do_mount &quot;ret: %d&quot;, retval&#x27;</span><br>TIME     PID     TID     COMM            FUNC             -<br>6.886605 2922935 2922935 hello           do_mount         ret: 0<br>        b<span class="hljs-string">&#x27;mount+0x8 [libc-2.28.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;fuse_kern_mount+0xd0 [libfuse3.so.3.17.0]&#x27;</span><br>        b<span class="hljs-string">&#x27;fuse_session_mount+0xb4 [libfuse3.so.3.17.0]&#x27;</span><br>        b<span class="hljs-string">&#x27;fuse_main_real_317+0xf0 [libfuse3.so.3.17.0]&#x27;</span><br>        b<span class="hljs-string">&#x27;main+0xdc [hello]&#x27;</span><br>        b<span class="hljs-string">&#x27;__libc_start_main+0xe0 [libc-2.28.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;_start+0x34 [hello]&#x27;</span><br></code></pre></td></tr></table></figure>
+<p>使用bpf trace追踪内核ksys_mount返回值:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># /usr/share/bcc/tools/trace -tKU &#x27;r::ksys_mount &quot;ret: %d&quot;, retval&#x27;</span><br>168.7621 2927116 2927116 hello           ksys_mount       ret: 0<br>        b<span class="hljs-string">&#x27;mount+0x8 [libc-2.28.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;fuse_kern_mount+0xd0 [libfuse3.so.3.17.0]&#x27;</span><br>        b<span class="hljs-string">&#x27;fuse_session_mount+0xb4 [libfuse3.so.3.17.0]&#x27;</span><br>        b<span class="hljs-string">&#x27;fuse_main_real_317+0xf0 [libfuse3.so.3.17.0]&#x27;</span><br>        b<span class="hljs-string">&#x27;main+0xdc [hello]&#x27;</span><br>        b<span class="hljs-string">&#x27;__libc_start_main+0xe0 [libc-2.28.so]&#x27;</span><br>        b<span class="hljs-string">&#x27;_start+0x34 [hello]&#x27;</span><br></code></pre></td></tr></table></figure>
+<h3 id="statx">statx</h3>
+<h4 id="alluxio-fuse-1">alluxio-fuse</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd list -f | grep -i statx<br>vfs_statx_fd<br>vfs_statx<br>cp_statx<br>__se_sys_statx<br>__arm64_sys_statx<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd record -p function_graph -g vfs_statx <span class="hljs-built_in">ls</span> /runtime-mnt/alluxio/default/hbase3/alluxio-12<br>trace-cmd report &gt; trace-cmd-alluxio-fuse-ls.log<br>vim trace-cmd-alluxio-fuse-ls.log<br></code></pre></td></tr></table></figure>
+<h4 id="fuse-hello-1">fuse hello</h4>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd record -p function_graph -g vfs_statx <span class="hljs-built_in">ls</span> /runtime-mnt/alluxio/default/hbase3/alluxio-13<br>trace-cmd report &gt; trace-cmd-hello-ls.log<br>vim trace-cmd-hello-ls.log<br></code></pre></td></tr></table></figure>
+<h4 id="diff">diff</h4>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim trace-cmd-alluxio-fuse-ls.log +116075</span><br><br><span class="hljs-number">116074</span>            &lt;...&gt;<span class="hljs-number">-3002909</span> [<span class="hljs-number">092</span>] <span class="hljs-number">1572337.713185</span>: funcgraph_entry:        <span class="hljs-number">0.490</span> us   |            fuse_invalid_attr();<br><span class="hljs-number">116075</span>            &lt;...&gt;<span class="hljs-number">-3002909</span> [<span class="hljs-number">092</span>] <span class="hljs-number">1572337.713186</span>: funcgraph_entry:                   |            make_bad_inode() &#123;<br><span class="hljs-number">116076</span>            &lt;...&gt;<span class="hljs-number">-3002909</span> [<span class="hljs-number">092</span>] <span class="hljs-number">1572337.713187</span>: funcgraph_entry:        <span class="hljs-number">1.310</span> us   |              __remove_inode_hash();<br><span class="hljs-number">116077</span>            &lt;...&gt;<span class="hljs-number">-3002909</span> [<span class="hljs-number">092</span>] <span class="hljs-number">1572337.713188</span>: funcgraph_entry:                   |              current_time() &#123;<br><span class="hljs-number">116078</span>            &lt;...&gt;<span class="hljs-number">-3002909</span> [<span class="hljs-number">092</span>] <span class="hljs-number">1572337.713189</span>: funcgraph_entry:        <span class="hljs-number">0.280</span> us   |                ktime_get_coarse_real_ts64();<br><span class="hljs-number">116079</span>            &lt;...&gt;<span class="hljs-number">-3002909</span> [<span class="hljs-number">092</span>] <span class="hljs-number">1572337.713189</span>: funcgraph_entry:        <span class="hljs-number">0.280</span> us   |                timespec64_trunc();<br><span class="hljs-number">116080</span>            &lt;...&gt;<span class="hljs-number">-3002909</span> [<span class="hljs-number">092</span>] <span class="hljs-number">1572337.713190</span>: funcgraph_exit:         <span class="hljs-number">1.410</span> us   |              &#125;<br></code></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim trace-cmd-hello-ls.log +15304</span><br><br><span class="hljs-number">15304</span>            &lt;...&gt;<span class="hljs-number">-2600990</span> [<span class="hljs-number">177</span>] <span class="hljs-number">1538768.536944</span>: funcgraph_entry:        <span class="hljs-number">0.440</span> us   |            fuse_invalid_attr();<br><span class="hljs-number">15305</span>            &lt;...&gt;<span class="hljs-number">-2600990</span> [<span class="hljs-number">177</span>] <span class="hljs-number">1538768.536945</span>: funcgraph_entry:                   |            time_to_jiffies.part<span class="hljs-number">.4</span>() &#123;<br><span class="hljs-number">15306</span>            &lt;...&gt;<span class="hljs-number">-2600990</span> [<span class="hljs-number">177</span>] <span class="hljs-number">1538768.536945</span>: funcgraph_entry:        <span class="hljs-number">0.310</span> us   |              timespec64_to_jiffies();<br><span class="hljs-number">15307</span>            &lt;...&gt;<span class="hljs-number">-2600990</span> [<span class="hljs-number">177</span>] <span class="hljs-number">1538768.536945</span>: funcgraph_exit:         <span class="hljs-number">0.830</span> us   |            &#125;<br><span class="hljs-number">15308</span>            &lt;...&gt;<span class="hljs-number">-2600990</span> [<span class="hljs-number">177</span>] <span class="hljs-number">1538768.536946</span>: funcgraph_entry:                   |            fuse_change_attributes() &#123;<br><span class="hljs-number">15309</span>            &lt;...&gt;<span class="hljs-number">-2600990</span> [<span class="hljs-number">177</span>] <span class="hljs-number">1538768.536946</span>: funcgraph_entry:                   |              fuse_change_attributes_common() &#123;<br><span class="hljs-number">15310</span>            &lt;...&gt;<span class="hljs-number">-2600990</span> [<span class="hljs-number">177</span>] <span class="hljs-number">1538768.536947</span>: funcgraph_entry:        <span class="hljs-number">0.250</span> us   |                set_nlink();<br><span class="hljs-number">15311</span>            &lt;...&gt;<span class="hljs-number">-2600990</span> [<span class="hljs-number">177</span>] <span class="hljs-number">1538768.536947</span>: funcgraph_entry:                   |                make_kuid() &#123;<br><span class="hljs-number">15312</span>            &lt;...&gt;<span class="hljs-number">-2600990</span> [<span class="hljs-number">177</span>] <span class="hljs-number">1538768.536948</span>: funcgraph_entry:        <span class="hljs-number">0.270</span> us   |                  map_id_range_down();<br><span class="hljs-number">15313</span>            &lt;...&gt;<span class="hljs-number">-2600990</span> [<span class="hljs-number">177</span>] <span class="hljs-number">1538768.536948</span>: funcgraph_exit:         <span class="hljs-number">0.770</span> us   |                &#125;<br></code></pre></td></tr></table></figure>
+<p>alluxio-fuse在<code>fuse_invalid_attr</code>函数附近出了问题:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim -t fuse_do_getattr</span><br><span class="hljs-number">898</span> <span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">fuse_do_getattr</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> inode *inode, <span class="hljs-keyword">struct</span> kstat *stat,</span><br><span class="hljs-params"><span class="hljs-number">899</span>                <span class="hljs-keyword">struct</span> file *file)</span><br>900 &#123;<br><span class="hljs-number">901</span>     <span class="hljs-type">int</span> err;                               <span class="hljs-comment">// 错误码变量</span><br><span class="hljs-number">902</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">fuse_getattr_in</span> <span class="hljs-title">inarg</span>;</span>           <span class="hljs-comment">// FUSE 输入参数结构体，用于 GETATTR 请求</span><br><span class="hljs-number">903</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">fuse_attr_out</span> <span class="hljs-title">outarg</span>;</span>            <span class="hljs-comment">// FUSE 输出参数结构体，用于存储返回的文件属性</span><br><span class="hljs-number">904</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">fuse_conn</span> *<span class="hljs-title">fc</span> =</span> get_fuse_conn(inode); <span class="hljs-comment">// 获取 FUSE 连接信息</span><br><span class="hljs-number">905</span>     FUSE_ARGS(args);                        <span class="hljs-comment">// 定义 FUSE 请求/响应参数结构体</span><br><span class="hljs-number">906</span>     u64 attr_version;                       <span class="hljs-comment">// 属性版本号变量</span><br><span class="hljs-number">907</span><br><span class="hljs-number">908</span>     attr_version = fuse_get_attr_version(fc); <span class="hljs-comment">// 获取当前文件系统的属性版本</span><br><span class="hljs-number">909</span><br><span class="hljs-number">910</span>     <span class="hljs-built_in">memset</span>(&amp;inarg, <span class="hljs-number">0</span>, <span class="hljs-keyword">sizeof</span>(inarg));       <span class="hljs-comment">// 初始化 GETATTR 输入参数</span><br><span class="hljs-number">911</span>     <span class="hljs-built_in">memset</span>(&amp;outarg, <span class="hljs-number">0</span>, <span class="hljs-keyword">sizeof</span>(outarg));     <span class="hljs-comment">// 初始化 GETATTR 输出参数</span><br><span class="hljs-number">912</span>     <span class="hljs-comment">/* Directories have separate file-handle space */</span>  <span class="hljs-comment">// 目录具有独立的文件句柄空间</span><br><span class="hljs-number">913</span>     <span class="hljs-keyword">if</span> (file &amp;&amp; S_ISREG(inode-&gt;i_mode)) &#123;   <span class="hljs-comment">// 如果是文件类型并且文件句柄存在</span><br><span class="hljs-number">914</span>         <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">fuse_file</span> *<span class="hljs-title">ff</span> =</span> file-&gt;private_data;  <span class="hljs-comment">// 获取文件句柄的私有数据</span><br><span class="hljs-number">915</span><br><span class="hljs-number">916</span>         inarg.getattr_flags |= FUSE_GETATTR_FH;  <span class="hljs-comment">// 设置 GETATTR 标志位以使用文件句柄</span><br><span class="hljs-number">917</span>         inarg.fh = ff-&gt;fh;               <span class="hljs-comment">// 将文件句柄存储到输入参数中</span><br><span class="hljs-number">918</span>     &#125;<br><span class="hljs-number">919</span>     args.in.h.opcode = FUSE_GETATTR;          <span class="hljs-comment">// 设置 FUSE 操作码为 GETATTR</span><br><span class="hljs-number">920</span>     args.in.h.nodeid = get_node_id(inode);    <span class="hljs-comment">// 设置要查询的 inode 的节点 ID</span><br><span class="hljs-number">921</span>     args.in.numargs = <span class="hljs-number">1</span>;                      <span class="hljs-comment">// 设置输入参数的个数为 1</span><br><span class="hljs-number">922</span>     args.in.args[<span class="hljs-number">0</span>].size = <span class="hljs-keyword">sizeof</span>(inarg);     <span class="hljs-comment">// 设置第一个输入参数的大小</span><br><span class="hljs-number">923</span>     args.in.args[<span class="hljs-number">0</span>].value = &amp;inarg;           <span class="hljs-comment">// 设置第一个输入参数的值为 inarg</span><br><span class="hljs-number">924</span>     args.out.numargs = <span class="hljs-number">1</span>;                     <span class="hljs-comment">// 设置输出参数的个数为 1</span><br><span class="hljs-number">925</span>     args.out.args[<span class="hljs-number">0</span>].size = <span class="hljs-keyword">sizeof</span>(outarg);   <span class="hljs-comment">// 设置第一个输出参数的大小</span><br><span class="hljs-number">926</span>     args.out.args[<span class="hljs-number">0</span>].value = &amp;outarg;         <span class="hljs-comment">// 设置第一个输出参数的值为 outarg</span><br><span class="hljs-number">927</span>     err = fuse_simple_request(fc, &amp;args);     <span class="hljs-comment">// 发送 GETATTR 请求并等待响应</span><br><span class="hljs-number">928</span>     <span class="hljs-keyword">if</span> (!err) &#123;                               <span class="hljs-comment">// 如果请求成功</span><br><span class="hljs-number">929</span>         <span class="hljs-keyword">if</span> (fuse_invalid_attr(&amp;outarg.attr) ||  <span class="hljs-comment">// 检查返回的属性是否有效</span><br><span class="hljs-number">930</span>             (inode-&gt;i_mode ^ outarg.attr.mode) &amp; S_IFMT) &#123; <span class="hljs-comment">// 检查 inode 类型是否匹配</span><br><span class="hljs-number">931</span>             make_bad_inode(inode);            <span class="hljs-comment">// 如果无效，则标记 inode 为坏节点</span><br><span class="hljs-number">932</span>             err = -EIO;                      <span class="hljs-comment">// 返回 I/O 错误</span><br><span class="hljs-number">933</span>         &#125; <span class="hljs-keyword">else</span> &#123;<br><span class="hljs-number">934</span>             fuse_change_attributes(inode, &amp;outarg.attr,  <span class="hljs-comment">// 更新 inode 的属性</span><br><span class="hljs-number">935</span>                            attr_timeout(&amp;outarg),        <span class="hljs-comment">// 设置属性超时</span><br><span class="hljs-number">936</span>                            attr_version);               <span class="hljs-comment">// 使用最新的属性版本</span><br><span class="hljs-number">937</span>             <span class="hljs-keyword">if</span> (stat)                                  <span class="hljs-comment">// 如果传入了 kstat 结构</span><br><span class="hljs-number">938</span>                 fuse_fillattr(inode, &amp;outarg.attr, stat); <span class="hljs-comment">// 填充 kstat 结构</span><br><span class="hljs-number">939</span>         &#125;<br><span class="hljs-number">940</span>     &#125;<br></code></pre></td></tr></table></figure>
+<p>进一步查看git相关提交:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">git <span class="hljs-built_in">log</span> -S <span class="hljs-string">&#x27;if (fuse_invalid_attr(&amp;outarg.attr)&#x27;</span> --oneline fs/fuse/dir.c | <span class="hljs-built_in">cat</span><br>eb59bd17d2fa fuse: verify attributes<br></code></pre></td></tr></table></figure>
+<h3 id="关键函数定位">关键函数定位</h3>
+<h4 id="fuse_getattr">fuse_getattr</h4>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c">fuse_lookup<br>fuse_getattr<br></code></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim -t fuse_getattr</span><br><br><span class="hljs-number">1829</span> <span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">fuse_getattr</span><span class="hljs-params">(<span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> path *path, <span class="hljs-keyword">struct</span> kstat *stat,</span><br><span class="hljs-params"><span class="hljs-number">1830</span>             u32 request_mask, <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> flags)</span><br>1831 &#123;<br><span class="hljs-number">1832</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">inode</span> *<span class="hljs-title">inode</span> =</span> d_inode(path-&gt;dentry);<br><span class="hljs-number">1833</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">fuse_conn</span> *<span class="hljs-title">fc</span> =</span> get_fuse_conn(inode);<br><span class="hljs-number">1834</span><br><span class="hljs-number">1835</span>     <span class="hljs-keyword">if</span> (!fuse_allow_current_process(fc))<br><span class="hljs-number">1836</span>         <span class="hljs-keyword">return</span> -EACCES;<br><span class="hljs-number">1837</span><br><span class="hljs-number">1838</span>     <span class="hljs-keyword">return</span> fuse_update_get_attr(inode, <span class="hljs-literal">NULL</span>, stat, flags);<br><span class="hljs-number">1839</span> &#125;<br><span class="hljs-number">1840</span><br><span class="hljs-number">1841</span> <span class="hljs-type">static</span> <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">inode_operations</span> <span class="hljs-title">fuse_dir_inode_operations</span> =</span> &#123;<br><span class="hljs-number">1842</span>     .lookup     = fuse_lookup,<br><span class="hljs-number">1843</span>     .mkdir      = fuse_mkdir,<br><span class="hljs-number">1844</span>     .symlink    = fuse_symlink,<br><span class="hljs-number">1845</span>     .unlink     = fuse_unlink,<br><span class="hljs-number">1846</span>     .rmdir      = fuse_rmdir,<br><span class="hljs-number">1847</span>     .rename     = fuse_rename2,<br><span class="hljs-number">1848</span>     .link       = fuse_link,<br><span class="hljs-number">1849</span>     .setattr    = fuse_setattr,<br><span class="hljs-number">1850</span>     .create     = fuse_create,<br><span class="hljs-number">1851</span>     .<span class="hljs-type">atomic_open</span>    = fuse_atomic_open,<br><span class="hljs-number">1852</span>     .mknod      = fuse_mknod,<br><span class="hljs-number">1853</span>     .permission = fuse_permission,<br><span class="hljs-number">1854</span>     .getattr    = fuse_getattr,<br><span class="hljs-number">1855</span>     .listxattr  = fuse_listxattr,<br><span class="hljs-number">1856</span>     .get_acl    = fuse_get_acl,<br><span class="hljs-number">1857</span>     .set_acl    = fuse_set_acl,<br><span class="hljs-number">1858</span> &#125;;<br></code></pre></td></tr></table></figure>
+<h4 id="fuse_update_get_attr">fuse_update_get_attr</h4>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim -t fuse_update_get_attr</span><br><br> <span class="hljs-number">944</span> <span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">fuse_update_get_attr</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> inode *inode, <span class="hljs-keyword">struct</span> file *file,</span><br><span class="hljs-params"> <span class="hljs-number">945</span>                 <span class="hljs-keyword">struct</span> kstat *stat, <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> flags)</span><br> 946 &#123;<br> <span class="hljs-number">947</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">fuse_inode</span> *<span class="hljs-title">fi</span> =</span> get_fuse_inode(inode);<br> <span class="hljs-number">948</span>     <span class="hljs-type">int</span> err = <span class="hljs-number">0</span>;<br> <span class="hljs-number">949</span>     <span class="hljs-type">bool</span> sync;<br> <span class="hljs-number">950</span><br> <span class="hljs-number">951</span>     <span class="hljs-keyword">if</span> (flags &amp; AT_STATX_FORCE_SYNC)<br> <span class="hljs-number">952</span>         sync = <span class="hljs-literal">true</span>;<br> <span class="hljs-number">953</span>     <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (flags &amp; AT_STATX_DONT_SYNC)<br> <span class="hljs-number">954</span>         sync = <span class="hljs-literal">false</span>;<br> <span class="hljs-number">955</span>     <span class="hljs-keyword">else</span><br> <span class="hljs-number">956</span>         sync = time_before64(fi-&gt;i_time, get_jiffies_64());<br> <span class="hljs-number">957</span><br> <span class="hljs-number">958</span>     <span class="hljs-keyword">if</span> (sync) &#123;<br> <span class="hljs-number">959</span>         forget_all_cached_acls(inode);<br> <span class="hljs-number">960</span>         err = fuse_do_getattr(inode, stat, file);<br> <span class="hljs-number">961</span>     &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (stat) &#123;<br> <span class="hljs-number">962</span>         generic_fillattr(inode, stat);<br> <span class="hljs-number">963</span>         stat-&gt;mode = fi-&gt;orig_i_mode;<br> <span class="hljs-number">964</span>         stat-&gt;ino = fi-&gt;orig_ino;<br> <span class="hljs-number">965</span>     &#125;<br> <span class="hljs-number">966</span><br> <span class="hljs-number">967</span>     <span class="hljs-keyword">return</span> err;<br> <span class="hljs-number">968</span> &#125;<br></code></pre></td></tr></table></figure>
+<p>fuse_update_get_attr函数在960行跳到了上文的fuse_do_getattr函数处。</p>
+<h4 id="fuse_do_getattr">fuse_do_getattr</h4>
+<p>接下来重点分析fuse_do_getattr函数929、930行:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">929</span>         <span class="hljs-keyword">if</span> (fuse_invalid_attr(&amp;outarg.attr) ||  <span class="hljs-comment">// 检查返回的属性是否有效</span><br><span class="hljs-number">930</span>             (inode-&gt;i_mode ^ outarg.attr.mode) &amp; S_IFMT) &#123; <span class="hljs-comment">// 检查 inode 类型是否匹配</span><br></code></pre></td></tr></table></figure>
+<p>929 和 930 行代码逻辑是判断 FUSE 文件系统的 <code>getattr</code>
+请求返回的属性是否有效，具体是检查从 FUSE 响应中获取的文件属性
+(<code>outarg.attr</code>) 是否与内核中的 <code>inode</code>
+文件属性相符。如果这些属性无效或不匹配，函数会将这个 <code>inode</code>
+标记为“坏节点”（<code>bad inode</code>）并返回 <code>EIO</code>
+错误。</p>
+<p>这段代码包含两个条件，分别检查返回的文件属性是否无效或者文件类型是否不匹配：</p>
+<h5
+id="第一个条件fuse_invalid_attroutarg.attr">第一个条件：<code>fuse_invalid_attr(&amp;outarg.attr)</code></h5>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// vim -t fuse_invalid_attr</span><br><br> <span class="hljs-number">295</span> <span class="hljs-type">int</span> <span class="hljs-title function_">fuse_valid_type</span><span class="hljs-params">(<span class="hljs-type">int</span> m)</span><br> 296 &#123;<br> <span class="hljs-number">297</span>     <span class="hljs-keyword">return</span> S_ISREG(m) || S_ISDIR(m) || S_ISLNK(m) || S_ISCHR(m) ||<br> <span class="hljs-number">298</span>         S_ISBLK(m) || S_ISFIFO(m) || S_ISSOCK(m);<br> <span class="hljs-number">299</span> &#125;<br> <span class="hljs-number">300</span><br> <span class="hljs-number">301</span> <span class="hljs-type">bool</span> <span class="hljs-title function_">fuse_invalid_attr</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> fuse_attr *attr)</span><br> 302 &#123;<br> <span class="hljs-number">303</span>     <span class="hljs-keyword">return</span> !fuse_valid_type(attr-&gt;mode) ||<br> <span class="hljs-number">304</span>         attr-&gt;size &gt; LLONG_MAX;<br> <span class="hljs-number">305</span> &#125;<br></code></pre></td></tr></table></figure>
+<ul>
+<li><p><strong>作用</strong>：调用 <code>fuse_invalid_attr</code>
+函数来检查 FUSE 响应的文件属性（<code>outarg.attr</code>）是否有效。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">bool</span> <span class="hljs-title function_">fuse_invalid_attr</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> fuse_attr *attr)</span> &#123;<br>    <span class="hljs-keyword">return</span> !fuse_valid_type(attr-&gt;mode) || attr-&gt;size &gt; LLONG_MAX;<br>&#125;<br></code></pre></td></tr></table></figure>
+<ul>
+<li><code>fuse_valid_type(attr-&gt;mode)</code>：这是个检查
+<code>mode</code> 是否代表合法文件类型的函数，它确保 <code>mode</code>
+值是常规文件、目录、符号链接等有效的类型。如果 <code>mode</code>
+不合法，函数返回 <code>true</code>，意味着属性无效。</li>
+<li><code>attr-&gt;size &gt; LLONG_MAX</code>：检查文件大小
+<code>size</code> 是否超出了允许的范围（<code>LLONG_MAX</code>
+通常是系统支持的最大长整型数值）。如果超出范围，也会返回
+<code>true</code>。</li>
+</ul>
+<p><strong>判断逻辑</strong>：如果 FUSE
+返回的文件类型无效或文件大小超过了系统的限制，<code>fuse_invalid_attr()</code>
+将返回 <code>true</code>，表示文件属性无效。</p>
+<p><strong>问题影响</strong>：如果 <code>fuse_invalid_attr()</code> 返回
+<code>true</code>，函数会认为文件的元数据不合法，并将 <code>inode</code>
+标记为“坏节点”（<code>make_bad_inode()</code>），最终返回
+<code>EIO</code> 错误。</p></li>
+</ul>
+<h5
+id="第二个条件inode-i_mode-outarg.attr.mode-s_ifmt">第二个条件：<code>(inode-&gt;i_mode ^ outarg.attr.mode) &amp; S_IFMT</code></h5>
+<ul>
+<li><p><strong>作用</strong>：检查 <code>inode</code> 中的文件类型与
+FUSE 返回的文件类型是否一致。</p></li>
+<li><p><strong>解释</strong>：</p>
+<ul>
+<li><code>inode-&gt;i_mode</code>：这是 Linux 内核中的 inode 结构体中的
+<code>mode</code> 字段，它包含文件的类型和权限信息。</li>
+<li><code>outarg.attr.mode</code>：这是 FUSE 从用户空间文件系统返回的
+<code>mode</code>，表示用户空间文件系统中的文件类型。</li>
+<li><code>S_IFMT</code>：这是一个掩码，用来屏蔽文件权限部分，专注于文件的类型。它定义了文件的类型，比如：
+<ul>
+<li><code>S_IFREG</code>：常规文件</li>
+<li><code>S_IFDIR</code>：目录</li>
+<li><code>S_IFLNK</code>：符号链接</li>
+<li>还有设备文件（字符设备、块设备）和特殊文件（FIFO、套接字）等类型。</li>
+</ul></li>
+</ul>
+<p><strong>逻辑细节</strong>：</p>
+<ul>
+<li><code>(inode-&gt;i_mode ^ outarg.attr.mode)</code>：这是对
+<code>inode-&gt;i_mode</code> 和 <code>outarg.attr.mode</code>
+进行按位异或操作（<code>^</code>）。当 <code>inode-&gt;i_mode</code> 和
+<code>outarg.attr.mode</code> 的相应位相同，异或结果为
+0；如果不同，异或结果为 1。</li>
+<li><code>&amp; S_IFMT</code>：只保留 <code>S_IFMT</code>
+掩码中的文件类型位，忽略文件权限位（如读、写、执行权限）。如果
+<code>inode-&gt;i_mode</code> 和 <code>outarg.attr.mode</code>
+在文件类型位上不一致，结果将不为 0，表示文件类型不匹配。</li>
+</ul>
+<p><strong>问题影响</strong>：如果 <code>inode-&gt;i_mode</code> 和
+<code>outarg.attr.mode</code> 文件类型不匹配（例如，<code>inode</code>
+认为这是一个目录，但 FUSE
+返回这是一个符号链接），函数会认为这是一个错误，并将这个
+<code>inode</code>
+标记为“坏节点”（<code>make_bad_inode()</code>），同时返回
+<code>EIO</code> 错误。</p></li>
+</ul>
+<h5 id="make_bad_inode-和--eio-的含义"><code>make_bad_inode()</code> 和
+<code>-EIO</code> 的含义</h5>
+<ul>
+<li><strong><code>make_bad_inode(inode)</code></strong>：
+<ul>
+<li>这个函数的作用是将 <code>inode</code>
+标记为“坏节点”，表示内核认为这个文件的元数据有问题，不可信。通常情况下，后续的文件操作（如读写）会返回错误，文件系统也可能拒绝进一步处理这个
+<code>inode</code>。</li>
+</ul></li>
+<li><strong><code>-EIO</code></strong>：
+<ul>
+<li><code>EIO</code> 是 I/O 错误的标准错误代码。返回 <code>-EIO</code>
+意味着 I/O 操作失败，通常是因为硬件或文件系统的问题。在这里，它表示
+<code>getattr</code> 请求中属性的不一致导致无法完成操作。</li>
+</ul></li>
+</ul>
+<h5 id="可能的错误原因">可能的错误原因</h5>
+<ol type="1">
+<li><strong><code>fuse_invalid_attr()</code> 过于严格</strong>：
+<ul>
+<li>如果 <code>fuse_invalid_attr()</code>
+误判合法的属性为无效，可能会导致不必要的 <code>EIO</code>
+错误。需要检查这个函数的具体实现，确保只有真正无效的属性才返回
+<code>true</code>。</li>
+</ul></li>
+<li><strong>文件类型比较问题</strong>：
+<ul>
+<li><code>inode-&gt;i_mode</code> 和 <code>outarg.attr.mode</code>
+都包含了文件的类型和权限信息。虽然使用了 <code>S_IFMT</code>
+掩码过滤掉了权限部分，但某些情况下 FUSE
+和内核可能对文件类型的解读不同，比如不同系统间的文件类型定义差异。这种情况下，可能需要通过更多调试信息来确认差异的来源。</li>
+</ul></li>
+</ol>
+<h5 id="总结-1">总结</h5>
+<p>这两行代码试图确保从 FUSE 获取的文件属性与内核中的 inode
+文件属性一致，但可能因为属性验证太严格或者对文件类型的比较导致误判为错误。要解决此问题，建议：</p>
+<ul>
+<li>调整 <code>fuse_invalid_attr()</code>
+的条件，确保仅当属性确实无效时才返回 <code>true</code>。</li>
+<li>通过直接比较文件类型位（而不是异或操作）来避免误判。</li>
+</ul>
+<h3 id="super_block">super_block</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">1401</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">super_block</span> &#123;</span><br><span class="hljs-number">1402</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_head</span>    <span class="hljs-title">s_list</span>;</span>     <span class="hljs-comment">/* Keep this first */</span>    <span class="hljs-comment">/* 保持在最前面 */</span><br><span class="hljs-number">1403</span>     <span class="hljs-type">dev_t</span>           s_dev;      <span class="hljs-comment">/* search index; _not_ kdev_t */</span>    <span class="hljs-comment">/* 搜索索引; _不是_ kdev_t */</span><br><span class="hljs-number">1404</span>     <span class="hljs-type">unsigned</span> <span class="hljs-type">char</span>       s_blocksize_bits;    <span class="hljs-comment">/* 块大小位数 */</span><br><span class="hljs-number">1405</span>     <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span>       s_blocksize; <span class="hljs-comment">/* 块大小 */</span><br><span class="hljs-number">1406</span>     <span class="hljs-type">loff_t</span>          s_maxbytes; <span class="hljs-comment">/* Max file size */</span>    <span class="hljs-comment">/* 最大文件大小 */</span><br><span class="hljs-number">1407</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">file_system_type</span> *<span class="hljs-title">s_type</span>;</span>    <span class="hljs-comment">/* 文件系统类型 */</span><br><span class="hljs-number">1408</span>     <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">super_operations</span>   *<span class="hljs-title">s_op</span>;</span>    <span class="hljs-comment">/* 超级块操作函数指针 */</span><br><span class="hljs-number">1409</span>     <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dquot_operations</span>   *<span class="hljs-title">dq_op</span>;</span>    <span class="hljs-comment">/* 磁盘配额操作函数指针 */</span><br><span class="hljs-number">1410</span>     <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">quotactl_ops</span>   *<span class="hljs-title">s_qcop</span>;</span>    <span class="hljs-comment">/* 资源配额控制操作函数指针 */</span><br><span class="hljs-number">1411</span>     <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">export_operations</span> *<span class="hljs-title">s_export_op</span>;</span>    <span class="hljs-comment">/* 导出操作函数指针 */</span><br><span class="hljs-number">1412</span>     <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span>       s_flags;    <span class="hljs-comment">/* 超级块标志 */</span><br><span class="hljs-number">1413</span>     <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span>       s_iflags;   <span class="hljs-comment">/* internal SB_I_* flags */</span>    <span class="hljs-comment">/* 内部 SB_I_* 标志 */</span><br><span class="hljs-number">1414</span>     <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span>       s_magic;    <span class="hljs-comment">/* 魔术数 */</span><br><span class="hljs-number">1415</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dentry</span>       *<span class="hljs-title">s_root</span>;</span>    <span class="hljs-comment">/* 根目录的 dentry */</span><br><span class="hljs-number">1416</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rw_semaphore</span> <span class="hljs-title">s_umount</span>;</span>    <span class="hljs-comment">/* 卸载信号量 */</span><br><span class="hljs-number">1417</span>     <span class="hljs-type">int</span>         s_count;    <span class="hljs-comment">/* 引用计数 */</span><br><span class="hljs-number">1418</span>     <span class="hljs-type">atomic_t</span>        s_active;    <span class="hljs-comment">/* 活动状态 */</span><br><span class="hljs-number">1419</span> <span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_SECURITY</span><br><span class="hljs-number">1420</span>     <span class="hljs-type">void</span>                    *s_security;    <span class="hljs-comment">/* 安全信息指针 */</span><br><span class="hljs-number">1421</span> <span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br><span class="hljs-number">1422</span>     <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">xattr_handler</span> **<span class="hljs-title">s_xattr</span>;</span>    <span class="hljs-comment">/* 扩展属性处理函数指针 */</span><br><span class="hljs-number">1423</span> <span class="hljs-meta">#<span class="hljs-keyword">if</span> IS_ENABLED(CONFIG_FS_ENCRYPTION)</span><br><span class="hljs-number">1424</span>     <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">fscrypt_operations</span> *<span class="hljs-title">s_cop</span>;</span>    <span class="hljs-comment">/* 文件系统加密操作函数指针 */</span><br><span class="hljs-number">1425</span> <span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br><span class="hljs-number">1426</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">hlist_bl_head</span>    <span class="hljs-title">s_roots</span>;</span>    <span class="hljs-comment">/* NFS 的备用根 dentry 列表 */</span><br><span class="hljs-number">1427</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_head</span>    <span class="hljs-title">s_mounts</span>;</span>   <span class="hljs-comment">/* 挂载列表; _不用于文件系统_ */</span><br><span class="hljs-number">1428</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">block_device</span> *<span class="hljs-title">s_bdev</span>;</span>    <span class="hljs-comment">/* 块设备指针 */</span><br><span class="hljs-number">1429</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">backing_dev_info</span> *<span class="hljs-title">s_bdi</span>;</span>    <span class="hljs-comment">/* 后备设备信息 */</span><br><span class="hljs-number">1430</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mtd_info</span>     *<span class="hljs-title">s_mtd</span>;</span>    <span class="hljs-comment">/* MTD 信息 */</span><br><span class="hljs-number">1431</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">hlist_node</span>   <span class="hljs-title">s_instances</span>;</span>    <span class="hljs-comment">/* 实例链表节点 */</span><br><span class="hljs-number">1432</span>     <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span>        s_quota_types;  <span class="hljs-comment">/* 支持的配额类型位掩码 */</span><br><span class="hljs-number">1433</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">quota_info</span>   <span class="hljs-title">s_dquot</span>;</span>    <span class="hljs-comment">/* 磁盘配额特定选项 */</span><br><span class="hljs-number">1434</span><br><span class="hljs-number">1435</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sb_writers</span>   <span class="hljs-title">s_writers</span>;</span>    <span class="hljs-comment">/* 超级块写入器 */</span><br><span class="hljs-number">1436</span><br><span class="hljs-number">1437</span>     <span class="hljs-type">char</span>            s_id[<span class="hljs-number">32</span>];   <span class="hljs-comment">/* 信息性名称 */</span><br><span class="hljs-number">1438</span>     <span class="hljs-type">uuid_t</span>          s_uuid;     <span class="hljs-comment">/* UUID */</span><br><span class="hljs-number">1439</span><br><span class="hljs-number">1440</span>     <span class="hljs-type">void</span>            *s_fs_info; <span class="hljs-comment">/* 文件系统私有信息 */</span><br><span class="hljs-number">1441</span>     <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span>        s_max_links;    <span class="hljs-comment">/* 最大链接数 */</span><br><span class="hljs-number">1442</span>     <span class="hljs-type">fmode_t</span>         s_mode;    <span class="hljs-comment">/* 文件模式 */</span><br><span class="hljs-number">1443</span><br><span class="hljs-number">1444</span>     <span class="hljs-comment">/* Granularity of c/m/atime in ns.  Cannot be worse than a second */</span>    <span class="hljs-comment">/* c/m/atime 的粒度，单位为纳秒。不能差于一秒 */</span><br><span class="hljs-number">1446</span>     u32        s_time_gran;    <span class="hljs-comment">/* 时间粒度 */</span><br><span class="hljs-number">1447</span><br><span class="hljs-number">1448</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1449      * The next field is for VFS *only*. No filesystems have any business</span><br><span class="hljs-comment">1450      * even looking at it. You had been warned.</span><br><span class="hljs-comment">1451      */</span>    <span class="hljs-comment">/* 下一个字段仅用于 VFS。没有文件系统有权查看它。 */</span><br><span class="hljs-number">1452</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mutex</span> <span class="hljs-title">s_vfs_rename_mutex</span>;</span>    <span class="hljs-comment">/* 重命名互斥锁 */</span><br><span class="hljs-number">1453</span><br><span class="hljs-number">1454</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1455      * Filesystem subtype.  If non-empty the filesystem type field</span><br><span class="hljs-comment">1456      * in /proc/mounts will be &quot;type.subtype&quot;</span><br><span class="hljs-comment">1457      */</span>    <span class="hljs-comment">/* 文件系统子类型。如果非空，则 /proc/mounts 中的文件系统类型字段将为 &quot;type.subtype&quot; */</span><br><span class="hljs-number">1458</span>     <span class="hljs-type">char</span> *s_subtype;    <span class="hljs-comment">/* 文件系统子类型字符串指针 */</span><br><span class="hljs-number">1459</span><br><span class="hljs-number">1460</span>     <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dentry_operations</span> *<span class="hljs-title">s_d_op</span>;</span> <span class="hljs-comment">/* default d_op for dentries */</span>    <span class="hljs-comment">/* 默认的 dentry 操作函数指针 */</span><br><span class="hljs-number">1461</span><br><span class="hljs-number">1462</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1463      * Saved pool identifier for cleancache (-1 means none)</span><br><span class="hljs-comment">1464      */</span>    <span class="hljs-comment">/* cleancache 的保存池标识符（-1 表示无） */</span><br><span class="hljs-number">1465</span>     <span class="hljs-type">int</span> cleancache_poolid;    <span class="hljs-comment">/* cleancache 池 ID */</span><br><span class="hljs-number">1466</span><br><span class="hljs-number">1467</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">shrinker</span> <span class="hljs-title">s_shrink</span>;</span>   <span class="hljs-comment">/* per-sb shrinker handle */</span>    <span class="hljs-comment">/* 每个超级块的缩减器句柄 */</span><br><span class="hljs-number">1468</span><br><span class="hljs-number">1469</span>     <span class="hljs-comment">/* Number of inodes with nlink == 0 but still referenced */</span>    <span class="hljs-comment">/* nlink == 0 但仍然被引用的 inode 数量 */</span><br><span class="hljs-number">1470</span>     <span class="hljs-type">atomic_long_t</span> s_remove_count;    <span class="hljs-comment">/* 删除计数 */</span><br><span class="hljs-number">1471</span><br><span class="hljs-number">1472</span>     <span class="hljs-comment">/* Pending fsnotify inode refs */</span>    <span class="hljs-comment">/* 待处理的 fsnotify inode 引用 */</span><br><span class="hljs-number">1473</span>     <span class="hljs-type">atomic_long_t</span> s_fsnotify_inode_refs;    <span class="hljs-comment">/* fsnotify inode 引用计数 */</span><br><span class="hljs-number">1474</span><br><span class="hljs-number">1475</span>     <span class="hljs-comment">/* Being remounted read-only */</span>    <span class="hljs-comment">/* 正在重新挂载为只读 */</span><br><span class="hljs-number">1476</span>     <span class="hljs-type">int</span> s_readonly_remount;    <span class="hljs-comment">/* 只读重新挂载标志 */</span><br><span class="hljs-number">1477</span><br><span class="hljs-number">1478</span>     <span class="hljs-comment">/* AIO completions deferred from interrupt context */</span>    <span class="hljs-comment">/* 从中断上下文延迟的 AIO 完成 */</span><br><span class="hljs-number">1479</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">workqueue_struct</span> *<span class="hljs-title">s_dio_done_wq</span>;</span>    <span class="hljs-comment">/* DIO 完成工作队列 */</span><br><span class="hljs-number">1480</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">hlist_head</span> <span class="hljs-title">s_pins</span>;</span>    <span class="hljs-comment">/* 引用的 inode 列表 */</span><br><span class="hljs-number">1481</span><br><span class="hljs-number">1482</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1483      * Owning user namespace and default context in which to</span><br><span class="hljs-comment">1484      * interpret filesystem uids, gids, quotas, device nodes,</span><br><span class="hljs-comment">1485      * xattrs and security labels.</span><br><span class="hljs-comment">1486      */</span>    <span class="hljs-comment">/* 拥有用户命名空间和解释文件系统 uid、gid、配额、设备节点、扩展属性和安全标签的默认上下文 */</span><br><span class="hljs-number">1487</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">user_namespace</span> *<span class="hljs-title">s_user_ns</span>;</span>    <span class="hljs-comment">/* 用户命名空间指针 */</span><br><span class="hljs-number">1488</span><br><span class="hljs-number">1489</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1490      * Keep the lru lists last in the structure so they always sit on their</span><br><span class="hljs-comment">1491      * own individual cachelines.</span><br><span class="hljs-comment">1492      */</span>    <span class="hljs-comment">/* 将 LRU 列表放在结构的最后，以便它们总是位于各自的缓存行中 */</span><br><span class="hljs-number">1493</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_lru</span>     <span class="hljs-title">s_dentry_lru</span> ____<span class="hljs-title">cacheline_aligned_in_smp</span>;</span>    <span class="hljs-comment">/* dentry 的 LRU 列表 */</span><br><span class="hljs-number">1494</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_lru</span>     <span class="hljs-title">s_inode_lru</span> ____<span class="hljs-title">cacheline_aligned_in_smp</span>;</span>    <span class="hljs-comment">/* inode 的 LRU 列表 */</span><br><span class="hljs-number">1495</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rcu_head</span>     <span class="hljs-title">rcu</span>;</span>    <span class="hljs-comment">/* RCU 头部 */</span><br><span class="hljs-number">1496</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">work_struct</span>  <span class="hljs-title">destroy_work</span>;</span>    <span class="hljs-comment">/* 销毁工作结构 */</span><br><span class="hljs-number">1497</span><br><span class="hljs-number">1498</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mutex</span>        <span class="hljs-title">s_sync_lock</span>;</span>    <span class="hljs-comment">/* sync serialisation lock */</span>    <span class="hljs-comment">/* 同步序列化锁 */</span><br><span class="hljs-number">1499</span><br><span class="hljs-number">1500</span>     <span class="hljs-comment">/*</span><br><span class="hljs-comment">1501      * Indicates how deep in a filesystem stack this SB is</span><br><span class="hljs-comment">1502      */</span>    <span class="hljs-comment">/* 表示这个超级块在文件系统栈中的深度 */</span><br><span class="hljs-number">1503</span>     <span class="hljs-type">int</span> s_stack_depth;    <span class="hljs-comment">/* 超级块深度 */</span><br><span class="hljs-number">1504</span><br><span class="hljs-number">1505</span>     <span class="hljs-comment">/* s_inode_list_lock protects s_inodes */</span>    <span class="hljs-comment">/* s_inode_list_lock 保护 s_inodes */</span><br><span class="hljs-number">1506</span>     <span class="hljs-type">spinlock_t</span>      s_inode_list_lock ____cacheline_aligned_in_smp;    <span class="hljs-comment">/* inode 列表锁 */</span><br><span class="hljs-number">1507</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_head</span>    <span class="hljs-title">s_inodes</span>;</span>   <span class="hljs-comment">/* all inodes */</span>    <span class="hljs-comment">/* 所有 inode 的链表 */</span><br><span class="hljs-number">1508</span><br><span class="hljs-number">1509</span>     <span class="hljs-type">spinlock_t</span>      s_inode_wblist_lock;    <span class="hljs-comment">/* inode 写回列表锁 */</span><br><span class="hljs-number">1510</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_head</span>    <span class="hljs-title">s_inodes_wb</span>;</span>    <span class="hljs-comment">/* writeback inodes */</span>    <span class="hljs-comment">/* 写回 inode 的链表 */</span><br><span class="hljs-number">1511</span> &#125; __randomize_layout;    <span class="hljs-comment">/* 随机化布局 */</span><br></code></pre></td></tr></table></figure>
+<h3 id="fuse_ctl_add_dentry">fuse_ctl_add_dentry</h3>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-number">199</span> <span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> dentry *<span class="hljs-title function_">fuse_ctl_add_dentry</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> dentry *parent,                       <span class="hljs-comment">// 声明一个静态函数 fuse_ctl_add_dentry，向控制文件系统中添加目录项</span></span><br><span class="hljs-params"><span class="hljs-number">200</span>                       <span class="hljs-keyword">struct</span> fuse_conn *fc,                                       <span class="hljs-comment">// 指向 FUSE 连接的指针</span></span><br><span class="hljs-params"><span class="hljs-number">201</span>                       <span class="hljs-type">const</span> <span class="hljs-type">char</span> *name,                                          <span class="hljs-comment">// 要添加的目录项名称</span></span><br><span class="hljs-params"><span class="hljs-number">202</span>                       <span class="hljs-type">int</span> mode, <span class="hljs-type">int</span> nlink,                                     <span class="hljs-comment">// 目录项的权限模式和链接计数</span></span><br><span class="hljs-params"><span class="hljs-number">203</span>                       <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> inode_operations *iop,                          <span class="hljs-comment">// 指向 inode 操作的指针</span></span><br><span class="hljs-params"><span class="hljs-number">204</span>                       <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> file_operations *fop)</span>                           <span class="hljs-comment">// 指向文件操作的指针</span><br>205 &#123;<br><span class="hljs-number">206</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dentry</span> *<span class="hljs-title">dentry</span>;</span>                                                      <span class="hljs-comment">// 声明一个指向目录项的指针</span><br><span class="hljs-number">207</span>     <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">inode</span> *<span class="hljs-title">inode</span>;</span>                                                         <span class="hljs-comment">// 声明一个指向 inode 的指针</span><br><span class="hljs-number">208</span><br><span class="hljs-number">209</span>     BUG_ON(fc-&gt;ctl_ndents &gt;= FUSE_CTL_NUM_DENTRIES);                           <span class="hljs-comment">// 检查控制目录项数量是否超过最大限制</span><br><span class="hljs-number">210</span>     dentry = d_alloc_name(parent, name);                                        <span class="hljs-comment">// 分配一个新的目录项并设置其名称</span><br><span class="hljs-number">211</span>     <span class="hljs-keyword">if</span> (!dentry)                                                                 <span class="hljs-comment">// 检查分配是否成功</span><br><span class="hljs-number">212</span>         <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;                                                           <span class="hljs-comment">// 分配失败，返回 NULL</span><br><span class="hljs-number">213</span><br><span class="hljs-number">214</span>     inode = new_inode(fuse_control_sb);                                         <span class="hljs-comment">// 在控制文件系统中分配一个新的 inode</span><br><span class="hljs-number">215</span>     <span class="hljs-keyword">if</span> (!inode) &#123;                                                                <span class="hljs-comment">// 检查 inode 分配是否成功</span><br><span class="hljs-number">216</span>         dput(dentry);                                                           <span class="hljs-comment">// 释放之前分配的目录项</span><br><span class="hljs-number">217</span>         <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;                                                           <span class="hljs-comment">// 返回 NULL，表示分配失败</span><br><span class="hljs-number">218</span>     &#125;<br><span class="hljs-number">219</span><br><span class="hljs-number">220</span>     inode-&gt;i_ino = get_next_ino();                                              <span class="hljs-comment">// 获取下一个 inode 编号</span><br><span class="hljs-number">221</span>     inode-&gt;i_mode = mode;                                                       <span class="hljs-comment">// 设置 inode 的权限模式</span><br><span class="hljs-number">222</span>     inode-&gt;i_uid = fc-&gt;user_id;                                                <span class="hljs-comment">// 设置 inode 的用户 ID</span><br><span class="hljs-number">223</span>     inode-&gt;i_gid = fc-&gt;group_id;                                              <span class="hljs-comment">// 设置 inode 的组 ID</span><br><span class="hljs-number">224</span>     inode-&gt;i_atime = inode-&gt;i_mtime = inode-&gt;i_ctime = current_time(inode);  <span class="hljs-comment">// 设置访问、修改和状态变化时间</span><br><span class="hljs-number">225</span>     <span class="hljs-comment">/* setting -&gt;i_op to NULL is not allowed */</span>                                 <span class="hljs-comment">// 设置 inode 操作为 NULL 是不允许的</span><br><span class="hljs-number">226</span>     <span class="hljs-keyword">if</span> (iop)                                                                    <span class="hljs-comment">// 如果提供了 inode 操作</span><br><span class="hljs-number">227</span>         inode-&gt;i_op = iop;                                                    <span class="hljs-comment">// 设置 inode 操作</span><br><span class="hljs-number">228</span>     inode-&gt;i_fop = fop;                                                        <span class="hljs-comment">// 设置文件操作</span><br><span class="hljs-number">229</span>     set_nlink(inode, nlink);                                                  <span class="hljs-comment">// 设置 inode 的链接计数</span><br><span class="hljs-number">230</span>     inode-&gt;i_private = fc;                                                    <span class="hljs-comment">// 设置 inode 的私有数据为 FUSE 连接</span><br><span class="hljs-number">231</span>     d_add(dentry, inode);                                                     <span class="hljs-comment">// 将目录项和 inode 关联</span><br><span class="hljs-number">232</span><br><span class="hljs-number">233</span>     fc-&gt;ctl_dentry[fc-&gt;ctl_ndents++] = dentry;                                 <span class="hljs-comment">// 将新添加的目录项保存到连接的控制目录项数组中</span><br><span class="hljs-number">234</span><br><span class="hljs-number">235</span>     <span class="hljs-keyword">return</span> dentry;                                                             <span class="hljs-comment">// 返回新添加的目录项</span><br><span class="hljs-number">236</span> &#125;<br></code></pre></td></tr></table></figure>
+<h3 id="进一步简化alluxio-fuse-demo">进一步简化alluxio-fuse demo</h3>
+<p>搭建一个最简单的 Alluxio-FUSE demo，可以按以下步骤进行。这将使用
+Alluxio 的 FUSE 特性将一个 Alluxio 文件系统挂载到本地机器上，并通过
+POSIX 接口进行访问。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 启动 Alluxio master 和 worker</span><br>/opt/alluxio-2.8.0-0617/bin/alluxio-start.sh <span class="hljs-built_in">local</span><br><br><span class="hljs-comment"># 创建挂载点目录</span><br><span class="hljs-built_in">mkdir</span> /mnt/alluxio-fuse<br><br><span class="hljs-comment"># 更改挂载点目录的所有者为当前用户</span><br><span class="hljs-built_in">chown</span> $(<span class="hljs-built_in">whoami</span>) /mnt/alluxio-fuse<br><br><span class="hljs-comment"># 挂载 Alluxio 文件系统到本地的 /mnt/alluxio-fuse 目录</span><br>/opt/alluxio-2.8.0-0617/integration/fuse/bin/alluxio-fuse mount /mnt/alluxio-fuse<br><br><span class="hljs-comment"># 列出挂载在 /mnt/alluxio-fuse 目录中的文件和目录</span><br><span class="hljs-built_in">ls</span> /mnt/alluxio-fuse<br><br><span class="hljs-comment"># 在 Alluxio 文件系统中创建一个新目录 mydir</span><br><span class="hljs-built_in">mkdir</span> /mnt/alluxio-fuse/mydir<br><br><span class="hljs-comment"># 在 Alluxio 文件系统中的 mydir 目录下创建一个文件并写入内容</span><br><span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;Hello Alluxio!&quot;</span> &gt; /mnt/alluxio-fuse/mydir/hello.txt<br><br><span class="hljs-comment"># 读取并显示刚刚创建的文件内容</span><br><span class="hljs-built_in">cat</span> /mnt/alluxio-fuse/mydir/hello.txt<br><br><span class="hljs-comment"># 卸载 Alluxio 文件系统</span><br>/opt/alluxio-2.8.0-0617/integration/fuse/bin/alluxio-fuse umount /mnt/alluxio-fuse<br><br><span class="hljs-comment"># 停止 Alluxio master 和 worker</span><br>/opt/alluxio-2.8.0-0617/bin/alluxio-stop.sh <span class="hljs-built_in">local</span><br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># /opt/alluxio-2.8.0-0617/bin/alluxio-start.sh local</span><br>Assuming NoMount by default.<br>Successfully Killed 1 process(es) successfully on clusterd-test<br>Successfully Killed 1 process(es) successfully on clusterd-test<br>Successfully Killed 1 process(es) successfully on clusterd-test<br>Successfully Killed 1 process(es) successfully on clusterd-test<br>Successfully Killed 1 process(es) successfully on clusterd-test<br>Successfully Killed 1 process(es) successfully on clusterd-test<br>Starting master @ clusterd-test. Logging to /opt/alluxio-2.8.0-0617/logs<br>Starting secondary master @ clusterd-test. Logging to /opt/alluxio-2.8.0-0617/logs<br>Starting job master @ clusterd-test. Logging to /opt/alluxio-2.8.0-0617/logs<br>Starting worker @ clusterd-test. Logging to /opt/alluxio-2.8.0-0617/logs<br>Starting job worker @ clusterd-test. Logging to /opt/alluxio-2.8.0-0617/logs<br>Starting proxy @ clusterd-test. Logging to /opt/alluxio-2.8.0-0617/logs<br>-----------------------------------------<br>Starting to monitor all <span class="hljs-built_in">local</span> services.<br>-----------------------------------------<br>--- [ OK ] The master service @ clusterd-test is <span class="hljs-keyword">in</span> a healthy state.<br>--- [ OK ] The job_master service @ clusterd-test is <span class="hljs-keyword">in</span> a healthy state.<br>--- [ OK ] The worker service @ clusterd-test is <span class="hljs-keyword">in</span> a healthy state.<br>--- [ OK ] The job_worker service @ clusterd-test is <span class="hljs-keyword">in</span> a healthy state.<br>--- [ OK ] The proxy service @ clusterd-test is <span class="hljs-keyword">in</span> a healthy state.<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test user]<span class="hljs-comment"># /opt/alluxio-2.8.0-0617/bin/alluxio fs touch /hello.txt</span><br>/hello.txt has been created<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test user]<span class="hljs-comment"># /opt/alluxio-2.8.0-0617/bin/alluxio fs mkdir /test</span><br>Successfully created directory /test<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test logs]<span class="hljs-comment"># /opt/alluxio-2.8.0-0617/bin/alluxio fs ls /</span><br>              0   NOT_PERSISTED 09-26-2024 16:01:41:082  DIR /test<br>              0 TO_BE_PERSISTED 09-26-2024 16:00:23:446 100% /hello.txt<br></code></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@clusterd-test ~]<span class="hljs-comment"># ls /mnt/alluxio-fuse</span><br><span class="hljs-built_in">ls</span>: 无法访问 <span class="hljs-string">&#x27;/mnt/alluxio-fuse&#x27;</span>: 输入/输出错误<br></code></pre></td></tr></table></figure>
+<p><code>/opt/alluxio-2.8.0-0617/logs/master.log</code>中有很明显的关于hello.txt的报错日志:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">480 2024-09-26 16:34:34,483 WARN  DefaultFileSystemMaster - Failed to delete UFS file /underFSStorage/.alluxio_ufs_persistence/hello.txt.alluxio.1727338650414.5b3a84d3-10ef-4a9d-8f60-af0922e06a8b.tmp.<br>481 2024-09-26 16:34:36,512 WARN  DefaultFileSystemMaster - The persist job (<span class="hljs-built_in">id</span>=1727337417428) <span class="hljs-keyword">for</span> file /hello.txt (<span class="hljs-built_in">id</span>=33554431) failed: Task execution failed: Failed to create /underFSStorage/.alluxio_ufs_persistence/hello.txt.alluxio.1727339674483.010f3621-ca80-4a6e-99c9-2a778bfcd6b3.tmp with permission readType: NO_CACHE<br>482 updateLastAccessTime: <span class="hljs-literal">false</span><br>483  because its ancestor /underFSStorage/.alluxio_ufs_persistence is not a directory<br></code></pre></td></tr></table></figure>
+<figure>
+<img
+src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/企业微信截图_5c01358c-20ae-438c-ad0f-e05a65b500c3.png" srcset="/img/loading.gif" lazyload
+alt="/opt/alluxio-2.8.0-0617/logs/master.log" />
+<figcaption
+aria-hidden="true">/opt/alluxio-2.8.0-0617/logs/master.log</figcaption>
+</figure>
+<h2 id="more">More</h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_43230594/article/details/135968689">linux文件系统中的inode详解</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/dillanzhou/article/details/82856358"><font color=Red>fuse用户态文件系统下ls命令的执行过程分析</font></a></li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/fs/" class="category-chain-item">fs</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/fs/bugs/" class="category-chain-item">bugs</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/fs/bugs/fuse/" class="category-chain-item">fuse</a>
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/">#Java</a>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/bpf/">#bpf</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/bcc/">#bcc</a>
+      
+        <a href="/tags/namespace/">#namespace</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>ls Returns -EIO When Accessing alluxio-fuse</div>
+      <div>https://realwujing.github.io/linux/kernel/fs/bugs/fuse/ls Returns -EIO When Accessing alluxio-fuse/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年3月28日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/kernel/drivers/udl/udl%20mutex_lock%20panic/" title="udl mutex_lock panic">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">udl mutex_lock panic</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/kernel/mm/bugs/237413/237413/" title="237413">
+                        <span class="hidden-mobile">237413</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '96ee3b649ec232647a8a55f6e11898f9'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
