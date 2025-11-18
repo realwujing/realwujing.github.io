@@ -7,7 +7,9 @@
 ## 🗂️ 目录结构
 
 ### 🐧 [Linux](./linux/)
+
 Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
+
 - **[kernel](./linux/kernel/)** - Linux内核开发与源码分析
 - **[performance](./linux/performance/)** - 性能分析工具 (perf, BPF, stap)
 - **[debug](./linux/debug/)** - 调试工具与技术 (GDB, kdump, assembly)
@@ -20,6 +22,7 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 - **[gpu](./linux/gpu/)** - GPU技术 (昇腾)
 
 ### 💻 编程语言
+
 - **[cpp](./cpp/)** - C/C++学习笔记与面试指南
 - **[python](./python/)** - Python开发技术
 - **[go](./go/)** - Go语言学习
@@ -28,21 +31,25 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 - **[javascript](./javascript/)** - JavaScript/前端技术
 
 ### 🏗️ 架构与设计
+
 - **[architect](./architect/)** - 系统架构师学习笔记
   - 操作系统、计算机组成、网络、数据库
   - 系统设计与架构模式
 
 ### 🔧 开发工具与实践
+
 - **[git](./git/)** - Git版本控制
 - **[jenkins](./jenkins/)** - CI/CD持续集成
 - **[nginx](./nginx/)** - Nginx配置与优化
 - **[markdown](./markdown/)** - Markdown文档编写
 
 ### 💾 数据存储
+
 - **[sql](./sql/)** - SQL数据库技术
 - **[redis](./redis/)** - Redis缓存技术
 
 ### 📐 其他技术
+
 - **[3d](./3d/)** - 3D建模与图形学
 - **[algorithm](./algorithm/)** - 算法与数据结构
 - **[patent](./patent/)** - 专利相关
@@ -52,20 +59,24 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 ## 🔥 热门推荐
 
 ### Linux内核与系统
+
 - [Linux内核开发](./linux/kernel/) - 内核源码分析、驱动开发、内存管理
 - [性能分析利器](./linux/performance/bpf/) - BPF/eBPF追踪与性能调优
 - [虚拟化技术](./linux/virtualization/) - KVM、QEMU、Docker、K8s实战
 
 ### 调试与分析
+
 - [GDB调试技巧](./linux/debug/gdb/) - 内核与应用程序调试
 - [汇编语言分析](./linux/debug/assembly/) - 底层代码分析
 - [性能监控](./linux/monitoring/) - 系统监控与日志分析
 
 ### GPU与AI
+
 - [昇腾AI开发](./linux/gpu/ascend/) - 昇腾训练与推理性能调优
 - [机器学习经典](./python/books/) - 周志华《机器学习》西瓜书
 
 ### 开发实践
+
 - [C/C++开发](./cpp/) - 语法、面试、最佳实践
 - [包管理与打包](./linux/distro/pkg/) - deb/rpm包制作
 
