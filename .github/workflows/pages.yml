@@ -37,8 +37,12 @@ jobs:
             file="{}";
             date=$(git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" "$file" | head -1);
             updated=$(git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" "$file" | tail -1);
-            # 从文件名提取标题(去掉路径和.md扩展名)
-            title=$(basename "$file" .md);
+            # 从文件内容中提取第一个# 标题作为title
+            title=$(grep -m 1 "^# " "$file" | sed "s/^# //")
+            # 如果没有找到标题,使用文件名(去掉.md扩展名)
+            if [[ -z "$title" ]]; then
+              title=$(basename "$file" .md)
+            fi
             # 插入front matter,包含title
             sed -i "1i---" "$file";
             sed -i "2ititle: $title" "$file";
@@ -54,21 +58,6 @@ jobs:
           git checkout -b hexo origin/hexo
           rsync -avP  --delete --exclude='.git'--exclude='.github' --exclude='node_modules' --exclude='public' --exclude='source' --exclude='scaffolds' --exclude='themes' --include='*/' --include='*.md' --exclude='*' ../hexo-site/ ./source/_posts/
           rsync -avP ../hexo-site/README.md source/about/index.md
-          # 修复文件名中的点号问题 - 重命名文件但保留title
-          find source/_posts -name "*.md" -type f | while read file; do
-            base=$(basename "$file" .md)
-            # 如果文件名包含点号(Hexo会误认为扩展名分隔符)
-            if [[ "$base" == *.* ]]; then
-              dir=$(dirname "$file")
-              # 文件名中的点号替换为短横线
-              newbase=$(echo "$base" | sed 's/\./-/g')
-              newfile="$dir/$newbase.md"
-              if [[ "$file" != "$newfile" ]]; then
-                mv "$file" "$newfile"
-                echo "Renamed: $file -> $newfile (title preserved in front matter)"
-              fi
-            fi
-          done
           # 修复所有markdown文件中的相对链接为GitHub绝对链接
           python3 scripts/fix_relative_links.py
           pwd
