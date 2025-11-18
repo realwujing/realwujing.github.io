@@ -12,12 +12,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
       - name: Set up Git
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x' # Replace with your desired Python version
         env:
@@ -33,7 +33,24 @@ jobs:
           pwd
           ls -lah
           git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" README.md
-          find . -name "*.md" -exec sh -c 'sed -i "1 i ---\ndate: $(git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" "{}" | head -1)\nupdated: $(git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" "{}" | tail -1)\n---\n" "{}"' \;
+          find . -name "*.md" -exec sh -c '
+            file="{}";
+            date=$(git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" "$file" | head -1);
+            updated=$(git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" "$file" | tail -1);
+            # 从文件内容中提取第一个# 标题作为title
+            title=$(grep -m 1 "^# " "$file" | sed "s/^# //")
+            # 如果没有找到标题,使用文件名(去掉.md扩展名)
+            if [[ -z "$title" ]]; then
+              title=$(basename "$file" .md)
+            fi
+            # 插入front matter,包含title
+            sed -i "1i---" "$file";
+            sed -i "2ititle: $title" "$file";
+            sed -i "3idate: $date" "$file";
+            sed -i "4iupdated: $updated" "$file";
+            sed -i "5i---" "$file";
+            sed -i "6i\ " "$file";
+          ' \;
           rm -rf ../hexo-site
           mkdir ../hexo-site
           cp -r ./* ../hexo-site
@@ -41,23 +58,25 @@ jobs:
           git checkout -b hexo origin/hexo
           rsync -avP  --delete --exclude='.git'--exclude='.github' --exclude='node_modules' --exclude='public' --exclude='source' --exclude='scaffolds' --exclude='themes' --include='*/' --include='*.md' --exclude='*' ../hexo-site/ ./source/_posts/
           rsync -avP ../hexo-site/README.md source/about/index.md
+          # 修复所有markdown文件中的相对链接为GitHub绝对链接
+          python3 scripts/fix_relative_links.py
           pwd
           git status
           git add -A .
           find source -name '*.md'
           git commit -m "feat: bot auto commit"
           git push origin HEAD:bot -u -f
-      - name: Use Node.js 16.x
-        uses: actions/setup-node@v2
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
         with:
-          node-version: "16"
+          node-version: "20"
       - name: Cache NPM dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: node_modules
-          key: ${{ runner.os }}-npm-cache
+          key: ${{ runner.OS }}-npm-cache
           restore-keys: |
-            ${{ runner.os }}-npm-cache
+            ${{ runner.OS }}-npm-cache
       - name: Install pandoc
         run: sudo apt install pandoc
       - name: Install Dependencies
