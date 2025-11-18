@@ -1,4 +1,4 @@
-# bpftrace
+# BPFtrace动态跟踪工具
 
 ## source install
 

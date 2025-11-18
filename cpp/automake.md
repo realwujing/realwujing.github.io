@@ -1,4 +1,4 @@
-# automake
+# Automake与Autoconf构建工具
 
 - [首先要了解为什么要有autoconf，automake这类工具](https://www.cnblogs.com/seaspring/p/13905757.html)
 - [cmake与autoconf+automake的对比](https://blog.csdn.net/cnsword/article/details/7542696#commentBox)

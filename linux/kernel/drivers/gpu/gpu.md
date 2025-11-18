@@ -1,5 +1,6 @@
+# Linux图形系统与GPU驱动
 
-# GUI
+## 图形栈概述
 
 - [深夜磨刀，Linux Graphics Stack 概述 | Linux 驱动](https://zhuanlan.zhihu.com/p/414403029)
 - [深度探索Linux操作系统 —— Linux图形原理探讨](https://blog.csdn.net/Liuqz2009/article/details/134988734)

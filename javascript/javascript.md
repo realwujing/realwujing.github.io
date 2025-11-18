@@ -1,4 +1,4 @@
-# javascript
+# JavaScript前端开发技术
 
 ## node npm
 

@@ -1,4 +1,4 @@
-# gtk
+# GTK+与GLib图形界面开发
 
 ## glib
 

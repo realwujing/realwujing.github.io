@@ -1,4 +1,4 @@
-# vim
+# Vim文本编辑器使用技巧
 
 - [Vim实用技巧（第2版）.pdf](https://gitee.com/tulip-kung/books/blob/main/Vim%E5%AE%9E%E7%94%A8%E6%8A%80%E5%B7%A7%EF%BC%88%E7%AC%AC2%E7%89%88%EF%BC%89.pdf)
 - [设置默认文本编辑器](https://www.debian.org/doc/manuals/debian-reference/ch01.zh-cn.html#_setting_a_default_text_editor)

@@ -1,3 +1,5 @@
+# QProcess进程管理示例
+
 ```bash
 ostree --repo=/deepin/linglong/repo/repo-test refs --delete com.qq.weixin.work.deepin/4.0.0.6007/x86_64 && ostree --repo=/deepin/linglong/repo/repo-test prune --refs-only
 

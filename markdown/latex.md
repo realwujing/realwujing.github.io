@@ -1,4 +1,4 @@
-# latex
+# LaTeX排版系统
 
 - [Ubuntu20.04下 VsCode + LaTeX 的使用](https://zhuanlan.zhihu.com/p/451420916)
 - [How to install LaTex on Ubuntu 20.04 Focal Fossa Linux](https://linuxconfig.org/how-to-install-latex-on-ubuntu-20-04-focal-fossa-linux)

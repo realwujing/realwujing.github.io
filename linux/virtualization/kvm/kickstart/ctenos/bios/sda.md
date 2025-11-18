@@ -1,4 +1,4 @@
-# sda
+# CentOS BIOS磁盘分区配置
 
 ```bash
 df -h

@@ -1,4 +1,4 @@
-# sound
+# Linux音频驱动开发
 
 - [菜鸟也能懂的 - 音视频基础知识。](https://mp.weixin.qq.com/s/HzJyf9QLZYjRsacf_veK4g)
 - [音频基础知识](https://mp.weixin.qq.com/s/_EY5Y9kopd8XvtKPMltQhw)

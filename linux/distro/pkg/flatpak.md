@@ -1,4 +1,4 @@
-# flatpak
+# Flatpak应用打包与沙盒化
 
 ## demo1
 

@@ -1,3 +1,6 @@
+# HDA Codec音频驱动调试与重配置
+
+```bash
 mv /usr/bin/pulseaudio /usr/bin/pulseaudio_bak
 mv /sbin/alsactl /sbin/alsactl_bak
 

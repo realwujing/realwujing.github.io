@@ -1,4 +1,4 @@
-# kernel
+# Linux内核学习资源
 
 - [<font color=Red>6ULL开发板在线教材与源码仓库 使用Debian 野火鲁班猫镜像</font>](https://doc.embedfire.com/products/link/zh/latest/linux/ebf_i.mx6ull_doc.html)
   - [EBF_6ULL开发板快速使用手册](https://doc.embedfire.com/linux/imx6/quick_start/zh/latest/index.html)

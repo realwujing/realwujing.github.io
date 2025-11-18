@@ -1,4 +1,4 @@
-# flatpak
+# Flatpak应用打包与分发
 
 ```plantuml
 @startuml

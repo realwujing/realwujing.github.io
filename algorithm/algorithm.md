@@ -1,4 +1,4 @@
-# algorithm
+# 算法与数据结构学习指南
 
 - [<font color=Red>https://github.com/krahets/hello-algo</font>](https://github.com/krahets/hello-algo)
 - [<font color=Red>《 Hello 算法 》</font>](https://www.hello-algo.com/)

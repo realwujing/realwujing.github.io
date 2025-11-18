@@ -1,3 +1,5 @@
+# 飞腾PMDK DP音频驱动调试
+
 ```c
 dmesg [   63.395481] pmdk_dp PHYT8006:00: ASoC: CODEC DAI i2s-hifi not registered
 sound/soc/soc-core.c:884:dev_err(card->dev, "ASoC: CODEC DAI %s not registered\n",

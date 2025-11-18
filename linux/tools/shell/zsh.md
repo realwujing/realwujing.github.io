@@ -1,4 +1,4 @@
-# zsh
+# Zsh与Oh-My-Zsh配置指南
 
 ## oh-my-zsh
 

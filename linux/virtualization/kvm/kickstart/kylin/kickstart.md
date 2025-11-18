@@ -1,4 +1,4 @@
-# kickstart
+# 麒麟Kickstart自动化安装
 
 ```bash
 virt-install --virt-type kvm \

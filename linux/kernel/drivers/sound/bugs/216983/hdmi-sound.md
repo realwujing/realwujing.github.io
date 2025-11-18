@@ -1,3 +1,5 @@
+# HDMI音频调试日志分析
+
 ```text
 [四 11月  9 18:16:25 2023] snd_hda_codec_hdmi hdaudioC0D0: HDMI status: Codec=0 Pin=3 Presence_Detect=1 ELD_Valid=1
 [四 11月  9 18:16:25 2023] snd_hda_codec_hdmi hdaudioC0D0: HDMI: detected monitor  at connection type HDMI

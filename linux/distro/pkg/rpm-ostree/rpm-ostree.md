@@ -1,4 +1,4 @@
-# rpm-ostree
+# RPM-OSTree镜像系统
 
 ## 官网
 

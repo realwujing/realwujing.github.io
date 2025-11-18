@@ -1,4 +1,4 @@
-# Redis
+# Redis缓存数据库
 
 - [Redis常见面试题](https://www.cnblogs.com/jasontec/p/9699242.html)
 - [redis面试必问](https://www.cnblogs.com/telwanggs/p/10642382.html)

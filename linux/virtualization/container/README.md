@@ -1,1 +1,1 @@
-# namespace
+# Linux Namespace容器隔离技术

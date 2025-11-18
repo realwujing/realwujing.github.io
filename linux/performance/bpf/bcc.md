@@ -1,4 +1,4 @@
-# bcc
+# BCC (BPF Compiler Collection)
 
 [BPF Compiler Collection (BCC)](https://github.com/iovisor/bcc.git)
 

@@ -1,4 +1,4 @@
-# linglong
+# 玲珑应用包管理系统
 
 ```plantuml
 @startuml

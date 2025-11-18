@@ -1,3 +1,5 @@
+# CMake编译选项与Objdump调试
+
 test cmake .. -DCMAKE_BUILD_TYPE=Release
 
 test1 cmake .. -DCMAKE_BUILD_TYPE=Debug

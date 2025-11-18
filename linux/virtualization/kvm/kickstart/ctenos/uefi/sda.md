@@ -1,4 +1,4 @@
-# sda
+# CentOS UEFI磁盘分区配置
 
 ```bash
 [root@centos ~]# df -h

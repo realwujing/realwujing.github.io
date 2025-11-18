@@ -1,4 +1,4 @@
-# kubernetes
+# Kubernetes容器编排平台
 
 - [<font color=Red>学习 Kubernetes 基础知识</font>](https://kubernetes.io/zh-cn/docs/tutorials/kubernetes-basics/)
 - [Kubernetes中文社区|中文文档](http://docs.kubernetes.org.cn/)

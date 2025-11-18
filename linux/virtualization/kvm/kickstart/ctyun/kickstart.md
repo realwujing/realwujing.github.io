@@ -1,4 +1,4 @@
-# kickstart
+# Kickstart自动化安装系统
 
 使用kickstart自动安装ctyunos-22.06-230117-aarch64:
 ```bash
