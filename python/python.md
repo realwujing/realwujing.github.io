@@ -114,6 +114,10 @@ conda config --append channels conda-forge
 - [机器学习 周志华.pdf](https://git.nju.edu.cn/201300035/NJUAI-Notes/-/blob/master/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%20%E5%91%A8%E5%BF%97%E5%8D%8E.pdf)
 - [《机器学习》PDF下载(西瓜书)](https://pdfs.top/book/dpdyt)
 
+### stanford-cs336
+
+- [CS336: Language Modeling from Scratch Stanford / Spring 2025](https://stanford-cs336.github.io/spring2025/index.html#schedule)
+
 ## deepseek
 
 - [基于WSL2上的Docker部署DeepSeek镜像，亲测可用](https://blog.csdn.net/BigCookies/article/details/145512825)
