@@ -2011,6 +2011,34 @@ rsync -avzP -e 'ssh -p 10000' linux-y.tar.gz root@10.63.8.158:/inf/yql/code
 - [首页>向日葵> Linux及国产化系统> Linux个人版（命令行版本）使用手册](https://service.oray.com/question/11017.html)
 - [记录vscode连接Linux主机错误](https://blog.csdn.net/m0_49029335/article/details/137024530)
 
+#### Windows 11 使用 WSL2 Ubuntu 中的 SSH 配置
+
+**在 PowerShell（管理员权限）中执行：**
+
+```powershell
+# 删除现有配置文件
+Remove-Item C:\Users\17895\.ssh\config
+
+# 创建符号链接指向 WSL 中的配置
+New-Item -ItemType SymbolicLink -Path "C:\Users\17895\.ssh\config" -Target "\\wsl.localhost\Ubuntu-24.04\home\wujing\code\config\ssh\config"
+```
+
+**测试连接：**
+
+```powershell
+ssh taiding
+```
+
+##### 说明
+
+- 通过符号链接实现配置共享
+- Windows 直接使用 WSL 中的 SSH 配置文件
+- 保持配置统一，便于管理
+
+##### 验证效果
+
+命令执行成功后，Windows 11 即可使用 WSL2 Ubuntu 中的 SSH 配置进行连接。
+
 ### termux
 
 - [Termux 上运行SSH Server](https://zhuanlan.zhihu.com/p/226393968)
