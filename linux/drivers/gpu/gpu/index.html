@@ -1,0 +1,1052 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="Linux图形系统与GPU驱动 图形栈概述  深夜磨刀，Linux Graphics Stack 概述 | Linux 驱动 深度探索Linux操作系统 —— Linux图形原理探讨 GPU入门  桌面环境  Desktop environment (简体中文) 【转】四大Linux图形界面赏析：KDE、Gnome、Xfce、LXDE GTK、KDE、Gnome、XWindows图形界面 Linu">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux图形系统与GPU驱动">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/gpu/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="Linux图形系统与GPU驱动 图形栈概述  深夜磨刀，Linux Graphics Stack 概述 | Linux 驱动 深度探索Linux操作系统 —— Linux图形原理探讨 GPU入门  桌面环境  Desktop environment (简体中文) 【转】四大Linux图形界面赏析：KDE、Gnome、Xfce、LXDE GTK、KDE、Gnome、XWindows图形界面 Linu">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-11-21T18:06:27.000Z">
+<meta property="article:modified_time" content="2025-11-21T18:06:27.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="HTML">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="qemu">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="linux">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>Linux图形系统与GPU驱动 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Linux图形系统与GPU驱动"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-11-21 18:06" pubdate>
+          2025年11月21日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.1k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          18 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">Linux图形系统与GPU驱动</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="linux图形系统与gpu驱动">Linux图形系统与GPU驱动</h1>
+<h2 id="图形栈概述">图形栈概述</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/414403029">深夜磨刀，Linux
+Graphics Stack 概述 | Linux 驱动</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/Liuqz2009/article/details/134988734">深度探索Linux操作系统
+—— Linux图形原理探讨</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://qiankunli.github.io/2021/08/18/gpu.html">GPU入门</a></li>
+</ul>
+<h2 id="桌面环境">桌面环境</h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://wiki.archlinux.org/title/Desktop_environment_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)"><font color=Red>Desktop
+environment (简体中文)</font></a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/chantal20080409/article/details/82986283">【转】四大Linux图形界面赏析：KDE、Gnome、Xfce、LXDE</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/iteye_4195/article/details/82522264"><font color=Red>GTK、KDE、Gnome、XWindows图形界面</font></a></li>
+<li><a
+target="_blank" rel="noopener" href="http://c.biancheng.net/view/2912.html">Linux桌面环境（桌面系统）大比拼[附带优缺点]</a></li>
+</ul>
+<h3 id="gnome-桌面">GNOME 桌面</h3>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo apt install task-gnome-desktop<br></code></pre></td></tr></table></figure>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://wiki.debian.org/zh_CN/Gnome">https://wiki.debian.org/zh_CN/Gnome</a></li>
+</ul>
+<h3 id="显示管理器">显示管理器</h3>
+<ul>
+<li><p><a
+target="_blank" rel="noopener" href="http://www.javashuo.com/article/p-yftqzthz-cp.html"><font color=Red>Linux图形界面：X,X11,XFREE,WM,KDE,GNOME的关系</font></a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/272740410"><font color=Red>Linux
+知识分享：显示管理器和桌面环境容易混淆？分分钟带你脱离认识误区</font></a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://www.toutiao.com/article/7174576146997625352"><font color=Red>「小白课程」openKylin登录&amp;锁屏简要介绍</font></a></p></li>
+</ul>
+<h3 id="显示服务器">显示服务器</h3>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://www.toutiao.com/article/6869367787744133636/">Linux黑话解释：什么是显示服务器，用来做什么？</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/sunxiaopengsun/article/details/119895985">X11和Wayland的区别，一点感悟</a></li>
+</ul>
+<h4 id="x11">x11</h4>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/u014305876/article/details/89475789"><font color=Red>linux图形窗口这家子(xwindows
+x11 xserver xclient窗口管理器 xdm xwm kde QT GTK+)</font></a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.cnblogs.com/newjiang/p/8414625.html">Linux图像系统框架-理解X11与Qt的层次结构</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/yongpenghan/p/4555634.html">[GUI]
+QT事件与X11的关系</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.cnblogs.com/winafa/p/14206600.html">Qt主线程卡死，竟然与X11的_XReply()有关</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/moyu123456789/article/details/90483108">Xsession
+:warning:unable to write to /tmp; X session may exit with an
+error问题解决</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.cnblogs.com/yutian-blogs/p/13549657.html">Ubuntu系统开机后类似死机（鼠标键盘失效
+但系统时间仍在正常更新）解决办法</a></li>
+</ul>
+<h5 id="multiseat">multiseat</h5>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://wiki.archlinux.org/title/Xorg_multiseat">Xorg
+multiseat</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://wiki.debian.org/Multi_Seat_Debian_HOWTO">Multi_Seat_Debian_HOWTO</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://kcore.org/2010/04/04/multiseat-on-debian/">Multiseat on
+Debian</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://help.ubuntu.com/community/MultiseatOneCard">MultiseatOneCard
+多座一卡</a></li>
+</ul>
+<h5 id="窗口管理器">窗口管理器</h5>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://wiki.archlinux.org/title/Window_manager_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)"><font color=Red>Window
+manager (简体中文)</font></a></li>
+<li><a
+target="_blank" rel="noopener" href="https://my.oschina.net/aspirs/blog/607710">linux（ubuntu）系统什么叫：桌面管理器，窗口管理器？</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://geek-docs.com/linux/linux-ask-answer/difference-between-desktop-environment-vs-window-manager-in-linux.html">Linux中桌面环境和窗口管理器的区别</a></li>
+</ul>
+<h4 id="wayland">wayland</h4>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_36156325/article/details/116895549">linux
+wayland qt,详解Qt Lighthouse和Wayland</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/yogoloth/article/details/105683815">通过docker使用wayland和x11的gui程序</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/qq_26056015/article/details/122406051">Wayland开发入门系列4：xserver</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/qq_26056015/category_11559440.html"><font color=Red>Wayland开发入门</font></a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.baike.com/wikiid/3479851875664899506">Wayland是一个简单的“显示服务器”（Display
+Server）</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/M120674/article/details/123534336">Linux图形栈一览：基于DRM和Wayland</a></li>
+</ul>
+<h2 id="gpu">gpu</h2>
+<ul>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/yangguoyu8023/article/details/129241987">Linux图形显示系统之DRM</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/tugouxp/article/details/126594480">GPGPU&amp;&amp;渲染GPU的工作原理和认知总结</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://www.toutiao.com/article/6973922609868063264">Linux显卡驱动，DRM显示框架简单介绍</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://www.toutiao.com/article/6982072379140784670">Linux显卡驱动，DRM
+Atomic接口简说</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://www.toutiao.com/article/6989969291902763558">Linux显卡驱动，TTM内存管理介绍</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/xuelin273/article/details/131297186">drm gpu
+scheduler</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/_oe409y93Qm5l3j3o_-P8Q">GPU
+调度 - Linux 实现</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/IHardB0dyky8fhgQkU55pw">【干货】一文看懂GPU流处理器</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/bNGBoeKnvcEB7prpDeAXeQ">【干货】三张图看懂主流GPU性能</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/xGwaaaaMED23dNbO9wNICg">【干货】一文看懂CPU与GPU异构计算</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/apXuHnOTpKq0Za8VsFhM0A">Linux
+显示子系统之 Framebuffer 与 DRM</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/u012839187/article/details/89875800">Linux
+GPU Driver Developer’s Guide</a></p></li>
+</ul>
+<h3 id="ai">ai</h3>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/chenzomi12/AISystem.git">AISystem
+主要是指AI系统，包括AI芯片、AI编译器、AI推理和训练框架等AI全栈底层技术</a>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://chenzomi12.github.io/"
+class="uri">https://chenzomi12.github.io/</a></li>
+</ul></li>
+</ul>
+<h3 id="admgpu">admgpu</h3>
+<p>在 AMD GPU 驱动中，gfx（Graphics Core Next） Ring Buffer 和
+uvd（Unified Video Decoder） Ring Buffer 分别用于图形和视频解码任务，是
+GPU 调度器中的两个不同的环形缓冲区。以下是它们之间的主要区别：</p>
+<p>gfx Ring Buffer（图形环形缓冲区）:</p>
+<ul>
+<li>用途： 用于处理图形渲染和计算任务。</li>
+<li>任务类型： 包括图形渲染管道中的图形指令和通用计算任务。</li>
+<li>关联的任务： 与图形 API（如
+OpenGL、Vulkan）相关联，用于执行图形任务。</li>
+</ul>
+<p>uvd Ring Buffer（视频解码环形缓冲区）:</p>
+<ul>
+<li>用途： 用于处理硬件视频解码任务。</li>
+<li>任务类型： 专注于解码视频流，支持 Unified Video
+Decoder（UVD）功能。</li>
+<li>关联的任务： 与视频解码 API
+相关，例如在视频播放中执行解码任务。</li>
+</ul>
+<p>总的来说，这两个环形缓冲区服务于不同类型的 GPU 任务。gfx Ring Buffer
+处理与图形渲染和通用计算相关的任务，而 uvd Ring Buffer
+专门处理硬件视频解码任务。它们在 GPU
+调度器中的调度和执行上有所区别，以满足图形和视频处理的不同需求。</p>
+<ul>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/huang987246510/article/details/106658889"><font color=Red>AMD
+GPU任务调度（1）—— 用户态分析</font></a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/huang987246510/article/details/106737570"><font color=Red>AMD
+GPU任务调度（2）—— 内核态分析</font></a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/huang987246510/article/details/106865386">AMD
+GPU任务调度（3） —— fence机制</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/tugouxp/article/details/132819114"><font color=Red>AMD
+GPU 内核驱动分析(一)总览</font></a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/tugouxp/article/details/132953439">AMD GPU
+内核驱动分析(二)-video-ring的调度</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/tugouxp/article/details/133519133">AMD GPU
+内核驱动分析(三)-gpu scheduler ring fence同步工作模型</a></p></li>
+</ul>
+<h4 id="virtio">virtio</h4>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/huang987246510/article/details/106179145">VFIO硬件依赖——IOMMU机制</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/huang987246510/article/details/106254294">VirtIO-GPU
+—— 2D加速原理分析</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/huang987246510/article/details/106245900">VirtIO-GPU环境搭建与应用</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/huang987246510/article/details/106322012">Hello
+OpenGL</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/huang987246510/article/details/107729881">VirtIO
+GPU基本原理</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/huang987246510/article/details/107283374">DRAW_INDEX与图形流水线</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://eshard.com/posts/Android-graphical-stack-virtualization">Android
+graphical stack and qemu virtualization</a></li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/">#Java</a>
+      
+        <a href="/tags/HTML/">#HTML</a>
+      
+        <a href="/tags/Linux/">#Linux</a>
+      
+        <a href="/tags/qemu/">#qemu</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Linux图形系统与GPU驱动</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/gpu/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年11月21日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/acpi/power_button/" title="power_button">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">power_button</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/%E6%98%BE%E7%A4%BA%E5%8A%9F%E8%83%BD%E5%AD%A6%E4%B9%A0comments/" title="显示功能学习comments">
+                        <span class="hidden-mobile">显示功能学习comments</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: 'acd28e4c514834ab5cb508700059502c'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
