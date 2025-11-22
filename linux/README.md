@@ -65,7 +65,8 @@ Linux发行版相关
 
 GPU相关技术
 
-- [ascend](./gpu/ascend/): 昇腾AI加速卡
+- [昇腾AI开发](./drivers/gpu/ascend/) - 昇腾训练与推理性能调优
+
 
 ### ⚙️ [kernel](./kernel/)
 

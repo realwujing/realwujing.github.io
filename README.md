@@ -14,12 +14,12 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 - **[performance](./linux/performance/)** - 性能分析工具 (perf, BPF, stap)
 - **[debug](./linux/debug/)** - 调试工具与技术 (GDB, kdump, assembly)
 - **[virtualization](./linux/virtualization/)** - 虚拟化技术 (KVM, Docker, K8s)
+- **[drivers](./linux/drivers/)** - 设备驱动开发 (GPU, 声卡, 字符设备等)
 - **[boot](./linux/boot/)** - 系统启动与GRUB
 - **[monitoring](./linux/monitoring/)** - 系统监控与日志分析
 - **[testing](./linux/testing/)** - Linux测试框架 (LTP)
 - **[tools](./linux/tools/)** - 日常工具配置 (shell, vim, tmux, ssh)
 - **[distro](./linux/distro/)** - 发行版相关 (deepin, 包管理)
-- **[gpu](./linux/gpu/)** - GPU技术 (昇腾)
 
 ### 💻 编程语言
 
@@ -53,7 +53,6 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 - **[3d](./3d/)** - 3D建模与图形学
 - **[algorithm](./algorithm/)** - 算法与数据结构
 - **[patent](./patent/)** - 专利相关
-- **[source](./source/)** - 源码阅读与分析
 - **[svn](./svn/)** - SVN版本控制
 
 ## 🔥 热门推荐
@@ -72,7 +71,7 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 
 ### GPU与AI
 
-- [昇腾AI开发](./linux/gpu/ascend/) - 昇腾训练与推理性能调优
+- [昇腾AI开发](./linux/drivers/gpu/ascend/) - 昇腾训练与推理性能调优
 - [机器学习经典](./python/books/) - 周志华《机器学习》西瓜书
 
 ### 开发实践
@@ -135,9 +134,9 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 ### GPU、AI与机器学习
 
 - [通用图形处理器设计GPGPU编程模型与架构原理](./linux/kernel/books/（已压缩）通用图形处理器设计GPGPU编程模型与架构原理.pdf)
-- [昇腾训练性能调优(Pytorch) 赋能](./linux/gpu/ascend/昇腾训练性能调优(Pytorch)%20赋能.pdf)
-- [昇腾推理服务化profiling快速入门](./linux/gpu/ascend/昇腾推理服务化profiling快速入门.docx)
-- [昇腾推理服务化参数自动寻优](./linux/gpu/ascend/昇腾推理服务化参数自动寻优.pptx)
+- [昇腾训练性能调优(Pytorch) 赋能](./linux/drivers/gpu/ascend/昇腾训练性能调优(Pytorch)%20赋能.pdf)
+- [昇腾推理服务化profiling快速入门](./linux/drivers/gpu/ascend/昇腾推理服务化profiling快速入门.docx)
+- [昇腾推理服务化参数自动寻优](./linux/drivers/gpu/ascend/昇腾推理服务化参数自动寻优.pptx)
 - [机器学习 周志华](./python/books/机器学习%20周志华.pdf)
 - [《机器学习》PDF下载(西瓜书)](https://pdfs.top/book/dpdyt)
 
