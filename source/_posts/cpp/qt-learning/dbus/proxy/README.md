@@ -1,8 +1,9 @@
 ---
-date: 2023/02/01 13:37:53
+title: 使用工具qdbuscpp2xml从object.h生成XML文件
+date: 2023/04/21 15:49:27
 updated: 2023/04/21 15:49:27
 ---
-
+ 
 # 使用工具qdbuscpp2xml从object.h生成XML文件
 qdbuscpp2xml -M ../qdbus/test.h -o com.scorpio.test.xml
 

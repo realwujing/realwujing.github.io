@@ -1,8 +1,9 @@
 ---
-date: 2023/02/01 13:37:53
+title: std::thread "Hello world"
+date: 2023/04/21 15:49:27
 updated: 2023/04/21 15:49:27
 ---
-
+ 
 # std::thread "Hello world"
 
 下面是一个最简单的使用 std::thread 类的例子：

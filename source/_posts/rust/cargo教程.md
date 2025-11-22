@@ -1,8 +1,9 @@
 ---
+title: cargo教程
 date: 2023/04/21 11:06:04
 updated: 2023/04/21 11:06:04
 ---
-
+ 
 # cargo教程
 
 - [Cargo 中文文档](https://cargo.budshome.com/index.html#cargo-%E4%B8%AD%E6%96%87%E6%96%87%E6%A1%A3)

@@ -1,8 +1,9 @@
 ---
+title: mysql教程
 date: 2023/04/21 11:49:33
 updated: 2023/04/21 12:24:39
 ---
-
+ 
 # mysql教程
 
 ## Mysql安装

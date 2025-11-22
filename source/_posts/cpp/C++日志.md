@@ -1,8 +1,9 @@
 ---
-date: 2023/02/01 13:37:53
+title: C++日志
+date: 2023/04/22 22:55:57
 updated: 2023/04/22 22:55:57
 ---
-
+ 
 # C++日志
 
 - [<font color=Red>C++重载<<和>>（C++重载输出运算符和输入运算符） (biancheng.net)</font>](http://c.biancheng.net/view/242.html)
