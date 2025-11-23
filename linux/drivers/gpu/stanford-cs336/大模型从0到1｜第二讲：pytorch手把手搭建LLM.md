@@ -4,1806 +4,1224 @@
 
 ---
 
-## 第一部分：语言模型基础
+## 课程概述
 
-### 1. 什么是语言模型？
+**上节课回顾：** 课程概述、Tokenization
 
-**定义**：语言模型是一个概率分布，用于预测文本序列的可能性。
+**本讲概览：**
+- 讨论训练模型所需的所有**原语（primitives）**
+- 自底向上：从张量 → 模型 → 优化器 → 训练循环
+- 密切关注效率（**资源**使用）
 
-**数学表示**：
-```
-P(w₁, w₂, ..., wₙ) = P(w₁) × P(w₂|w₁) × P(w₃|w₁,w₂) × ... × P(wₙ|w₁,...,wₙ₋₁)
-```
-
-**核心任务**：给定前面的词（上下文），预测下一个词的概率分布。
-
-**应用场景**：
-- 文本生成（如ChatGPT）
-- 机器翻译
-- 文本补全
-- 问答系统
-- 代码生成
-
-### 2. 自回归语言模型（Autoregressive Language Model）
-
-**核心思想**：从左到右，逐个生成Token，每次生成都依赖于之前生成的所有Token。
-
-**生成过程**：
-```
-输入: "The cat"
-步骤1: P(sat | The cat) → 生成 "sat"
-步骤2: P(on | The cat sat) → 生成 "on"
-步骤3: P(the | The cat sat on) → 生成 "the"
-步骤4: P(mat | The cat sat on the) → 生成 "mat"
-```
-
-
-**优点**：
-- 生成质量高，符合语言的自然流畅性
-- 训练简单，只需要大量文本数据
-- 可以生成任意长度的文本
-
-**代表模型**：GPT系列、Llama、PaLM
+**两类资源：**
+1. **内存（Memory）** - GB
+2. **计算（Compute）** - FLOPs
 
 ---
 
-## 第二部分：Transformer架构详解
+## 动机问题
 
-### 1. Transformer的整体结构
+让我们做一些粗略计算：
 
-Transformer是现代大语言模型的核心架构，由Google在2017年的论文"Attention is All You Need"中提出。
+### 问题 1：训练时间估算
 
-**核心组件**：
-1. **Token Embedding**：将Token ID转换为向量
-2. **Position Embedding**：为每个位置添加位置信息
-3. **Transformer Blocks**：多层堆叠的注意力和前馈网络
-4. **Layer Normalization**：归一化层
-5. **Output Layer**：预测下一个Token的概率分布
-
-**架构图**：
-```
-输入Token IDs
-    ↓
-Token Embedding + Position Embedding
-    ↓
-Transformer Block 1
-    ↓
-Transformer Block 2
-    ↓
-    ...
-    ↓
-Transformer Block N
-    ↓
-Layer Norm
-    ↓
-输出层（预测下一个Token）
-```
-
-### 2. Token Embedding（词嵌入）
-
-**作用**：将离散的Token ID转换为连续的向量表示。
-
-**实现**：
-```python
-import torch
-import torch.nn as nn
-
-class TokenEmbedding(nn.Module):
-    def __init__(self, vocab_size, d_model):
-        super().__init__()
-        self.embedding = nn.Embedding(vocab_size, d_model)
-        self.d_model = d_model
-    
-    def forward(self, x):
-        # x: [batch_size, seq_len]
-        # 输出: [batch_size, seq_len, d_model]
-        return self.embedding(x) * (self.d_model ** 0.5)
-```
-
-
-**参数说明**：
-- `vocab_size`：词汇表大小（如32000）
-- `d_model`：嵌入维度（如512、768、1024等）
-- 乘以 `sqrt(d_model)` 是为了缩放，使得嵌入和位置编码的量级相当
-
-**示例**：
-```python
-vocab_size = 32000
-d_model = 512
-embedding = TokenEmbedding(vocab_size, d_model)
-
-# 输入: [batch_size=2, seq_len=10]
-input_ids = torch.randint(0, vocab_size, (2, 10))
-output = embedding(input_ids)
-print(output.shape)  # torch.Size([2, 10, 512])
-```
-
-### 3. Position Embedding（位置编码）
-
-**为什么需要位置编码？**
-- Transformer的自注意力机制本身是位置无关的
-- 需要显式地告诉模型每个Token的位置信息
-- "I love you" 和 "you love I" 应该有不同的表示
-
-**两种主流方法**：
-
-#### 3.1 绝对位置编码（Absolute Position Encoding）
-
-**正弦位置编码（Sinusoidal）**：
-```python
-import math
-
-class SinusoidalPositionEncoding(nn.Module):
-    def __init__(self, d_model, max_len=5000):
-        super().__init__()
-        # 创建位置编码矩阵
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len).unsqueeze(1).float()
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * 
-                            -(math.log(10000.0) / d_model))
-        
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        
-        self.register_buffer('pe', pe.unsqueeze(0))
-    
-    def forward(self, x):
-        # x: [batch_size, seq_len, d_model]
-        return x + self.pe[:, :x.size(1)]
-```
-
-
-**可学习位置编码（Learned Position Encoding）**：
-```python
-class LearnedPositionEncoding(nn.Module):
-    def __init__(self, d_model, max_len=5000):
-        super().__init__()
-        self.position_embedding = nn.Embedding(max_len, d_model)
-    
-    def forward(self, x):
-        # x: [batch_size, seq_len, d_model]
-        batch_size, seq_len, _ = x.size()
-        positions = torch.arange(seq_len, device=x.device).unsqueeze(0)
-        return x + self.position_embedding(positions)
-```
-
-**对比**：
-| 方法 | 优点 | 缺点 | 使用模型 |
-| :--- | :--- | :--- | :--- |
-| 正弦位置编码 | 可以外推到更长序列 | 固定，不可学习 | 原始Transformer |
-| 可学习位置编码 | 可以学习最优表示 | 无法外推到训练时未见过的长度 | GPT-2, BERT |
-
-#### 3.2 相对位置编码（Relative Position Encoding）
-
-现代模型（如GPT-3、Llama）更倾向于使用相对位置编码，在注意力计算中直接编码相对位置关系。
-
-### 4. Self-Attention（自注意力机制）
-
-**核心思想**：让每个Token关注序列中的所有其他Token，学习它们之间的关系。
-
-**数学公式**：
-```
-Attention(Q, K, V) = softmax(QK^T / √d_k) V
-```
-
-**三个关键矩阵**：
-- **Q (Query)**：查询矩阵，"我想要什么信息"
-- **K (Key)**：键矩阵，"我有什么信息"
-- **V (Value)**：值矩阵，"我的信息内容是什么"
-
-
-**PyTorch实现**：
-```python
-class SelfAttention(nn.Module):
-    def __init__(self, d_model, d_k):
-        super().__init__()
-        self.d_k = d_k
-        self.W_q = nn.Linear(d_model, d_k)
-        self.W_k = nn.Linear(d_model, d_k)
-        self.W_v = nn.Linear(d_model, d_k)
-    
-    def forward(self, x, mask=None):
-        # x: [batch_size, seq_len, d_model]
-        Q = self.W_q(x)  # [batch_size, seq_len, d_k]
-        K = self.W_k(x)  # [batch_size, seq_len, d_k]
-        V = self.W_v(x)  # [batch_size, seq_len, d_k]
-        
-        # 计算注意力分数
-        scores = torch.matmul(Q, K.transpose(-2, -1)) / (self.d_k ** 0.5)
-        # scores: [batch_size, seq_len, seq_len]
-        
-        # 应用mask（用于因果注意力）
-        if mask is not None:
-            scores = scores.masked_fill(mask == 0, float('-inf'))
-        
-        # Softmax归一化
-        attention_weights = torch.softmax(scores, dim=-1)
-        
-        # 加权求和
-        output = torch.matmul(attention_weights, V)
-        # output: [batch_size, seq_len, d_k]
-        
-        return output, attention_weights
-```
-
-**注意力可视化示例**：
-```
-输入: "The cat sat on the mat"
-
-Token "sat" 的注意力权重:
-The:  0.05
-cat:  0.35  ← 高权重，"sat"关注主语"cat"
-sat:  0.20
-on:   0.10
-the:  0.05
-mat:  0.25  ← 高权重，"sat"关注宾语"mat"
-```
-
-
-### 5. Causal Attention（因果注意力/掩码注意力）
-
-**为什么需要因果注意力？**
-- 在自回归语言模型中，生成第i个Token时，只能看到前i-1个Token
-- 不能"偷看"未来的Token，否则训练和推理不一致
-
-**实现方式**：使用下三角掩码矩阵
+**问题：** 在 1024 个 H100 上训练 70B 参数模型，使用 15T token，需要多长时间？
 
 ```python
-def create_causal_mask(seq_len):
-    """创建因果掩码矩阵"""
-    mask = torch.tril(torch.ones(seq_len, seq_len))
-    return mask  # 下三角矩阵，1表示可见，0表示不可见
+# 总 FLOPs = 6 × 参数量 × token 数
+total_flops = 6 * 70e9 * 15e12  # 6.3e24 FLOPs
 
-# 示例
-mask = create_causal_mask(5)
-print(mask)
-# tensor([[1., 0., 0., 0., 0.],
-#         [1., 1., 0., 0., 0.],
-#         [1., 1., 1., 0., 0.],
-#         [1., 1., 1., 1., 0.],
-#         [1., 1., 1., 1., 1.]])
+# H100 性能
+h100_flop_per_sec = 1979e12 / 2  # 989.5 TFLOP/s（无稀疏性）
+
+# 模型 FLOPs 利用率（MFU）
+mfu = 0.5
+
+# 每天的 FLOPs
+flops_per_day = h100_flop_per_sec * mfu * 1024 * 60 * 60 * 24
+# ≈ 4.37e22 FLOPs/day
+
+# 所需天数
+days = total_flops / flops_per_day  # ≈ 144 天
 ```
-
-**可视化**：
-```
-位置:  0    1    2    3    4
-      [T0] [T1] [T2] [T3] [T4]
-
-T0 可以看到: T0
-T1 可以看到: T0, T1
-T2 可以看到: T0, T1, T2
-T3 可以看到: T0, T1, T2, T3
-T4 可以看到: T0, T1, T2, T3, T4
-```
-
-### 6. Multi-Head Attention（多头注意力）
-
-**核心思想**：使用多个注意力头，让模型从不同的表示子空间学习信息。
-
-**为什么需要多头？**
-- 单个注意力头可能只关注某一种模式（如语法关系）
-- 多个头可以同时关注不同的模式（语法、语义、位置等）
-- 类似于CNN中的多个卷积核
-
-
-**PyTorch实现**：
-```python
-class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model, num_heads):
-        super().__init__()
-        assert d_model % num_heads == 0, "d_model必须能被num_heads整除"
-        
-        self.d_model = d_model
-        self.num_heads = num_heads
-        self.d_k = d_model // num_heads
-        
-        # 为所有头创建Q、K、V的投影矩阵
-        self.W_q = nn.Linear(d_model, d_model)
-        self.W_k = nn.Linear(d_model, d_model)
-        self.W_v = nn.Linear(d_model, d_model)
-        
-        # 输出投影
-        self.W_o = nn.Linear(d_model, d_model)
-    
-    def forward(self, x, mask=None):
-        batch_size, seq_len, d_model = x.size()
-        
-        # 线性投影并分割成多个头
-        # [batch_size, seq_len, d_model] -> [batch_size, num_heads, seq_len, d_k]
-        Q = self.W_q(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        K = self.W_k(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        V = self.W_v(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        
-        # 计算注意力
-        scores = torch.matmul(Q, K.transpose(-2, -1)) / (self.d_k ** 0.5)
-        
-        if mask is not None:
-            scores = scores.masked_fill(mask == 0, float('-inf'))
-        
-        attention_weights = torch.softmax(scores, dim=-1)
-        attention_output = torch.matmul(attention_weights, V)
-        
-        # 合并多个头
-        # [batch_size, num_heads, seq_len, d_k] -> [batch_size, seq_len, d_model]
-        attention_output = attention_output.transpose(1, 2).contiguous().view(
-            batch_size, seq_len, d_model
-        )
-        
-        # 输出投影
-        output = self.W_o(attention_output)
-        
-        return output
-```
-
-
-**参数配置示例**：
-| 模型 | d_model | num_heads | d_k (每个头) |
-| :--- | :--- | :--- | :--- |
-| GPT-2 Small | 768 | 12 | 64 |
-| GPT-2 Medium | 1024 | 16 | 64 |
-| GPT-2 Large | 1280 | 20 | 64 |
-| GPT-3 | 12288 | 96 | 128 |
-
-### 7. Feed-Forward Network（前馈网络）
-
-**作用**：在注意力层之后，对每个位置独立地应用非线性变换。
-
-**结构**：两层全连接网络 + 激活函数（通常是GELU或ReLU）
-
-**PyTorch实现**：
-```python
-class FeedForward(nn.Module):
-    def __init__(self, d_model, d_ff, dropout=0.1):
-        super().__init__()
-        self.linear1 = nn.Linear(d_model, d_ff)
-        self.linear2 = nn.Linear(d_ff, d_model)
-        self.dropout = nn.Dropout(dropout)
-        self.activation = nn.GELU()  # 或 nn.ReLU()
-    
-    def forward(self, x):
-        # x: [batch_size, seq_len, d_model]
-        x = self.linear1(x)           # [batch_size, seq_len, d_ff]
-        x = self.activation(x)
-        x = self.dropout(x)
-        x = self.linear2(x)           # [batch_size, seq_len, d_model]
-        x = self.dropout(x)
-        return x
-```
-
-**参数说明**：
-- `d_ff`（前馈维度）通常是 `d_model` 的4倍
-- 例如：d_model=768, d_ff=3072
-
-**为什么需要前馈网络？**
-- 注意力机制是线性的（加权求和）
-- 前馈网络引入非线性，增强模型的表达能力
-- 可以看作是对每个位置进行独立的特征变换
-
-
-### 8. Layer Normalization（层归一化）
-
-**作用**：稳定训练，加速收敛。
-
-**PyTorch实现**：
-```python
-class LayerNorm(nn.Module):
-    def __init__(self, d_model, eps=1e-6):
-        super().__init__()
-        self.gamma = nn.Parameter(torch.ones(d_model))
-        self.beta = nn.Parameter(torch.zeros(d_model))
-        self.eps = eps
-    
-    def forward(self, x):
-        # x: [batch_size, seq_len, d_model]
-        mean = x.mean(dim=-1, keepdim=True)
-        std = x.std(dim=-1, keepdim=True)
-        return self.gamma * (x - mean) / (std + self.eps) + self.beta
-```
-
-**两种LayerNorm位置**：
-
-**Pre-LN（现代模型常用）**：
-```
-x → LayerNorm → Attention → Add → LayerNorm → FFN → Add
-```
-
-**Post-LN（原始Transformer）**：
-```
-x → Attention → Add → LayerNorm → FFN → Add → LayerNorm
-```
-
-**Pre-LN的优势**：
-- 训练更稳定
-- 不需要学习率预热（warmup）
-- 更容易训练深层网络
-
-### 9. Residual Connection（残差连接）
-
-**作用**：缓解梯度消失问题，使得深层网络更容易训练。
-
-**实现**：
-```python
-# 在Transformer Block中
-x = x + attention(layer_norm(x))  # 残差连接
-x = x + ffn(layer_norm(x))        # 残差连接
-```
-
-**为什么有效？**
-- 提供梯度的"高速公路"，直接传播到前面的层
-- 允许模型学习"增量"而不是完整的变换
-- 使得训练100层以上的模型成为可能
-
 
 ---
 
-## 第三部分：完整的Transformer Block实现
+### 问题 2：内存容量估算
 
-### 1. 单个Transformer Block
+**问题：** 使用 AdamW 在 8 个 H100 上能训练多大的模型？
 
 ```python
-class TransformerBlock(nn.Module):
-    def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
-        super().__init__()
-        
-        # 多头注意力
-        self.attention = MultiHeadAttention(d_model, num_heads)
-        
-        # 前馈网络
-        self.ffn = FeedForward(d_model, d_ff, dropout)
-        
-        # Layer Normalization
-        self.ln1 = nn.LayerNorm(d_model)
-        self.ln2 = nn.LayerNorm(d_model)
-        
-        # Dropout
-        self.dropout = nn.Dropout(dropout)
-    
-    def forward(self, x, mask=None):
-        # Pre-LN架构
-        # 注意力子层
-        attn_output = self.attention(self.ln1(x), mask)
-        x = x + self.dropout(attn_output)  # 残差连接
-        
-        # 前馈子层
-        ffn_output = self.ffn(self.ln2(x))
-        x = x + self.dropout(ffn_output)   # 残差连接
-        
-        return x
+# H100 内存
+h100_bytes = 80e9  # 80 GB
+
+# 每个参数的字节数
+bytes_per_parameter = 4 + 4 + (4 + 4)  # 16 bytes
+# - 参数：4 bytes (float32)
+# - 梯度：4 bytes (float32)
+# - 优化器状态：8 bytes (m, v for Adam)
+
+# 可容纳的参数量
+num_parameters = (h100_bytes * 8) / bytes_per_parameter
+# ≈ 40B 参数
 ```
 
-### 2. 完整的GPT模型
+**注意事项：**
+1. 可以使用 bf16 存储参数和梯度（2+2），保留 float32 副本（4），不节省内存但更快
+2. 激活（activations）未计入（取决于批大小和序列长度）
+
+这只是粗略的估算！
+
+---
+
+## Part 1: 内存核算
+
+### 1.1 张量基础
+
+**张量：** 存储一切的基本构建块
+- 参数（Parameters）
+- 梯度（Gradients）
+- 优化器状态（Optimizer State）
+- 数据（Data）
+- 激活（Activations）
+
+**文档：** [PyTorch Tensors](https://pytorch.org/docs/stable/tensors.html)
+
+#### 创建张量
 
 ```python
-class GPT(nn.Module):
-    def __init__(
-        self,
-        vocab_size,      # 词汇表大小
-        d_model,         # 模型维度
-        num_layers,      # Transformer层数
-        num_heads,       # 注意力头数
-        d_ff,            # 前馈网络维度
-        max_seq_len,     # 最大序列长度
-        dropout=0.1
-    ):
-        super().__init__()
-        
-        # Token嵌入
-        self.token_embedding = nn.Embedding(vocab_size, d_model)
-        
-        # 位置嵌入
-        self.position_embedding = nn.Embedding(max_seq_len, d_model)
-        
-        # Transformer blocks
-        self.blocks = nn.ModuleList([
-            TransformerBlock(d_model, num_heads, d_ff, dropout)
-            for _ in range(num_layers)
-        ])
-        
-        # 最终的Layer Norm
-        self.ln_f = nn.LayerNorm(d_model)
-        
-        # 输出层（语言模型头）
-        self.lm_head = nn.Linear(d_model, vocab_size, bias=False)
-        
-        # 权重共享：输出层和嵌入层共享权重
-        self.lm_head.weight = self.token_embedding.weight
-        
-        self.dropout = nn.Dropout(dropout)
-        
-        # 初始化权重
-        self.apply(self._init_weights)
-    
-    def _init_weights(self, module):
-        if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
-        elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-    
-    def forward(self, input_ids):
-        batch_size, seq_len = input_ids.size()
-        
-        # Token嵌入
-        token_emb = self.token_embedding(input_ids)  # [B, T, d_model]
-        
-        # 位置嵌入
-        positions = torch.arange(0, seq_len, device=input_ids.device).unsqueeze(0)
-        pos_emb = self.position_embedding(positions)  # [1, T, d_model]
-        
-        # 组合嵌入
-        x = self.dropout(token_emb + pos_emb)
-        
-        # 创建因果掩码
-        mask = torch.tril(torch.ones(seq_len, seq_len, device=input_ids.device))
-        mask = mask.unsqueeze(0).unsqueeze(0)  # [1, 1, T, T]
-        
-        # 通过所有Transformer blocks
-        for block in self.blocks:
-            x = block(x, mask)
-        
-        # 最终的Layer Norm
-        x = self.ln_f(x)
-        
-        # 输出logits
-        logits = self.lm_head(x)  # [B, T, vocab_size]
-        
-        return logits
+# 方式 1：从列表创建
+x = torch.tensor([[1., 2, 3], [4, 5, 6]])
+
+# 方式 2：全零矩阵
+x = torch.zeros(4, 8)  # 4x8 矩阵
+
+# 方式 3：全一矩阵
+x = torch.ones(4, 8)
+
+# 方式 4：随机正态分布
+x = torch.randn(4, 8)  # N(0, 1)
+
+# 方式 5：分配但不初始化（更快）
+x = torch.empty(4, 8)
+# 稍后使用自定义逻辑初始化
+nn.init.trunc_normal_(x, mean=0, std=1, a=-2, b=2)
 ```
 
+---
 
-### 3. 模型配置示例
+### 1.2 浮点数类型
 
+几乎所有内容（参数、梯度、激活、优化器状态）都存储为浮点数。
+
+#### float32（单精度）
+
+![FP32](https://stanford-cs336.github.io/spring2025-lectures/images/fp32.png)
+
+**特点：**
+- 默认数据类型
+- 1 位符号 + 8 位指数 + 23 位尾数
+- 每个值 4 字节
+
+**示例：**
 ```python
-# GPT-2 Small配置
-config_small = {
-    'vocab_size': 50257,
-    'd_model': 768,
-    'num_layers': 12,
-    'num_heads': 12,
-    'd_ff': 3072,
-    'max_seq_len': 1024,
-    'dropout': 0.1
-}
-
-# GPT-2 Medium配置
-config_medium = {
-    'vocab_size': 50257,
-    'd_model': 1024,
-    'num_layers': 24,
-    'num_heads': 16,
-    'd_ff': 4096,
-    'max_seq_len': 1024,
-    'dropout': 0.1
-}
-
-# 创建模型
-model = GPT(**config_small)
-print(f"模型参数量: {sum(p.numel() for p in model.parameters()) / 1e6:.2f}M")
+x = torch.zeros(4, 8)
+assert x.dtype == torch.float32  # 默认类型
+assert x.numel() == 32  # 元素数量
+assert x.element_size() == 4  # 每个元素 4 字节
+assert x.numel() * x.element_size() == 128  # 总共 128 字节
 ```
 
-### 4. 模型使用示例
+**GPT-3 的一个前馈层矩阵：**
+```python
+# 12288 * 4 × 12288 = 2.3 GB
+torch.empty(12288 * 4, 12288).numel() * 4 / (1024**3)  # 2.3 GB
+```
+
+这太多了！
+
+---
+
+#### float16（半精度）
+
+![FP16](https://stanford-cs336.github.io/spring2025-lectures/images/fp16.png)
+
+**特点：**
+- 1 位符号 + 5 位指数 + 10 位尾数
+- 每个值 2 字节
+- 内存减半
+
+**问题：动态范围不足**
+```python
+x = torch.tensor([1e-8], dtype=torch.float16)
+assert x == 0  # 下溢！
+```
+
+训练时可能导致不稳定。
+
+---
+
+#### bfloat16（Brain Float）
+
+![BF16](https://stanford-cs336.github.io/spring2025-lectures/images/bf16.png)
+
+**特点：**
+- Google Brain 2018 年开发
+- 1 位符号 + 8 位指数 + 7 位尾数
+- 与 float16 相同内存（2 字节）
+- 与 float32 相同动态范围！
+- 只是精度较低（但深度学习不太在意）
 
 ```python
-# 创建模型
-model = GPT(
-    vocab_size=32000,
-    d_model=512,
-    num_layers=6,
-    num_heads=8,
-    d_ff=2048,
-    max_seq_len=512
-)
+x = torch.tensor([1e-8], dtype=torch.bfloat16)
+assert x != 0  # 没有下溢！
+```
 
-# 准备输入
-input_ids = torch.randint(0, 32000, (2, 10))  # [batch_size=2, seq_len=10]
+**对比：**
+```python
+float32_info = torch.finfo(torch.float32)
+# max=3.4e38, min=-3.4e38, eps=1.19e-07
 
+float16_info = torch.finfo(torch.float16)
+# max=65504, min=-65504, eps=0.000977
+
+bfloat16_info = torch.finfo(torch.bfloat16)
+# max=3.39e38, min=-3.39e38, eps=0.0078
+```
+
+---
+
+#### FP8
+
+**2022 年标准化，专为机器学习设计**
+
+![FP8 Formats](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/_images/fp8_formats.png)
+
+**H100 支持两种 FP8 变体：**
+- **E4M3：** 范围 [-448, 448]
+- **E5M2：** 范围 [-57344, 57344]
+
+**参考：** [FP8 Formats for Deep Learning](https://arxiv.org/pdf/2209.05433.pdf)
+
+---
+
+#### 训练的影响
+
+**问题：**
+- float32 训练可行，但需要大量内存
+- fp8、float16 甚至 bfloat16 训练有风险，可能不稳定
+
+**解决方案：** 混合精度训练（稍后讨论）
+
+---
+
+### 1.3 GPU 上的张量
+
+**默认：** 张量存储在 CPU 内存中
+
+```python
+x = torch.zeros(32, 32)
+assert x.device == torch.device("cpu")
+```
+
+**GPU 加速：** 需要将张量移动到 GPU 内存
+
+![CPU-GPU](https://stanford-cs336.github.io/spring2025-lectures/images/cpu-gpu.png)
+
+#### 检查 GPU
+
+```python
+# 检查是否有 GPU
+torch.cuda.is_available()  # True/False
+
+# GPU 数量
+num_gpus = torch.cuda.device_count()
+
+# GPU 属性
+for i in range(num_gpus):
+    properties = torch.cuda.get_device_properties(i)
+    # name, total_memory, etc.
+
+# 当前内存使用
+memory_allocated = torch.cuda.memory_allocated()
+```
+
+#### 移动到 GPU
+
+```python
+# 方式 1：移动现有张量
+x = torch.zeros(32, 32)
+y = x.to("cuda:0")
+assert y.device == torch.device("cuda", 0)
+
+# 方式 2：直接在 GPU 上创建
+z = torch.zeros(32, 32, device="cuda:0")
+
+# 检查内存使用
+new_memory = torch.cuda.memory_allocated()
+memory_used = new_memory - memory_allocated
+assert memory_used == 2 * (32 * 32 * 4)  # 两个 32x32 float32 矩阵
+```
+
+---
+
+### 1.4 张量存储机制
+
+**PyTorch 张量 = 指向内存的指针 + 元数据**
+
+![Tensor Strides](https://martinlwx.github.io/img/2D_tensor_strides.png)
+
+**Stride（步长）：** 描述如何访问任何元素
+
+```python
+x = torch.tensor([
+    [0., 1, 2, 3],
+    [4, 5, 6, 7],
+    [8, 9, 10, 11],
+    [12, 13, 14, 15],
+])
+
+# 下一行：跳过 4 个元素
+assert x.stride(0) == 4
+
+# 下一列：跳过 1 个元素
+assert x.stride(1) == 1
+
+# 访问元素 [1, 2]
+r, c = 1, 2
+index = r * x.stride(0) + c * x.stride(1)  # 1*4 + 2*1 = 6
+assert x.storage()[index] == 6.0
+```
+
+---
+
+### 1.5 张量视图（Views）
+
+许多操作只是提供张量的不同**视图**，不复制数据。
+
+#### 切片
+
+```python
+x = torch.tensor([[1., 2, 3], [4, 5, 6]])
+
+# 获取第 0 行
+y = x[0]  # [1., 2., 3.]
+assert same_storage(x, y)  # 共享存储！
+
+# 获取第 1 列
+y = x[:, 1]  # [2., 5.]
+assert same_storage(x, y)
+```
+
+#### 重塑
+
+```python
+# 2x3 → 3x2
+y = x.view(3, 2)  # [[1, 2], [3, 4], [5, 6]]
+assert same_storage(x, y)
+
+# 转置
+y = x.transpose(1, 0)  # [[1, 4], [2, 5], [3, 6]]
+assert same_storage(x, y)
+```
+
+#### 突变共享
+
+```python
+x[0][0] = 100
+# y 也会改变！
+assert y[0][0] == 100
+```
+
+---
+
+#### 连续性（Contiguity）
+
+某些视图是非连续的，无法进一步视图化：
+
+```python
+x = torch.tensor([[1., 2, 3], [4, 5, 6]])
+y = x.transpose(1, 0)
+assert not y.is_contiguous()
+
+# 尝试 view 会失败
+try:
+    y.view(2, 3)
+except RuntimeError:
+    # "view size is not compatible..."
+    pass
+
+# 解决方案：先使其连续
+y = x.transpose(1, 0).contiguous().view(2, 3)
+assert not same_storage(x, y)  # 现在是副本
+```
+
+**权衡：**
+- 视图：免费，无额外内存/计算
+- 复制：需要额外内存和计算
+
+---
+
+## Part 2: 计算核算
+
+### 2.1 张量操作
+
+大多数张量是通过对其他张量执行操作创建的。
+
+每个操作都有内存和计算后果。
+
+#### 逐元素操作
+
+对张量的每个元素应用操作，返回相同形状的张量：
+
+```python
+x = torch.tensor([1, 4, 9])
+
+# 幂运算
+x.pow(2)  # [1, 16, 81]
+
+# 平方根
+x.sqrt()  # [1, 2, 3]
+
+# 倒数平方根
+x.rsqrt()  # [1, 1/2, 1/3]
+
+# 算术运算
+x + x  # [2, 8, 18]
+x * 2  # [2, 8, 18]
+x / 0.5  # [2, 8, 18]
+```
+
+**上三角矩阵：**
+```python
+x = torch.ones(3, 3).triu()
+# [[1, 1, 1],
+#  [0, 1, 1],
+#  [0, 0, 1]]
+```
+
+用于计算因果注意力掩码，其中 M[i, j] 是 i 对 j 的贡献。
+
+---
+
+#### 矩阵乘法
+
+**深度学习的核心：**
+
+```python
+x = torch.ones(16, 32)
+w = torch.ones(32, 2)
+y = x @ w
+assert y.size() == torch.Size([16, 2])
+```
+
+**批处理和序列：**
+
+![Batch Sequence](https://stanford-cs336.github.io/spring2025-lectures/images/batch-sequence.png)
+
+```python
+# batch=4, seq=8, input_dim=16, output_dim=2
+x = torch.ones(4, 8, 16, 32)
+w = torch.ones(32, 2)
+y = x @ w
+assert y.size() == torch.Size([4, 8, 16, 2])
+```
+
+迭代前两个维度，每个与 w 相乘。
+
+---
+
+### 2.2 Einops：优雅的张量操作
+
+**动机：** 传统 PyTorch 代码容易出错
+
+```python
+# 传统方式
+x = torch.ones(2, 2, 3)  # batch, sequence, hidden
+y = torch.ones(2, 2, 3)
+z = x @ y.transpose(-2, -1)  # -2, -1 是什么？
+```
+
+**Einops：** 受 Einstein 求和记号启发（1916）
+
+[Einops Tutorial](https://einops.rocks/1-einops-basics/)
+
+---
+
+#### JaxTyping：维度标注
+
+**旧方式：**
+```python
+x = torch.ones(2, 2, 1, 3)  # batch seq heads hidden
+```
+
+**新方式（JaxTyping）：**
+```python
+from jaxtyping import Float
+
+x: Float[torch.Tensor, "batch seq heads hidden"] = torch.ones(2, 2, 1, 3)
+```
+
+注意：这只是文档（无强制执行）
+
+---
+
+#### Einsum：广义矩阵乘法
+
+```python
+from einops import einsum
+
+x: Float[torch.Tensor, "batch seq1 hidden"] = torch.ones(2, 3, 4)
+y: Float[torch.Tensor, "batch seq2 hidden"] = torch.ones(2, 3, 4)
+
+# 旧方式
+z = x @ y.transpose(-2, -1)
+
+# 新方式（Einops）
+z = einsum(x, y, "batch seq1 hidden, batch seq2 hidden -> batch seq1 seq2")
+```
+
+**规则：** 输出中未命名的维度会被求和。
+
+**广播：** 使用 `...` 表示任意数量的维度
+
+```python
+z = einsum(x, y, "... seq1 hidden, ... seq2 hidden -> ... seq1 seq2")
+```
+
+---
+
+#### Reduce：归约操作
+
+```python
+from einops import reduce
+
+x: Float[torch.Tensor, "batch seq hidden"] = torch.ones(2, 3, 4)
+
+# 旧方式
+y = x.mean(dim=-1)
+
+# 新方式（Einops）
+y = reduce(x, "... hidden -> ...", "mean")
+# 也支持：sum, max, min
+```
+
+---
+
+#### Rearrange：重塑维度
+
+有时一个维度代表两个维度，你想单独操作其中一个。
+
+```python
+from einops import rearrange
+
+x: Float[torch.Tensor, "batch seq total_hidden"] = torch.ones(2, 3, 8)
+# total_hidden 是 heads * hidden1 的扁平表示
+
+w: Float[torch.Tensor, "hidden1 hidden2"] = torch.ones(4, 4)
+
+# 步骤 1：分解 total_hidden
+x = rearrange(x, "... (heads hidden1) -> ... heads hidden1", heads=2)
+# 现在 x.shape = (2, 3, 2, 4)
+
+# 步骤 2：应用变换
+x = einsum(x, w, "... hidden1, hidden1 hidden2 -> ... hidden2")
+
+# 步骤 3：合并回去
+x = rearrange(x, "... heads hidden2 -> ... (heads hidden2)")
+```
+
+---
+
+### 2.3 FLOPs 计算
+
+**FLOP（浮点运算）：** 基本操作如加法（x + y）或乘法（x * y）
+
+**两个容易混淆的缩写：**
+- **FLOPs：** 浮点运算数量（计算量的度量）
+- **FLOP/s（或 FLOPS）：** 每秒浮点运算数（硬件速度的度量）
+
+---
+
+#### 直觉
+
+**训练成本：**
+- GPT-3 (2020)：3.14e23 FLOPs
+- GPT-4 (2023)：推测 2e25 FLOPs
+- 美国行政命令（2025 年撤销）：≥1e26 FLOPs 的模型必须向政府报告
+
+**硬件性能：**
+- A100：312 TFLOP/s（峰值）
+- H100：1979 TFLOP/s（带稀疏性），989.5 TFLOP/s（无稀疏性）
+
+**8 个 H100 运行 2 周：**
+```python
+total_flops = 8 * (60 * 60 * 24 * 14) * 989.5e12
+# ≈ 6.8e21 FLOPs
+```
+
+---
+
+#### 线性模型示例
+
+```python
+B = 16384  # 数据点数量
+D = 32768  # 维度
+K = 8192   # 输出数量
+
+x = torch.ones(B, D, device="cuda")
+w = torch.randn(D, K, device="cuda")
+y = x @ w
+```
+
+**FLOPs 计算：**
+- 每个 (i, j, k) 三元组：1 次乘法 + 1 次加法
+- 总 FLOPs = 2 * B * D * K
+
+```python
+actual_num_flops = 2 * 16384 * 32768 * 8192
+# ≈ 8.8e15 FLOPs
+```
+
+---
+
+#### 其他操作的 FLOPs
+
+- **逐元素操作：** O(m * n) FLOPs（m×n 矩阵）
+- **矩阵加法：** m * n FLOPs
+
+**关键洞察：** 对于足够大的矩阵，没有其他操作比矩阵乘法更昂贵。
+
+---
+
+#### 训练的 FLOPs
+
+**解释：**
+- B = token 数量
+- (D * K) = 参数数量
+- **前向传播 FLOPs = 2 × token 数 × 参数数**
+
+这推广到 Transformer（一阶近似）！
+
+---
+
+#### 实际性能测试
+
+```python
+import time
+
+def time_matmul(x, w):
+    # Warmup
+    for _ in range(10):
+        _ = x @ w
+    torch.cuda.synchronize()
+    
+    # 计时
+    start = time.time()
+    for _ in range(100):
+        _ = x @ w
+    torch.cuda.synchronize()
+    end = time.time()
+    
+    return (end - start) / 100
+
+actual_time = time_matmul(x, w)  # 例如 0.002 秒
+actual_flop_per_sec = actual_num_flops / actual_time
+# 例如 4.4e18 FLOP/s
+```
+
+---
+
+#### 模型 FLOPs 利用率（MFU）
+
+**定义：** MFU = 实际 FLOP/s / 承诺 FLOP/s
+
+```python
+promised_flop_per_sec = 989.5e12  # H100 无稀疏性
+mfu = actual_flop_per_sec / promised_flop_per_sec
+# 例如 0.44（44%）
+```
+
+**通常 MFU ≥ 0.5 就很好了**（如果矩阵乘法占主导会更高）
+
+---
+
+#### bfloat16 性能
+
+```python
+x = x.to(torch.bfloat16)
+w = w.to(torch.bfloat16)
+
+bf16_actual_time = time_matmul(x, w)
+bf16_actual_flop_per_sec = actual_num_flops / bf16_actual_time
+bf16_promised_flop_per_sec = 1979e12  # H100 bf16 峰值
+bf16_mfu = bf16_actual_flop_per_sec / bf16_promised_flop_per_sec
+```
+
+**观察：**
+- bfloat16 的实际 FLOP/s 更高
+- MFU 可能较低（承诺的 FLOPs 有点乐观）
+
+---
+
+### 2.4 梯度计算
+
+#### 基础示例
+
+简单线性模型：y = 0.5 * (x * w - 5)²
+
+```python
 # 前向传播
-logits = model(input_ids)  # [2, 10, 32000]
+x = torch.tensor([1., 2, 3])
+w = torch.tensor([1., 1, 1], requires_grad=True)
+pred_y = x @ w
+loss = 0.5 * (pred_y - 5).pow(2)
 
-# 预测下一个token
-next_token_logits = logits[:, -1, :]  # [2, 32000]
-next_token_probs = torch.softmax(next_token_logits, dim=-1)
-next_token = torch.argmax(next_token_probs, dim=-1)  # [2]
+# 反向传播
+loss.backward()
 
-print(f"输入形状: {input_ids.shape}")
-print(f"输出logits形状: {logits.shape}")
-print(f"预测的下一个token: {next_token}")
+# 检查梯度
+assert loss.grad is None
+assert pred_y.grad is None
+assert x.grad is None
+assert torch.equal(w.grad, torch.tensor([1, 2, 3]))
 ```
 
 ---
 
-## 第四部分：训练语言模型
+#### 梯度的 FLOPs
 
-### 1. 损失函数：交叉熵损失
-
-**目标**：最大化正确Token的概率，等价于最小化交叉熵损失。
-
-
-**数学公式**：
-```
-Loss = -∑ log P(target_token | context)
-```
-
-**PyTorch实现**：
-```python
-def compute_loss(logits, targets):
-    """
-    logits: [batch_size, seq_len, vocab_size]
-    targets: [batch_size, seq_len]
-    """
-    # 重塑为2D
-    logits = logits.view(-1, logits.size(-1))  # [B*T, vocab_size]
-    targets = targets.view(-1)                  # [B*T]
-    
-    # 计算交叉熵损失
-    loss = F.cross_entropy(logits, targets)
-    
-    return loss
-
-# 使用示例
-logits = model(input_ids)
-targets = input_ids[:, 1:]  # 目标是下一个token
-logits = logits[:, :-1, :]  # 对齐维度
-
-loss = compute_loss(logits, targets)
-```
-
-### 2. 训练循环
+**模型：** x --w1--> h1 --w2--> h2 -> loss
 
 ```python
-import torch.optim as optim
+B = 16384  # 批大小
+D = 32768  # 维度
+K = 8192   # 输出维度
 
-# 初始化模型和优化器
-model = GPT(**config_small)
-optimizer = optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95))
+x = torch.ones(B, D, device="cuda")
+w1 = torch.randn(D, D, device="cuda", requires_grad=True)
+w2 = torch.randn(D, K, device="cuda", requires_grad=True)
 
-# 训练循环
-model.train()
-for epoch in range(num_epochs):
-    for batch in dataloader:
-        # 获取输入和目标
-        input_ids = batch['input_ids']  # [B, T]
-        
-        # 前向传播
-        logits = model(input_ids)
-        
-        # 计算损失（预测下一个token）
-        # 输入: [0, 1, 2, 3, 4]
-        # 目标: [1, 2, 3, 4, 5]
-        shift_logits = logits[:, :-1, :].contiguous()
-        shift_targets = input_ids[:, 1:].contiguous()
-        
-        loss = compute_loss(shift_logits, shift_targets)
-        
-        # 反向传播
-        optimizer.zero_grad()
-        loss.backward()
-        
-        # 梯度裁剪（防止梯度爆炸）
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        
-        # 更新参数
-        optimizer.step()
-        
-        if step % 100 == 0:
-            print(f"Epoch {epoch}, Step {step}, Loss: {loss.item():.4f}")
+h1 = x @ w1
+h2 = h1 @ w2
+loss = h2.pow(2).mean()
 ```
 
+**前向 FLOPs：**
+```python
+num_forward_flops = (2 * B * D * D) + (2 * B * D * K)
+```
 
-### 3. 学习率调度
+**反向传播：**
+```python
+h1.retain_grad()
+h2.retain_grad()
+loss.backward()
+```
 
-**常用策略**：Warmup + Cosine Decay
+**计算 w2.grad：**
+```
+w2.grad[j,k] = sum_i h1[i,j] * h2.grad[i,k]
+```
+- FLOPs = 2 * B * D * K
+
+**计算 h1.grad：**
+```
+h1.grad[i,j] = sum_k w2[j,k] * h2.grad[i,k]
+```
+- FLOPs = 2 * B * D * K
+
+**w1 同理：**
+- FLOPs = (2 + 2) * B * D * D
+
+**总反向 FLOPs：**
+```python
+num_backward_flops = 4 * B * D * D + 4 * B * D * K
+```
+
+---
+
+#### 可视化
+
+![FLOPs Calculus](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*VC9y_dHhCKFPXj90Qshj3w.gif)
+
+[Blog Post: FLOPs Calculus](https://medium.com/@dzmitrybahdanau/the-flops-calculus-of-language-model-training-3b19c1f025e4)
+
+---
+
+#### 总结
+
+**训练一步的 FLOPs：**
+- 前向传播：2 × token 数 × 参数数
+- 反向传播：4 × token 数 × 参数数
+- **总计：6 × token 数 × 参数数**
+
+---
+
+## Part 3: 模型
+
+### 3.1 参数
+
+模型参数在 PyTorch 中存储为 `nn.Parameter` 对象。
 
 ```python
-from torch.optim.lr_scheduler import LambdaLR
-import math
+input_dim = 16384
+output_dim = 32
 
-def get_lr_scheduler(optimizer, warmup_steps, max_steps):
-    def lr_lambda(current_step):
-        if current_step < warmup_steps:
-            # Warmup阶段：线性增长
-            return float(current_step) / float(max(1, warmup_steps))
-        else:
-            # Cosine decay阶段
-            progress = float(current_step - warmup_steps) / float(max(1, max_steps - warmup_steps))
-            return 0.5 * (1.0 + math.cos(math.pi * progress))
-    
-    return LambdaLR(optimizer, lr_lambda)
-
-# 使用
-scheduler = get_lr_scheduler(optimizer, warmup_steps=1000, max_steps=100000)
-
-# 在训练循环中
-for step in range(max_steps):
-    # ... 训练代码 ...
-    optimizer.step()
-    scheduler.step()
+w = nn.Parameter(torch.randn(input_dim, output_dim))
+assert isinstance(w, torch.Tensor)  # 行为像张量
+assert type(w.data) == torch.Tensor  # 访问底层张量
 ```
 
-**学习率曲线**：
-```
-LR
- ^
- |     /\
- |    /  \___
- |   /       \___
- |  /            \___
- | /                 \___
- |/________________________> Steps
-   Warmup    Cosine Decay
-```
+---
 
-### 4. 数据准备
+### 3.2 参数初始化
+
+**问题：** 未缩放的初始化
 
 ```python
-class TextDataset(torch.utils.data.Dataset):
-    def __init__(self, text_file, tokenizer, max_length=512):
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-        
-        # 读取并tokenize文本
-        with open(text_file, 'r', encoding='utf-8') as f:
-            text = f.read()
-        
-        self.tokens = tokenizer.encode(text)
-    
-    def __len__(self):
-        return len(self.tokens) // self.max_length
-    
-    def __getitem__(self, idx):
-        start = idx * self.max_length
-        end = start + self.max_length
-        
-        input_ids = torch.tensor(self.tokens[start:end], dtype=torch.long)
-        
-        return {'input_ids': input_ids}
+x = nn.Parameter(torch.randn(input_dim))
+output = x @ w
 
-# 创建DataLoader
-dataset = TextDataset('corpus.txt', tokenizer, max_length=512)
-dataloader = torch.utils.data.DataLoader(
-    dataset,
-    batch_size=8,
-    shuffle=True,
-    num_workers=4
+# 每个元素的规模为 sqrt(input_dim)
+# 大值会导致梯度爆炸，训练不稳定
+```
+
+**解决方案：** 缩放使其与 input_dim 无关
+
+```python
+w = nn.Parameter(torch.randn(input_dim, output_dim) / np.sqrt(input_dim))
+output = x @ w
+# 现在每个元素的规模是常数
+```
+
+**Xavier 初始化：**
+- [Paper](https://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf)
+- 截断正态分布到 [-3, 3] 以避免异常值
+
+```python
+w = nn.Parameter(
+    nn.init.trunc_normal_(
+        torch.empty(input_dim, output_dim),
+        std=1 / np.sqrt(input_dim),
+        a=-3, b=3
+    )
 )
 ```
 
+---
+
+### 3.3 自定义模型
+
+#### 简单线性层
+
+```python
+class Linear(nn.Module):
+    def __init__(self, input_dim: int, output_dim: int):
+        super().__init__()
+        self.weight = nn.Parameter(
+            torch.randn(input_dim, output_dim) / np.sqrt(input_dim)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x @ self.weight
+```
 
 ---
 
-## 第五部分：文本生成
-
-### 1. 贪婪解码（Greedy Decoding）
-
-**策略**：每次选择概率最高的Token。
+#### 深度线性模型
 
 ```python
-@torch.no_grad()
-def generate_greedy(model, input_ids, max_new_tokens=50):
-    model.eval()
-    
-    for _ in range(max_new_tokens):
-        # 获取logits
-        logits = model(input_ids)
-        
-        # 只关注最后一个位置的预测
-        next_token_logits = logits[:, -1, :]
-        
-        # 选择概率最高的token
-        next_token = torch.argmax(next_token_logits, dim=-1, keepdim=True)
-        
-        # 添加到序列
-        input_ids = torch.cat([input_ids, next_token], dim=1)
-        
-        # 如果生成了结束符，停止
-        if next_token.item() == eos_token_id:
-            break
-    
-    return input_ids
+class Cruncher(nn.Module):
+    def __init__(self, dim: int, num_layers: int):
+        super().__init__()
+        self.layers = nn.ModuleList([
+            Linear(dim, dim)
+            for i in range(num_layers)
+        ])
+        self.final = Linear(dim, 1)
 
-# 使用示例
-prompt = "Once upon a time"
-input_ids = tokenizer.encode(prompt, return_tensors='pt')
-output_ids = generate_greedy(model, input_ids, max_new_tokens=50)
-generated_text = tokenizer.decode(output_ids[0])
-print(generated_text)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # 应用线性层
+        for layer in self.layers:
+            x = layer(x)
+        
+        # 应用最终层
+        x = self.final(x)
+        
+        # 移除最后一个维度
+        x = x.squeeze(-1)
+        return x
 ```
-
-**优点**：简单、快速、确定性
-**缺点**：生成的文本可能重复、缺乏多样性
-
-### 2. 采样（Sampling）
-
-**策略**：根据概率分布随机采样。
-
-```python
-@torch.no_grad()
-def generate_sample(model, input_ids, max_new_tokens=50, temperature=1.0):
-    model.eval()
-    
-    for _ in range(max_new_tokens):
-        logits = model(input_ids)
-        next_token_logits = logits[:, -1, :] / temperature
-        
-        # 计算概率分布
-        probs = torch.softmax(next_token_logits, dim=-1)
-        
-        # 从分布中采样
-        next_token = torch.multinomial(probs, num_samples=1)
-        
-        input_ids = torch.cat([input_ids, next_token], dim=1)
-        
-        if next_token.item() == eos_token_id:
-            break
-    
-    return input_ids
-```
-
-**Temperature参数**：
-- `temperature < 1.0`：分布更尖锐，更确定性
-- `temperature = 1.0`：原始分布
-- `temperature > 1.0`：分布更平滑，更随机
-
-
-### 3. Top-k 采样
-
-**策略**：只从概率最高的k个Token中采样。
-
-```python
-@torch.no_grad()
-def generate_top_k(model, input_ids, max_new_tokens=50, top_k=50, temperature=1.0):
-    model.eval()
-    
-    for _ in range(max_new_tokens):
-        logits = model(input_ids)
-        next_token_logits = logits[:, -1, :] / temperature
-        
-        # 只保留top-k个最高的logits
-        top_k_logits, top_k_indices = torch.topk(next_token_logits, top_k)
-        
-        # 将其他位置设为-inf
-        next_token_logits = torch.full_like(next_token_logits, float('-inf'))
-        next_token_logits.scatter_(1, top_k_indices, top_k_logits)
-        
-        # 采样
-        probs = torch.softmax(next_token_logits, dim=-1)
-        next_token = torch.multinomial(probs, num_samples=1)
-        
-        input_ids = torch.cat([input_ids, next_token], dim=1)
-        
-        if next_token.item() == eos_token_id:
-            break
-    
-    return input_ids
-```
-
-### 4. Top-p (Nucleus) 采样
-
-**策略**：从累积概率达到p的最小Token集合中采样。
-
-```python
-@torch.no_grad()
-def generate_top_p(model, input_ids, max_new_tokens=50, top_p=0.9, temperature=1.0):
-    model.eval()
-    
-    for _ in range(max_new_tokens):
-        logits = model(input_ids)
-        next_token_logits = logits[:, -1, :] / temperature
-        
-        # 排序
-        sorted_logits, sorted_indices = torch.sort(next_token_logits, descending=True)
-        cumulative_probs = torch.cumsum(torch.softmax(sorted_logits, dim=-1), dim=-1)
-        
-        # 移除累积概率超过top_p的token
-        sorted_indices_to_remove = cumulative_probs > top_p
-        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
-        sorted_indices_to_remove[..., 0] = 0
-        
-        indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
-        next_token_logits[indices_to_remove] = float('-inf')
-        
-        # 采样
-        probs = torch.softmax(next_token_logits, dim=-1)
-        next_token = torch.multinomial(probs, num_samples=1)
-        
-        input_ids = torch.cat([input_ids, next_token], dim=1)
-        
-        if next_token.item() == eos_token_id:
-            break
-    
-    return input_ids
-```
-
-
-### 5. Beam Search（束搜索）
-
-**策略**：维护k个最可能的序列，每次扩展所有候选。
-
-```python
-@torch.no_grad()
-def generate_beam_search(model, input_ids, max_new_tokens=50, num_beams=5):
-    model.eval()
-    batch_size = input_ids.size(0)
-    
-    # 初始化beam
-    # 每个beam: (sequence, score)
-    beams = [(input_ids[0], 0.0)]
-    
-    for _ in range(max_new_tokens):
-        all_candidates = []
-        
-        for seq, score in beams:
-            if seq[-1].item() == eos_token_id:
-                all_candidates.append((seq, score))
-                continue
-            
-            # 获取下一个token的概率
-            logits = model(seq.unsqueeze(0))
-            next_token_logits = logits[0, -1, :]
-            log_probs = torch.log_softmax(next_token_logits, dim=-1)
-            
-            # 获取top-k个候选
-            top_log_probs, top_indices = torch.topk(log_probs, num_beams)
-            
-            for log_prob, token_id in zip(top_log_probs, top_indices):
-                new_seq = torch.cat([seq, token_id.unsqueeze(0)])
-                new_score = score + log_prob.item()
-                all_candidates.append((new_seq, new_score))
-        
-        # 选择得分最高的num_beams个序列
-        beams = sorted(all_candidates, key=lambda x: x[1], reverse=True)[:num_beams]
-        
-        # 如果所有beam都结束了，停止
-        if all(seq[-1].item() == eos_token_id for seq, _ in beams):
-            break
-    
-    # 返回得分最高的序列
-    best_seq, best_score = beams[0]
-    return best_seq.unsqueeze(0)
-```
-
-### 6. 生成策略对比
-
-| 策略 | 优点 | 缺点 | 适用场景 |
-| :--- | :--- | :--- | :--- |
-| **Greedy** | 快速、确定性 | 容易重复、缺乏多样性 | 需要确定性输出 |
-| **Sampling** | 多样性好 | 可能不连贯 | 创意写作 |
-| **Top-k** | 平衡质量和多样性 | k值难以调整 | 通用文本生成 |
-| **Top-p** | 动态调整候选集 | 计算稍慢 | 高质量生成（推荐） |
-| **Beam Search** | 全局最优 | 慢、缺乏多样性 | 翻译、摘要 |
-
 
 ---
 
-## 第六部分：优化技巧和最佳实践
-
-### 1. 权重初始化
-
-**重要性**：好的初始化可以加速收敛，避免梯度消失/爆炸。
+#### 使用模型
 
 ```python
-def _init_weights(self, module):
-    if isinstance(module, nn.Linear):
-        # Xavier/Glorot初始化
-        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-        if module.bias is not None:
-            torch.nn.init.zeros_(module.bias)
-    elif isinstance(module, nn.Embedding):
-        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-    elif isinstance(module, nn.LayerNorm):
-        torch.nn.init.ones_(module.weight)
-        torch.nn.init.zeros_(module.bias)
-```
+D = 64
+num_layers = 2
+model = Cruncher(dim=D, num_layers=num_layers)
 
-### 2. 梯度裁剪
+# 检查参数
+param_sizes = [
+    (name, param.numel())
+    for name, param in model.state_dict().items()
+]
+# [('layers.0.weight', D*D),
+#  ('layers.1.weight', D*D),
+#  ('final.weight', D)]
 
-**作用**：防止梯度爆炸。
+num_parameters = sum(p.numel() for p in model.parameters())
+# D*D + D*D + D
 
-```python
-# 在optimizer.step()之前
-torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-```
-
-### 3. 混合精度训练
-
-**作用**：加速训练，减少显存占用。
-
-```python
-from torch.cuda.amp import autocast, GradScaler
-
-scaler = GradScaler()
-
-for batch in dataloader:
-    optimizer.zero_grad()
-    
-    # 使用混合精度
-    with autocast():
-        logits = model(input_ids)
-        loss = compute_loss(logits, targets)
-    
-    # 缩放损失并反向传播
-    scaler.scale(loss).backward()
-    
-    # 梯度裁剪
-    scaler.unscale_(optimizer)
-    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-    
-    # 更新参数
-    scaler.step(optimizer)
-    scaler.update()
-```
-
-### 4. 梯度累积
-
-**作用**：在显存有限时模拟大batch size。
-
-```python
-accumulation_steps = 4  # 累积4个batch
-
-for i, batch in enumerate(dataloader):
-    logits = model(input_ids)
-    loss = compute_loss(logits, targets)
-    
-    # 归一化损失
-    loss = loss / accumulation_steps
-    loss.backward()
-    
-    # 每accumulation_steps步更新一次
-    if (i + 1) % accumulation_steps == 0:
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
-        optimizer.zero_grad()
-```
-
-
-### 5. 权重共享（Weight Tying）
-
-**策略**：输入嵌入层和输出层共享权重。
-
-```python
-# 在模型初始化中
-self.token_embedding = nn.Embedding(vocab_size, d_model)
-self.lm_head = nn.Linear(d_model, vocab_size, bias=False)
-
-# 共享权重
-self.lm_head.weight = self.token_embedding.weight
-```
-
-**优点**：
-- 减少参数量（约减少vocab_size × d_model个参数）
-- 提高训练效率
-- 通常不损失性能
-
-### 6. Dropout策略
-
-**位置**：
-- 嵌入层之后
-- 注意力输出之后
-- 前馈网络之后
-
-**推荐值**：
-- 小模型：0.1
-- 大模型：0.0-0.1（大模型通常不需要太多dropout）
-
-### 7. 模型保存和加载
-
-```python
-# 保存模型
-def save_checkpoint(model, optimizer, epoch, loss, path):
-    checkpoint = {
-        'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'loss': loss,
-    }
-    torch.save(checkpoint, path)
-
-# 加载模型
-def load_checkpoint(model, optimizer, path):
-    checkpoint = torch.load(path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    epoch = checkpoint['epoch']
-    loss = checkpoint['loss']
-    return epoch, loss
-
-# 使用
-save_checkpoint(model, optimizer, epoch, loss, 'checkpoint.pt')
-epoch, loss = load_checkpoint(model, optimizer, 'checkpoint.pt')
-```
-
-### 8. 评估指标：困惑度（Perplexity）
-
-**定义**：衡量模型预测的不确定性，越低越好。
-
-```python
-def compute_perplexity(model, dataloader):
-    model.eval()
-    total_loss = 0
-    total_tokens = 0
-    
-    with torch.no_grad():
-        for batch in dataloader:
-            input_ids = batch['input_ids']
-            logits = model(input_ids)
-            
-            shift_logits = logits[:, :-1, :].contiguous()
-            shift_targets = input_ids[:, 1:].contiguous()
-            
-            loss = compute_loss(shift_logits, shift_targets)
-            
-            total_loss += loss.item() * shift_targets.numel()
-            total_tokens += shift_targets.numel()
-    
-    avg_loss = total_loss / total_tokens
-    perplexity = math.exp(avg_loss)
-    
-    return perplexity
-
-# 使用
-ppl = compute_perplexity(model, val_dataloader)
-print(f"Perplexity: {ppl:.2f}")
-```
-
-
----
-
-## 第七部分：完整训练示例
-
-### 完整的训练脚本
-
-```python
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
-import math
-
-# 1. 配置
-config = {
-    'vocab_size': 32000,
-    'd_model': 512,
-    'num_layers': 6,
-    'num_heads': 8,
-    'd_ff': 2048,
-    'max_seq_len': 512,
-    'dropout': 0.1,
-    'batch_size': 32,
-    'num_epochs': 10,
-    'learning_rate': 3e-4,
-    'warmup_steps': 1000,
-    'max_steps': 100000,
-}
-
-# 2. 创建模型
-model = GPT(
-    vocab_size=config['vocab_size'],
-    d_model=config['d_model'],
-    num_layers=config['num_layers'],
-    num_heads=config['num_heads'],
-    d_ff=config['d_ff'],
-    max_seq_len=config['max_seq_len'],
-    dropout=config['dropout']
-)
-
-# 移到GPU
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# 移动到 GPU
+device = "cuda" if torch.cuda.is_available() else "cpu"
 model = model.to(device)
 
-print(f"模型参数量: {sum(p.numel() for p in model.parameters()) / 1e6:.2f}M")
+# 运行模型
+B = 8
+x = torch.randn(B, D, device=device)
+y = model(x)
+assert y.size() == torch.Size([B])
+```
 
-# 3. 准备数据
-train_dataset = TextDataset('train.txt', tokenizer, max_length=config['max_seq_len'])
-val_dataset = TextDataset('val.txt', tokenizer, max_length=config['max_seq_len'])
+---
 
-train_loader = DataLoader(
-    train_dataset,
-    batch_size=config['batch_size'],
-    shuffle=True,
-    num_workers=4
-)
+## Part 4: 训练循环
 
-val_loader = DataLoader(
-    val_dataset,
-    batch_size=config['batch_size'],
-    shuffle=False,
-    num_workers=4
-)
+### 4.1 随机性注意事项
 
-# 4. 优化器和调度器
-optimizer = optim.AdamW(
-    model.parameters(),
-    lr=config['learning_rate'],
-    betas=(0.9, 0.95),
-    weight_decay=0.1
-)
+随机性出现在许多地方：
+- 参数初始化
+- Dropout
+- 数据顺序
 
-scheduler = get_lr_scheduler(
-    optimizer,
-    warmup_steps=config['warmup_steps'],
-    max_steps=config['max_steps']
-)
+**为了可重现性，始终设置随机种子：**
 
-# 5. 训练循环
-global_step = 0
-best_val_loss = float('inf')
+```python
+seed = 0
 
-for epoch in range(config['num_epochs']):
-    # 训练阶段
-    model.train()
-    train_loss = 0
+# PyTorch
+torch.manual_seed(seed)
+
+# NumPy
+import numpy as np
+np.random.seed(seed)
+
+# Python
+import random
+random.seed(seed)
+```
+
+确定性对调试特别有用！
+
+---
+
+### 4.2 数据加载
+
+**语言建模数据：** 整数序列（tokenizer 输出）
+
+**序列化为 NumPy 数组：**
+
+```python
+# 保存
+data = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], dtype=np.int32)
+data.tofile("data.npy")
+
+# 加载（使用 memmap 懒加载）
+data = np.memmap("data.npy", dtype=np.int32)
+# 不会一次性加载所有数据到内存
+# LLaMA 数据是 2.8TB！
+```
+
+---
+
+#### 批处理函数
+
+```python
+def get_batch(data, batch_size, sequence_length, device):
+    # 随机采样 batch_size 个位置
+    start_indices = torch.randint(
+        len(data) - sequence_length,
+        (batch_size,)
+    )
     
-    for batch_idx, batch in enumerate(train_loader):
-        input_ids = batch['input_ids'].to(device)
+    # 索引数据
+    x = torch.tensor([
+        data[start:start + sequence_length]
+        for start in start_indices
+    ])
+    
+    # Pinned memory（可选，用于异步传输）
+    if torch.cuda.is_available():
+        x = x.pin_memory()
+    
+    # 移动到 GPU（非阻塞）
+    x = x.to(device, non_blocking=True)
+    
+    return x
+```
+
+**Pinned Memory 优势：**
+- 允许 CPU → GPU 异步复制
+- 可以并行：
+  - 在 CPU 上获取下一批数据
+  - 在 GPU 上处理当前批次
+
+---
+
+### 4.3 优化器
+
+#### SGD（随机梯度下降）
+
+```python
+class SGD(torch.optim.Optimizer):
+    def __init__(self, params, lr=0.01):
+        super().__init__(params, dict(lr=lr))
+
+    def step(self):
+        for group in self.param_groups:
+            lr = group["lr"]
+            for p in group["params"]:
+                grad = p.grad.data
+                p.data -= lr * grad
+```
+
+---
+
+#### AdaGrad
+
+```python
+class AdaGrad(torch.optim.Optimizer):
+    def __init__(self, params, lr=0.01):
+        super().__init__(params, dict(lr=lr))
+
+    def step(self):
+        for group in self.param_groups:
+            lr = group["lr"]
+            for p in group["params"]:
+                state = self.state[p]
+                grad = p.grad.data
+                
+                # 获取累积平方梯度
+                g2 = state.get("g2", torch.zeros_like(grad))
+                
+                # 更新优化器状态
+                g2 += torch.square(grad)
+                state["g2"] = g2
+                
+                # 更新参数
+                p.data -= lr * grad / torch.sqrt(g2 + 1e-5)
+```
+
+---
+
+#### 优化器层次
+
+- **Momentum** = SGD + 梯度的指数平均
+- **AdaGrad** = SGD + 按 grad² 平均
+- **RMSProp** = AdaGrad + grad² 的指数平均
+- **Adam** = RMSProp + Momentum
+
+---
+
+#### 使用优化器
+
+```python
+model = Cruncher(dim=4, num_layers=2).to(device)
+optimizer = AdaGrad(model.parameters(), lr=0.01)
+
+# 前向传播
+x = torch.randn(2, 4, device=device)
+y = torch.tensor([4., 5.], device=device)
+pred_y = model(x)
+loss = F.mse_loss(pred_y, y)
+
+# 反向传播
+loss.backward()
+
+# 更新参数
+optimizer.step()
+
+# 清零梯度
+optimizer.zero_grad(set_to_none=True)
+```
+
+---
+
+### 4.4 资源核算
+
+**内存（float32）：**
+```python
+# 参数
+num_parameters = D*D*num_layers + D
+
+# 激活
+num_activations = B * D * num_layers
+
+# 梯度
+num_gradients = num_parameters
+
+# 优化器状态（AdaGrad）
+num_optimizer_states = num_parameters
+
+# 总内存
+total_memory = 4 * (
+    num_parameters +
+    num_activations +
+    num_gradients +
+    num_optimizer_states
+)
+```
+
+**计算（一步）：**
+```python
+flops = 6 * B * num_parameters
+```
+
+**Transformer 更复杂，但思路相同。**
+
+参考：
+- [Transformer Memory](https://erees.dev/transformer-memory/)
+- [Transformer FLOPs](https://www.adamcasson.com/posts/transformer-flops)
+
+---
+
+### 4.5 训练循环
+
+```python
+def train(get_batch, D, num_layers, B, num_train_steps, lr):
+    model = Cruncher(dim=D, num_layers=num_layers).to(device)
+    optimizer = SGD(model.parameters(), lr=lr)
+    
+    for t in range(num_train_steps):
+        # 获取数据
+        x, y = get_batch(B=B)
         
         # 前向传播
-        logits = model(input_ids)
-        
-        # 计算损失
-        shift_logits = logits[:, :-1, :].contiguous()
-        shift_targets = input_ids[:, 1:].contiguous()
-        loss = compute_loss(shift_logits, shift_targets)
+        pred_y = model(x)
+        loss = F.mse_loss(pred_y, y)
         
         # 反向传播
-        optimizer.zero_grad()
         loss.backward()
-        
-        # 梯度裁剪
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         
         # 更新参数
         optimizer.step()
-        scheduler.step()
-        
-        train_loss += loss.item()
-        global_step += 1
-        
-        # 日志
-        if global_step % 100 == 0:
-            avg_loss = train_loss / (batch_idx + 1)
-            ppl = math.exp(avg_loss)
-            lr = scheduler.get_last_lr()[0]
-            print(f"Epoch {epoch}, Step {global_step}, "
-                  f"Loss: {avg_loss:.4f}, PPL: {ppl:.2f}, LR: {lr:.6f}")
-    
-    # 验证阶段
-    model.eval()
-    val_loss = 0
-    
-    with torch.no_grad():
-        for batch in val_loader:
-            input_ids = batch['input_ids'].to(device)
-            logits = model(input_ids)
-            
-            shift_logits = logits[:, :-1, :].contiguous()
-            shift_targets = input_ids[:, 1:].contiguous()
-            loss = compute_loss(shift_logits, shift_targets)
-            
-            val_loss += loss.item()
-    
-    avg_val_loss = val_loss / len(val_loader)
-    val_ppl = math.exp(avg_val_loss)
-    
-    print(f"\nEpoch {epoch} - Validation Loss: {avg_val_loss:.4f}, PPL: {val_ppl:.2f}\n")
-    
-    # 保存最佳模型
-    if avg_val_loss < best_val_loss:
-        best_val_loss = avg_val_loss
-        save_checkpoint(model, optimizer, epoch, avg_val_loss, 'best_model.pt')
-        print(f"保存最佳模型，验证损失: {avg_val_loss:.4f}")
-
-print("训练完成！")
-```
-
-
----
-
-## 第八部分：常见问题和调试技巧
-
-### 1. 显存不足（OOM）
-
-**解决方案**：
-```python
-# 方法1: 减小batch size
-config['batch_size'] = 16  # 从32减到16
-
-# 方法2: 减小序列长度
-config['max_seq_len'] = 256  # 从512减到256
-
-# 方法3: 使用梯度累积
-accumulation_steps = 4
-
-# 方法4: 使用梯度检查点（Gradient Checkpointing）
-from torch.utils.checkpoint import checkpoint
-
-def forward_with_checkpointing(self, x):
-    for block in self.blocks:
-        x = checkpoint(block, x)
-    return x
-
-# 方法5: 使用混合精度训练
-from torch.cuda.amp import autocast, GradScaler
-```
-
-### 2. 训练不收敛
-
-**可能原因和解决方案**：
-
-**学习率过大**：
-```python
-# 降低学习率
-optimizer = optim.AdamW(model.parameters(), lr=1e-4)  # 从3e-4降到1e-4
-```
-
-**梯度爆炸**：
-```python
-# 检查梯度范数
-total_norm = 0
-for p in model.parameters():
-    if p.grad is not None:
-        param_norm = p.grad.data.norm(2)
-        total_norm += param_norm.item() ** 2
-total_norm = total_norm ** 0.5
-print(f"Gradient norm: {total_norm}")
-
-# 使用更严格的梯度裁剪
-torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
-```
-
-**权重初始化不当**：
-```python
-# 使用更小的初始化标准差
-torch.nn.init.normal_(module.weight, mean=0.0, std=0.01)
-```
-
-### 3. 生成文本质量差
-
-**问题1：重复生成**
-```python
-# 解决方案：使用repetition penalty
-def apply_repetition_penalty(logits, input_ids, penalty=1.2):
-    for token_id in set(input_ids.tolist()):
-        logits[token_id] /= penalty
-    return logits
-```
-
-**问题2：生成不连贯**
-```python
-# 解决方案：调整temperature和top_p
-generated = generate_top_p(
-    model, 
-    input_ids, 
-    temperature=0.8,  # 降低随机性
-    top_p=0.9         # 只从高概率token中采样
-)
-```
-
-**问题3：生成太短**
-```python
-# 解决方案：添加长度惩罚
-def length_penalty(length, alpha=0.6):
-    return ((5 + length) / 6) ** alpha
-```
-
-
-### 4. 调试技巧
-
-**检查模型输出形状**：
-```python
-def check_shapes(model, batch_size=2, seq_len=10):
-    input_ids = torch.randint(0, model.vocab_size, (batch_size, seq_len))
-    
-    print(f"Input shape: {input_ids.shape}")
-    
-    # Token embedding
-    token_emb = model.token_embedding(input_ids)
-    print(f"Token embedding shape: {token_emb.shape}")
-    
-    # Position embedding
-    positions = torch.arange(0, seq_len).unsqueeze(0)
-    pos_emb = model.position_embedding(positions)
-    print(f"Position embedding shape: {pos_emb.shape}")
-    
-    # Full forward pass
-    logits = model(input_ids)
-    print(f"Output logits shape: {logits.shape}")
-    
-    assert logits.shape == (batch_size, seq_len, model.vocab_size)
-    print("✓ All shapes correct!")
-
-check_shapes(model)
-```
-
-**可视化注意力权重**：
-```python
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-def visualize_attention(attention_weights, tokens):
-    """
-    attention_weights: [seq_len, seq_len]
-    tokens: list of token strings
-    """
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(
-        attention_weights.cpu().numpy(),
-        xticklabels=tokens,
-        yticklabels=tokens,
-        cmap='viridis',
-        cbar=True
-    )
-    plt.xlabel('Key')
-    plt.ylabel('Query')
-    plt.title('Attention Weights')
-    plt.show()
-```
-
-**监控训练指标**：
-```python
-from torch.utils.tensorboard import SummaryWriter
-
-writer = SummaryWriter('runs/gpt_training')
-
-# 在训练循环中
-writer.add_scalar('Loss/train', loss.item(), global_step)
-writer.add_scalar('Loss/val', val_loss, epoch)
-writer.add_scalar('Perplexity/train', train_ppl, global_step)
-writer.add_scalar('Perplexity/val', val_ppl, epoch)
-writer.add_scalar('Learning_rate', lr, global_step)
-
-# 可视化权重分布
-for name, param in model.named_parameters():
-    writer.add_histogram(name, param, global_step)
-
-writer.close()
+        optimizer.zero_grad(set_to_none=True)
 ```
 
 ---
 
-## 第九部分：扩展和改进
+### 4.6 检查点（Checkpointing）
 
-### 1. Flash Attention
+训练需要很长时间，肯定会崩溃。不想失去所有进度！
 
-**作用**：加速注意力计算，减少显存占用。
-
-```python
-# 安装: pip install flash-attn
-from flash_attn import flash_attn_func
-
-class FlashMultiHeadAttention(nn.Module):
-    def __init__(self, d_model, num_heads):
-        super().__init__()
-        self.d_model = d_model
-        self.num_heads = num_heads
-        self.d_k = d_model // num_heads
-        
-        self.W_qkv = nn.Linear(d_model, 3 * d_model)
-        self.W_o = nn.Linear(d_model, d_model)
-    
-    def forward(self, x):
-        batch_size, seq_len, _ = x.size()
-        
-        # 计算Q, K, V
-        qkv = self.W_qkv(x)
-        qkv = qkv.reshape(batch_size, seq_len, 3, self.num_heads, self.d_k)
-        qkv = qkv.permute(2, 0, 3, 1, 4)  # [3, B, H, T, d_k]
-        q, k, v = qkv[0], qkv[1], qkv[2]
-        
-        # 使用Flash Attention
-        output = flash_attn_func(q, k, v, causal=True)
-        
-        # 重塑并投影
-        output = output.transpose(1, 2).contiguous().view(batch_size, seq_len, self.d_model)
-        output = self.W_o(output)
-        
-        return output
-```
-
-
-### 2. Rotary Position Embedding (RoPE)
-
-**优势**：相对位置编码，外推性能好。
+**定期保存模型和优化器状态：**
 
 ```python
-class RotaryPositionEmbedding(nn.Module):
-    def __init__(self, d_model, max_seq_len=2048):
-        super().__init__()
-        inv_freq = 1.0 / (10000 ** (torch.arange(0, d_model, 2).float() / d_model))
-        self.register_buffer('inv_freq', inv_freq)
-        
-        # 预计算位置编码
-        t = torch.arange(max_seq_len).type_as(self.inv_freq)
-        freqs = torch.einsum('i,j->ij', t, self.inv_freq)
-        emb = torch.cat((freqs, freqs), dim=-1)
-        self.register_buffer('cos_cached', emb.cos())
-        self.register_buffer('sin_cached', emb.sin())
-    
-    def rotate_half(self, x):
-        x1, x2 = x[..., :x.shape[-1]//2], x[..., x.shape[-1]//2:]
-        return torch.cat((-x2, x1), dim=-1)
-    
-    def forward(self, q, k):
-        seq_len = q.shape[1]
-        cos = self.cos_cached[:seq_len, ...]
-        sin = self.sin_cached[:seq_len, ...]
-        
-        q_embed = (q * cos) + (self.rotate_half(q) * sin)
-        k_embed = (k * cos) + (self.rotate_half(k) * sin)
-        
-        return q_embed, k_embed
+model = Cruncher(dim=64, num_layers=3).to(device)
+optimizer = AdaGrad(model.parameters(), lr=0.01)
+
+# 保存检查点
+checkpoint = {
+    "model": model.state_dict(),
+    "optimizer": optimizer.state_dict(),
+}
+torch.save(checkpoint, "model_checkpoint.pt")
+
+# 加载检查点
+loaded_checkpoint = torch.load("model_checkpoint.pt")
+model.load_state_dict(loaded_checkpoint["model"])
+optimizer.load_state_dict(loaded_checkpoint["optimizer"])
 ```
-
-### 3. Grouped Query Attention (GQA)
-
-**优势**：减少KV cache，加速推理。
-
-```python
-class GroupedQueryAttention(nn.Module):
-    def __init__(self, d_model, num_heads, num_kv_heads):
-        super().__init__()
-        assert num_heads % num_kv_heads == 0
-        
-        self.d_model = d_model
-        self.num_heads = num_heads
-        self.num_kv_heads = num_kv_heads
-        self.num_queries_per_kv = num_heads // num_kv_heads
-        self.d_k = d_model // num_heads
-        
-        self.W_q = nn.Linear(d_model, d_model)
-        self.W_k = nn.Linear(d_model, num_kv_heads * self.d_k)
-        self.W_v = nn.Linear(d_model, num_kv_heads * self.d_k)
-        self.W_o = nn.Linear(d_model, d_model)
-    
-    def forward(self, x, mask=None):
-        batch_size, seq_len, _ = x.size()
-        
-        # Q: [B, num_heads, T, d_k]
-        Q = self.W_q(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        
-        # K, V: [B, num_kv_heads, T, d_k]
-        K = self.W_k(x).view(batch_size, seq_len, self.num_kv_heads, self.d_k).transpose(1, 2)
-        V = self.W_v(x).view(batch_size, seq_len, self.num_kv_heads, self.d_k).transpose(1, 2)
-        
-        # 复制K和V以匹配Q的头数
-        K = K.repeat_interleave(self.num_queries_per_kv, dim=1)
-        V = V.repeat_interleave(self.num_queries_per_kv, dim=1)
-        
-        # 标准注意力计算
-        scores = torch.matmul(Q, K.transpose(-2, -1)) / (self.d_k ** 0.5)
-        
-        if mask is not None:
-            scores = scores.masked_fill(mask == 0, float('-inf'))
-        
-        attention_weights = torch.softmax(scores, dim=-1)
-        output = torch.matmul(attention_weights, V)
-        
-        output = output.transpose(1, 2).contiguous().view(batch_size, seq_len, self.d_model)
-        output = self.W_o(output)
-        
-        return output
-```
-
-### 4. SwiGLU激活函数
-
-**优势**：比GELU性能更好（用于Llama等模型）。
-
-```python
-class SwiGLU(nn.Module):
-    def forward(self, x):
-        x, gate = x.chunk(2, dim=-1)
-        return F.silu(gate) * x
-
-class FeedForwardSwiGLU(nn.Module):
-    def __init__(self, d_model, d_ff, dropout=0.1):
-        super().__init__()
-        # 注意：需要2倍的d_ff因为会split
-        self.linear1 = nn.Linear(d_model, 2 * d_ff)
-        self.linear2 = nn.Linear(d_ff, d_model)
-        self.dropout = nn.Dropout(dropout)
-        self.swiglu = SwiGLU()
-    
-    def forward(self, x):
-        x = self.linear1(x)
-        x = self.swiglu(x)
-        x = self.dropout(x)
-        x = self.linear2(x)
-        x = self.dropout(x)
-        return x
-```
-
 
 ---
 
-## 第十部分：与现代LLM的对比
+### 4.7 混合精度训练
 
-### 主流模型架构对比
+**权衡：**
+- 高精度：更准确/稳定，更多内存，更多计算
+- 低精度：不太准确/稳定，更少内存，更少计算
 
-| 特性 | GPT-2 | GPT-3 | Llama | Llama 2 | GPT-4 (推测) |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **参数量** | 1.5B | 175B | 7B-65B | 7B-70B | 1.76T |
-| **层数** | 48 | 96 | 32 | 32-80 | ? |
-| **d_model** | 1600 | 12288 | 4096 | 4096-8192 | ? |
-| **注意力头数** | 25 | 96 | 32 | 32-64 | ? |
-| **位置编码** | Learned | Learned | RoPE | RoPE | ? |
-| **激活函数** | GELU | GELU | SwiGLU | SwiGLU | ? |
-| **归一化** | LayerNorm | LayerNorm | RMSNorm | RMSNorm | ? |
-| **词汇表** | 50257 | 50257 | 32000 | 32000 | ? |
-| **上下文长度** | 1024 | 2048 | 2048 | 4096 | 32k-128k |
+**如何两全其美？**
 
-### 关键改进点
+**解决方案：** 默认使用 float32，但在可能的地方使用 {bfloat16, fp8}
 
-**1. RMSNorm vs LayerNorm**
-```python
-class RMSNorm(nn.Module):
-    def __init__(self, d_model, eps=1e-6):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(d_model))
-        self.eps = eps
-    
-    def forward(self, x):
-        # 只使用RMS，不减去均值
-        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
-        return self.weight * x / rms
-```
+**具体计划：**
+- 前向传播使用 {bfloat16, fp8}（激活）
+- 其余使用 float32（参数、梯度）
 
-**优势**：计算更快，性能相当或更好
+**参考：**
+- [Mixed Precision Training Paper](https://arxiv.org/pdf/1710.03740.pdf)
+- [PyTorch AMP](https://pytorch.org/docs/stable/amp.html)
+- [NVIDIA Mixed Precision](https://docs.nvidia.com/deeplearning/performance/mixed-precision-training/)
 
-**2. 并行化Attention和FFN（PaLM架构）**
-```python
-class ParallelTransformerBlock(nn.Module):
-    def forward(self, x, mask=None):
-        # 并行计算attention和ffn
-        attn_out = self.attention(self.ln1(x), mask)
-        ffn_out = self.ffn(self.ln2(x))
-        
-        # 合并输出
-        x = x + attn_out + ffn_out
-        return x
-```
-
-**优势**：训练速度提升15-20%
+**NVIDIA Transformer Engine：**
+- 支持线性层的 FP8
+- 在整个训练中普遍使用 FP8
 
 ---
 
 ## 总结
 
-### 核心要点回顾
+### 知识类型
 
-1. **Transformer架构**是现代LLM的基础：
-   - Token Embedding + Position Embedding
-   - Multi-Head Self-Attention（多头自注意力）
-   - Feed-Forward Network（前馈网络）
-   - Layer Normalization + Residual Connection
+**机制（Mechanics）：** 直接（只是 PyTorch）
+- 张量操作
+- 模型定义
+- 训练循环
 
-2. **因果注意力**是自回归语言模型的关键：
-   - 使用下三角掩码
-   - 确保训练和推理一致
+**思维方式（Mindset）：** 资源核算（记得做）
+- 内存：参数 + 激活 + 梯度 + 优化器状态
+- 计算：6 × token 数 × 参数数
 
-3. **训练技巧**：
-   - 合适的学习率调度（Warmup + Cosine Decay）
-   - 梯度裁剪防止梯度爆炸
-   - 混合精度训练加速
-   - 权重共享减少参数
-
-4. **生成策略**：
-   - Greedy：快速但缺乏多样性
-   - Top-p：推荐的平衡策略
-   - Beam Search：适合翻译等任务
-
-5. **现代改进**：
-   - RoPE位置编码
-   - GQA减少KV cache
-   - SwiGLU激活函数
-   - Flash Attention加速
-
-
-### 从零到一的完整流程
-
-```
-1. 数据准备
-   ↓
-2. Tokenization（第一讲）
-   ↓
-3. 构建模型架构（本讲）
-   - Token Embedding
-   - Position Embedding
-   - Transformer Blocks
-   - Output Layer
-   ↓
-4. 训练
-   - 定义损失函数
-   - 选择优化器
-   - 设置学习率调度
-   - 训练循环
-   ↓
-5. 评估
-   - 计算困惑度
-   - 生成样本检查
-   ↓
-6. 推理和生成
-   - 选择生成策略
-   - 调整超参数
-   ↓
-7. 优化和部署
-   - 模型量化
-   - 推理加速
-```
-
-### 实践建议
-
-**从小模型开始**：
-- 先用小数据集（如WikiText-2）
-- 小模型配置（6层，512维度）
-- 验证代码正确性
-
-**逐步扩大规模**：
-- 确认小模型能正常训练
-- 逐步增加模型大小
-- 使用更大的数据集
-
-**关注关键指标**：
-- 训练损失是否下降
-- 验证困惑度是否合理
-- 生成文本是否连贯
-
-**调试优先级**：
-1. 确保代码能运行（形状正确）
-2. 确保损失下降（学习率、初始化）
-3. 确保不过拟合（dropout、数据量）
-4. 优化生成质量（采样策略）
-
-### 下一步学习
-
-**第三讲预告**：
-- 大规模数据处理
-- 数据清洗和过滤
-- 数据并行和模型并行
-- 分布式训练
-
-**推荐资源**：
-- [Attention is All You Need](https://arxiv.org/abs/1706.03762) - Transformer原始论文
-- [Language Models are Unsupervised Multitask Learners](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) - GPT-2论文
-- [Llama 2: Open Foundation and Fine-Tuned Chat Models](https://arxiv.org/abs/2307.09288) - Llama 2论文
-- [The Illustrated Transformer](http://jalammar.github.io/illustrated-transformer/) - 可视化教程
-- [nanoGPT](https://github.com/karpathy/nanoGPT) - Andrej Karpathy的最小GPT实现
+**直觉（Intuitions）：** 大致方向（没有大模型）
+- 初始化很重要
+- 数据类型权衡
+- MFU 作为效率指标
 
 ---
 
-## 附录：完整代码仓库结构
+### 关键要点
 
-```
-gpt-from-scratch/
-├── model/
-│   ├── __init__.py
-│   ├── embedding.py          # Token和Position Embedding
-│   ├── attention.py          # Multi-Head Attention
-│   ├── feedforward.py        # Feed-Forward Network
-│   ├── transformer_block.py  # Transformer Block
-│   └── gpt.py               # 完整GPT模型
-├── data/
-│   ├── __init__.py
-│   ├── dataset.py           # 数据集类
-│   └── tokenizer.py         # Tokenizer封装
-├── training/
-│   ├── __init__.py
-│   ├── trainer.py           # 训练器
-│   └── scheduler.py         # 学习率调度器
-├── generation/
-│   ├── __init__.py
-│   └── sampling.py          # 各种采样策略
-├── utils/
-│   ├── __init__.py
-│   ├── checkpoint.py        # 模型保存/加载
-│   └── metrics.py           # 评估指标
-├── configs/
-│   ├── gpt_small.yaml       # 小模型配置
-│   ├── gpt_medium.yaml      # 中等模型配置
-│   └── gpt_large.yaml       # 大模型配置
-├── train.py                 # 训练脚本
-├── generate.py              # 生成脚本
-├── evaluate.py              # 评估脚本
-└── requirements.txt         # 依赖包
-```
+1. **张量是一切的基础**
+   - 理解存储和视图
+   - 注意数据类型
 
-希望这份详细的笔记能帮助你深入理解如何从零开始构建一个语言模型！下一讲我们将深入探讨大规模训练的技术细节。
+2. **资源核算至关重要**
+   - 内存：每个参数 16 字节（AdamW）
+   - 计算：6 × tokens × params FLOPs
+
+3. **效率驱动设计**
+   - 混合精度训练
+   - 参数初始化
+   - 批处理和数据加载
+
+---
+
+### 下节课预告
+
+**主题：** Transformer 架构细节
+
+---
+
+## 参考资源
+
+**PyTorch 文档：**
+- [Tensors](https://pytorch.org/docs/stable/tensors.html)
+- [Automatic Mixed Precision](https://pytorch.org/docs/stable/amp.html)
+
+**Einops：**
+- [Tutorial](https://einops.rocks/1-einops-basics/)
+- [GitHub](https://github.com/arogozhnikov/einops)
+
+**博客文章：**
+- [Transformer Memory](https://erees.dev/transformer-memory/)
+- [Transformer FLOPs](https://www.adamcasson.com/posts/transformer-flops)
+- [FLOPs Calculus](https://medium.com/@dzmitrybahdanau/the-flops-calculus-of-language-model-training-3b19c1f025e4)
+
+**论文：**
+- [Xavier Initialization](https://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf)
+- [Mixed Precision Training](https://arxiv.org/pdf/1710.03740.pdf)
+- [FP8 Formats](https://arxiv.org/pdf/2209.05433.pdf)
