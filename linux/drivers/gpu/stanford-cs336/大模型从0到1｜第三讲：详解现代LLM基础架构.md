@@ -1,1667 +1,409 @@
-# 大模型从0到1｜第三讲：详解现代LLM基础架构
+# 大模型从0到1｜第三讲：详解现代LLM基础架构 (Modern LLM Architecture)
 
-> 课程链接：[Stanford CS336 Spring 2025 - Lecture 3: Architecture](https://github.com/stanford-cs336/spring2025-lectures/blob/main/nonexecutable/2025%20Lecture%203%20-%20architecture.pdf)
-
----
-
-## 第一部分：Transformer架构回顾
-
-### 1. 标准Transformer结构
-
-**核心组件**：
-```
-输入 Token IDs
-    ↓
-Token Embedding + Position Embedding
-    ↓
-┌─────────────────────────────────┐
-│  Transformer Block 1            │
-│  ├─ Layer Norm                  │
-│  ├─ Multi-Head Attention        │
-│  ├─ Residual Connection         │
-│  ├─ Layer Norm                  │
-│  ├─ Feed-Forward Network        │
-│  └─ Residual Connection         │
-└─────────────────────────────────┘
-    ↓
-    ... (重复N层)
-    ↓
-Layer Norm
-    ↓
-Language Model Head (Linear)
-    ↓
-输出 Logits
-```
-
-### 2. 三种主流架构类型
-
-| 架构类型 | 注意力模式 | 典型应用 | 代表模型 |
-| :--- | :--- | :--- | :--- |
-| **Encoder-only** | 双向注意力 | 理解任务（分类、NER） | BERT, RoBERTa |
-| **Decoder-only** | 因果注意力 | 生成任务 | GPT系列, Llama |
-| **Encoder-Decoder** | 编码器双向+解码器因果 | 序列到序列 | T5, BART |
-
-**本课重点**：Decoder-only架构（现代LLM的主流选择）
-
+**课程信息**：CS336 | **讲师**：Tatsu H | **幻灯片总数**：68
 
 ---
 
-## 第二部分：位置编码（Position Encoding）
+## Part 1: 课程概览 (Introduction)
 
-位置编码是让模型理解Token顺序的关键机制。
+![](arch/2025%20Lecture%203%20-%20architecture_01.png)
+**Page 1: 标题页**
+*   **内容:** 课程名称 "Lecture 3: Everything you didn't want to know about LM architecture and training"。
+*   **解析:** 这一讲主要关注那些我们在调用 API 时看不到，但自己训练模型时必须决定的“肮脏细节”。
 
-### 1. 绝对位置编码
+![](arch/2025%20Lecture%203%20-%20architecture_02.png)
+**Page 2: 课程目标 (Outline & Goals)**
+*   **内容:**
+    1.  回顾标准 Transformer。
+    2.  分析主流大模型（Big LMs）的架构共性。
+    3.  探讨常见的架构变体（Variations）及其取舍。
+*   **核心:** "Today's theme: the best way to learn is hands-on experience... try to learn from others."（从前人的实验中总结最佳实践）。
 
-#### 1.1 正弦位置编码（Sinusoidal Position Encoding）
+![](arch/2025%20Lecture%203%20-%20architecture_03.png)
+**Page 3: 后勤通知 (Logistics)**
+*   **内容:** 加入 Slack，检查作业版本等行政事项。
 
-**原始Transformer使用的方法**
-
-**公式**：
-```
-PE(pos, 2i) = sin(pos / 10000^(2i/d_model))
-PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
-```
-
-**特点**：
-- 固定的、不可学习的
-- 可以外推到训练时未见过的序列长度
-- 不同位置之间有确定的数学关系
-
-**PyTorch实现**：
-```python
-import torch
-import torch.nn as nn
-import math
-
-class SinusoidalPositionEncoding(nn.Module):
-    def __init__(self, d_model, max_len=5000):
-        super().__init__()
-        
-        # 创建位置编码矩阵 [max_len, d_model]
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        
-        # 计算除数项
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * 
-                            (-math.log(10000.0) / d_model))
-        
-        # 应用sin和cos
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        
-        # 注册为buffer（不参与梯度更新）
-        pe = pe.unsqueeze(0)  # [1, max_len, d_model]
-        self.register_buffer('pe', pe)
-    
-    def forward(self, x):
-        # x: [batch_size, seq_len, d_model]
-        return x + self.pe[:, :x.size(1), :]
-```
-
-**优点**：
-- 无需训练
-- 理论上可以处理任意长度
-- 位置之间的相对关系可以通过三角函数性质表达
-
-**缺点**：
-- 不如可学习的位置编码灵活
-- 在实践中性能略逊
-
-
-#### 1.2 可学习的绝对位置编码（Learned Absolute Position Encoding）
-
-**GPT-2、BERT使用的方法**
-
-**实现**：
-```python
-class LearnedPositionEncoding(nn.Module):
-    def __init__(self, max_len, d_model):
-        super().__init__()
-        # 位置嵌入表，可学习
-        self.position_embeddings = nn.Embedding(max_len, d_model)
-    
-    def forward(self, x):
-        # x: [batch_size, seq_len, d_model]
-        batch_size, seq_len, _ = x.size()
-        
-        # 创建位置索引
-        positions = torch.arange(seq_len, device=x.device).unsqueeze(0)
-        # positions: [1, seq_len]
-        
-        # 获取位置嵌入
-        position_embeddings = self.position_embeddings(positions)
-        # position_embeddings: [1, seq_len, d_model]
-        
-        return x + position_embeddings
-```
-
-**优点**：
-- 可以学习到最适合任务的位置表示
-- 实践中通常性能更好
-
-**缺点**：
-- 无法外推到超过max_len的序列
-- 需要额外的参数（max_len × d_model）
-
-### 2. 相对位置编码
-
-相对位置编码关注的是Token之间的相对距离，而不是绝对位置。
-
-#### 2.1 ALiBi (Attention with Linear Biases)
-
-**核心思想**：在注意力分数上添加与相对距离成比例的偏置。
-
-**公式**：
-```
-attention_score(q_i, k_j) = q_i · k_j - m × |i - j|
-```
-其中m是每个注意力头特定的斜率。
-
-**实现**：
-```python
-class ALiBiPositionBias(nn.Module):
-    def __init__(self, num_heads, max_seq_len=2048):
-        super().__init__()
-        # 为每个头计算斜率
-        slopes = torch.tensor(self._get_slopes(num_heads))
-        
-        # 创建相对位置矩阵
-        # alibi: [num_heads, max_seq_len, max_seq_len]
-        alibi = self._build_alibi_tensor(slopes, max_seq_len)
-        self.register_buffer('alibi', alibi)
-    
-    def _get_slopes(self, num_heads):
-        # 计算几何序列的斜率
-        def get_slopes_power_of_2(n):
-            start = 2 ** (-(2 ** -(math.log2(n) - 3)))
-            ratio = start
-            return [start * (ratio ** i) for i in range(n)]
-        
-        if math.log2(num_heads).is_integer():
-            return get_slopes_power_of_2(num_heads)
-        else:
-            # 处理非2的幂次的情况
-            closest_power_of_2 = 2 ** math.floor(math.log2(num_heads))
-            return (get_slopes_power_of_2(closest_power_of_2) + 
-                   self._get_slopes(2 * closest_power_of_2)[0::2][:num_heads - closest_power_of_2])
-    
-    def _build_alibi_tensor(self, slopes, max_seq_len):
-        # 创建相对位置矩阵
-        # 对于位置i和j，值为 -slope * |i - j|
-        alibi = torch.zeros(len(slopes), max_seq_len, max_seq_len)
-        for head_idx, slope in enumerate(slopes):
-            for i in range(max_seq_len):
-                for j in range(max_seq_len):
-                    alibi[head_idx, i, j] = -slope * abs(i - j)
-        return alibi
-    
-    def forward(self, attention_scores):
-        # attention_scores: [batch, num_heads, seq_len, seq_len]
-        seq_len = attention_scores.size(-1)
-        return attention_scores + self.alibi[:, :seq_len, :seq_len]
-```
-
-**优点**：
-- 无需额外参数（除了预定义的斜率）
-- 外推性能优秀
-- 训练和推理效率高
-
-**缺点**：
-- 相比可学习的方法，灵活性稍低
-
-**使用模型**：BLOOM, MPT
-
-
-#### 2.2 RoPE (Rotary Position Embedding)
-
-**核心思想**：通过旋转变换将相对位置信息编码到Query和Key中。
-
-**数学原理**：
-对于位置m的向量，应用旋转矩阵R_m：
-```
-q_m = R_m · q
-k_n = R_n · k
-
-q_m^T · k_n = q^T · R_m^T · R_n · k = q^T · R_(n-m) · k
-```
-这样注意力分数只依赖于相对位置(n-m)。
-
-**实现**：
-```python
-class RotaryPositionEmbedding(nn.Module):
-    def __init__(self, dim, max_seq_len=2048, base=10000):
-        super().__init__()
-        # 计算频率
-        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float() / dim))
-        self.register_buffer('inv_freq', inv_freq)
-        
-        # 预计算cos和sin值
-        t = torch.arange(max_seq_len, dtype=torch.float)
-        freqs = torch.einsum('i,j->ij', t, inv_freq)
-        emb = torch.cat((freqs, freqs), dim=-1)
-        
-        self.register_buffer('cos_cached', emb.cos()[None, None, :, :])
-        self.register_buffer('sin_cached', emb.sin()[None, None, :, :])
-    
-    def rotate_half(self, x):
-        """旋转输入张量的一半维度"""
-        x1, x2 = x[..., :x.shape[-1]//2], x[..., x.shape[-1]//2:]
-        return torch.cat((-x2, x1), dim=-1)
-    
-    def forward(self, q, k, seq_len=None):
-        """
-        q, k: [batch, num_heads, seq_len, head_dim]
-        """
-        if seq_len is None:
-            seq_len = q.shape[2]
-        
-        # 获取对应长度的cos和sin
-        cos = self.cos_cached[:, :, :seq_len, :]
-        sin = self.sin_cached[:, :, :seq_len, :]
-        
-        # 应用旋转
-        q_embed = (q * cos) + (self.rotate_half(q) * sin)
-        k_embed = (k * cos) + (self.rotate_half(k) * sin)
-        
-        return q_embed, k_embed
-```
-
-**使用示例**：
-```python
-# 在Multi-Head Attention中使用
-class MultiHeadAttentionWithRoPE(nn.Module):
-    def __init__(self, d_model, num_heads):
-        super().__init__()
-        self.num_heads = num_heads
-        self.d_k = d_model // num_heads
-        
-        self.W_q = nn.Linear(d_model, d_model)
-        self.W_k = nn.Linear(d_model, d_model)
-        self.W_v = nn.Linear(d_model, d_model)
-        self.W_o = nn.Linear(d_model, d_model)
-        
-        # RoPE
-        self.rope = RotaryPositionEmbedding(self.d_k)
-    
-    def forward(self, x, mask=None):
-        batch_size, seq_len, d_model = x.size()
-        
-        # 线性投影
-        Q = self.W_q(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        K = self.W_k(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        V = self.W_v(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        
-        # 应用RoPE
-        Q, K = self.rope(Q, K, seq_len)
-        
-        # 标准注意力计算
-        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
-        
-        if mask is not None:
-            scores = scores.masked_fill(mask == 0, float('-inf'))
-        
-        attention_weights = torch.softmax(scores, dim=-1)
-        output = torch.matmul(attention_weights, V)
-        
-        # 重塑并输出投影
-        output = output.transpose(1, 2).contiguous().view(batch_size, seq_len, d_model)
-        output = self.W_o(output)
-        
-        return output
-```
-
-**优点**：
-- 优秀的外推性能
-- 相对位置信息自然编码
-- 不增加额外参数
-
-**缺点**：
-- 实现相对复杂
-- 计算开销略高于简单的位置编码
-
-**使用模型**：Llama, Llama 2, PaLM, GPT-NeoX
-
-### 3. 位置编码方法对比
-
-| 方法 | 类型 | 参数量 | 外推能力 | 代表模型 |
-| :--- | :--- | :--- | :--- | :--- |
-| **Sinusoidal** | 绝对 | 0 | ✓ | 原始Transformer |
-| **Learned Absolute** | 绝对 | max_len × d_model | ✗ | GPT-2, BERT |
-| **ALiBi** | 相对 | 0 | ✓✓ | BLOOM, MPT |
-| **RoPE** | 相对 | 0 | ✓✓ | Llama, PaLM |
-
-**趋势**：现代大模型倾向于使用相对位置编码（RoPE或ALiBi），因为它们在长序列外推上表现更好。
-
+![](arch/2025%20Lecture%203%20-%20architecture_04.png)
+**Page 4: 技术大纲**
+*   **内容:** 
+    *   **架构变体:** 激活函数、FFN 设计、Attention 变体、位置编码。
+    *   **超参数:** 哪些参数重要（Scale）？哪些不重要？
+    *   **稳定性:** 如何防止训练崩溃（Stability tricks）。
 
 ---
 
-## 第三部分：归一化层（Normalization）
+## Part 2: 架构演进与共性 (The Landscape)
 
-归一化是稳定深度网络训练的关键技术。
+![](arch/2025%20Lecture%203%20-%20architecture_05.png)
+**Page 5: 原始 Transformer (The Original)**
+*   **内容:** 经典的 Attention is All You Need 架构图。
+*   **关键特征:** 
+    *   **Post-Norm:** Add & Norm 在子层之后。
+    *   **Sinusoidal:** 正弦位置编码。
+    *   **ReLU:** 激活函数。
+    *   **Bias:** 全连接层带有偏置项。
 
-### 1. Layer Normalization
+![](arch/2025%20Lecture%203%20-%20architecture_06.png)
+**Page 6: 现代架构的“标准答案” (Modern Variant)**
+*   **内容:** 这就是你们在作业中要实现的架构（类似 Llama）。
+*   **改进点:**
+    *   **Pre-Norm:** Norm 放在子层之前。
+    *   **RMSNorm:** 替代 LayerNorm。
+    *   **RoPE:** 旋转位置编码。
+    *   **SwiGLU:** 替代 ReLU。
+    *   **No Bias:** 去掉 Bias。
 
-**标准LayerNorm（原始Transformer）**
+![](arch/2025%20Lecture%203%20-%20architecture_07.png)
+**Page 7: 模型大爆发**
+*   **内容:** 列举了近年来发布的各种模型（Llama 3, Nemotron, Qwen 1.5, Gemma 等）。
+*   **解析:** 虽然名字不同，但它们在架构上惊人地相似，大多是对 Page 6 所述架构的微调。
 
-**公式**：
-```
-LN(x) = γ · (x - μ) / √(σ² + ε) + β
-```
-其中：
-- μ = mean(x)：均值
-- σ² = var(x)：方差
-- γ, β：可学习的缩放和偏移参数
-- ε：数值稳定性常数（通常为1e-5或1e-6）
+![](arch/2025%20Lecture%203%20-%20architecture_08.png)
+**Page 8: 架构统计大表 (The Data)**
+*   **内容:** 一个详细的表格，横轴是模型（GPT-3, PaLM, Llama, Chinchilla 等），纵轴是配置（Norm 类型, Pos Emb, Activation）。
+*   **趋势:** 可以明显看到从早期的混乱（各种尝试）到后期的统一（Pre-norm, RoPE, SwiGLU 占主导）。
 
-**实现**：
-```python
-class LayerNorm(nn.Module):
-    def __init__(self, d_model, eps=1e-6):
-        super().__init__()
-        self.gamma = nn.Parameter(torch.ones(d_model))
-        self.beta = nn.Parameter(torch.zeros(d_model))
-        self.eps = eps
-    
-    def forward(self, x):
-        # x: [batch_size, seq_len, d_model]
-        mean = x.mean(dim=-1, keepdim=True)
-        std = x.std(dim=-1, keepdim=True)
-        return self.gamma * (x - mean) / (std + self.eps) + self.beta
-```
-
-**特点**：
-- 对每个样本的每个位置独立归一化
-- 在特征维度上计算统计量
-- 适合序列模型（不依赖batch size）
-
-### 2. RMSNorm (Root Mean Square Normalization)
-
-**简化版的LayerNorm，去掉了均值中心化和偏移项**
-
-**公式**：
-```
-RMSNorm(x) = γ · x / RMS(x)
-RMS(x) = √(mean(x²) + ε)
-```
-
-**实现**：
-```python
-class RMSNorm(nn.Module):
-    def __init__(self, d_model, eps=1e-6):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(d_model))
-        self.eps = eps
-    
-    def forward(self, x):
-        # x: [batch_size, seq_len, d_model]
-        # 计算RMS
-        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
-        # 归一化并缩放
-        return self.weight * x / rms
-```
-
-**优点**：
-- 计算更快（省略了均值计算和偏移）
-- 参数更少（只有γ，没有β）
-- 实践中性能与LayerNorm相当或更好
-- 训练更稳定
-
-**使用模型**：Llama, Llama 2, Gopher
-
-### 3. LayerNorm的位置：Pre-LN vs Post-LN
-
-#### 3.1 Post-LN（原始Transformer）
-
-```python
-# Post-LN架构
-def transformer_block_post_ln(x):
-    # 注意力子层
-    x = x + attention(x)
-    x = layer_norm(x)
-    
-    # 前馈子层
-    x = x + ffn(x)
-    x = layer_norm(x)
-    
-    return x
-```
-
-**特点**：
-- 归一化在残差连接之后
-- 需要学习率预热（warmup）
-- 深层网络训练不稳定
-
-#### 3.2 Pre-LN（现代模型标准）
-
-```python
-# Pre-LN架构
-def transformer_block_pre_ln(x):
-    # 注意力子层
-    x = x + attention(layer_norm(x))
-    
-    # 前馈子层
-    x = x + ffn(layer_norm(x))
-    
-    return x
-```
-
-
-**完整的Pre-LN Transformer Block**：
-```python
-class TransformerBlockPreLN(nn.Module):
-    def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
-        super().__init__()
-        
-        self.attention = MultiHeadAttention(d_model, num_heads)
-        self.ffn = FeedForward(d_model, d_ff, dropout)
-        
-        # Pre-LN: 在子层之前归一化
-        self.ln1 = nn.LayerNorm(d_model)
-        self.ln2 = nn.LayerNorm(d_model)
-        
-        self.dropout = nn.Dropout(dropout)
-    
-    def forward(self, x, mask=None):
-        # 注意力子层（Pre-LN）
-        normalized = self.ln1(x)
-        attn_output = self.attention(normalized, mask)
-        x = x + self.dropout(attn_output)
-        
-        # 前馈子层（Pre-LN）
-        normalized = self.ln2(x)
-        ffn_output = self.ffn(normalized)
-        x = x + self.dropout(ffn_output)
-        
-        return x
-```
-
-**Pre-LN vs Post-LN对比**：
-
-| 特性 | Post-LN | Pre-LN |
-| :--- | :--- | :--- |
-| **训练稳定性** | 较差，深层网络难训练 | 好，易于训练深层网络 |
-| **学习率预热** | 必需 | 可选 |
-| **梯度流** | 可能不稳定 | 更稳定 |
-| **最终性能** | 略好（如果能训练好） | 略逊但更稳定 |
-| **使用模型** | 原始Transformer | GPT-2, GPT-3, Llama |
-
-**现代选择**：几乎所有现代LLM都使用Pre-LN，因为训练稳定性更重要。
-
-### 4. 最终的LayerNorm
-
-在模型最后通常还有一个LayerNorm：
-
-```python
-class GPTModel(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        # ... 其他组件 ...
-        
-        self.blocks = nn.ModuleList([
-            TransformerBlockPreLN(...) for _ in range(num_layers)
-        ])
-        
-        # 最终的LayerNorm
-        self.ln_f = nn.LayerNorm(d_model)
-        
-        self.lm_head = nn.Linear(d_model, vocab_size, bias=False)
-    
-    def forward(self, x):
-        # ... embedding ...
-        
-        for block in self.blocks:
-            x = block(x)
-        
-        # 最终归一化
-        x = self.ln_f(x)
-        
-        logits = self.lm_head(x)
-        return logits
-```
+![](arch/2025%20Lecture%203%20-%20architecture_09.png)
+**Page 9: 架构共性总结**
+*   **内容:** High level view。
+    *   **Pre-norm:** 现在的绝对主流。
+    *   **RMSNorm:** Llama 系列, PaLM, Gopher 使用。
+    *   **SwiGLU:** Llama 系列, PaLM, Mistral 使用。
+    *   **RoPE:** 几乎所有现代模型（除了 ALiBi 的少数拥护者）都使用。
 
 ---
 
-## 第四部分：激活函数
+## Part 3: 归一化层详解 (Normalization)
 
-激活函数为模型引入非线性，是深度学习的核心。
+![](arch/2025%20Lecture%203%20-%20architecture_10.png)
+**Page 10: Pre-Norm vs Post-Norm 结构图**
+*   **左图 (Post-LN):** $x = Norm(x + f(x))$。BERT 时代的主流。
+*   **右图 (Pre-LN):** $x = x + f(Norm(x))$。GPT-2 之后的主流。
+*   **区别:** Pre-LN 保证了残差主干（Identity path）的纯净，梯度可以直接流到底。
 
-### 1. ReLU (Rectified Linear Unit)
+![](arch/2025%20Lecture%203%20-%20architecture_11.png)
+**Page 11: 为什么选 Pre-Norm? (原理)**
+*   **内容:** 引用 Xiong 2020。
+*   **核心:** Pre-LN 使得深层网络的梯度范数（Gradient Norm）更稳定。它消除了梯度爆炸/消失的风险，使得我们可以使用更大的学习率，并且不需要很长时间的 Warmup。
 
-**公式**：
-```
-ReLU(x) = max(0, x)
-```
+![](arch/2025%20Lecture%203%20-%20architecture_12.png)
+**Page 12: Pre/Post Norm 的实验对比**
+*   **内容:** 训练曲线图 (IWSLT)。
+*   **结论:** Post-LN（蓝线）如果没有精心设计的 Warmup 很容易炸或者是收敛慢；Pre-LN（红/绿线）则非常稳健，收敛更快。
 
-**实现**：
-```python
-import torch.nn.functional as F
+![](arch/2025%20Lecture%203%20-%20architecture_13.png)
+**Page 13: 梯度范数可视化**
+*   **内容:** 图表展示了不同层级的梯度大小。
+*   **解析:** Post-LN 的梯度在反向传播时，到底层会变得非常小（梯度消失）；Pre-LN 的梯度在所有层级保持一致。
 
-def relu(x):
-    return F.relu(x)
-```
+![](arch/2025%20Lecture%203%20-%20architecture_14.png)
+**Page 14: 新趋势 - Double Norm?**
+*   **内容:** 提到了一些最新的模型（如 Grok, Gemma 2）。
+*   **做法:** 它们在 Pre-Norm 的基础上，又在残差块的输出位置加了一个 Norm。这是一种“双保险”，为了在大规模训练时获得极致的稳定性。
 
-**特点**：
-- 简单、快速
-- 可能导致"神经元死亡"（负值梯度为0）
-- 早期Transformer使用
+![](arch/2025%20Lecture%203%20-%20architecture_15.png)
+**Page 15: LayerNorm 回顾**
+*   **内容:** 标准 LayerNorm 的公式。
+    *   需要计算 Mean $\mu$ 和 Variance $\sigma^2$。
+    *   操作：Centering (减均值) + Scaling (除标准差)。
 
-### 2. GELU (Gaussian Error Linear Unit)
+![](arch/2025%20Lecture%203%20-%20architecture_16.png)
+**Page 16: RMSNorm (Root Mean Square Norm)**
+*   **内容:** 公式：$y = \frac{x}{\text{RMS}(x)} * \gamma$。
+*   **核心:** **去掉了减均值的操作**。只做缩放（Rescaling），不做中心化（Re-centering）。
+*   **使用者:** LLaMA, PaLM, T5。
 
-**公式**：
-```
-GELU(x) = x · Φ(x)
-```
-其中Φ(x)是标准正态分布的累积分布函数。
+![](arch/2025%20Lecture%203%20-%20architecture_17.png)
+**Page 17: 为什么 RMSNorm 有效？**
+*   **内容:** 引用 Bjorck et al 2018。
+*   **解释:** 实验发现 LayerNorm 的成功主要归功于 Scaling（缩放不变性），Mean（平移不变性）其实没啥用。既然没用，为了速度就干掉它。
 
-**近似实现**：
-```python
-def gelu(x):
-    return 0.5 * x * (1.0 + torch.tanh(
-        math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3))
-    ))
+![](arch/2025%20Lecture%203%20-%20architecture_18.png)
+**Page 18: RMSNorm 的速度优势**
+*   **内容:** 性能对比表。
+*   **结论:** 少了均值计算，RMSNorm 在 GPU 上通常能带来 **10% - 40%** 的速度提升（取决于实现细节）。这是大家在这个时代选择它的主要原因——**快**。
 
-# PyTorch内置
-def gelu_pytorch(x):
-    return F.gelu(x)
-```
-
-**特点**：
-- 平滑的非线性
-- 在负值区域有小的梯度（避免神经元死亡）
-- 性能通常优于ReLU
-
-**使用模型**：BERT, GPT-2, GPT-3
-
-
-### 3. SwiGLU (Swish-Gated Linear Unit)
-
-**核心思想**：使用门控机制，结合Swish激活函数。
-
-**公式**：
-```
-SwiGLU(x, W, V, b, c) = Swish(xW + b) ⊗ (xV + c)
-Swish(x) = x · σ(x) = x · sigmoid(x)
-```
-
-**实现**：
-```python
-class SwiGLU(nn.Module):
-    def forward(self, x):
-        # x已经通过线性层，维度是2倍的d_ff
-        x, gate = x.chunk(2, dim=-1)
-        return F.silu(gate) * x  # silu = swish
-
-class FeedForwardSwiGLU(nn.Module):
-    def __init__(self, d_model, d_ff, dropout=0.1):
-        super().__init__()
-        # 注意：输出维度是2*d_ff，因为会split
-        self.w1 = nn.Linear(d_model, 2 * d_ff, bias=False)
-        self.w2 = nn.Linear(d_ff, d_model, bias=False)
-        self.dropout = nn.Dropout(dropout)
-    
-    def forward(self, x):
-        # x: [batch, seq_len, d_model]
-        x = self.w1(x)  # [batch, seq_len, 2*d_ff]
-        
-        # Split并应用SwiGLU
-        x, gate = x.chunk(2, dim=-1)
-        x = F.silu(gate) * x  # [batch, seq_len, d_ff]
-        
-        x = self.dropout(x)
-        x = self.w2(x)  # [batch, seq_len, d_model]
-        x = self.dropout(x)
-        
-        return x
-```
-
-**变体：GLU家族**
-
-| 激活函数 | 门控函数 | 公式 |
-| :--- | :--- | :--- |
-| **GLU** | Sigmoid | σ(xW) ⊗ (xV) |
-| **ReGLU** | ReLU | ReLU(xW) ⊗ (xV) |
-| **GEGLU** | GELU | GELU(xW) ⊗ (xV) |
-| **SwiGLU** | Swish | Swish(xW) ⊗ (xV) |
-
-**优点**：
-- 性能优于GELU和ReLU
-- 门控机制提供更灵活的非线性
-- 实践中收敛更快
-
-**缺点**：
-- 参数量增加（需要2倍的d_ff）
-- 计算量略高
-
-**使用模型**：Llama, Llama 2, PaLM
-
-### 4. 激活函数对比
-
-| 激活函数 | 计算复杂度 | 性能 | 参数量 | 代表模型 |
-| :--- | :--- | :--- | :--- | :--- |
-| **ReLU** | 低 | 基线 | 标准 | 早期模型 |
-| **GELU** | 中 | 好 | 标准 | GPT-2/3, BERT |
-| **SwiGLU** | 高 | 最好 | 2倍 | Llama, PaLM |
-
-**趋势**：现代大模型倾向于使用SwiGLU，尽管参数量更大，但性能提升值得。
+![](arch/2025%20Lecture%203%20-%20architecture_19.png)
+**Page 19: 移除偏置项 (No Bias)**
+*   **内容:** 许多现代模型（PaLM, Llama）移除了所有 Linear 层和 Norm 层的 Bias 参数。
+*   **原因:**
+    1.  对性能（PPL）几乎无影响。
+    2.  提升训练稳定性（Stability）。
+    3.  稍微减少一点显存和通信量。
 
 ---
 
-## 第五部分：注意力机制的优化
+## Part 4: 激活函数 (Activations)
 
-### 1. Multi-Query Attention (MQA)
+![](arch/2025%20Lecture%203%20-%20architecture_20.png)
+**Page 20: 激活函数概览**
+*   **内容:** 标题页。我们将看到从 ReLU 到 SwiGLU 的演进。
 
-**核心思想**：所有注意力头共享同一组Key和Value。
+![](arch/2025%20Lecture%203%20-%20architecture_21.png)
+**Page 21: 经典激活函数**
+*   **ReLU:** $max(0, x)$。简单，稀疏。
+*   **GeLU:** $x \Phi(x)$。BERT/GPT 使用。平滑，非线性更强。
 
-**标准Multi-Head Attention**：
-- 每个头有独立的Q, K, V投影
-- 参数：3 × d_model × d_model
+![](arch/2025%20Lecture%203%20-%20architecture_22.png)
+**Page 22: GLU (Gated Linear Units) 家族**
+*   **内容:** 介绍“门控”机制。
+    *   普通 FFN: $Act(xW_1)W_2$
+    *   GLU FFN: $(Act(xW_1) \odot xV_1) W_2$
+*   **解析:** 引入了额外的投影层 $V_1$ 作为“门”，通过逐元素乘法控制信息流。
 
-**Multi-Query Attention**：
-- 每个头有独立的Q投影
-- 所有头共享一组K, V投影
-- 参数：d_model × d_model (Q) + 2 × d_model × d_k (共享的K, V)
+![](arch/2025%20Lecture%203%20-%20architecture_23.png)
+**Page 23: GeGLU**
+*   **内容:** 激活函数用 GeLU 的 GLU。
+    *   公式: $\text{GeLU}(xW) \odot (xV) W_2$
+    *   代表: PaLM, T5。
 
-**实现**：
-```python
-class MultiQueryAttention(nn.Module):
-    def __init__(self, d_model, num_heads):
-        super().__init__()
-        self.num_heads = num_heads
-        self.d_k = d_model // num_heads
-        
-        # 每个头独立的Query投影
-        self.W_q = nn.Linear(d_model, d_model)
-        
-        # 共享的Key和Value投影（只有一组）
-        self.W_k = nn.Linear(d_model, self.d_k)
-        self.W_v = nn.Linear(d_model, self.d_k)
-        
-        self.W_o = nn.Linear(d_model, d_model)
-    
-    def forward(self, x, mask=None):
-        batch_size, seq_len, d_model = x.size()
-        
-        # Query: 每个头独立
-        Q = self.W_q(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        # Q: [batch, num_heads, seq_len, d_k]
-        
-        # Key和Value: 所有头共享
-        K = self.W_k(x).unsqueeze(1)  # [batch, 1, seq_len, d_k]
-        V = self.W_v(x).unsqueeze(1)  # [batch, 1, seq_len, d_k]
-        
-        # 广播K和V到所有头
-        K = K.expand(batch_size, self.num_heads, seq_len, self.d_k)
-        V = V.expand(batch_size, self.num_heads, seq_len, self.d_k)
-        
-        # 标准注意力计算
-        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
-        
-        if mask is not None:
-            scores = scores.masked_fill(mask == 0, float('-inf'))
-        
-        attention_weights = torch.softmax(scores, dim=-1)
-        output = torch.matmul(attention_weights, V)
-        
-        # 合并头
-        output = output.transpose(1, 2).contiguous().view(batch_size, seq_len, d_model)
-        output = self.W_o(output)
-        
-        return output
-```
+![](arch/2025%20Lecture%203%20-%20architecture_24.png)
+**Page 24: SwiGLU (The Winner)**
+*   **内容:** 激活函数用 Swish 的 GLU。
+    *   公式: $\text{Swish}(xW) \odot (xV) W_2$
+    *   代表: **LLaMA**, Mistral。
+*   **注意:** 因为多了 $V$ 矩阵，为了参数量公平对比，通常会把 FFN 的中间维度从 $4d$ 降到 $\frac{8}{3}d$ (约 2.67d)。
 
-**优点**：
-- 大幅减少KV cache（推理时的显存占用）
-- 推理速度更快
-- 参数量减少
+![](arch/2025%20Lecture%203%20-%20architecture_25.png)
+**Page 25: GLU 真的更好吗？**
+*   **内容:** 引用 Shazeer 2020 论文图表。
+*   **结论:** 在相同 FLOPs 下，GLU 变体（ReGLU, SwiGLU）始终优于非门控版本（ReLU, GeLU）。
 
-**缺点**：
-- 表达能力略有下降
-- 训练时性能可能略逊
+![](arch/2025%20Lecture%203%20-%20architecture_26.png)
+**Page 26: 更多实验证据**
+*   **内容:** 另一组 PPL 对比。SwiGLU 表现最佳。
 
-**使用模型**：PaLM, Falcon
-
-
-### 2. Grouped-Query Attention (GQA)
-
-**核心思想**：MQA和MHA的折中方案，将头分组，每组共享K和V。
-
-**实现**：
-```python
-class GroupedQueryAttention(nn.Module):
-    def __init__(self, d_model, num_heads, num_kv_heads):
-        super().__init__()
-        assert num_heads % num_kv_heads == 0, "num_heads必须能被num_kv_heads整除"
-        
-        self.num_heads = num_heads
-        self.num_kv_heads = num_kv_heads
-        self.num_queries_per_kv = num_heads // num_kv_heads
-        self.d_k = d_model // num_heads
-        
-        # Query: 所有头
-        self.W_q = nn.Linear(d_model, d_model)
-        
-        # Key和Value: 只有num_kv_heads组
-        self.W_k = nn.Linear(d_model, num_kv_heads * self.d_k)
-        self.W_v = nn.Linear(d_model, num_kv_heads * self.d_k)
-        
-        self.W_o = nn.Linear(d_model, d_model)
-    
-    def forward(self, x, mask=None):
-        batch_size, seq_len, d_model = x.size()
-        
-        # Query: [batch, num_heads, seq_len, d_k]
-        Q = self.W_q(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        
-        # Key和Value: [batch, num_kv_heads, seq_len, d_k]
-        K = self.W_k(x).view(batch_size, seq_len, self.num_kv_heads, self.d_k).transpose(1, 2)
-        V = self.W_v(x).view(batch_size, seq_len, self.num_kv_heads, self.d_k).transpose(1, 2)
-        
-        # 将K和V复制到对应的Query头
-        # 每个KV组对应num_queries_per_kv个Query头
-        K = K.repeat_interleave(self.num_queries_per_kv, dim=1)
-        V = V.repeat_interleave(self.num_queries_per_kv, dim=1)
-        # 现在K和V: [batch, num_heads, seq_len, d_k]
-        
-        # 标准注意力计算
-        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
-        
-        if mask is not None:
-            scores = scores.masked_fill(mask == 0, float('-inf'))
-        
-        attention_weights = torch.softmax(scores, dim=-1)
-        output = torch.matmul(attention_weights, V)
-        
-        # 合并头
-        output = output.transpose(1, 2).contiguous().view(batch_size, seq_len, d_model)
-        output = self.W_o(output)
-        
-        return output
-```
-
-**配置示例**：
-```python
-# Llama 2 70B的配置
-# num_heads = 64
-# num_kv_heads = 8
-# 每8个Query头共享一组KV
-
-gqa = GroupedQueryAttention(
-    d_model=8192,
-    num_heads=64,
-    num_kv_heads=8  # 8组KV
-)
-```
-
-**三种注意力机制对比**：
-
-| 特性 | MHA | GQA | MQA |
-| :--- | :--- | :--- | :--- |
-| **KV头数** | num_heads | num_kv_heads | 1 |
-| **KV参数量** | 2 × d_model² | 2 × d_model × num_kv_heads × d_k | 2 × d_model × d_k |
-| **KV cache大小** | 最大 | 中等 | 最小 |
-| **表达能力** | 最强 | 中等 | 较弱 |
-| **推理速度** | 慢 | 中等 | 快 |
-| **使用模型** | GPT-2/3, BERT | Llama 2 | PaLM, Falcon |
-
-**趋势**：GQA是当前的最佳平衡点，Llama 2等最新模型都采用了这种方案。
-
-### 3. Flash Attention
-
-**核心思想**：通过重新组织注意力计算的顺序，减少HBM（高带宽内存）访问，加速计算。
-
-**标准注意力的问题**：
-```python
-# 标准实现
-S = Q @ K.T  # 需要存储整个注意力矩阵 [seq_len, seq_len]
-P = softmax(S)
-O = P @ V
-```
-对于长序列，注意力矩阵非常大，导致显存瓶颈。
-
-**Flash Attention的优化**：
-- 分块计算（tiling）
-- 在SRAM中完成更多计算
-- 减少HBM读写次数
-
-**使用（需要安装flash-attn库）**：
-```python
-# 安装: pip install flash-attn
-from flash_attn import flash_attn_func
-
-def flash_attention(q, k, v, causal=True):
-    """
-    q, k, v: [batch, num_heads, seq_len, head_dim]
-    """
-    output = flash_attn_func(q, k, v, causal=causal)
-    return output
-```
-
-**性能提升**：
-- 训练速度：2-4倍加速
-- 显存占用：减少到O(N)而不是O(N²)
-- 支持更长的序列
-
-**使用模型**：几乎所有现代大模型训练都使用Flash Attention
-
+![](arch/2025%20Lecture%203%20-%20architecture_27.png)
+**Page 27: 激活函数总结**
+*   **结论:** SwiGLU 提供了最佳的性能/计算比。虽然计算稍微繁琐（多一次矩阵乘），但效果值得。目前是 Llama-like 架构的标配。
 
 ---
 
-## 第六部分：并行化Transformer Block
+## Part 5: 并行层与位置编码 (Parallel Layers & Pos Embs)
 
-### 1. 标准串行架构
+![](arch/2025%20Lecture%203%20-%20architecture_28.png)
+**Page 28: 串行 (Serial) vs 并行 (Parallel) 块**
+*   **Serial (标准):** 先算 Attention，加残差，Norm，再算 MLP，加残差。
+*   **Parallel:** Attention 和 MLP **同时**计算（共享同一个 Norm 后的输入），然后把它们的结果一起加到残差上。
+    *   $x_{out} = x + Attn(LN(x)) + MLP(LN(x))$
 
-```python
-class StandardTransformerBlock(nn.Module):
-    def forward(self, x):
-        # 串行执行
-        x = x + attention(ln(x))
-        x = x + ffn(ln(x))
-        return x
-```
+![](arch/2025%20Lecture%203%20-%20architecture_29.png)
+**Page 29: 并行层的权衡**
+*   **优点:** 训练速度快约 **15%**。因为矩阵乘法可以融合，通信可以合并。PaLM 和 GPT-J 采用了这种设计。
+*   **缺点:** 性能略微下降（Worse Quality）。
+*   **现状:** 大多数追求极致性能的模型（Llama）依然使用**串行**架构。
 
-### 2. 并行架构（Parallel Transformer）
+![](arch/2025%20Lecture%203%20-%20architecture_30.png)
+**Page 30: 架构小结 (Summary so far)**
+*   **必选:** Pre-norm (RMSNorm)。
+*   **首选:** SwiGLU。
+*   **可选:** Parallel Layers（为了速度），No Bias（为了稳定）。
 
-**核心思想**：并行计算注意力和FFN，而不是串行。
+![](arch/2025%20Lecture%203%20-%20architecture_31.png)
+**Page 31: 位置编码的演变**
+*   **绝对位置:** Sine/Cosine (Transformer), Learned (GPT-3)。
+*   **相对位置:** T5, ALiBi。
+*   **旋转位置 (RoPE):** LLaMA, PaLM。现在是 RoPE 的天下。
 
-**实现**：
-```python
-class ParallelTransformerBlock(nn.Module):
-    def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
-        super().__init__()
-        
-        self.attention = MultiHeadAttention(d_model, num_heads)
-        self.ffn = FeedForward(d_model, d_ff, dropout)
-        
-        # 只需要一个LayerNorm
-        self.ln = nn.LayerNorm(d_model)
-        
-        self.dropout = nn.Dropout(dropout)
-    
-    def forward(self, x, mask=None):
-        # 归一化一次
-        normalized = self.ln(x)
-        
-        # 并行计算attention和ffn
-        attn_output = self.attention(normalized, mask)
-        ffn_output = self.ffn(normalized)
-        
-        # 合并输出
-        x = x + self.dropout(attn_output) + self.dropout(ffn_output)
-        
-        return x
-```
+![](arch/2025%20Lecture%203%20-%20architecture_32.png)
+**Page 32: RoPE 的核心理念**
+*   **目标:** 我们希望 Attention 机制能自然地捕捉 Token 之间的**相对距离** $(m-n)$，而不是关心它们的绝对位置 $m, n$。
+*   **方法:** 寻找一种变换，使得 $\langle f(q, m), f(k, n) \rangle = g(q, k, m-n)$。RoPE 通过复数旋转完美解决了这个问题。
 
-**优点**：
-- 训练速度提升15-20%
-- 减少一个LayerNorm层
-- 更好的并行性
+![](arch/2025%20Lecture%203%20-%20architecture_33.png)
+**Page 33: RoPE 的直观图示**
+*   **视觉:** 二维平面上的向量旋转。
+*   **原理解析:** 将 Embedding 向量两两分组，视为复数。根据该 Token 的位置 $m$，将复数向量旋转 $m\theta$ 角度。两个向量点积时，角度相减，自然得到相对位置信息 $(m-n)\theta$。
 
-**缺点**：
-- 与标准架构不完全兼容
-- 可能需要调整超参数
+![](arch/2025%20Lecture%203%20-%20architecture_34.png)
+**Page 34: RoPE 数学形式**
+*   **内容:** 旋转矩阵 $R_{\Theta}$ 是块对角的。
+*   **特点:** 这种稀疏结构意味着我们可以快速计算旋转，不需要进行庞大的矩阵乘法。
 
-**使用模型**：PaLM, GPT-J
-
-### 3. 架构对比
-
-```
-标准串行架构:
-x → LN → Attn → Add → LN → FFN → Add
-
-并行架构:
-        ┌→ Attn →┐
-x → LN →┤        ├→ Add
-        └→ FFN  →┘
-```
+![](arch/2025%20Lecture%203%20-%20architecture_35.png)
+**Page 35: RoPE 代码与外推**
+*   **实现:** 在每一层计算 Attention Score 之前，即时对 Q 和 K 进行旋转。
+*   **外推性 (Extrapolation):** RoPE 在处理比训练长度更长的序列时，表现优于绝对位置编码，但仍有衰减。
 
 ---
 
-## 第七部分：现代LLM架构总览
+## Part 6: 超参数调优 (Hyperparameters)
 
-### 1. GPT-2 架构
+![](arch/2025%20Lecture%203%20-%20architecture_36.png)
+**Page 36: 哪些参数重要？**
+*   FFN 维度？Head 数量？Head 大小？词表大小？
 
-```python
-class GPT2Config:
-    vocab_size = 50257
-    n_positions = 1024  # 最大序列长度
-    n_embd = 768        # d_model (small), 1024 (medium), 1280 (large)
-    n_layer = 12        # 层数 (small), 24 (medium), 36 (large)
-    n_head = 12         # 注意力头数
-    
-    # 架构选择
-    position_encoding = "learned"
-    normalization = "LayerNorm"
-    norm_position = "pre"
-    activation = "GELU"
-    attention_type = "multi-head"
-```
+![](arch/2025%20Lecture%203%20-%20architecture_37.png)
+**Page 37: FFN 膨胀系数**
+*   **标准:** $d_{ff} = 4 d_{model}$。
+*   **SwiGLU:** 由于参数变多了，通常设为 $\frac{8}{3} d_{model} \approx 2.66 d_{model}$，以保持总参数量与标准版一致。
 
-**关键特点**：
-- Learned position embeddings
-- Pre-LN
-- GELU激活
-- 标准Multi-Head Attention
+![](arch/2025%20Lecture%203%20-%20architecture_38.png)
+**Page 38: Head Dimension (头维度)**
+*   **黄金标准:** **128**。
+*   **观察:** 无论是 7B 的 Llama 还是 175B 的 GPT-3，大家都在用 `head_dim=128`。
+*   **原因:** 硬件亲和性。128 完美契合 GPU Tensor Core 的计算分块大小，效率最高。
 
-### 2. GPT-3 架构
+![](arch/2025%20Lecture%203%20-%20architecture_39.png)
+**Page 39: 为什么是 1-1 Ratio?**
+*   **内容:** 引用 Bhojanapalli et al 2020。
+*   **结论:** 保持 `n_heads * head_dim = d_model` 是最佳实践。虽然理论上可以解耦，但没什么好处。
 
-```python
-class GPT3Config:
-    vocab_size = 50257
-    n_positions = 2048
-    n_embd = 12288      # 175B模型
-    n_layer = 96
-    n_head = 96
-    
-    # 与GPT-2基本相同，主要是规模扩大
-    position_encoding = "learned"
-    normalization = "LayerNorm"
-    norm_position = "pre"
-    activation = "GELU"
-    attention_type = "multi-head"
-```
+![](arch/2025%20Lecture%203%20-%20architecture_40.png)
+**Page 40: 深宽比 (Aspect Ratio)**
+*   **内容:** 模型该深（Deep）还是该宽（Wide）？
+*   **结论:** 在很大范围内，性能对形状不敏感。只要参数量够了就行。
+*   **Sweet Spot:** 通常 $d_{model} \approx 128 \times n_{layers}$。
 
-**关键特点**：
-- 架构与GPT-2相同
-- 主要是规模扩大（175B参数）
-- 更长的上下文（2048 tokens）
+![](arch/2025%20Lecture%203%20-%20architecture_41.png)
+**Page 41: 深度限制**
+*   **提示:** 不要让模型太深（例如超过 100 层）。太深会导致推理延迟高，且流水线并行（Pipeline Parallelism）更难切分。稍微宽一点对系统更友好。
 
+![](arch/2025%20Lecture%203%20-%20architecture_42.png)
+**Page 42: 词表大小 (Vocab Size)**
+*   **趋势:** **变大**。
+    *   GPT-2: 50k
+    *   Llama 2: 32k
+    *   Llama 3: **128k**
+    *   Qwen: 150k
+*   **原因:** 大词表 = 压缩率高 = 同样 2048 长度包含更多信息 = 推理更快。虽然 Embedding 层参数多了，但值得。
 
-### 3. Llama / Llama 2 架构
+![](arch/2025%20Lecture%203%20-%20architecture_43.png)
+**Page 43: 正则化 (Regularization)**
+*   **问题:** 这么多数据，还需要防过拟合吗？
 
-```python
-class LlamaConfig:
-    vocab_size = 32000
-    max_position_embeddings = 2048  # Llama 1
-    # max_position_embeddings = 4096  # Llama 2
-    hidden_size = 4096      # 7B模型
-    num_hidden_layers = 32
-    num_attention_heads = 32
-    
-    # Llama 2 70B使用GQA
-    num_key_value_heads = 8  # GQA (仅Llama 2 70B)
-    
-    # 架构选择
-    position_encoding = "RoPE"
-    normalization = "RMSNorm"
-    norm_position = "pre"
-    activation = "SwiGLU"
-    attention_type = "grouped-query"  # Llama 2 70B
-    
-    # FFN维度
-    intermediate_size = 11008  # SwiGLU需要更大的中间维度
-```
+![](arch/2025%20Lecture%203%20-%20architecture_44.png)
+**Page 44: Dropout 的消失**
+*   **内容:** **预训练期间 Dropout = 0**。
+*   **原因:** 我们的数据量太大了（Trillions tokens），模型根本记不住，不存在过拟合。Dropout 只会浪费计算资源并减慢收敛。Llama, PaLM 全都把 Dropout 关了。
 
-**关键特点**：
-- RoPE位置编码（更好的外推性能）
-- RMSNorm（更快的归一化）
-- SwiGLU激活（更好的性能）
-- GQA（Llama 2 70B，更快的推理）
+![](arch/2025%20Lecture%203%20-%20architecture_45.png)
+**Page 45: Weight Decay 依然存在**
+*   **内容:** **Weight Decay = 0.1**。
+*   **原因:** 它不仅是正则化，更重要的是它影响**优化动态 (Optimization Dynamics)**。有 Weight Decay，SGD/Adam 才能收敛到更平滑的极小值点。这个不能关。
 
-**完整实现**：
-```python
-class LlamaTransformerBlock(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        
-        # RMSNorm
-        self.input_layernorm = RMSNorm(config.hidden_size)
-        self.post_attention_layernorm = RMSNorm(config.hidden_size)
-        
-        # Attention with RoPE
-        self.self_attn = GroupedQueryAttention(
-            d_model=config.hidden_size,
-            num_heads=config.num_attention_heads,
-            num_kv_heads=config.num_key_value_heads
-        )
-        
-        # SwiGLU FFN
-        self.mlp = FeedForwardSwiGLU(
-            d_model=config.hidden_size,
-            d_ff=config.intermediate_size
-        )
-    
-    def forward(self, x, mask=None):
-        # Pre-RMSNorm + Attention
-        residual = x
-        x = self.input_layernorm(x)
-        x = self.self_attn(x, mask)
-        x = residual + x
-        
-        # Pre-RMSNorm + FFN
-        residual = x
-        x = self.post_attention_layernorm(x)
-        x = self.mlp(x)
-        x = residual + x
-        
-        return x
-```
-
-### 4. PaLM 架构
-
-```python
-class PaLMConfig:
-    vocab_size = 256000  # 更大的词汇表
-    max_position_embeddings = 2048
-    hidden_size = 18432  # 540B模型
-    num_hidden_layers = 118
-    num_attention_heads = 48
-    
-    # 架构选择
-    position_encoding = "RoPE"
-    normalization = "LayerNorm"  # 不是RMSNorm
-    norm_position = "pre"
-    activation = "SwiGLU"
-    attention_type = "multi-query"  # MQA
-    
-    # 并行架构
-    parallel_blocks = True
-```
-
-**关键特点**：
-- 并行Transformer Block
-- Multi-Query Attention
-- SwiGLU激活
-- RoPE位置编码
-
-### 5. 主流模型架构对比
-
-| 特性 | GPT-2 | GPT-3 | Llama | Llama 2 | PaLM |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **位置编码** | Learned | Learned | RoPE | RoPE | RoPE |
-| **归一化** | LayerNorm | LayerNorm | RMSNorm | RMSNorm | LayerNorm |
-| **归一化位置** | Pre | Pre | Pre | Pre | Pre |
-| **激活函数** | GELU | GELU | SwiGLU | SwiGLU | SwiGLU |
-| **注意力类型** | MHA | MHA | MHA | GQA (70B) | MQA |
-| **并行Block** | ✗ | ✗ | ✗ | ✗ | ✓ |
-| **词汇表大小** | 50K | 50K | 32K | 32K | 256K |
-| **上下文长度** | 1K | 2K | 2K | 4K | 2K |
-
-**演进趋势**：
-1. **位置编码**：Learned → RoPE（更好的外推）
-2. **归一化**：LayerNorm → RMSNorm（更快）
-3. **激活函数**：GELU → SwiGLU（更好的性能）
-4. **注意力**：MHA → GQA/MQA（更快的推理）
-5. **架构**：串行 → 并行（更快的训练）
+![](arch/2025%20Lecture%203%20-%20architecture_46.png)
+**Page 46: 超参数总结**
+*   FFN Mult: 2.67 (SwiGLU)
+*   Head Dim: 128
+*   Dropout: 0
+*   Weight Decay: 0.1
 
 ---
 
-## 第八部分：架构设计的权衡
+## Part 7: 训练稳定性与推理优化 (Stability & Inference)
 
-### 1. 模型深度 vs 宽度
+![](arch/2025%20Lecture%203%20-%20architecture_47.png)
+**Page 47: 稳定性技巧 (Stability Tricks)**
+*   **背景:** 训练大模型最怕遇到 **Loss Spike**（Loss 突然暴涨），这通常意味着你要回滚几十个小时的 Checkpoint，甚至从头再来。
 
-**深度（层数）**：
-- 优点：更强的表达能力，更好的组合性
-- 缺点：训练更难，梯度问题
+![](arch/2025%20Lecture%203%20-%20architecture_48.png)
+**Page 48: 元凶 - Softmax 溢出**
+*   **内容:** Softmax 里的 `exp(x)` 对大数值非常敏感。如果 Logits 稍微大一点，`exp` 就会溢出 FP16 的范围（NaN），导致训练崩溃。
 
-**宽度（d_model）**：
-- 优点：更多的特征表示能力
-- 缺点：参数量和计算量增加
+![](arch/2025%20Lecture%203%20-%20architecture_49.png)
+**Page 49: Trick 1 - z-loss**
+*   **来源:** PaLM 论文。
+*   **方法:** 加一个辅助 Loss：$L_{aux} = 10^{-4} \log^2 Z$ ($Z$是Softmax分母)。
+*   **作用:** 惩罚过大的 Logits 总和，强制 Softmax 的 Logits 保持在 0 附近，防止爆炸。
 
-**经验法则**：
-- 小模型：更宽（如GPT-2 Small: 12层 × 768维）
-- 大模型：更深（如GPT-3: 96层 × 12288维）
+![](arch/2025%20Lecture%203%20-%20architecture_50.png)
+**Page 50: Trick 2 - QK Norm**
+*   **来源:** ViT-22B, Gilmer et al.
+*   **方法:** 在计算 $Q \cdot K^T$ 之前，先对 Query 和 Key 向量做 LayerNorm。
+*   **作用:** 无论 Embedding 维度多大，强制 Q 和 K 的尺度保持不变，从而稳定 Attention Score。DCLM 和 Gemma 2 都在用。
 
-### 2. 注意力头数的选择
+![](arch/2025%20Lecture%203%20-%20architecture_51.png)
+**Page 51: Trick 3 - Logit Soft-capping**
+*   **来源:** Gemma 2。
+*   **方法:** $logits = C \cdot \tanh(logits / C)$。
+*   **作用:** 用 `tanh` 物理截断 Logits，使其永远不会超过 $C$（例如 50）。这是一种硬约束，彻底消除了溢出可能。
 
-**常见配置**：
-```python
-# 保持每个头的维度为64或128
-d_k = d_model // num_heads
+![](arch/2025%20Lecture%203%20-%20architecture_52.png)
+**Page 52: 推理优化 - Attention 瓶颈**
+*   **问题:** 推理时，KV Cache 占用大量显存，且搬运 KV Cache 是 IO 瓶颈。MHA (Multi-Head Attention) 每一层都要加载巨大的 KV 矩阵。
 
-# 常见选择
-# d_model=768, num_heads=12, d_k=64
-# d_model=1024, num_heads=16, d_k=64
-# d_model=2048, num_heads=32, d_k=64
-```
+![](arch/2025%20Lecture%203%20-%20architecture_53.png)
+**Page 53: MQA (Multi-Query Attention)**
+*   **机制:** 整个模型的所有 Query Heads 共享**同一对** K 和 V Head。
+*   **优势:** KV Cache 大小减少了 $N_{head}$ 倍。推理飞快。
+*   **劣势:** 模型表达能力受损，质量下降。
 
-**原则**：
-- d_k通常在64-128之间
-- 太小：每个头的表达能力不足
-- 太大：头数太少，多样性不足
+![](arch/2025%20Lecture%203%20-%20architecture_54.png)
+**Page 54: GQA (Grouped-Query Attention)**
+*   **机制:** 折中方案。将 Query Heads 分组（例如 8 组），每组共享一对 K/V Head。
+*   **优势:** 速度接近 MQA，质量接近 MHA。
+*   **地位:** **Llama 2/3, Mistral 的标配**。现在基本上没人用标准 MHA 了。
 
+![](arch/2025%20Lecture%203%20-%20architecture_55.png)
+**Page 55: MQA vs GQA 性能图**
+*   **内容:** 图表显示 GQA 在保持高吞吐量的同时，PPL 损失极小。
 
-### 3. FFN维度的选择
+![](arch/2025%20Lecture%203%20-%20architecture_56.png)
+**Page 56: SWA (Sliding Window Attention)**
+*   **机制:** 强行限制 Attention 只看最近的 $W$ 个 Token（如 4096）。
+*   **代表:** Mistral 7B。
+*   **作用:** 节省计算量，变成 $O(N)$ 复杂度。
 
-**标准配置**：
-```python
-# 传统：d_ff = 4 × d_model
-d_ff = 4 * d_model
-
-# SwiGLU：需要更大的维度（因为会split）
-# 实际有效维度是 d_ff / 2
-d_ff = 8 * d_model / 3  # 约2.67倍
-```
-
-**Llama的选择**：
-```python
-# Llama 7B
-d_model = 4096
-d_ff = 11008  # 约2.69倍
-
-# 计算方式：
-# 先计算 4 * d_model = 16384
-# 然后调整到最接近的8的倍数：11008
-```
-
-### 4. 词汇表大小的权衡
-
-**小词汇表（如32K）**：
-- 优点：嵌入矩阵小，训练快
-- 缺点：序列更长，某些语言表示效率低
-
-**大词汇表（如256K）**：
-- 优点：序列更短，多语言支持好
-- 缺点：嵌入矩阵大，训练慢
-
-**常见选择**：
-- 英语为主：32K-50K
-- 多语言：100K-256K
-
-### 5. 上下文长度的选择
-
-**短上下文（1K-2K）**：
-- 训练快，显存占用少
-- 适合大多数任务
-
-**长上下文（4K-32K）**：
-- 可以处理更长的文档
-- 训练和推理成本高
-
-**技术挑战**：
-- 注意力复杂度：O(N²)
-- 位置编码的外推性能
-- KV cache的显存占用
-
-**解决方案**：
-- Flash Attention（减少显存）
-- RoPE/ALiBi（更好的外推）
-- GQA/MQA（减少KV cache）
+![](arch/2025%20Lecture%203%20-%20architecture_57.png)
+**Page 57: 混合 Attention (Interleaving)**
+*   **机制:** Gemma 2 的做法。例如：层 1 用 SWA（局部），层 2 用 Full Attention（全局），交替进行。
+*   **作用:** 既节省了计算，又保留了长距离建模能力。
 
 ---
 
-## 第九部分：实现一个现代LLM架构
-
-### 完整的Llama风格模型
-
-```python
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import math
-
-class RMSNorm(nn.Module):
-    def __init__(self, dim, eps=1e-6):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(dim))
-        self.eps = eps
-    
-    def forward(self, x):
-        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
-        return self.weight * x / rms
-
-class RotaryPositionEmbedding(nn.Module):
-    def __init__(self, dim, max_seq_len=2048, base=10000):
-        super().__init__()
-        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float() / dim))
-        self.register_buffer('inv_freq', inv_freq)
-        
-        t = torch.arange(max_seq_len, dtype=torch.float)
-        freqs = torch.einsum('i,j->ij', t, inv_freq)
-        emb = torch.cat((freqs, freqs), dim=-1)
-        
-        self.register_buffer('cos_cached', emb.cos()[None, None, :, :])
-        self.register_buffer('sin_cached', emb.sin()[None, None, :, :])
-    
-    def rotate_half(self, x):
-        x1, x2 = x[..., :x.shape[-1]//2], x[..., x.shape[-1]//2:]
-        return torch.cat((-x2, x1), dim=-1)
-    
-    def forward(self, q, k):
-        seq_len = q.shape[2]
-        cos = self.cos_cached[:, :, :seq_len, :]
-        sin = self.sin_cached[:, :, :seq_len, :]
-        
-        q_embed = (q * cos) + (self.rotate_half(q) * sin)
-        k_embed = (k * cos) + (self.rotate_half(k) * sin)
-        
-        return q_embed, k_embed
-
-class GroupedQueryAttention(nn.Module):
-    def __init__(self, d_model, num_heads, num_kv_heads):
-        super().__init__()
-        assert num_heads % num_kv_heads == 0
-        
-        self.num_heads = num_heads
-        self.num_kv_heads = num_kv_heads
-        self.num_queries_per_kv = num_heads // num_kv_heads
-        self.d_k = d_model // num_heads
-        
-        self.W_q = nn.Linear(d_model, d_model, bias=False)
-        self.W_k = nn.Linear(d_model, num_kv_heads * self.d_k, bias=False)
-        self.W_v = nn.Linear(d_model, num_kv_heads * self.d_k, bias=False)
-        self.W_o = nn.Linear(d_model, d_model, bias=False)
-        
-        self.rope = RotaryPositionEmbedding(self.d_k)
-    
-    def forward(self, x, mask=None):
-        batch_size, seq_len, d_model = x.size()
-        
-        Q = self.W_q(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        K = self.W_k(x).view(batch_size, seq_len, self.num_kv_heads, self.d_k).transpose(1, 2)
-        V = self.W_v(x).view(batch_size, seq_len, self.num_kv_heads, self.d_k).transpose(1, 2)
-        
-        # 应用RoPE
-        Q, K = self.rope(Q, K)
-        
-        # 扩展K和V
-        K = K.repeat_interleave(self.num_queries_per_kv, dim=1)
-        V = V.repeat_interleave(self.num_queries_per_kv, dim=1)
-        
-        # 注意力计算
-        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
-        
-        if mask is not None:
-            scores = scores.masked_fill(mask == 0, float('-inf'))
-        
-        attention_weights = torch.softmax(scores, dim=-1)
-        output = torch.matmul(attention_weights, V)
-        
-        output = output.transpose(1, 2).contiguous().view(batch_size, seq_len, d_model)
-        output = self.W_o(output)
-        
-        return output
-
-class SwiGLUFeedForward(nn.Module):
-    def __init__(self, d_model, d_ff):
-        super().__init__()
-        self.w1 = nn.Linear(d_model, d_ff, bias=False)
-        self.w2 = nn.Linear(d_ff, d_model, bias=False)
-        self.w3 = nn.Linear(d_model, d_ff, bias=False)
-    
-    def forward(self, x):
-        # SwiGLU: swish(x @ w1) * (x @ w3) @ w2
-        return self.w2(F.silu(self.w1(x)) * self.w3(x))
-
-class LlamaTransformerBlock(nn.Module):
-    def __init__(self, d_model, num_heads, num_kv_heads, d_ff):
-        super().__init__()
-        
-        self.attention_norm = RMSNorm(d_model)
-        self.attention = GroupedQueryAttention(d_model, num_heads, num_kv_heads)
-        
-        self.ffn_norm = RMSNorm(d_model)
-        self.ffn = SwiGLUFeedForward(d_model, d_ff)
-    
-    def forward(self, x, mask=None):
-        # Attention with residual
-        x = x + self.attention(self.attention_norm(x), mask)
-        
-        # FFN with residual
-        x = x + self.ffn(self.ffn_norm(x))
-        
-        return x
-
-class LlamaModel(nn.Module):
-    def __init__(
-        self,
-        vocab_size,
-        d_model,
-        num_layers,
-        num_heads,
-        num_kv_heads,
-        d_ff,
-        max_seq_len
-    ):
-        super().__init__()
-        
-        # Token嵌入
-        self.token_embedding = nn.Embedding(vocab_size, d_model)
-        
-        # Transformer blocks
-        self.blocks = nn.ModuleList([
-            LlamaTransformerBlock(d_model, num_heads, num_kv_heads, d_ff)
-            for _ in range(num_layers)
-        ])
-        
-        # 最终归一化
-        self.norm = RMSNorm(d_model)
-        
-        # 输出层（权重共享）
-        self.lm_head = nn.Linear(d_model, vocab_size, bias=False)
-        self.lm_head.weight = self.token_embedding.weight
-        
-        self.max_seq_len = max_seq_len
-    
-    def forward(self, input_ids):
-        batch_size, seq_len = input_ids.size()
-        
-        # Token嵌入
-        x = self.token_embedding(input_ids)
-        
-        # 创建因果掩码
-        mask = torch.tril(torch.ones(seq_len, seq_len, device=input_ids.device))
-        mask = mask.unsqueeze(0).unsqueeze(0)
-        
-        # 通过所有Transformer blocks
-        for block in self.blocks:
-            x = block(x, mask)
-        
-        # 最终归一化
-        x = self.norm(x)
-        
-        # 输出logits
-        logits = self.lm_head(x)
-        
-        return logits
-
-# 创建Llama 7B风格的模型
-model = LlamaModel(
-    vocab_size=32000,
-    d_model=4096,
-    num_layers=32,
-    num_heads=32,
-    num_kv_heads=32,  # Llama 1使用MHA，Llama 2 70B使用8
-    d_ff=11008,
-    max_seq_len=2048
-)
-
-print(f"模型参数量: {sum(p.numel() for p in model.parameters()) / 1e9:.2f}B")
-```
-
-
----
-
-## 第十部分：架构选择的实验结果
-
-### 1. 位置编码的影响
-
-**实验设置**：在相同数据和模型规模下比较不同位置编码
-
-**结果**：
-| 位置编码 | 训练困惑度 | 外推性能 | 训练速度 |
-| :--- | :--- | :--- | :--- |
-| Learned | 基线 | 差 | 快 |
-| Sinusoidal | +2% | 中 | 快 |
-| ALiBi | +1% | 好 | 快 |
-| RoPE | 基线 | 最好 | 中 |
-
-**结论**：RoPE是当前最佳选择，特别是需要长序列外推时。
-
-### 2. 归一化方法的影响
-
-**实验结果**：
-| 归一化 | 训练速度 | 最终性能 | 稳定性 |
-| :--- | :--- | :--- | :--- |
-| Post-LN | 慢 | 好（如果收敛） | 差 |
-| Pre-LN | 快 | 好 | 好 |
-| RMSNorm | 最快 | 好 | 好 |
-
-**结论**：Pre-LN + RMSNorm是现代标准。
-
-### 3. 激活函数的影响
-
-**在相同FLOPs下的性能**：
-| 激活函数 | 相对性能 | 参数效率 |
-| :--- | :--- | :--- |
-| ReLU | 基线 | 基线 |
-| GELU | +3% | 相同 |
-| SwiGLU | +5% | 需要更多参数 |
-
-**结论**：SwiGLU性能最好，但需要权衡参数量。
-
-### 4. 注意力机制的影响
-
-**推理速度对比（相同模型大小）**：
-| 注意力类型 | KV Cache | 推理速度 | 性能 |
-| :--- | :--- | :--- | :--- |
-| MHA | 100% | 基线 | 100% |
-| GQA (8组) | 25% | 1.5x | 98% |
-| MQA | 12.5% | 2x | 95% |
-
-**结论**：GQA是最佳平衡点。
-
----
-
-## 第十一部分：架构设计的最佳实践
-
-### 1. 从零开始设计LLM架构的检查清单
-
-**基础组件**：
-- ✓ Token Embedding + 权重共享
-- ✓ 位置编码：RoPE（推荐）或ALiBi
-- ✓ 归一化：Pre-LN + RMSNorm
-- ✓ 激活函数：SwiGLU（如果计算资源充足）或GELU
-- ✓ 注意力：GQA（推荐）或MHA
-- ✓ 残差连接
-- ✓ Dropout（小模型需要，大模型可选）
-
-**超参数选择**：
-```python
-# 小模型（~1B参数）
-config_small = {
-    'd_model': 2048,
-    'num_layers': 24,
-    'num_heads': 16,
-    'num_kv_heads': 16,  # 或8用于GQA
-    'd_ff': 5504,        # 约2.7x d_model
-    'vocab_size': 32000,
-    'max_seq_len': 2048,
-}
-
-# 中等模型（~7B参数）
-config_medium = {
-    'd_model': 4096,
-    'num_layers': 32,
-    'num_heads': 32,
-    'num_kv_heads': 8,   # GQA
-    'd_ff': 11008,
-    'vocab_size': 32000,
-    'max_seq_len': 4096,
-}
-
-# 大模型（~70B参数）
-config_large = {
-    'd_model': 8192,
-    'num_layers': 80,
-    'num_heads': 64,
-    'num_kv_heads': 8,   # GQA
-    'd_ff': 22016,
-    'vocab_size': 32000,
-    'max_seq_len': 4096,
-}
-```
-
-### 2. 常见错误和陷阱
-
-**错误1：使用Post-LN**
-```python
-# ❌ 错误：Post-LN难以训练
-x = layer_norm(x + attention(x))
-
-# ✓ 正确：Pre-LN更稳定
-x = x + attention(layer_norm(x))
-```
-
-**错误2：忘记权重共享**
-```python
-# ❌ 错误：浪费参数
-self.token_embedding = nn.Embedding(vocab_size, d_model)
-self.lm_head = nn.Linear(d_model, vocab_size)
-
-# ✓ 正确：共享权重
-self.token_embedding = nn.Embedding(vocab_size, d_model)
-self.lm_head = nn.Linear(d_model, vocab_size, bias=False)
-self.lm_head.weight = self.token_embedding.weight
-```
-
-**错误3：不正确的掩码**
-```python
-# ❌ 错误：没有因果掩码
-attention_scores = Q @ K.T
-
-# ✓ 正确：使用因果掩码
-mask = torch.tril(torch.ones(seq_len, seq_len))
-attention_scores = attention_scores.masked_fill(mask == 0, float('-inf'))
-```
-
-**错误4：维度不匹配**
-```python
-# ❌ 错误：SwiGLU的FFN维度
-d_ff = 4 * d_model  # 太大了
-
-# ✓ 正确：SwiGLU需要调整
-d_ff = int(8 * d_model / 3)  # 约2.67x
-```
-
-### 3. 性能优化建议
-
-**训练优化**：
-1. 使用Flash Attention
-2. 使用混合精度训练（FP16/BF16）
-3. 使用梯度检查点（长序列）
-4. 使用编译优化（torch.compile）
-
-**推理优化**：
-1. 使用GQA或MQA减少KV cache
-2. 使用KV cache复用
-3. 使用量化（INT8/INT4）
-4. 使用批处理
-
-**代码示例**：
-```python
-# 使用torch.compile加速
-model = torch.compile(model)
-
-# 使用混合精度
-from torch.cuda.amp import autocast
-
-with autocast():
-    logits = model(input_ids)
-
-# 使用梯度检查点
-from torch.utils.checkpoint import checkpoint
-
-def forward_with_checkpoint(self, x):
-    for block in self.blocks:
-        x = checkpoint(block, x, use_reentrant=False)
-    return x
-```
-
----
-
-## 总结
-
-### 核心要点
-
-1. **位置编码的演进**：
-   - Learned → RoPE/ALiBi
-   - 相对位置编码提供更好的外推性能
-
-2. **归一化的选择**：
-   - Pre-LN是现代标准
-   - RMSNorm更快且性能相当
-
-3. **激活函数的趋势**：
-   - GELU → SwiGLU
-   - 门控机制提供更好的性能
-
-4. **注意力机制的优化**：
-   - MHA → GQA → MQA
-   - 权衡性能和推理效率
-
-5. **架构设计原则**：
-   - 简单性：避免过度复杂
-   - 可扩展性：设计要支持大规模
-   - 效率：考虑训练和推理成本
-
-### 现代LLM架构的标准配置
-
-```python
-# 推荐的现代LLM架构
-class ModernLLMConfig:
-    # 位置编码
-    position_encoding = "RoPE"  # 或ALiBi
-    
-    # 归一化
-    normalization = "RMSNorm"
-    norm_position = "pre"
-    
-    # 激活函数
-    activation = "SwiGLU"  # 或GELU（资源受限时）
-    
-    # 注意力
-    attention_type = "GQA"  # num_kv_heads = num_heads // 4 或 // 8
-    
-    # 其他
-    bias = False  # 大多数线性层不使用bias
-    tie_word_embeddings = True  # 权重共享
-```
-
-### 下一步学习
-
-**第四讲预告**：
-- 训练目标和损失函数
-- 优化器选择
-- 学习率调度策略
-- 训练稳定性技巧
-
-**推荐阅读**：
-- [Attention is All You Need](https://arxiv.org/abs/1706.03762) - Transformer原始论文
-- [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864) - RoPE论文
-- [Root Mean Square Layer Normalization](https://arxiv.org/abs/1910.07467) - RMSNorm论文
-- [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202) - SwiGLU论文
-- [GQA: Training Generalized Multi-Query Transformer](https://arxiv.org/abs/2305.13245) - GQA论文
-- [Llama 2: Open Foundation and Fine-Tuned Chat Models](https://arxiv.org/abs/2307.09288) - Llama 2论文
-
----
-
-## 附录：快速参考
-
-### A. 各组件的PyTorch实现速查
-
-**RMSNorm**：
-```python
-class RMSNorm(nn.Module):
-    def __init__(self, dim, eps=1e-6):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(dim))
-        self.eps = eps
-    
-    def forward(self, x):
-        return self.weight * x / torch.sqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
-```
-
-**RoPE**：
-```python
-def apply_rotary_emb(q, k, cos, sin):
-    q_embed = (q * cos) + (rotate_half(q) * sin)
-    k_embed = (k * cos) + (rotate_half(k) * sin)
-    return q_embed, k_embed
-```
-
-**SwiGLU**：
-```python
-def swiglu(x):
-    x, gate = x.chunk(2, dim=-1)
-    return F.silu(gate) * x
-```
-
-**GQA**：
-```python
-# 扩展KV到所有Query头
-K = K.repeat_interleave(num_queries_per_kv, dim=1)
-V = V.repeat_interleave(num_queries_per_kv, dim=1)
-```
-
-### B. 模型配置速查表
-
-| 模型 | 参数量 | 层数 | d_model | 头数 | KV头数 | FFN维度 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| GPT-2 Small | 124M | 12 | 768 | 12 | 12 | 3072 |
-| GPT-2 Large | 774M | 36 | 1280 | 20 | 20 | 5120 |
-| GPT-3 | 175B | 96 | 12288 | 96 | 96 | 49152 |
-| Llama 7B | 7B | 32 | 4096 | 32 | 32 | 11008 |
-| Llama 2 70B | 70B | 80 | 8192 | 64 | 8 | 28672 |
-| PaLM 540B | 540B | 118 | 18432 | 48 | 1 | 49152 |
-
-希望这份详细的架构笔记能帮助你深入理解现代LLM的设计选择！
+## Part 8: 总结 (Conclusion)
+
+![](arch/2025%20Lecture%203%20-%20architecture_58.png)
+**Page 58: 架构收敛 (Convergence)**
+*   **核心结论:** 2024-2025 年的 LLM 架构已经高度趋同，被称为 **"Llama-like"** 架构：
+    *   **Pre-RMSNorm**
+    *   **SwiGLU**
+    *   **RoPE**
+    *   **GQA**
+    *   **No Bias**
+
+![](arch/2025%20Lecture%203%20-%20architecture_59.png)
+**Page 59: 为什么收敛到这套配置？**
+*   **Pre-norm:** 为了梯度流（训练深层模型）。
+*   **RMSNorm/SwiGLU:** 为了计算效率和微小的性能增益。
+*   **RoPE:** 为了位置外推性。
+*   **GQA:** 为了推理成本。
+
+![](arch/2025%20Lecture%203%20-%20architecture_60.png)
+**Page 60: 警惕盲从 (Cargo Culting)**
+*   **警告:** 虽然我们要学习最佳实践，但不要盲目复制。很多配置（如 128 head dim）可能是因为硬件原因，也可能只是习惯，未必是科学上的最优解。
+
+![](arch/2025%20Lecture%203%20-%20architecture_61.png)
+**Page 61: 没讲到的内容**
+*   **Encoder-Decoder (T5):** 现在的 LLM 几乎全是 Decoder-only。
+*   **MoE:** 下节课重点讲。
+*   **SSM/Linear Attn:** 很有趣，但还未动摇 Transformer 的统治地位。
+
+![](arch/2025%20Lecture%203%20-%20architecture_62.png)
+**Page 62: 总结**
+*   架构设计是**系统工程**（考虑硬件效率）、**优化理论**（考虑梯度流）和**经验主义**（看谁跑分高）的结合。
+
+![](arch/2025%20Lecture%203%20-%20architecture_63.png)
+**Page 63: 推荐阅读**
+*   Llama 1/2/3 论文、PaLM 论文、Gopher 论文。重点读 Appendix 中的实验细节。
+
+![](arch/2025%20Lecture%203%20-%20architecture_64.png)
+**Page 64: 作业预告**
+*   实现一个带有 RoPE 和 RMSNorm 的现代 Transformer。
+
+![](arch/2025%20Lecture%203%20-%20architecture_65.png)
+**Page 65: 下节课预告**
+*   Lecture 4: **Mixture of Experts (MoE)**。
+
+![](arch/2025%20Lecture%203%20-%20architecture_66.png)
+**Page 66: Q&A**
+*   问答环节。
+
+![](arch/2025%20Lecture%203%20-%20architecture_67.png)
+**Page 67: 参考文献 1**
+*   论文列表。
+
+![](arch/2025%20Lecture%203%20-%20architecture_68.png)
+**Page 68: 参考文献 2 / 结束**
+*   论文列表。课程结束。
