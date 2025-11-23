@@ -1,4 +1,4 @@
-# 第三课：详解现代LLM基础架构
+# 大模型从0到1｜第三讲：详解现代LLM基础架构
 
 > 课程链接：[Stanford CS336 Spring 2025 - Lecture 3: Architecture](https://github.com/stanford-cs336/spring2025-lectures/blob/main/nonexecutable/2025%20Lecture%203%20-%20architecture.pdf)
 
