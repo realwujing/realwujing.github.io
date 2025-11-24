@@ -1,0 +1,1719 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="大模型从0到1｜第七讲：详解大模型并行化策略 课程信息： CS336 | 讲师： Tatsu H | 主题： 大规模训练系统的并行化基础  Part 1: 扩展的动机与硬件基础 (Motivation &amp; Hardware)  Page 1: 课程标题  深度解析： 课程正式开始。本节课的主题是 Parallelism Basics。在单卡算力逼近物理极限的今天，训练一个 SOTA 大模型">
+<meta property="og:type" content="article">
+<meta property="og:title" content="大模型从0到1｜第七讲：详解大模型并行化策略">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E4%B8%83%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E5%8C%96%E7%AD%96%E7%95%A5/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="大模型从0到1｜第七讲：详解大模型并行化策略 课程信息： CS336 | 讲师： Tatsu H | 主题： 大规模训练系统的并行化基础  Part 1: 扩展的动机与硬件基础 (Motivation &amp; Hardware)  Page 1: 课程标题  深度解析： 课程正式开始。本节课的主题是 Parallelism Basics。在单卡算力逼近物理极限的今天，训练一个 SOTA 大模型">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-11-23T20:13:26.000Z">
+<meta property="article:modified_time" content="2025-11-23T20:13:26.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="git">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>大模型从0到1｜第七讲：详解大模型并行化策略 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="大模型从0到1｜第七讲：详解大模型并行化策略"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-11-23 20:13" pubdate>
+          2025年11月23日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          9.8k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          82 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">大模型从0到1｜第七讲：详解大模型并行化策略</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1
+id="大模型从0到1第七讲详解大模型并行化策略">大模型从0到1｜第七讲：详解大模型并行化策略</h1>
+<p><strong>课程信息：</strong> CS336 | <strong>讲师：</strong> Tatsu H |
+<strong>主题：</strong> 大规模训练系统的并行化基础</p>
+<hr />
+<h2 id="part-1-扩展的动机与硬件基础-motivation-hardware">Part 1:
+扩展的动机与硬件基础 (Motivation &amp; Hardware)</h2>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_01.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-1-课程标题"><strong>Page 1: 课程标题</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 课程正式开始。本节课的主题是
+<strong>Parallelism
+Basics</strong>。在单卡算力逼近物理极限的今天，训练一个 SOTA 大模型（如
+Llama 3,
+GPT-4）本质上是一个<strong>分布式系统问题</strong>。如何将成千上万张 GPU
+有机组织起来，解决显存墙和通信墙，是本课核心。</li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_02.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-2-课程大纲"><strong>Page 2: 课程大纲</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+本节课的逻辑框架非常清晰，从底层物理到上层策略：
+<ol type="1">
+<li><strong>LLM 网络基础 (Basics of networking for LLMs)：</strong>
+并行化的物理基础。不仅要懂 GPU，还要懂网线、交换机、带宽和延迟。</li>
+<li><strong>并行化原语 (Standard LLM parallelization
+primitives)：</strong> 分布式训练的三板斧——DP (数据并行), PP
+(流水线并行), TP (张量并行)。</li>
+<li><strong>实战扩展 (Scaling and training big LMs)：</strong>
+也就是所谓的 "3D Parallelism"，如何混合使用上述策略来训练万亿模型。</li>
+</ol></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_03.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-3-学习目标"><strong>Page 3: 学习目标</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li>理解训练超大模型时面临的系统级复杂性（不仅仅是算法收敛问题）。</li>
+<li>掌握不同的并行范式，并理解<strong>为什么</strong>我们需要同时使用多种策略（因为单一策略总有瓶颈）。</li>
+<li>了解一个真实的大规模训练任务（Run）在硬件上是如何布局的。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_04.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-4-gpu-扩展的极限---计算"><strong>Page 4: GPU 扩展的极限 -
+计算</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>图表：</strong> 纵轴是
+PetaFLOP/s-days（计算量），横轴是时间。</li>
+<li><strong>趋势：</strong> 模型的计算需求呈指数级上升。</li>
+<li><strong>核心矛盾：</strong> 摩尔定律（硬件算力增长）已经跟不上
+Transformer 模型规模的增长速度了。如果只用一张最强的 GPU（如
+H100），训练一个 GPT-3
+级别的模型可能需要几十年。因此，<strong>并行化不是选择，而是必须</strong>。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_05.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-5-gpu-扩展的极限---显存"><strong>Page 5: GPU 扩展的极限 -
+显存</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>图表对比：</strong> 蓝线代表模型参数量（从 ELMo 94M 到
+Megatron 530B），红虚线代表单卡显存容量（从 16GB 到 80GB）。</li>
+<li><strong>显存墙 (Memory Wall)：</strong>
+模型参数量的增长速度远远超过了显存容量的增长。</li>
+<li><strong>结论：</strong> "A single GPU can't fit most of these large
+models!" —— 别说训练了，对于 530B 这种级别的模型，单张 A100
+连<strong>加载权重</strong>都做不到（530B 参数 FP16 需要 1TB+ 显存，而
+A100 只有 80GB）。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_06.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-6-多-gpu-与多机并行架构"><strong>Page 6: 多 GPU
+与多机并行架构</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 这张图展示了现代 AI 超算的典型拓扑结构：
+<ul>
+<li><strong>Intra-node (节点内)：</strong>
+一个服务器盒子（Node）里通常有 8 张 GPU（图下方的 GPU0-7）。它们之间通过
+<strong>NVLink / NVSwitch</strong> 连接，带宽极高（双向 600-900
+GB/s）。这就像是在同一个芯片上工作。</li>
+<li><strong>Inter-node (节点间)：</strong> 不同的盒子通过网卡（NIC，图中
+HCA）连接到交换机（Switch）。通常使用 <strong>InfiniBand (IB)</strong>
+或 <strong>RoCE</strong>。带宽虽然也不错（25-50
+GB/s），但比节点内慢了一个数量级。</li>
+<li><strong>启示：</strong> 并行策略必须是<strong>网络感知
+(Network-aware)</strong>
+的，把通信量大的操作放在节点内，通信量小的放在节点间。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_07.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-7-为什么通信很重要"><strong>Page 7:
+为什么通信很重要？</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>木桶效应：</strong> 在分布式训练中，训练速度 = 计算时间 +
+通信时间（如果不能重叠）。</li>
+<li><strong>瓶颈：</strong> 随着 GPU
+数量增加，通信开销会非线性增长。如果不优化通信，增加 GPU
+反而可能导致训练变慢。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_08.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-8-网络性能公式-latency-vs-bandwidth"><strong>Page 8:
+网络性能公式 (Latency vs Bandwidth)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 传输 <span
+class="math inline">\(n\)</span> 字节数据的耗时模型： <span
+class="math display">\[ Time(n) = \alpha + \frac{n}{\beta} \]</span>
+<ul>
+<li><span class="math inline">\(\alpha\)</span>
+(<strong>Latency/延迟</strong>)：握手时间。比如 GPU 0 对 GPU 1
+说“我要发数据了”的时间。对于<strong>小包</strong>（Small
+messages），延迟占主导。</li>
+<li><span class="math inline">\(\beta\)</span>
+(<strong>Bandwidth/带宽</strong>)：水管的粗细。对于<strong>大包</strong>（Large
+messages，如 1GB 的梯度），带宽占主导。</li>
+<li><strong>LLM 场景：</strong>
+我们传输的通常是巨大的张量，所以我们最关心 <strong>带宽 (<span
+class="math inline">\(\beta\)</span>)</strong>。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_09.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-9-互联技术带宽天梯图"><strong>Page 9:
+互联技术带宽天梯图</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+这是一个非常关键的参考数据（Back-of-the-envelope calculation 必备）：
+<ul>
+<li><strong>PCIe Gen4/5:</strong> ~32-64 GB/s。这是 CPU 和 GPU
+说话的速度，也是最慢的一环。尽量避免 CPU-GPU 传输。</li>
+<li><strong>NVLink (Intra-node):</strong> ~600-900 GB/s
+(A100/H100)。这是 GPU 之间的“高速公路”，非常快，甚至接近显存带宽。</li>
+<li><strong>InfiniBand/RoCE (Inter-node):</strong> ~25-50 GB/s (200-400
+Gbps)。这是跨机互联的速度，是分布式训练的主要瓶颈。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_10.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-10-tpu-vs-gpu-网络架构差异"><strong>Page 10: TPU vs GPU
+网络架构差异</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>GPU (左图):</strong> <strong>NVSwitch +
+Fat-tree</strong>。节点内通过 NVSwitch
+实现全互联（Any-to-Any），节点间通过交换机层级互联。优势是灵活性强，适合各种并行模式。</li>
+<li><strong>TPU (右图):</strong> <strong>2D/3D Torus
+Mesh</strong>。芯片之间直接物理连接成环或网格（Chip-to-Chip），不需要中央交换机。优势是对于邻居通信（Neighbor
+communication）极其高效，但全对全通信较弱。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_11.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-11-集合通信原语-collective-communication"><strong>Page 11:
+集合通信原语 (Collective Communication)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 分布式训练的代码里很少写
+<code>send</code> 和 <code>recv</code>，而是使用
+<strong>Collectives</strong>。
+<ul>
+<li><strong>定义：</strong>
+这是一个“集体活动”，涉及通信组（Communicator）内的所有
+Rank（GPU）。</li>
+<li><strong>类型：</strong>
+<ul>
+<li><strong>One-to-All:</strong> Broadcast, Scatter</li>
+<li><strong>All-to-One:</strong> Reduce, Gather</li>
+<li><strong>All-to-All:</strong> All-Gather, All-Reduce, Reduce-Scatter,
+All-to-All</li>
+</ul></li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_12.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-12-all-reduce-详解"><strong>Page 12: All-Reduce
+详解</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 这是数据并行（DP）的灵魂。
+<ul>
+<li><strong>场景：</strong> 4 张 GPU 分别计算出了 4 份梯度（in0, in1,
+in2, in3）。</li>
+<li><strong>目标：</strong> 让每张 GPU 都得到这 4
+份梯度的<strong>总和</strong>（Sum）。</li>
+<li><strong>直观理解：</strong>
+每个人都拿出一块拼图，操作完后，每个人手里都有一幅完整的拼图。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_13.png" srcset="/img/loading.gif" lazyload /></p>
+<h3
+id="page-13-all-reduce-的-ring-实现-reduce-scatter-all-gather"><strong>Page
+13: All-Reduce 的 Ring 实现 (Reduce-Scatter + All-Gather)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 为什么要把 All-Reduce 拆成两步？
+<ul>
+<li>直接做 All-Reduce 很复杂。最高效的算法（Ring
+All-Reduce）将其分解为：
+<ol type="1">
+<li><strong>Reduce-Scatter:</strong> 先求和，但每个人只拿一段结果。</li>
+<li><strong>All-Gather:</strong>
+每个人把自己手里那段结果广播给其他人。</li>
+</ol></li>
+<li>这种分解不仅是算法实现细节，更是 <strong>ZeRO</strong> 和
+<strong>FSDP</strong> 能够节省显存的理论基础。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_14.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-14-reduce-scatter-图示"><strong>Page 14: Reduce-Scatter
+图示</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>输入：</strong> 每个 Rank 有完整的向量，比如 <span
+class="math inline">\([A, B, C, D]\)</span>。</li>
+<li><strong>过程：</strong> 大家互相传数据求和。</li>
+<li><strong>输出：</strong> Rank 0 得到 <span class="math inline">\(\sum
+A\)</span>，Rank 1 得到 <span class="math inline">\(\sum
+B\)</span>，Rank 2 得到 <span class="math inline">\(\sum
+C\)</span>...</li>
+<li><strong>关键点：</strong> 结果数据量是输入数据量的 <span
+class="math inline">\(1/N\)</span>。这就是 ZeRO-2 切分梯度的原理。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_15.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-15-all-gather-图示"><strong>Page 15: All-Gather
+图示</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>输入：</strong> 每个 Rank 只有一部分数据（如 Rank 0 只有
+<span class="math inline">\(\sum A\)</span>）。</li>
+<li><strong>过程：</strong> 大家交换数据。</li>
+<li><strong>输出：</strong> 每个 Rank 都有了完整的 <span
+class="math inline">\([\sum A, \sum B, \sum C, \sum D]\)</span>。</li>
+<li><strong>关键点：</strong> 这是 ZeRO-3 (FSDP)
+前向传播时“收集参数”的过程。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_16.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-16-broadcast-与-reduce"><strong>Page 16: Broadcast 与
+Reduce</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>Broadcast (左):</strong> 用于初始化。Rank 0
+初始化权重，然后广播给所有人，确保大家起点一致。</li>
+<li><strong>Reduce (右):</strong> 用于汇总指标。比如计算验证集 Loss
+时，所有卡把 Loss 发给 Rank 0 求平均。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_17.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-17-part-1-总结"><strong>Page 17: Part 1 总结</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li>单机时代结束了，新的计算单元是整个<strong>数据中心</strong>。</li>
+<li>我们的目标是<strong>线性扩展 (Linear
+Scaling)</strong>：加多少卡，速度就快多少倍，显存容量就大多少倍。</li>
+<li>实现这一点的基石是高效的<strong>集合通信原语</strong>。</li>
+</ul></li>
+</ul>
+<hr />
+<h2
+id="part-2-标准并行化原语-standard-llm-parallelization-primitives">Part
+2: 标准并行化原语 (Standard LLM Parallelization Primitives)</h2>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_18.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-18-part-2-标题"><strong>Page 18: Part 2 标题</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 这一部分将详细拆解三种核心并行模式：Data
+Parallel (DP), Pipeline Parallel (PP), Tensor Parallel
+(TP)。理解它们的区别在于<strong>切分了什么维度</strong>。</li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_19.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-19-数据并行-data-parallelism-dp"><strong>Page 19: 数据并行
+(Data Parallelism, DP)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 最基础的并行方式。
+<ul>
+<li><strong>切分维度：</strong> Batch Size（数据）。</li>
+<li><strong>核心逻辑：</strong> 模型不动，数据切分。就像 10
+个人一起批改试卷，每人改 1/10 的卷子，最后汇总分数。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_20.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-20-naive-dp-架构图"><strong>Page 20: Naive DP
+架构图</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>Replication:</strong> 每个 GPU (Worker)
+内存里都有一份<strong>完全一样</strong>的模型权重副本。</li>
+<li><strong>Execution:</strong> 前向和反向传播是独立并行的。</li>
+<li><strong>Synchronization:</strong>
+唯一需要通信的时刻是<strong>反向传播结束后</strong>，需要同步梯度（All-Reduce）。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_21.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-21-naive-dp-的数学原理"><strong>Page 21: Naive DP
+的数学原理</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li>SGD 更新公式：<span class="math inline">\(\theta_{t+1} = \theta_t -
+\eta \frac{1}{B} \sum_{i=1}^B \nabla f(x_i)\)</span>。</li>
+<li>公式中的求和 <span class="math inline">\(\sum\)</span> 就是通过
+<strong>All-Reduce</strong>
+实现的。它保证了即使大家看的数据不一样，模型更新的方向是基于全局数据的。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_22.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-22-naive-dp-的致命弱点---显存"><strong>Page 22: Naive DP
+的致命弱点 - 显存</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> "Memory situation is actually terrible."
+<ul>
+<li><strong>冗余：</strong> 如果你有 100 张卡，模型参数就被复制了 100
+份。这极其浪费显存。</li>
+<li>对于大模型，单卡显存连一份参数都存不下，DP 直接没法跑（OOM）。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_23.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-23-显存占用解剖"><strong>Page 23:
+显存占用解剖</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 训练一个模型到底占多少显存？
+<ol type="1">
+<li><strong>Model Parameters:</strong> 静态的权重。</li>
+<li><strong>Gradients:</strong> 反向传播算出来的梯度。</li>
+<li><strong>Optimizer States:</strong> 优化器（如
+Adam）为了更新参数所维护的历史统计信息（动量、方差）。<strong>注意：这是隐藏的显存杀手！</strong></li>
+</ol></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_24.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-24-16-bytes-规则"><strong>Page 24: 16 Bytes
+规则</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+这是一个非常实用的经验公式。假设使用混合精度训练 (Adam + FP16/BF16)：
+<ul>
+<li><strong>Params:</strong> 2 bytes (FP16)</li>
+<li><strong>Gradients:</strong> 2 bytes (FP16)</li>
+<li><strong>Optimizer States:</strong> Adam 需要存 FP32 的参数副本(4B) +
+Momentum(4B) + Variance(4B) = 12 bytes。</li>
+<li><strong>合计：</strong> <strong>16 Bytes / Parameter</strong>。</li>
+<li><strong>算账：</strong> 175B 模型 <span
+class="math inline">\(\times\)</span> 16 Bytes =
+2.8TB。这就是为什么单卡跑不起来 GPT-3 的原因。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_25.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-25-zero-的核心思想"><strong>Page 25: ZeRO
+的核心思想</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> <strong>ZeRO (Zero Redundancy
+Optimizer)</strong> 是微软 DeepSpeed 团队提出的神技。
+<ul>
+<li><strong>洞察：</strong> DP 中每个 GPU 存完整的状态是浪费。</li>
+<li><strong>方案：</strong> 既然是数据并行，我们有 <span
+class="math inline">\(N\)</span> 个
+GPU，那就把这些状态（参数、梯度、优化器）切成 <span
+class="math inline">\(N\)</span> 份，每个 GPU 只维护 <span
+class="math inline">\(1/N\)</span>。需要的时候再通信拿过来。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_26.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-26-zero-stage-1---切分优化器"><strong>Page 26: ZeRO Stage 1
+- 切分优化器</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>切分对象：</strong> Optimizer States (那 12 Bytes)。</li>
+<li><strong>显存收益：</strong> 巨大（减少了 75% 的显存占用）。</li>
+<li><strong>通信代价：</strong> <strong>0</strong>。因为 All-Reduce
+之后每个 GPU
+本来就只需要更新自己负责的那部分参数，不需要额外的通信。<strong>Strongly
+Recommended!</strong></li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_27.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-27-zero-stage-2---切分梯度"><strong>Page 27: ZeRO Stage 2 -
+切分梯度</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>切分对象：</strong> Optimizer States + Gradients。</li>
+<li><strong>机制：</strong> 使用 <strong>Reduce-Scatter</strong> 替代
+All-Reduce。求和后，每个 GPU 只保留自己那份梯度。</li>
+<li><strong>显存收益：</strong> 进一步减少。</li>
+<li><strong>通信代价：</strong> 与 Naive DP 持平。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_28.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-28-zero-stage-3-fsdp---切分参数"><strong>Page 28: ZeRO
+Stage 3 (FSDP) - 切分参数</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> <strong>FSDP (Fully Sharded Data
+Parallel)</strong>。
+<ul>
+<li><strong>切分对象：</strong> Everything (Params + Grads + Opt)。</li>
+<li><strong>显存收益：</strong> 显存占用随 GPU 数量线性下降。理论上 GPU
+足够多，可以训练无限大的模型。</li>
+<li><strong>工作流：</strong> "High level idea" ——
+在做前向计算时，临时把参数 <strong>All-Gather</strong>
+回来；算完这层，马上删掉（Free），只保留分片。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_29.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-29-fsdp-详细工作流"><strong>Page 29: FSDP
+详细工作流</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 流程图展示了 FSDP 的动态过程。
+<ul>
+<li><strong>Fetch:</strong> GPU 发现要算 Layer 1 了，发起 All-Gather
+拿到 Layer 1 的完整权重。</li>
+<li><strong>Compute:</strong> 计算 Layer 1。</li>
+<li><strong>Discard:</strong> 计算完，立刻释放 Layer 1
+的完整权重，省出显存给 Layer 2 用。</li>
+<li>反向传播同理。这种“随用随取，用完即弃”的策略是用通信换显存。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_30.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-30-fsdp-的通信开销"><strong>Page 30: FSDP
+的通信开销</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> FSDP 是不是完美的？不是，它增加了通信。
+<ul>
+<li>Naive DP 通信量：<span class="math inline">\(2 \Phi\)</span>
+(All-Reduce)。</li>
+<li>FSDP 通信量：<span class="math inline">\(3 \Phi\)</span> (Forward
+All-Gather + Backward All-Gather + Gradient Reduce-Scatter)。</li>
+<li><strong>结论：</strong> 通信量增加了 1.5
+倍。但在显存是瓶颈的情况下，这是唯一的出路。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_31.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-31-并行策略对比总结"><strong>Page 31:
+并行策略对比总结</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 表格对比了 Naive DDP 和 ZeRO Stage 1。
+<ul>
+<li><strong>关键点：</strong> ZeRO Stage 1
+在不增加任何通信开销的前提下，大幅节省了显存。在实际工程中，几乎总是应该开启
+ZeRO-1/2。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_32.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-32-代码实现"><strong>Page 32: 代码实现</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 现代框架（如 PyTorch Lightning,
+HuggingFace Accelerate）已经封装好了 FSDP。通常只需要一行配置
+<code>strategy="fsdp"</code> 即可开启。</li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_33.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-33-dp-的隐形墙---batch-size"><strong>Page 33: DP 的隐形墙 -
+Batch Size</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 即使 FSDP 解决了显存问题，DP
+还有一个数学限制。
+<ul>
+<li><strong>Global Batch Size = Num GPUs × Local Batch
+Size</strong>。</li>
+<li>为了保证 GPU 效率（矩阵乘法不空转），Local Batch Size
+不能太小。</li>
+<li>当 GPU 数量达到数千张时，Global Batch Size 会变得巨大（如几百万
+token），这可能会导致模型收敛变慢或泛化能力下降。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_34.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-34-流水线并行-pipeline-parallelism-pp"><strong>Page 34:
+流水线并行 (Pipeline Parallelism, PP)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+当模型大到单机（8卡）都装不下，需要跨机器扩展时，PP 登场。
+<ul>
+<li><strong>切分维度：</strong> <strong>Layers (深度)</strong>。</li>
+<li><strong>直观理解：</strong> 就像汽车组装流水线。机器 A
+装发动机（Layer 1-10），机器 B 装轮胎（Layer 11-20）。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_35.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-35-layer-wise-parallel-示意图"><strong>Page 35: Layer-wise
+Parallel 示意图</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li>GPU 0 计算完 Layer 0-3 的激活值（Forward），传给 GPU 1。</li>
+<li>GPU 1 计算 Layer 4-7...</li>
+<li>反向传播时，梯度从 GPU 3 传回 GPU 2...</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_36.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-36-朴素-pp-的灾难---气泡-bubble"><strong>Page 36: 朴素 PP
+的灾难 - 气泡 (Bubble)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 这种简单做法效率极低。
+<ul>
+<li>当 GPU 0 在工作时，GPU 1, 2, 3 都在干等（因为数据还没传过来）。</li>
+<li><strong>利用率：</strong> 几乎是 <span
+class="math inline">\(1/N\)</span>。这被称为 "Pipeline Bubble"。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_37.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-37-气泡可视化"><strong>Page 37: 气泡可视化</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 图中大片的空白区域就是 GPU
+空转的时间。只有对角线上的色块在计算。这是不可接受的资源浪费。</li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_38.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-38-救星---micro-batches"><strong>Page 38: 救星 -
+Micro-batches</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 如何填补气泡？
+<ul>
+<li><strong>策略：</strong> 把一个大 Batch 切成很多个
+<strong>Micro-batches</strong>。</li>
+<li><strong>流水线化：</strong> GPU 0 算完 Micro-batch 1 立即发给 GPU
+1，然后马上转头算 Micro-batch 2。让 GPU 动起来。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_39.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-39-gpipe-调度"><strong>Page 39: GPipe 调度</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 这是 Google 提出的 GPipe 方案。
+<ul>
+<li><strong>F (Forward):</strong> 连续执行所有 Micro-batch 的前向。</li>
+<li><strong>B (Backward):</strong> 连续执行所有 Micro-batch
+的反向。</li>
+<li>虽然比朴素 PP 好，但中间仍然有较大的显存开销（需要存所有 MB
+的激活值）。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_40.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-40-bubble-的数学极限"><strong>Page 40: Bubble
+的数学极限</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 即使有
+Micro-batch，启动和结束时的气泡依然存在。
+<ul>
+<li>气泡占比公式：<span class="math inline">\(\text{Bubble Fraction}
+\approx \frac{p-1}{m}\)</span>。(<span
+class="math inline">\(p\)</span>=GPU数, <span
+class="math inline">\(m\)</span>=Micro-batch数)。</li>
+<li><strong>启示：</strong> 想要气泡小，Micro-batch 数量 <span
+class="math inline">\(m\)</span> 必须远大于 <span
+class="math inline">\(p\)</span>。这又逼迫我们增大 Global Batch
+Size。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_41.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-41-1f1b-调度-interleaved"><strong>Page 41: 1F1B 调度
+(Interleaved)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 工业界更常用的调度（Megatron-LM）。
+<ul>
+<li><strong>策略：</strong> 算一个前向，马上算一个反向（One Forward, One
+Backward）。</li>
+<li><strong>优势：</strong>
+及时释放显存。反向传播算完梯度后，前向传播的激活值就可以删了。这大大降低了峰值显存占用。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_42.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-42-零气泡流水线-zero-bubble"><strong>Page 42: 零气泡流水线
+(Zero Bubble)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+学术界的前沿探索。通过把前向和反向进一步拆分（F -&gt; B -&gt;
+W），并采用复杂的“U型”或“V型”调度，试图完全填满气泡。</li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_43.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-43-pp-的权衡"><strong>Page 43: PP 的权衡</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 为什么我们还是讨厌 PP？
+<ul>
+<li><strong>优点：</strong>
+通信量小（只传边界的激活值），点对点通信，适合跨机。</li>
+<li><strong>缺点：</strong> 气泡难以消除；实现极其复杂；Batch Size
+被迫很大；需要模型分层。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_44.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-44-张量并行-tensor-parallelism-tp"><strong>Page 44:
+张量并行 (Tensor Parallelism, TP)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 如果单机显存不够，又不想用
+PP（因为有气泡），怎么办？
+<ul>
+<li><strong>切分维度：</strong> <strong>Tensor
+(矩阵内部)</strong>。</li>
+<li><strong>场景：</strong> 主要是 <strong>Intra-node
+(单机多卡)</strong>。因为 TP 通信太频繁了，必须跑在 NVLink 上。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_45.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-45-矩阵乘法切分原理"><strong>Page 45:
+矩阵乘法切分原理</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 核心是 <span class="math inline">\(Y = X
+\cdot A\)</span>。
+<ul>
+<li><strong>列并行 (Column Parallel):</strong> 把权重矩阵 <span
+class="math inline">\(A\)</span> 竖着切两半 <span
+class="math inline">\([A_1, A_2]\)</span>。GPU 1 算 <span
+class="math inline">\(X \cdot A_1\)</span>，GPU 2 算 <span
+class="math inline">\(X \cdot A_2\)</span>。输出拼接起来。</li>
+<li><strong>行并行 (Row Parallel):</strong> 把权重矩阵 <span
+class="math inline">\(A\)</span> 横着切。需要把输入 <span
+class="math inline">\(X\)</span> 也切了。算出来结果需要相加。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_46.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-46-mlp-层的-tp-设计"><strong>Page 46: MLP 层的 TP
+设计</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> Megatron-LM 的经典设计。MLP 包含两个
+Linear 层。
+<ul>
+<li><strong>第一层：</strong> 使用 <strong>列并行</strong>。输出被 Split
+了，没关系，GELU 是逐元素的，可以直接算。</li>
+<li><strong>第二层：</strong> 使用 <strong>行并行</strong>。直接吃 Split
+的输入，算出结果后，进行一次 <strong>All-Reduce</strong>。</li>
+<li><strong>精妙之处：</strong> 中间不需要通信！两个 Linear
+层之间完全并行，只有最后需要同步一次。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_47.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-47-attention-层的-tp-设计"><strong>Page 47: Attention 层的
+TP 设计</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> Multi-head Attention 天生适合 TP。
+<ul>
+<li><strong>策略：</strong> 直接切 Head。</li>
+<li>比如有 16 个 Head，4 张卡。每张卡负责计算 4 个 Head 的 Q, K, V 和
+Attention Score。</li>
+<li>最后输出 Linear 层再用行并行合并结果。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_48.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-48-cross-entropy-也能并行"><strong>Page 48: Cross Entropy
+也能并行</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 许多人忽略的点。
+<ul>
+<li>词表（Vocab）通常很大（如 10万+）。最后一层的 Logits
+矩阵非常占显存。</li>
+<li>TP 可以把词表切分，每个 GPU 只计算一部分词的 Logits 和 Loss，最后
+Reduce。这避免了在单卡上生成巨大的 Logits 矩阵。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_49.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-49-tp-的通信特性"><strong>Page 49: TP
+的通信特性</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>优点：</strong> 没有气泡（No Bubble），显存利用率高。</li>
+<li><strong>缺点：</strong>
+<strong>通信地狱</strong>。每次前向/反向都要做
+All-Reduce。每层都要！</li>
+<li><strong>限制：</strong> 这就是为什么 TP 只能设为
+8（单机卡数）。跨机跑 TP 会因为网络延迟导致速度极慢。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_50.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-50-tp-vs-pp-对比"><strong>Page 50: TP vs PP
+对比</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>TP:</strong> 低延迟互联（NVLink），高频通信，无气泡。</li>
+<li><strong>PP:</strong>
+高延迟互联（Ethernet/IB），低频通信，有气泡。</li>
+<li>两者互补，常结合使用。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_51.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-51-序列并行-sequence-parallelism-sp"><strong>Page 51:
+序列并行 (Sequence Parallelism, SP)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> TP 的补丁。
+<ul>
+<li><strong>背景：</strong> 在 TP 中，LayerNorm 和 Dropout
+是在所有卡上重复计算的（Replicated），这部分显存没有被切分。</li>
+<li><strong>SP:</strong> 沿着 <strong>Sequence Length</strong>
+维度把这些操作也切分了。配合 TP，真正实现了“显存全切分”。</li>
+<li>这也是 <strong>Ring
+Attention</strong>（支持百万级长文本）的基础技术。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_52.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-52-激活重计算-activation-recomputation"><strong>Page 52:
+激活重计算 (Activation Recomputation)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 这是一个纯软件层面的优化，也是显存救星。
+<ul>
+<li><strong>常识：</strong>
+为了反向传播算梯度，我们必须在前向传播时把每一层的激活值（Output）存下来。这占用了大量显存（<span
+class="math inline">\(O(Layers \times Seq \times
+Hidden)\)</span>）。</li>
+<li><strong>技巧：</strong> <strong>不存了！</strong>
+只存每层的输入（Checkpoint）。反向传播时，临时<strong>重新计算</strong>这一层的前向过程，算出激活值，用完即扔。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_53.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-53-重计算的收益"><strong>Page 53:
+重计算的收益</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>Trade-off:</strong> 用计算换显存。计算量增加约
+33%（多做了一次前向），但显存占用可以减少 5-10 倍。</li>
+<li><strong>现状：</strong> 在大模型训练中，显存（决定能不能跑、Batch
+能开多大）比算力（决定跑多快）更紧缺。所以重计算几乎是<strong>默认开启</strong>的。</li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="part-3-实战扩展-scaling-and-training-big-lms">Part 3: 实战扩展
+(Scaling and Training Big LMs)</h2>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_54.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-54-part-3-标题"><strong>Page 54: Part 3 标题</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 既然我们手握 DP, PP, TP
+三把武器，如何组合它们来打倒万亿参数的 BOSS？这就是 <strong>3D
+Parallelism</strong>。</li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_55.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-55-3d-并行示意图"><strong>Page 55: 3D
+并行示意图</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 一个巨大的立方体模型。
+<ul>
+<li><strong>宽 (Hidden size):</strong> 用 <strong>TP</strong>
+切分。</li>
+<li><strong>深 (Layers):</strong> 用 <strong>PP</strong> 切分。</li>
+<li><strong>长 (Batch):</strong> 用 <strong>DP</strong> 切分。</li>
+<li>通过正交切分，我们可以把一个巨无霸模型塞进成千上万个小 GPU 里。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_56.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-56-经验法则-rules-of-thumb"><strong>Page 56: 经验法则
+(Rules of Thumb)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> 拿到一个模型，该怎么配置并行策略？
+<ol type="1">
+<li><strong>单卡能跑：</strong> 用 DDP 或 ZeRO-1。别折腾别的。</li>
+<li><strong>单卡跑不动，但单机能跑：</strong> 首选 <strong>FSDP
+(ZeRO-3)</strong>，因为它简单且灵活。如果对延迟极其敏感，用 TP。</li>
+<li><strong>单机跑不动（超大模型）：</strong>
+<ul>
+<li><strong>Step 1:</strong> 开 <strong>TP</strong> (通常
+TP=8)，把单机显存和 NVLink 带宽吃满。</li>
+<li><strong>Step 2:</strong> 如果还不够，开
+<strong>PP</strong>，跨机扩展层数。</li>
+<li><strong>Step 3:</strong> 在此基础上，开
+<strong>DP</strong>，增加更多机器来并行处理数据，加速训练。</li>
+</ul></li>
+</ol></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_57.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-57-业界案例---llama-3-405b"><strong>Page 57: 业界案例 -
+Llama 3 405B</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> Meta 是怎么训练 Llama 3 的？
+<ul>
+<li><strong>规模：</strong> 16,384 张 H100。</li>
+<li><strong>策略：</strong> 4D 并行。
+<ul>
+<li><strong>TP=8:</strong> 单机内。</li>
+<li><strong>CP=1 (Context Parallel):</strong> 处理长文本。</li>
+<li><strong>PP=16:</strong> 跨 16 个节点流水线。</li>
+<li><strong>DP=64:</strong> 数据并行扩展。</li>
+</ul></li>
+<li><strong>设计哲学：</strong>
+把高频通信（TP）锁在节点内，把低频通信（PP/DP）放在节点间。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_58.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-58-业界案例---deepseek-v3"><strong>Page 58: 业界案例 -
+DeepSeek V3</strong></h3>
+<ul>
+<li><strong>深度解析：</strong> DeepSeek 的策略非常独特，针对 MoE
+进行了优化。
+<ul>
+<li><strong>策略：</strong> <strong>No TP!</strong>
+(TP=1)。这是反直觉的。</li>
+<li><strong>EP=64 (Expert Parallel):</strong> 专家并行，这是 MoE
+特有的。</li>
+<li><strong>PP=16:</strong> 深度流水线。</li>
+<li><strong>ZeRO-1:</strong> 优化器切分。</li>
+<li><strong>原因：</strong> TP 通信开销大。DeepSeek 采用了
+<strong>DualPipe</strong> 和重叠通信策略，证明了不用 TP 也能高效训练超大
+MoE 模型。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_59.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-59-业界案例---gemma-2-yi"><strong>Page 59: 业界案例 - Gemma
+2 / Yi</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ul>
+<li><strong>Yi (零一万物):</strong> 传统的 ZeRO-1 + TP + PP
+组合，稳扎稳打。</li>
+<li><strong>Gemma 2 (Google):</strong> 使用 TPU。TPU
+独特的网络拓扑让它们更倾向于使用 GSPMD（一种自动并行的编译器技术）和
+ZeRO-3 风格的参数切分，而不是手写复杂的 TP/PP。</li>
+</ul></li>
+</ul>
+<p><img
+src="parallelism/2025%20Lecture%207%20-%20Parallelism%20basics_60.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-60-全课总结-recap"><strong>Page 60: 全课总结
+(Recap)</strong></h3>
+<ul>
+<li><strong>深度解析：</strong>
+<ol type="1">
+<li><strong>Scaling is hard:</strong>
+超过一定规模（单机），必须引入多机并行。</li>
+<li><strong>Hybrid is necessary:</strong> 没有一种并行策略是完美的。TP
+费带宽，PP 有气泡，DP 费显存。<strong>3D
+并行</strong>是平衡这三者的艺术。</li>
+<li><strong>First Principles:</strong> 所有的策略选择，归根结底都是在算
+<strong>带宽 (Bandwidth)</strong>、<strong>延迟 (Latency)</strong> 和
+<strong>显存 (Memory)</strong>
+的账。理解了硬件特性，就理解了并行策略。</li>
+</ol></li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/stanford-cs336/" class="category-chain-item">stanford-cs336</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/git/">#git</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>大模型从0到1｜第七讲：详解大模型并行化策略</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/大模型从0到1｜第七讲：详解大模型并行化策略/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年11月23日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/stanford-cs336/%E7%AC%AC%E5%85%AB%E8%AF%BE%EF%BC%9A%E6%89%8B%E6%92%95%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E8%AE%AD%E7%BB%83/" title="大模型从0到1｜第八讲：手撕大模型并行训练 (CS336)">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">大模型从0到1｜第八讲：手撕大模型并行训练 (CS336)</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%85%AD%E8%AE%B2%EF%BC%9A%E6%89%8B%E5%86%99%E9%AB%98%E6%80%A7%E8%83%BD%E7%AE%97%E5%AD%90/" title="大模型从0到1｜第六讲：手写高性能算子">
+                        <span class="hidden-mobile">大模型从0到1｜第六讲：手写高性能算子</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '3bdcddf2e2bdf7c07f2343654f8af398'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

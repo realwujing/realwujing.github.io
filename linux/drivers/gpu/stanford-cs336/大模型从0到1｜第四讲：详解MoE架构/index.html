@@ -1,0 +1,1824 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="大模型从0到1｜第四讲：详解MoE架构 课程信息： CS336 | 讲师： Tatsu H | 主题： 混合专家模型 (Mixture of Experts)  课程链接：Stanford CS336 Spring 2025 - Lecture 4: MoEs   Part 1: MoE 的背景与崛起 (Introduction &amp; Context)  Page 1: 课程开篇  【视觉内">
+<meta property="og:type" content="article">
+<meta property="og:title" content="大模型从0到1｜第四讲：详解MoE架构">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="大模型从0到1｜第四讲：详解MoE架构 课程信息： CS336 | 讲师： Tatsu H | 主题： 混合专家模型 (Mixture of Experts)  课程链接：Stanford CS336 Spring 2025 - Lecture 4: MoEs   Part 1: MoE 的背景与崛起 (Introduction &amp; Context)  Page 1: 课程开篇  【视觉内">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_01.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_02.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_03.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_04.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_05.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_06.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_07.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_08.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_09.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_10.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_11.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_12.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_13.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_14.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_15.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_16.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_17.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_18.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_19.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_20.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_21.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_22.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_23.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_24.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_25.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_26.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_27.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_28.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_29.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_30.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_31.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_32.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_33.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_34.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_35.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_36.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_37.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_38.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_39.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_40.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_41.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_42.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_43.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_44.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_45.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_46.png">
+<meta property="og:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_47.png">
+<meta property="article:published_time" content="2025-11-23T18:44:29.000Z">
+<meta property="article:modified_time" content="2025-11-23T18:44:29.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="architect">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%9B%9B%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3MoE%E6%9E%B6%E6%9E%84/moe/2025%20Lecture%204%20-%20MoEs_01.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>大模型从0到1｜第四讲：详解MoE架构 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="大模型从0到1｜第四讲：详解MoE架构"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-11-23 18:44" pubdate>
+          2025年11月23日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          12k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          102 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">大模型从0到1｜第四讲：详解MoE架构</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1
+id="大模型从0到1第四讲详解moe架构">大模型从0到1｜第四讲：详解MoE架构</h1>
+<p><strong>课程信息：</strong> CS336 | <strong>讲师：</strong> Tatsu H |
+<strong>主题：</strong> 混合专家模型 (Mixture of Experts)</p>
+<blockquote>
+<p>课程链接：<a
+target="_blank" rel="noopener" href="https://github.com/stanford-cs336/spring2025-lectures/blob/main/nonexecutable/2025%20Lecture%204%20-%20MoEs.pdf">Stanford
+CS336 Spring 2025 - Lecture 4: MoEs</a></p>
+</blockquote>
+<hr />
+<h2 id="part-1-moe-的背景与崛起-introduction-context">Part 1: MoE
+的背景与崛起 (Introduction &amp; Context)</h2>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_01.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-1-课程开篇"><strong>Page 1: 课程开篇</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 简洁的标题页。</li>
+<li><strong>【深度解析】</strong> 本节课是 CS336
+系列课程的第四讲，核心议题是 <strong>Mixtures of Experts
+(MoE)</strong>。MoE
+是当前大模型（LLM）领域从“稠密模型”向“稀疏模型”转型的关键技术，也是
+GPT-4 等顶尖模型背后的核心架构。</li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_02.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-2-moe-的统治地位"><strong>Page 2: MoE
+的统治地位</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+<ul>
+<li><strong>左侧图表：</strong>
+展示了模型参数量的指数级增长。图中绿色点列出了 GPT-2 (1.5B), GPT-3
+(175B), MT NLG (530B)。最顶端黄色的点标注为
+<strong>"GPT-MoE-1.8T"</strong>，暗示 GPT-4 是一个约 1.8 万亿参数的 MoE
+模型。</li>
+<li><strong>右侧情报：</strong> 拼贴了 <strong>Mistral
+AI</strong>（磁力链接泄露事件，代表 Mixtral
+8x7B）、<strong>Grok</strong>（马斯克的 xAI 开源
+MoE）、<strong>DeepSeek</strong>（深度求索的技术报告）以及 <strong>Llama
+4</strong>（代号 Maverick/Behemoth）的相关信息。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>现状：</strong> MoE
+已经不再是“实验性”技术，而是成为了<strong>行业标准 (Industry
+Standard)</strong>。</li>
+<li><strong>趋势：</strong>
+无论是闭源霸主（GPT-4），还是开源先锋（Mixtral, DeepSeek），甚至是未来的
+Llama 4，都在拥抱 MoE 架构。这标志着大模型进入了“稀疏计算”时代。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_03.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-3-moe-的本质-what-is-a-moe"><strong>Page 3: MoE 的本质
+(What is a MoE?)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 架构对比图。
+<ul>
+<li><strong>左图 (Dense Model):</strong> 传统的 Transformer
+Block。输入向量 <span class="math inline">\(x\)</span> 经过 Layer Norm
+后，进入<strong>一个巨大的 FFN (Feed Forward Network)</strong>
+层，所有参数参与计算。</li>
+<li><strong>右图 (Sparse Model):</strong> MoE Block。原本的大 FFN
+被替换为一组<strong>专家 (Experts)</strong>，标记为 FFN 1 到 FFN
+4。</li>
+<li><strong>关键组件：</strong> <strong>Router
+(选择器)</strong>。它动态决定输入 <span class="math inline">\(x\)</span>
+应该走哪条路（例如图中选了 FFN 2 和 FFN 4）。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>核心定义：</strong> MoE
+的本质是将大模型拆解。用<strong>许多个（Many）</strong>前馈网络替代<strong>一个</strong>大前馈网络，并引入一个<strong>选择层
+(Selector Layer)</strong>。</li>
+<li><strong>稀疏性 (Sparsity)：</strong> 对于每一个
+Token，模型只激活一小部分参数（例如总共有 1000 亿参数，但处理一个词只用
+100 亿）。</li>
+<li><strong>铁律：</strong> <strong>"You can increase the # experts
+without affecting
+FLOPs"</strong>。这意味着你可以无限增加模型的总参数量（知识容量），而不增加推理时的计算量（延迟/成本）。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_04.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-4-scaling-laws---为什么-moe-会赢"><strong>Page 4: Scaling
+Laws - 为什么 MoE 会赢？</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+<ul>
+<li><strong>左图：</strong> 横轴是稀疏模型参数量 (<span
+class="math inline">\(10^9\)</span> 到 <span
+class="math inline">\(10^{10}\)</span>)，纵轴是 Test
+Loss。曲线上的点（4e, 8e, ...,
+256e）代表专家数量。可以看到，<strong>专家越多，Loss
+越低</strong>，且没有饱和迹象。</li>
+<li><strong>右图：</strong> 训练步数 vs Perplexity
+(困惑度)。Switch-Base-128e（蓝色最下方的线）的收敛效果远好于同计算量的稠密模型
+T5-Base（紫色最上方的线）。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>Scaling Law：</strong> 在<strong>相同的计算预算 (Same
+FLOPs)</strong> 下，MoE
+模型因为拥有更多的参数（尽管每次只用一部分），其性能（Loss）显著优于稠密模型。</li>
+<li><strong>结论：</strong> "Same FLOP, more param does better."
+这打破了以往参数量与计算量必须同步增长的限制。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_05.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-5-训练速度---巨大的效率提升"><strong>Page 5: 训练速度 -
+巨大的效率提升</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+<ul>
+<li><strong>左图：</strong> 横轴是训练时间，纵轴是 Log
+Perplexity。黑色双向箭头标出了 <strong>"7x Speedup"</strong>。MoE
+模型达到某个 Loss 值的时间仅为 Dense 模型的 1/7。</li>
+<li><strong>右图：</strong> 引用 OlMoE 的数据。粉色线 (MoE)
+的下降斜率远超蓝色线 (Dense)。标注显示 <strong>"~2x faster"</strong>
+(更少 FLOPs 或 tokens 达到同等精度)。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>效率优势：</strong> 训练 MoE
+不仅最终效果好，过程也更快。因为每次反向传播只更新被激活的那一小部分专家的权重，模型能以更少的计算资源“见过”更多的数据模式。</li>
+<li><strong>经济性：</strong> 对于想要快速迭代模型的公司来说，MoE 是节省
+GPU 机时的首选。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_06.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-6-性能竞争力---越级挑战"><strong>Page 6: 性能竞争力 -
+越级挑战</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 散点图。横轴是 <strong>"Activated
+Parameters" (激活参数量)</strong>，纵轴是 <strong>"Performance
+(MMLU)"</strong>。
+<ul>
+<li><strong>关键对比：</strong> 注意红色的五角星
+<strong>DeepSeek-V2</strong>。它的激活参数量非常小（约 20B+），但 MMLU
+得分却高达 80 左右，超过了 <strong>LLaMA 3
+70B</strong>（稠密模型，激活参数 70B）和 <strong>Mixtral
+8x22B</strong>。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>核心竞争力：</strong> MoE
+的魔力在于“以小博大”。看推理成本（激活参数），它是一个小模型；看智能水平（MMLU），它是一个大模型。</li>
+<li>图表证明了 MoE 相比同等级别的 Dense 模型具有显著的性能优势（Highly
+competitive）。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_07.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-7-系统架构---天生的并行性"><strong>Page 7: 系统架构 -
+天生的并行性</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 复杂的 Transformer Encoder 流程图。
+<ul>
+<li>左侧是逻辑视图，右侧是物理视图（<strong>With device
+placement</strong>）。</li>
+<li><strong>关键路径：</strong> Encoder Output -&gt; Add &amp; Norm
+-&gt; <strong>Feed Forward FFN</strong>。</li>
+<li>在 FFN 处，数据流被分发 (<strong>Dispatch</strong>) 到了
+<strong>Devices 1...E</strong>。这意味着 FFN1 在显卡 1 上，FFN2 在显卡 2
+上……计算完后再合并 (<strong>Combine</strong>)。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>并行化 (Parallelizable)：</strong> MoE
+架构非常适合分布式训练。每个 Expert
+可以被视为一个独立的计算单元，完美契合多 GPU 集群。</li>
+<li>这种并行模式被称为 <strong>Expert Parallelism (EP)</strong>，是 MoE
+能够扩展到万亿参数的基石。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_08.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-8-东西方对决---开源-moe-的胜利"><strong>Page 8: 东西方对决
+- 开源 MoE 的胜利</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 详细的数据表格，对比了 Llama 4
+(Maverick), Gemini 2.0 Flash, <strong>DeepSeek v3.1</strong>, GPT-4o。
+<ul>
+<li><strong>成本对比：</strong> DeepSeek v3.1 的每百万输入 Token
+成本仅为 <strong>$0.14</strong> (此处 PPT 可能写错，DeepSeek
+官方更低，图中显示推理成本比 GPT-4o 的 $4.38 低一个数量级)。</li>
+<li><strong>能力对比：</strong> 在数学推理 (MathVista) 上，DeepSeek
+(63.8) 和 GPT-4o (63.8) 持平，Llama 4 (73.7) 表现强劲。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>市场格局：</strong> MoE 已经成为高性能开源模型（如 DeepSeek,
+Mixtral）的首选架构。</li>
+<li><strong>优势：</strong> "Quite quick" ——
+它们不仅强，而且快。DeepSeek V3 证明了极致优化的 MoE
+可以比闭源模型便宜非常多。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_09.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-9-中国早期探索---小参数-moe-qwen"><strong>Page 9:
+中国早期探索 - 小参数 MoE (Qwen)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+<ul>
+<li><strong>左表 (跑分)：</strong> 对比了 Mistral-7B, Gemma-7B,
+Qwen1.5-7B 以及 Qwen1.5-MoE-A2.7B。注意 <strong>Qwen1.5-MoE</strong> 的
+MMLU (62.5) 接近 Mistral-7B (64.1)，但其激活参数要小得多。</li>
+<li><strong>右表 (参数)：</strong> <strong>Qwen1.5-MoE-A2.7B</strong>
+的总参数是 14.3B，但 <strong>#Activated Parameters 仅为
+2.7B</strong>。DeepSeekMoE 16B 的激活参数仅为 2.8B。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>不同的路：</strong> 早期中国大模型团队（如 Qwen,
+DeepSeek）并没有一上来就做万亿 MoE，而是在<strong>小规模 (Smaller
+end)</strong> 上进行了大量实验。</li>
+<li><strong>极致效率：</strong> 他们证明了用 2.7B
+的计算量（相当于在手机上能跑的大小）可以达到 7B
+甚至更大的模型效果。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_10.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-10-deepseek-的早期消融实验"><strong>Page 10: DeepSeek
+的早期消融实验</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+这是一个非常学术的表格，对比了三种架构：<strong>Dense (0.2B)</strong> vs
+<strong>Hash Layer (2.0B)</strong> vs <strong>Switch (2.0B)</strong>。
+<ul>
+<li><strong>Hash Layer</strong> 和 <strong>Switch</strong> 都是 MoE
+的变体，总参数量扩大了 10 倍（0.2B -&gt; 2.0B），但激活参数量保持 0.2B
+不变。</li>
+<li><strong>结果：</strong> Switch 架构的 Pile (Loss) 从 2.060 降到了
+1.881；HellaSwag 准确率从 38.8 飙升到 49.1。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>结论：</strong> 即使是早期的实验也表明，<strong>"They're
+generally good"</strong>。只要把 Dense 层换成 MoE
+层，在计算量不变的情况下，模型性能就会全面提升。这为后续大规模投入 MoE
+提供了理论信心。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_11.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-11-deepseek-v3---新王登基"><strong>Page 11: DeepSeek V3 -
+新王登基</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 柱状图展示了
+<strong>DeepSeek-V3</strong> (深蓝色柱子) 在各项基准测试上的表现。
+<ul>
+<li><strong>MATH 500:</strong> DeepSeek-V3 达到 <strong>90.2</strong>
+分，远超 GPT-4o-0513 (73.8) 和 Claude-3.5-Sonnet (78.3)。</li>
+<li><strong>Codeforces:</strong> 也是大幅领先。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>SOTA 性能：</strong> DeepSeek V3
+的发布是一个里程碑，证明了开源 MoE
+模型可以在数学、代码等最考验逻辑推理的任务上，击败最强的闭源模型。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_12.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-12-moe-的阴暗面---为什么难做"><strong>Page 12: MoE 的阴暗面
+- 为什么难做？</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+<ul>
+<li><strong>上图（文本）：</strong>
+摘录解释了稀疏性带来的基础设施挑战（需要 host many parameters, data
+parallelism, different machines...）。</li>
+<li><strong>下图（曲线）：</strong> 展示了一次失败的训练。Loss
+曲线在原本平滑下降的过程中，突然出现了一个巨大的 <strong>Spike
+(尖刺)</strong>，导致 Loss 暴涨，模型无法收敛。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>两大拦路虎：</strong>
+<ol type="1">
+<li><strong>基建复杂 (Infrastructure)：</strong> 相比 Dense 模型，MoE
+需要极其复杂的分布式系统支持，涉及跨节点的通信和显存管理。</li>
+<li><strong>训练不稳定 (Instability)：</strong> 训练目标通常包含启发式的
+Loss，这导致模型极其脆弱，容易出现 Loss
+爆炸。这是劝退很多团队的主要原因。</li>
+</ol></li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="part-2-架构详解与路由机制-architecture-detail">Part 2:
+架构详解与路由机制 (Architecture Detail)</h2>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_13.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-13-moe-到底长什么样"><strong>Page 13: MoE
+到底长什么样？</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+<ul>
+<li><strong>左图 (Typical):</strong> 经典的 MoE 结构。Transformer Block
+中的 <strong>Self-Attention 层保持不变</strong>，仅将 <strong>MLP (FFN)
+层</strong> 替换为稀疏的专家层。</li>
+<li><strong>右图 (Less common):</strong> 引用了 [ModuleFormer,
+JetMoE]。这种架构试图把 Attention 层也做成 MoE（每个 Head
+也是专家），但这并不常见。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>工业界标准：</strong> 目前几乎所有主流 MoE（GPT-4, Mixtral,
+DeepSeek）都采用左图方案。只动 FFN，不动 Attention。因为 FFN 占据了模型
+2/3 的参数量，改动它收益最大。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_14.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-14-moe-的三大变量"><strong>Page 14: MoE
+的三大变量</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 列表页。</li>
+<li><strong>【深度解析】</strong> 当我们设计一个 MoE
+时，主要调整这三个参数：
+<ol type="1">
+<li><strong>Routing function (路由函数)：</strong> 怎么选专家？（Top-k,
+Hash, RL...）</li>
+<li><strong>Expert sizes (专家规模)：</strong> 专家是做大做少（Mixtral:
+8个大专家），还是做小做多（DeepSeek: 256个小专家）？</li>
+<li><strong>Training objectives (训练目标)：</strong> 除了语言模型的
+Cross-Entropy Loss，还需要加什么辅助 Loss 来保证负载均衡？</li>
+</ol></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_15.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-15-路由算法概览"><strong>Page 15:
+路由算法概览</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 三个矩阵示意图，展示了 Token (行) 和
+Expert (列) 的匹配逻辑。
+<ul>
+<li><strong>左图 (Token chooses expert):</strong>
+每一行（Token）选择权重最高的 Top-K 列（Expert）。这是 <strong>Standard
+Top-K</strong>。</li>
+<li><strong>中图 (Expert chooses token):</strong>
+每一列（Expert）选择权重最高的 Top-K 行（Token）。这叫 Expert
+Choice。</li>
+<li><strong>右图 (Global routing):</strong>
+通过线性规划进行全局最优匹配。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>现状：</strong>
+尽管学术界提出了很多花哨的方法，但工业界最终收敛到了最简单粗暴的
+<strong>"Choose Top-K" (左图)</strong>。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_16.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-16-路由类型消融实验"><strong>Page 16:
+路由类型消融实验</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 曲线图对比。
+<ul>
+<li><strong>粉色线 (TC - Token Choice):</strong> 标准 Top-k。</li>
+<li><strong>蓝色线 (EC - Expert Choice):</strong> 专家选 Token。</li>
+<li><strong>结果：</strong> 在 Training loss, Validation loss,
+HellaSwag, MMLU 等所有指标上，两条线几乎完全重合。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>结论：</strong> "Almost all the MoEs do a standard token
+choice topk routing." 既然复杂的 Expert Choice
+并没有带来性能提升，大家自然选择实现更简单的 Top-k。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_17.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-17-主流路由变体详解"><strong>Page 17:
+主流路由变体详解</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+<ul>
+<li><strong>Top-k (上图):</strong> 展示了带有 Router 和 Softmax 的结构。
+<ul>
+<li><strong>Switch Transformer:</strong> k=1 (单专家)。</li>
+<li><strong>Gshard, Grok, Mixtral:</strong> k=2。</li>
+<li><strong>Qwen, DBRX:</strong> k=4。</li>
+<li><strong>DeepSeek:</strong> k=8 (这里PPT写了7，实际上 V3 是选
+8)。</li>
+</ul></li>
+<li><strong>Hashing (下图):</strong> 使用哈希函数随机分配。作为 Baseline
+存在。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>趋势：</strong> 现在的趋势是 <span
+class="math inline">\(k\)</span> 值在变大（从 1 到 2 再到
+8），这通常配合着专家总数的增加。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_18.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-18-被遗忘的路由方法"><strong>Page 18:
+被遗忘的路由方法</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+<ul>
+<li><strong>RL (Reinforcement Learning):</strong> 引用 Bengio
+2013。使用强化学习来训练 Router。</li>
+<li><strong>Linear Assignment:</strong> 引用 Clark
+'22。把路由当成一个二部图匹配问题来解。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>为什么不用 RL？</strong> RL
+引入了巨大的梯度方差，训练极不稳定，且实现复杂。现在的 Backprop through
+Softmax 效果已经足够好。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_19.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-19-top-k-路由的数学心脏"><strong>Page 19: Top-K
+路由的数学心脏</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 核心公式页。
+<ul>
+<li><strong>输出公式：</strong> <span
+class="math inline">\(\mathbf{h}_t^l = \sum_{i=1}^N (g_{i,t}
+\text{FFN}_i(\mathbf{u}_t^l)) + \mathbf{u}_t^l\)</span>。即：MoE 输出 =
+加权求和的专家输出 + 残差连接。</li>
+<li><strong>门控公式：</strong> <span
+class="math inline">\(g_{i,t}\)</span>。通常是 <span
+class="math inline">\(s_{i,t} = \text{Softmax}(\mathbf{u}_t^T
+\mathbf{e}_i)\)</span>。</li>
+<li><strong>DeepSeek 的特殊性：</strong> 右侧文字注明，Mixtral, DBRX,
+DeepSeek v3 是在 <strong>TopK 选择之后</strong> 再做
+Softmax（只对选中的那几个专家归一化，而不是对所有专家）。DeepSeek 还在
+Softmax 前加了 Sigmoid。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li>Router 本质上就是一个简单的<strong>逻辑回归 (Logistic
+Regression)</strong>。它学习输入向量与专家向量 <span
+class="math inline">\(\mathbf{e}_i\)</span> 的相似度。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_20.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-20-架构演进---deepseekmoe-的核心创新"><strong>Page 20:
+架构演进 - DeepSeekMoE 的核心创新</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 三种架构演进图。
+<ul>
+<li><strong>(a) Conventional Top-2:</strong> 传统模式（如
+Mixtral）。比如 8 个大专家选 2 个。</li>
+<li><strong>(b) Fine-grained Segmentation:</strong> 细粒度切分。把 1
+个大专家切成 4 个小专家，增加专家总数。</li>
+<li><strong>(c) DeepSeekMoE (Shared + Fine-grained):</strong> 这是
+DeepSeek 的必杀技。
+<ul>
+<li><strong>Shared Expert (绿色):</strong> 总是被选中，不经过
+Router。用于捕获通用知识。</li>
+<li><strong>Routed Expert (蓝色):</strong> 细粒度的小专家，由 Router
+动态选择。用于捕获长尾/专业知识。</li>
+</ul></li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>设计哲学：</strong> "General knowledge should be shared;
+specific knowledge should be
+routed."（通用知识共享，特定知识路由）。这种设计显著提升了参数利用率。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_21.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-21-deepseek-的消融证据"><strong>Page 21: DeepSeek
+的消融证据</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 柱状图对比。
+<ul>
+<li><strong>图例：</strong> 蓝色（GShard,
+无共享）、橙色（大专家+共享）、绿色（细粒度+共享）。</li>
+<li><strong>结果：</strong> 绿色柱子在 HellaSwag, PIQA, ARC
+等所有任务上都是最高的。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>结论：</strong> 细粒度切分 (Fine-grained) 和 共享专家
+(Shared isolation) <strong>两者都</strong>对性能有贡献。缺一不可。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_22.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-22-olmoe-的不同声音"><strong>Page 22: OlMoE
+的不同声音</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> OlMoE 论文的消融实验。
+<ul>
+<li><strong>上图：</strong> 32 routed (粉色) 和 31 routed + 1 shared
+(蓝色) 的曲线完全重合。说明在他们的设置下，共享专家没用。</li>
+<li><strong>下图：</strong> 64 experts (粉色) 明显优于 32 experts
+(蓝色)。说明细粒度切分有用。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li>这表明 "Shared Expert"
+是否有效可能取决于具体的模型规模或训练设置，但在 DeepSeek
+的大规模模型中已被证实极其有效。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_23.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-23-众神参数表-the-big-table"><strong>Page 23: 众神参数表
+(The Big Table)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 汇总了所有主流 MoE 的路由设置。
+<ul>
+<li><strong>Switch Transformer:</strong> 64 选 1。</li>
+<li><strong>Mixtral:</strong> 8 选 2。</li>
+<li><strong>Grok:</strong> 8 选 2。</li>
+<li><strong>DeepSeek v3:</strong> <strong>256 选 8</strong> (Routed), 1
+个 Shared, 细粒度比率 1/14。</li>
+<li><strong>Llama 4:</strong> 128 选 1, 1 个 Shared。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>趋势一目了然：</strong> 专家总数在变多（8 -&gt; 64 -&gt;
+256），激活专家数也在变多（2 -&gt; 8），且 "Shared Expert"
+正在被更多模型（如 Llama 4, Qwen, DeepSeek）采用。</li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="part-3-训练秘籍与稳定性-training-stability">Part 3:
+训练秘籍与稳定性 (Training &amp; Stability)</h2>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_24.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-24-训练-moe-的核心矛盾"><strong>Page 24: 训练 MoE
+的核心矛盾</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 文字描述。
+<ul>
+<li><strong>挑战：</strong> 稀疏选择 (Top-k)
+是离散的操作，<strong>不可导 (not
+differentiable)</strong>。无法直接用反向传播更新 Router。</li>
+<li><strong>解决方案：</strong>
+<ol type="1">
+<li>RL (太难训)。</li>
+<li>Stochastic perturbations (加噪声)。</li>
+<li><strong>Heuristic 'balancing' losses (启发式平衡损失)</strong> ——
+这是目前的标准答案。</li>
+</ol></li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_25.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-25-为什么不用-rl"><strong>Page 25: 为什么不用
+RL？</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 散点图对比 S-BASE 和 RL-R。可以看到
+RL-R 的点虽然略低（Loss 略好），但并没有质的飞跃。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>RL via REINFORCE:</strong>
+虽然理论上可以解决离散求导问题，但它带来了巨大的梯度方差。为了这一点点性能提升而引入
+RL 的复杂性，性价比太低 ("not so much better that it's a clear
+win")。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_26.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-26-随机近似法-stochastic-approximations"><strong>Page 26:
+随机近似法 (Stochastic Approximations)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 公式：<span
+class="math inline">\(H(x)_i = (x \cdot W_g)_i + StandardNormal() \cdot
+Softplus(...)\)</span>。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li>引用自 Shazeer et al 2017。思路是给 Logits 加上高斯噪声。</li>
+<li><strong>作用：</strong> 1. 让模型去探索不同的专家（Exploration）；2.
+使得 Top-k 操作在某种程度上“平滑化”。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_27.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-27-jitter-抖动-的兴衰"><strong>Page 27: Jitter (抖动)
+的兴衰</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 代码截图
+<code>router_logits += mtf.random_uniform(...)</code>。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li>Switch Transformer (Fedus et al 2022) 引入了 Input
+Jitter（乘性噪声）来增加稳定性。</li>
+<li>但后来的研究 (Zoph et al 2022) 发现，表格数据显示 Jitter
+并不能提升质量（-1.777 vs -1.755 baseline），甚至可能有害。所以现代 MoE
+通常<strong>移除了</strong>这一步。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_28.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-28-辅助负载均衡损失-aux-loss"><strong>Page 28:
+辅助负载均衡损失 (Aux Loss)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> Switch Transformer 的经典 Loss
+公式：<span class="math inline">\(loss = \alpha \cdot N \cdot \sum f_i
+\cdot P_i\)</span>。
+<ul>
+<li><span class="math inline">\(f_i\)</span>: 实际上分给专家 <span
+class="math inline">\(i\)</span> 的 Token 比例（Fraction）。</li>
+<li><span class="math inline">\(P_i\)</span>: Router 预测给专家 <span
+class="math inline">\(i\)</span> 的概率总和。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>逻辑：</strong> 我们希望 <span
+class="math inline">\(f_i\)</span> 和 <span
+class="math inline">\(P_i\)</span>
+都是均匀的。如果某个专家既被实际大量选中（<span
+class="math inline">\(f_i\)</span> 高），Router 又极其倾向于它（<span
+class="math inline">\(P_i\)</span> 高），那么 <span
+class="math inline">\(f_i \cdot P_i\)</span> 就会很大，导致 Loss
+变大。这迫使 Router 把流量分给其他专家。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_29.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-29-deepseek-v1v2-的平衡策略"><strong>Page 29: DeepSeek
+V1/V2 的平衡策略</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 两个 Loss 公式。
+<ul>
+<li><strong>Per-expert balancing:</strong> 传统的专家级平衡。</li>
+<li><strong>Per-device balancing:</strong> 这是新东西。公式聚合了同一
+Device 上的所有专家。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>跨设备通信：</strong>
+在大规模训练中，如果专家负载均衡了，但这些专家全挤在同一张显卡上，那这张显卡就会因计算过载而拖慢整个集群。所以
+DeepSeek 引入了设备级平衡，确保 GPU 之间的负载也是均匀的。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_30.png" srcset="/img/loading.gif" lazyload /></p>
+<h3
+id="page-30-deepseek-v3-的革命---无辅助-loss-aux-loss-free"><strong>Page
+30: DeepSeek V3 的革命 - 无辅助 Loss (Aux-loss-free)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 关键公式：<span
+class="math inline">\(g&#39;_{i,t} = \begin{cases} s_{i,t}, &amp;
+s_{i,t} + b_i \in \text{Topk}(...) \\ 0, &amp; \text{otherwise}
+\end{cases}\)</span>。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>痛点：</strong> 传统的 Aux Loss
+会干扰模型的主任务（Cross-Entropy），因为模型为了满足负载均衡，不得不去选一些“次优”的专家，导致性能下降。</li>
+<li><strong>DeepSeek 解法：</strong> <strong>彻底去掉 Aux
+Loss</strong>。改用一个动态更新的偏置项 <strong>Bias (<span
+class="math inline">\(b_i\)</span>)</strong>。</li>
+<li><strong>机制：</strong> 如果专家 <span
+class="math inline">\(i\)</span> 负载太重，就降低 <span
+class="math inline">\(b_i\)</span>，让它在 Top-k
+排序中得分变低，自然就选不中了。这种反馈是解耦的，不影响梯度更新。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_31.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-31-路由崩塌-routing-collapse"><strong>Page 31: 路由崩塌
+(Routing Collapse)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+<ul>
+<li><strong>上图：</strong> Loss 曲线。<strong>No LBL
+(无负载均衡，蓝色)</strong> 的 Loss 居高不下。</li>
+<li><strong>下图：</strong> 专家分配热力图。左侧 "No load balancing"
+显示，Expert 0 和 Expert 6 占据了 100% 的宽度，其他专家全是 0。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li>这解释了为什么要搞负载均衡。如果不加干预，MoE
+会迅速<strong>退化</strong>：Router
+发现某两个专家稍微好一点点，就疯狂把所有 Token
+往那里塞，其他专家得不到训练，差距越来越大，最终导致模型崩塌。</li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="part-4-系统工程与-upcycling-systems-initialization">Part 4:
+系统工程与 Upcycling (Systems &amp; Initialization)</h2>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_32.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-32-专家并行-expert-parallelism"><strong>Page 32: 专家并行
+(Expert Parallelism)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 网格图展示了数据 (Data) 和模型权重
+(Model) 在不同 Core 上的切分方式。
+<ul>
+<li>对比了 Model Parallelism, Data Parallelism, Expert
+Parallelism。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>Expert Parallelism (EP):</strong> 这是 MoE
+独有的。我们将不同的专家（FFN）物理放置在不同的 GPU 上。当 Router 分发
+Token 时，实际上是在进行跨 GPU
+的网络通信（All-to-All）。这要求极高的网络带宽。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_33.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-33-megablocks-与块稀疏计算"><strong>Page 33: MegaBlocks
+与块稀疏计算</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 矩阵乘法示意图。
+<ul>
+<li><ol type="A">
+<li>Batched MM: 需要 Padding，浪费计算。</li>
+</ol></li>
+<li><ol start="3" type="A">
+<li><strong>Block Sparse Matrix Multiplication:</strong>
+矩阵块是参差不齐的，直接计算。</li>
+</ol></li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>问题：</strong> 不同专家分到的 Token
+数量是不一样的（变长）。传统做法是 Pad 到最大长度，这很浪费。</li>
+<li><strong>解法：</strong> 使用 <strong>MegaBlocks</strong>
+这样的现代库，支持块稀疏矩阵乘法，可以高效处理负载不均的变长序列，大幅提升训练效率。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_34.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-34-token-dropping-与随机性"><strong>Page 34: Token Dropping
+与随机性</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 流程图。中间的 capacity_factor=1
+显示，如果 Token 过多（超过容量），多余的 Token 会被 <strong>dropped
+(画叉)</strong>。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>GPT-4 的随机性之谜：</strong> 早期 GPT-4 即使 Temperature=0
+输出也不稳定。原因就在于此。</li>
+<li>MoE 为了并行效率，每个专家每轮能处理的 Token 数有上限。如果同一个
+Batch 里其他人的请求挤占了热门专家，你的 Token
+就可能被丢弃（或被迫走其他路），导致输出变化。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_35.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-35-稳定性---router-精度"><strong>Page 35: 稳定性 - Router
+精度</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 文字框解释 <span
+class="math inline">\(exp(128.5)\)</span> 在 <strong>bfloat16</strong>
+下会溢出为无穷大。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>大坑：</strong> 训练大模型通常用 BF16 加速。但在计算 Router
+的 Softmax 时，如果 Logits 稍微大一点（比如 100），<span
+class="math inline">\(e^{100}\)</span> 就会超出 BF16
+的表示范围，导致数值错误。</li>
+<li><strong>解法：</strong> <strong>"Use Float 32 just for the expert
+router"</strong>。这一小部分计算必须用全精度。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_36.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-36-稳定性---z-loss"><strong>Page 36: 稳定性 -
+Z-loss</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> Loss 曲线。
+<ul>
+<li><strong>蓝色 (No z-loss):</strong> 曲线充满了剧烈的震荡和尖峰
+(Spikes)。</li>
+<li><strong>粉色 (Z-loss):</strong> 曲线非常平滑。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>Z-loss 公式：</strong> <span class="math inline">\(L_z(x) =
+\frac{1}{B} \sum \log^2 \sum e^x\)</span>。</li>
+<li><strong>作用：</strong> 它惩罚过大的 Logits 值，迫使 Router
+的输出保持在 0 附近。这从根本上减少了 Softmax 溢出的风险，是 MoE
+稳定训练的必备技巧。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_37.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-37-微调难题与-sft"><strong>Page 37: 微调难题与
+SFT</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+<ul>
+<li><strong>上图：</strong> 微调时的 Validation Loss。Sparse
+模型（橙线）比 Dense
+模型（红线）上升得更快，说明<strong>过拟合</strong>更严重。</li>
+<li><strong>文字：</strong> "DeepSeek solution – use lots of data 1.4M
+SFT"。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li>MoE 参数量巨大，在小数据集上微调极易过拟合。</li>
+<li>DeepSeek 的暴力美学：<strong>用海量数据 (1.4M 条)</strong> 进行
+SFT，直接把模型喂饱，解决了过拟合问题。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_38.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-38-upcycling-升级热启动"><strong>Page 38: Upcycling
+(升级/热启动)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 流程图。展示了如何把一个
+<strong>"Original Dense Block"</strong> (MLP) 复制多份，变成
+<strong>"Upcycled MoE Block"</strong> (MLP 1...E)。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>省钱妙招：</strong> 你不需要从头训练一个
+MoE。你可以拿一个训练好的 Dense 模型，把它的 FFN 复制 8 份作为 8
+个专家，初始化一个 MoE，然后继续训练 (Continue
+Pretraining)。这能节省大量的预训练时间。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_39.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-39-upcycling-案例---minicpm"><strong>Page 39: Upcycling
+案例 - MiniCPM</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 表格。MiniCPM-MoE (58.11) 优于
+MiniCPM-2.4B (51.13)。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li>MiniCPM 证明了 Upcycling 的有效性：仅需 <strong>~520B
+tokens</strong> 的额外训练，就能让模型性能上一个台阶。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_40.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-40-upcycling-案例---qwen-moe"><strong>Page 40: Upcycling
+案例 - Qwen MoE</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 表格。Qwen1.5-MoE-A2.7B 的表现优于同级
+Dense。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li>Qwen MoE 同样是基于 Qwen 1.8B Dense 模型 Upcycling
+而来的。这是业界公认的高效路径。</li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="part-5-deepseek-架构深度解构-deepseek-v1-v3-breakdown">Part 5:
+DeepSeek 架构深度解构 (DeepSeek V1-V3 Breakdown)</h2>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_41.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-41-deepseek-moe-v1"><strong>Page 41: DeepSeek MoE
+V1</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> V1 架构图。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>规格：</strong> 16B 总参数，2.8B 激活。</li>
+<li><strong>架构：</strong> 确立了 <strong>Shared (2个) + Fine-grained
+(64个)</strong> 的基本形态。</li>
+<li><strong>限制：</strong> 此时还在用标准的 Top-k 路由和 Aux
+Loss。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_42.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-42-deepseek-moe-v2"><strong>Page 42: DeepSeek MoE
+V2</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> V2 架构图。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>规格：</strong> 扩大到 236B 总参数，21B 激活。</li>
+<li><strong>创新：</strong> 引入 <strong>Top-M Device
+Routing</strong>。为了解决数千张显卡并行的通信瓶颈，V2 限制了每个 Token
+最多只能去 M 个 Device，防止通信风暴。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_43.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-43-deepseek-moe-v3-完全体"><strong>Page 43: DeepSeek MoE V3
+(完全体)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> V3 架构图。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>规格：</strong> <strong>671B 总参数</strong>，<strong>37B
+激活</strong>。这是目前的旗舰配置。</li>
+<li><strong>专家：</strong> 1 个 Shared Expert，256 个 Fine-grained
+Experts（选 8 个）。</li>
+<li><strong>核心升级：</strong>
+<ol type="1">
+<li><strong>Sigmoid Routing:</strong> 也就是图中的
+<code>Sigmoid(u^T e)</code>，能更好地区分专家。</li>
+<li><strong>Aux-loss-free:</strong> 彻底移除了 Aux Loss，用 Bias
+动态平衡，性能不再受损。</li>
+</ol></li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_44.png" srcset="/img/loading.gif" lazyload /></p>
+<h3
+id="page-44-v3-黑科技---mla-multi-head-latent-attention"><strong>Page
+44: V3 黑科技 - MLA (Multi-Head Latent Attention)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> MLA 架构示意图。左侧是 Attention
+模块，右侧放大了 KV Cache 的处理细节。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>背景：</strong> MoE
+模型虽然计算快，但参数量大，显存占用高，尤其是 KV Cache
+在长文本下是巨大的负担。</li>
+<li><strong>原理：</strong> MLA 将 Key 和 Value <strong>压缩</strong>
+进一个低维的 Latent 向量 (<span
+class="math inline">\(c_{KV}\)</span>)。在推理时，不需要存储巨大的 KV
+矩阵，只需要存储压缩后的向量。这极大地降低了显存需求，提升了推理吞吐量。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_45.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-45-mla-与-rope-的兼容性"><strong>Page 45: MLA 与 RoPE
+的兼容性</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 复杂的公式推导。红色部分标注了 RoPE
+(旋转位置编码) 对矩阵性质的破坏。</li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>难题：</strong> RoPE 对位置敏感，如果直接把 Key
+压缩了，位置信息就丢了，RoPE 会失效。</li>
+<li><strong>DeepSeek 解法：</strong> <strong>混合 Key 策略</strong>。把
+Key 劈成两半：
+<ol type="1">
+<li><strong>Latent 部分：</strong> 负责内容，被强力压缩。</li>
+<li><strong>Pe 部分：</strong> 负责位置，保留原始维度，专门用来做 RoPE
+旋转。</li>
+</ol></li>
+<li>这样既享受了压缩带来的显存红利，又保留了 RoPE 的长窗口能力。</li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_46.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-46-v3-黑科技---mtp-multi-token-prediction"><strong>Page 46:
+V3 黑科技 - MTP (Multi-Token Prediction)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong>
+<ul>
+<li><strong>左图 (DeepSeek V3):</strong> Main Model
+输出后，并没有结束，而是接了一个 MTP Module 1 和 Module 2。</li>
+<li><strong>右图 (EAGLE):</strong> 类似的学术界架构。</li>
+</ul></li>
+<li><strong>【深度解析】</strong>
+<ul>
+<li><strong>原理：</strong> 训练模型时，不只让它预测下一个词 (Token
+<span class="math inline">\(t+1\)</span>)，还让它顺便预测下下个词 (Token
+<span class="math inline">\(t+2\)</span>)。</li>
+<li><strong>收益：</strong>
+<ol type="1">
+<li><strong>训练信号更强：</strong>
+迫使模型学会规划，而不仅仅是短视的预测。</li>
+<li><strong>推理加速：</strong>
+在推理时，可以利用这个预测头进行<strong>投机采样 (Speculative
+Decoding)</strong>，如果预测准了，一次就能生成两个词，速度翻倍。</li>
+</ol></li>
+</ul></li>
+</ul>
+<p><img src="moe/2025%20Lecture%204%20-%20MoEs_47.png" srcset="/img/loading.gif" lazyload /></p>
+<h3 id="page-47-课程总结-summary"><strong>Page 47: 课程总结
+(Summary)</strong></h3>
+<ul>
+<li><strong>【视觉内容】</strong> 总结页。</li>
+<li><strong>【深度解析】</strong>
+<ol type="1">
+<li><strong>稀疏即正义：</strong> MoE
+证明了我们不需要每次都激活全脑，稀疏计算是扩展模型规模的必经之路。</li>
+<li><strong>Top-k 足矣：</strong> 尽管理论很复杂，但简单的 Top-k
+启发式路由在工程上最管用。</li>
+<li><strong>未来已来：</strong> 大量的实证（DeepSeek, GPT-4）表明，MoE
+是高效、低成本且高性能的架构，是当前 LLM 的终极形态。</li>
+</ol></li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/stanford-cs336/" class="category-chain-item">stanford-cs336</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/architect/">#architect</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>大模型从0到1｜第四讲：详解MoE架构</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/大模型从0到1｜第四讲：详解MoE架构/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年11月23日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E4%BA%94%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3%20GPU%20%E6%9E%B6%E6%9E%84%E4%B8%8E%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/" title="大模型从0到1｜第五讲：详解 GPU 架构与性能优化">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">大模型从0到1｜第五讲：详解 GPU 架构与性能优化</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E4%B8%89%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3%E7%8E%B0%E4%BB%A3LLM%E5%9F%BA%E7%A1%80%E6%9E%B6%E6%9E%84/" title="大模型从0到1｜第三讲：详解现代LLM基础架构 (Modern LLM Architecture)">
+                        <span class="hidden-mobile">大模型从0到1｜第三讲：详解现代LLM基础架构 (Modern LLM Architecture)</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '43dbe0aa0a4061cd7cbfce6ca4176123'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

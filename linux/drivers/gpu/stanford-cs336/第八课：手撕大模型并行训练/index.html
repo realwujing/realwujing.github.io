@@ -1,0 +1,1232 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="大模型从0到1｜第八讲：手撕大模型并行训练 (CS336)  课程链接：Stanford CS336 Spring 2025 - Lecture 8: Distributed Training Implementation   课程概述 上周回顾： 单个 GPU 内的并行化 本周重点： 多 GPU 跨节点的并行化   GPU Node Overview  统一主题： 在两种情况下，计算单元（算术逻">
+<meta property="og:type" content="article">
+<meta property="og:title" content="大模型从0到1｜第八讲：手撕大模型并行训练 (CS336)">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E7%AC%AC%E5%85%AB%E8%AF%BE%EF%BC%9A%E6%89%8B%E6%92%95%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E8%AE%AD%E7%BB%83/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="大模型从0到1｜第八讲：手撕大模型并行训练 (CS336)  课程链接：Stanford CS336 Spring 2025 - Lecture 8: Distributed Training Implementation   课程概述 上周回顾： 单个 GPU 内的并行化 本周重点： 多 GPU 跨节点的并行化   GPU Node Overview  统一主题： 在两种情况下，计算单元（算术逻">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://pytorch.org/tutorials/_images/broadcast.png">
+<meta property="og:image" content="https://pytorch.org/tutorials/_images/scatter.png">
+<meta property="og:image" content="https://pytorch.org/tutorials/_images/gather.png">
+<meta property="og:image" content="https://pytorch.org/tutorials/_images/reduce.png">
+<meta property="og:image" content="https://pytorch.org/tutorials/_images/all_gather.png">
+<meta property="og:image" content="https://pytorch.org/tutorials/_images/all_reduce.png">
+<meta property="article:published_time" content="2025-11-23T20:31:43.000Z">
+<meta property="article:modified_time" content="2025-11-23T20:31:43.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="HTML">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="architect">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://pytorch.org/tutorials/_images/broadcast.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>大模型从0到1｜第八讲：手撕大模型并行训练 (CS336) - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="大模型从0到1｜第八讲：手撕大模型并行训练 (CS336)"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-11-23 20:31" pubdate>
+          2025年11月23日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          9.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          78 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">大模型从0到1｜第八讲：手撕大模型并行训练 (CS336)</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1
+id="大模型从0到1第八讲手撕大模型并行训练-cs336">大模型从0到1｜第八讲：手撕大模型并行训练
+(CS336)</h1>
+<blockquote>
+<p>课程链接：<a
+target="_blank" rel="noopener" href="https://stanford-cs336.github.io/spring2025-lectures/?trace=var/traces/lecture_08.json">Stanford
+CS336 Spring 2025 - Lecture 8: Distributed Training
+Implementation</a></p>
+</blockquote>
+<hr />
+<h2 id="课程概述">课程概述</h2>
+<p><strong>上周回顾：</strong> 单个 GPU 内的并行化<br />
+<strong>本周重点：</strong> 多 GPU 跨节点的并行化</p>
+<figure>
+<img
+src="https://stanford-cs336.github.io/spring2025-lectures/images/gpu-node-overview.png" srcset="/img/loading.gif" lazyload
+alt="GPU Node Overview" />
+<figcaption aria-hidden="true">GPU Node Overview</figcaption>
+</figure>
+<p><strong>统一主题：</strong>
+在两种情况下，<strong>计算单元</strong>（算术逻辑单元）都远离<strong>数据</strong>（输入/输出）</p>
+<p><strong>核心思想：</strong> 编排计算以避免数据传输瓶颈</p>
+<ul>
+<li><strong>上周：</strong> 通过融合/分块减少内存访问</li>
+<li><strong>本周：</strong> 通过复制/分片减少跨 GPU/节点的通信</li>
+</ul>
+<hr />
+<h2 id="广义的内存层次结构">广义的内存层次结构</h2>
+<p>从小/快到大/慢：</p>
+<ol type="1">
+<li><strong>单节点，单 GPU：</strong> L1 Cache / Shared Memory</li>
+<li><strong>单节点，单 GPU：</strong> HBM (High Bandwidth Memory)</li>
+<li><strong>单节点，多 GPU：</strong> NVLink</li>
+<li><strong>多节点，多 GPU：</strong> NVSwitch</li>
+</ol>
+<p><strong>本讲目标：</strong> 用代码具体化上一讲的概念</p>
+<hr />
+<h2 id="part-1-分布式通信计算的基础模块">Part 1:
+分布式通信/计算的基础模块</h2>
+<h3 id="集合操作-collective-operations">1.1 集合操作 (Collective
+Operations)</h3>
+<p><strong>定义：</strong> 分布式编程的概念原语</p>
+<p><strong>来源：</strong> 1980 年代并行编程文献中的经典概念</p>
+<p><strong>优势：</strong> 比自己管理点对点通信更好/更快的抽象</p>
+<p><strong>术语：</strong> - <strong>World Size（世界大小）：</strong>
+设备数量（例如 4） - <strong>Rank（秩）：</strong> 单个设备（例如 0, 1,
+2, 3）</p>
+<hr />
+<h4 id="broadcast广播">1.1.1 Broadcast（广播）</h4>
+<figure>
+<img src="https://pytorch.org/tutorials/_images/broadcast.png" srcset="/img/loading.gif" lazyload
+alt="Broadcast" />
+<figcaption aria-hidden="true">Broadcast</figcaption>
+</figure>
+<p><strong>操作：</strong> 将一个设备的数据复制到所有设备</p>
+<p><strong>用途：</strong> 分发模型参数、配置信息</p>
+<hr />
+<h4 id="scatter分散">1.1.2 Scatter（分散）</h4>
+<figure>
+<img src="https://pytorch.org/tutorials/_images/scatter.png" srcset="/img/loading.gif" lazyload
+alt="Scatter" />
+<figcaption aria-hidden="true">Scatter</figcaption>
+</figure>
+<p><strong>操作：</strong> 将数据分割并分发到各个设备</p>
+<p><strong>用途：</strong> 分发数据批次</p>
+<hr />
+<h4 id="gather收集">1.1.3 Gather（收集）</h4>
+<figure>
+<img src="https://pytorch.org/tutorials/_images/gather.png" srcset="/img/loading.gif" lazyload
+alt="Gather" />
+<figcaption aria-hidden="true">Gather</figcaption>
+</figure>
+<p><strong>操作：</strong> 从所有设备收集数据到一个设备</p>
+<p><strong>用途：</strong> 收集预测结果、日志信息</p>
+<hr />
+<h4 id="reduce归约">1.1.4 Reduce（归约）</h4>
+<figure>
+<img src="https://pytorch.org/tutorials/_images/reduce.png" srcset="/img/loading.gif" lazyload
+alt="Reduce" />
+<figcaption aria-hidden="true">Reduce</figcaption>
+</figure>
+<p><strong>操作：</strong> 对所有设备的数据执行关联/交换操作（sum, min,
+max）</p>
+<p><strong>用途：</strong> 计算全局统计量</p>
+<hr />
+<h4 id="all-gather全收集">1.1.5 All-Gather（全收集）</h4>
+<figure>
+<img src="https://pytorch.org/tutorials/_images/all_gather.png" srcset="/img/loading.gif" lazyload
+alt="All-Gather" />
+<figcaption aria-hidden="true">All-Gather</figcaption>
+</figure>
+<p><strong>操作：</strong> 每个设备都收集所有设备的数据</p>
+<p><strong>用途：</strong> 同步分片数据</p>
+<hr />
+<h4 id="reduce-scatter归约分散">1.1.6 Reduce-Scatter（归约分散）</h4>
+<figure>
+<img
+src="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/_images/reducescatter.png" srcset="/img/loading.gif" lazyload
+alt="Reduce-Scatter" />
+<figcaption aria-hidden="true">Reduce-Scatter</figcaption>
+</figure>
+<p><strong>操作：</strong> 归约后将结果分散到各设备</p>
+<p><strong>用途：</strong> 梯度同步的第一步</p>
+<hr />
+<h4 id="all-reduce全归约">1.1.7 All-Reduce（全归约）</h4>
+<figure>
+<img src="https://pytorch.org/tutorials/_images/all_reduce.png" srcset="/img/loading.gif" lazyload
+alt="All-Reduce" />
+<figcaption aria-hidden="true">All-Reduce</figcaption>
+</figure>
+<p><strong>关键关系：</strong> All-Reduce = Reduce-Scatter +
+All-Gather</p>
+<p><strong>用途：</strong> 梯度同步（最常用）</p>
+<hr />
+<h4 id="记忆技巧">记忆技巧</h4>
+<ul>
+<li><strong>Reduce：</strong> 执行关联/交换操作（sum, min, max）</li>
+<li><strong>Broadcast/Scatter：</strong> 是 Gather 的逆操作</li>
+<li><strong>All：</strong> 目标是所有设备</li>
+</ul>
+<hr />
+<h3 id="硬件架构">1.2 硬件架构</h3>
+<h4 id="经典架构家用">经典架构（家用）</h4>
+<figure>
+<img
+src="https://media.springernature.com/lw685/springer-static/image/art%3A10.1186%2Fs42774-021-00098-3/MediaObjects/42774_2021_98_Fig1_HTML.png?as=webp" srcset="/img/loading.gif" lazyload
+alt="Classic Architecture" />
+<figcaption aria-hidden="true">Classic Architecture</figcaption>
+</figure>
+<ul>
+<li><strong>同节点 GPU：</strong> 通过 PCIe 总线通信（v7.0, 16 lanes
+=&gt; 242 GB/s）</li>
+<li><strong>跨节点 GPU：</strong> 通过以太网通信（~200 MB/s）</li>
+</ul>
+<hr />
+<h4 id="现代架构数据中心">现代架构（数据中心）</h4>
+<figure>
+<img
+src="https://www.nextplatform.com/wp-content/uploads/2018/04/nvidia-nvswitch-topology-two.jpg" srcset="/img/loading.gif" lazyload
+alt="Modern Architecture" />
+<figcaption aria-hidden="true">Modern Architecture</figcaption>
+</figure>
+<ul>
+<li><strong>节点内：</strong> NVLink 直连 GPU，绕过 CPU</li>
+<li><strong>跨节点：</strong> NVSwitch 直连 GPU，绕过以太网</li>
+</ul>
+<p><strong>H100 规格：</strong> - 18 个 NVLink 4.0 链路 - 总带宽：900
+GB/s - 对比 HBM 带宽：3.9 TB/s</p>
+<p><strong>查看硬件拓扑：</strong> <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">nvidia-smi topo -m<br></code></pre></td></tr></table></figure></p>
+<hr />
+<h3 id="nvidia-collective-communication-library-nccl">1.3 NVIDIA
+Collective Communication Library (NCCL)</h3>
+<p><strong>功能：</strong> 将集合操作转换为 GPU 间传输的底层数据包</p>
+<p><strong>工作流程：</strong> 1.
+检测硬件拓扑（节点数、交换机、NVLink/PCIe） 2. 优化 GPU 间路径 3. 启动
+CUDA kernel 发送/接收数据</p>
+<p><strong>参考：</strong> <a
+target="_blank" rel="noopener" href="https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31880/">NCCL
+Talk</a></p>
+<hr />
+<h3 id="pytorch-distributed-torch.distributed">1.4 PyTorch Distributed
+(<code>torch.distributed</code>)</h3>
+<p><strong>文档：</strong> <a
+target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/distributed.html">PyTorch
+Distributed</a></p>
+<p><strong>功能：</strong> - 提供集合操作的简洁接口（如
+<code>all_gather_into_tensor</code>） - 支持多种后端：gloo (CPU), nccl
+(GPU) - 支持高级算法（如 <code>FullyShardedDataParallel</code>）</p>
+<hr />
+<h4 id="示例代码all-reduce">示例代码：All-Reduce</h4>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">collective_operations_main</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span></span>):<br>    setup(rank, world_size)<br>    <br>    <span class="hljs-comment"># 创建张量</span><br>    tensor = torch.tensor([<span class="hljs-number">0.</span>, <span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>], device=get_device(rank)) + rank<br>    <br>    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [before all-reduce]: <span class="hljs-subst">&#123;tensor&#125;</span>&quot;</span>)<br>    <br>    <span class="hljs-comment"># 执行 all-reduce（原地修改）</span><br>    dist.all_reduce(tensor=tensor, op=dist.ReduceOp.SUM, async_op=<span class="hljs-literal">False</span>)<br>    <br>    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [after all-reduce]: <span class="hljs-subst">&#123;tensor&#125;</span>&quot;</span>)<br>    <br>    cleanup()<br></code></pre></td></tr></table></figure>
+<p><strong>输出示例（world_size=4）：</strong> <figure class="highlight inform7"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs inform7">Rank 0 <span class="hljs-comment">[before]</span>: <span class="hljs-comment">[0., 1., 2., 3.]</span><br>Rank 1 <span class="hljs-comment">[before]</span>: <span class="hljs-comment">[1., 2., 3., 4.]</span><br>Rank 2 <span class="hljs-comment">[before]</span>: <span class="hljs-comment">[2., 3., 4., 5.]</span><br>Rank 3 <span class="hljs-comment">[before]</span>: <span class="hljs-comment">[3., 4., 5., 6.]</span><br><br>Rank 0 <span class="hljs-comment">[after]</span>: <span class="hljs-comment">[6., 10., 14., 18.]</span>  # 每个位置求和<br>Rank 1 <span class="hljs-comment">[after]</span>: <span class="hljs-comment">[6., 10., 14., 18.]</span><br>Rank 2 <span class="hljs-comment">[after]</span>: <span class="hljs-comment">[6., 10., 14., 18.]</span><br>Rank 3 <span class="hljs-comment">[after]</span>: <span class="hljs-comment">[6., 10., 14., 18.]</span><br></code></pre></td></tr></table></figure></p>
+<hr />
+<h4 id="示例代码reduce-scatter-all-gather">示例代码：Reduce-Scatter +
+All-Gather</h4>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># Reduce-Scatter</span><br><span class="hljs-built_in">input</span> = torch.arange(world_size, dtype=torch.float32, device=get_device(rank)) + rank<br>output = torch.empty(<span class="hljs-number">1</span>, device=get_device(rank))<br><br><span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [before reduce-scatter]: input = <span class="hljs-subst">&#123;<span class="hljs-built_in">input</span>&#125;</span>, output = <span class="hljs-subst">&#123;output&#125;</span>&quot;</span>)<br>dist.reduce_scatter_tensor(output=output, <span class="hljs-built_in">input</span>=<span class="hljs-built_in">input</span>, op=dist.ReduceOp.SUM, async_op=<span class="hljs-literal">False</span>)<br><span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [after reduce-scatter]: input = <span class="hljs-subst">&#123;<span class="hljs-built_in">input</span>&#125;</span>, output = <span class="hljs-subst">&#123;output&#125;</span>&quot;</span>)<br><br><span class="hljs-comment"># All-Gather</span><br><span class="hljs-built_in">input</span> = output<br>output = torch.empty(world_size, device=get_device(rank))<br><br><span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [before all-gather]: input = <span class="hljs-subst">&#123;<span class="hljs-built_in">input</span>&#125;</span>, output = <span class="hljs-subst">&#123;output&#125;</span>&quot;</span>)<br>dist.all_gather_into_tensor(output_tensor=output, input_tensor=<span class="hljs-built_in">input</span>, async_op=<span class="hljs-literal">False</span>)<br><span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [after all-gather]: input = <span class="hljs-subst">&#123;<span class="hljs-built_in">input</span>&#125;</span>, output = <span class="hljs-subst">&#123;output&#125;</span>&quot;</span>)<br></code></pre></td></tr></table></figure>
+<p><strong>验证：</strong> All-Reduce = Reduce-Scatter + All-Gather
+✅</p>
+<hr />
+<h3 id="性能测试">1.5 性能测试</h3>
+<h4 id="all-reduce-性能测试">All-Reduce 性能测试</h4>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">all_reduce</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span>, num_elements: <span class="hljs-built_in">int</span></span>):<br>    setup(rank, world_size)<br>    <br>    <span class="hljs-comment"># 创建张量</span><br>    tensor = torch.randn(num_elements, device=get_device(rank))<br>    <br>    <span class="hljs-comment"># Warmup</span><br>    dist.all_reduce(tensor=tensor, op=dist.ReduceOp.SUM, async_op=<span class="hljs-literal">False</span>)<br>    torch.cuda.synchronize()<br>    dist.barrier()<br>    <br>    <span class="hljs-comment"># 计时</span><br>    start_time = time.time()<br>    dist.all_reduce(tensor=tensor, op=dist.ReduceOp.SUM, async_op=<span class="hljs-literal">False</span>)<br>    torch.cuda.synchronize()<br>    dist.barrier()<br>    end_time = time.time()<br>    <br>    duration = end_time - start_time<br>    <br>    <span class="hljs-comment"># 计算有效带宽</span><br>    size_bytes = tensor.element_size() * tensor.numel()<br>    sent_bytes = size_bytes * <span class="hljs-number">2</span> * (world_size - <span class="hljs-number">1</span>)  <span class="hljs-comment"># 2x：发送输入 + 接收输出</span><br>    total_duration = world_size * duration<br>    bandwidth = sent_bytes / total_duration<br>    <br>    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span>: bandwidth = <span class="hljs-subst">&#123;<span class="hljs-built_in">round</span>(bandwidth / <span class="hljs-number">1024</span>**<span class="hljs-number">3</span>)&#125;</span> GB/s&quot;</span>)<br>    <br>    cleanup()<br></code></pre></td></tr></table></figure>
+<p><strong>测试：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">spawn(all_reduce, world_size=<span class="hljs-number">4</span>, num_elements=<span class="hljs-number">100</span> * <span class="hljs-number">1024</span>**<span class="hljs-number">2</span>)<br></code></pre></td></tr></table></figure></p>
+<hr />
+<h2 id="part-2-分布式训练策略">Part 2: 分布式训练策略</h2>
+<p><strong>示例模型：</strong> 深度 MLP（多层感知机）</p>
+<p><strong>原因：</strong> MLP 是 Transformer 的计算瓶颈，具有代表性</p>
+<p><strong>三种并行策略：</strong> 1. <strong>Data
+Parallelism（数据并行）：</strong> 沿批次维度切分 2. <strong>Tensor
+Parallelism（张量并行）：</strong> 沿宽度维度切分 3. <strong>Pipeline
+Parallelism（流水线并行）：</strong> 沿深度维度切分</p>
+<hr />
+<h3 id="data-parallelism数据并行">2.1 Data Parallelism（数据并行）</h3>
+<figure>
+<img
+src="https://stanford-cs336.github.io/spring2025-lectures/images/data-parallelism.png" srcset="/img/loading.gif" lazyload
+alt="Data Parallelism" />
+<figcaption aria-hidden="true">Data Parallelism</figcaption>
+</figure>
+<p><strong>分片策略：</strong> 每个 rank 获得数据的一个切片</p>
+<hr />
+<h4 id="实现代码">实现代码</h4>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">data_parallelism_main</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span>, data: torch.Tensor, num_layers: <span class="hljs-built_in">int</span>, num_steps: <span class="hljs-built_in">int</span></span>):<br>    setup(rank, world_size)<br>    <br>    <span class="hljs-comment"># 获取此 rank 的数据切片</span><br>    batch_size = data.size(<span class="hljs-number">0</span>)<br>    local_batch_size = batch_size // world_size<br>    start_index = rank * local_batch_size<br>    end_index = start_index + local_batch_size<br>    data = data[start_index:end_index].to(get_device(rank))<br>    <br>    <span class="hljs-comment"># 创建模型参数（每个 rank 拥有所有参数）</span><br>    params = [get_init_params(num_dim, num_dim, rank) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_layers)]<br>    optimizer = torch.optim.AdamW(params, lr=<span class="hljs-number">1e-3</span>)<br>    <br>    <span class="hljs-keyword">for</span> step <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_steps):<br>        <span class="hljs-comment"># 前向传播</span><br>        x = data<br>        <span class="hljs-keyword">for</span> param <span class="hljs-keyword">in</span> params:<br>            x = x @ param<br>            x = F.gelu(x)<br>        loss = x.square().mean()<br>        <br>        <span class="hljs-comment"># 反向传播</span><br>        loss.backward()<br>        <br>        <span class="hljs-comment"># 同步梯度（与标准训练的唯一区别）</span><br>        <span class="hljs-keyword">for</span> param <span class="hljs-keyword">in</span> params:<br>            dist.all_reduce(tensor=param.grad, op=dist.ReduceOp.AVG, async_op=<span class="hljs-literal">False</span>)<br>        <br>        <span class="hljs-comment"># 更新参数</span><br>        optimizer.step()<br>        <br>        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span>: step = <span class="hljs-subst">&#123;step&#125;</span>, loss = <span class="hljs-subst">&#123;loss.item()&#125;</span>&quot;</span>)<br>    <br>    cleanup()<br></code></pre></td></tr></table></figure>
+<hr />
+<h4 id="关键观察">关键观察</h4>
+<p><strong>不同之处：</strong> - ✅ 每个 rank 的 Loss
+不同（基于本地数据计算） - ✅ 梯度通过 all-reduce 同步，所有 rank 相同 -
+✅ 因此，参数在所有 rank 上保持一致</p>
+<p><strong>通信成本：</strong> - 每步需要 all-reduce 所有梯度 - 通信量 =
+模型参数量</p>
+<p><strong>优点：</strong> - 实现简单 -
+扩展性好（理想情况下线性加速）</p>
+<p><strong>缺点：</strong> - 每个 GPU 需要存储完整模型 -
+通信开销随模型大小增长</p>
+<hr />
+<h3 id="tensor-parallelism张量并行">2.2 Tensor
+Parallelism（张量并行）</h3>
+<figure>
+<img
+src="https://stanford-cs336.github.io/spring2025-lectures/images/tensor-parallelism.png" srcset="/img/loading.gif" lazyload
+alt="Tensor Parallelism" />
+<figcaption aria-hidden="true">Tensor Parallelism</figcaption>
+</figure>
+<p><strong>分片策略：</strong> 每个 rank
+获得每层的一部分，传输所有数据/激活</p>
+<hr />
+<h4 id="实现代码-1">实现代码</h4>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">tensor_parallelism_main</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span>, data: torch.Tensor, num_layers: <span class="hljs-built_in">int</span></span>):<br>    setup(rank, world_size)<br>    <br>    data = data.to(get_device(rank))<br>    batch_size = data.size(<span class="hljs-number">0</span>)<br>    num_dim = data.size(<span class="hljs-number">1</span>)<br>    local_num_dim = num_dim // world_size  <span class="hljs-comment"># 分片 num_dim</span><br>    <br>    <span class="hljs-comment"># 创建模型（每个 rank 获得 1/world_size 的参数）</span><br>    params = [get_init_params(num_dim, local_num_dim, rank) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_layers)]<br>    <br>    <span class="hljs-comment"># 前向传播</span><br>    x = data<br>    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_layers):<br>        <span class="hljs-comment"># 计算激活（batch_size x local_num_dim）</span><br>        x = x @ params[i]  <span class="hljs-comment"># 注意：这只是参数的一个切片</span><br>        x = F.gelu(x)<br>        <br>        <span class="hljs-comment"># 为激活分配内存（world_size x batch_size x local_num_dim）</span><br>        activations = [torch.empty(batch_size, local_num_dim, device=get_device(rank)) <br>                      <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(world_size)]<br>        <br>        <span class="hljs-comment"># 通过 all-gather 发送激活</span><br>        dist.all_gather(tensor_list=activations, tensor=x, async_op=<span class="hljs-literal">False</span>)<br>        <br>        <span class="hljs-comment"># 拼接得到 batch_size x num_dim</span><br>        x = torch.cat(activations, dim=<span class="hljs-number">1</span>)<br>    <br>    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span>: forward pass produced activations <span class="hljs-subst">&#123;summarize_tensor(x)&#125;</span>&quot;</span>)<br>    <br>    <span class="hljs-comment"># 反向传播：作业练习</span><br>    <br>    cleanup()<br></code></pre></td></tr></table></figure>
+<hr />
+<h4 id="关键观察-1">关键观察</h4>
+<p><strong>内存分布：</strong> - ✅ 每个 rank 只存储部分参数 - ✅
+激活需要在所有 rank 间通信</p>
+<p><strong>通信成本：</strong> - 每层需要 all-gather 激活 - 通信量 =
+激活大小 × 层数</p>
+<p><strong>优点：</strong> - 可以训练更大的模型（参数分片） -
+适合宽模型</p>
+<p><strong>缺点：</strong> - 通信频繁（每层都需要通信） -
+实现复杂度高</p>
+<hr />
+<h3 id="pipeline-parallelism流水线并行">2.3 Pipeline
+Parallelism（流水线并行）</h3>
+<figure>
+<img
+src="https://stanford-cs336.github.io/spring2025-lectures/images/pipeline-parallelism.png" srcset="/img/loading.gif" lazyload
+alt="Pipeline Parallelism" />
+<figcaption aria-hidden="true">Pipeline Parallelism</figcaption>
+</figure>
+<p><strong>分片策略：</strong> 每个 rank
+获得层的子集，传输所有数据/激活</p>
+<hr />
+<h4 id="实现代码-2">实现代码</h4>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">pipeline_parallelism_main</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span>, data: torch.Tensor, </span><br><span class="hljs-params">                             num_layers: <span class="hljs-built_in">int</span>, num_micro_batches: <span class="hljs-built_in">int</span></span>):<br>    setup(rank, world_size)<br>    <br>    data = data.to(get_device(rank))<br>    batch_size = data.size(<span class="hljs-number">0</span>)<br>    num_dim = data.size(<span class="hljs-number">1</span>)<br>    <br>    <span class="hljs-comment"># 分割层</span><br>    local_num_layers = num_layers // world_size<br>    <br>    <span class="hljs-comment"># 每个 rank 获得层的子集</span><br>    local_params = [get_init_params(num_dim, num_dim, rank) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(local_num_layers)]<br>    <br>    <span class="hljs-comment"># 前向传播</span><br>    <br>    <span class="hljs-comment"># 分成 micro-batch 以最小化气泡</span><br>    micro_batch_size = batch_size // num_micro_batches<br>    <span class="hljs-keyword">if</span> rank == <span class="hljs-number">0</span>:<br>        micro_batches = data.chunk(chunks=num_micro_batches, dim=<span class="hljs-number">0</span>)<br>    <span class="hljs-keyword">else</span>:<br>        micro_batches = [torch.empty(micro_batch_size, num_dim, device=get_device(rank)) <br>                        <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_micro_batches)]<br>    <br>    <span class="hljs-keyword">for</span> x <span class="hljs-keyword">in</span> micro_batches:<br>        <span class="hljs-comment"># 从前一个 rank 接收激活</span><br>        <span class="hljs-keyword">if</span> rank - <span class="hljs-number">1</span> &gt;= <span class="hljs-number">0</span>:<br>            dist.recv(tensor=x, src=rank - <span class="hljs-number">1</span>)<br>        <br>        <span class="hljs-comment"># 计算分配给此 rank 的层</span><br>        <span class="hljs-keyword">for</span> param <span class="hljs-keyword">in</span> local_params:<br>            x = x @ param<br>            x = F.gelu(x)<br>        <br>        <span class="hljs-comment"># 发送到下一个 rank</span><br>        <span class="hljs-keyword">if</span> rank + <span class="hljs-number">1</span> &lt; world_size:<br>            <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span>: sending <span class="hljs-subst">&#123;summarize_tensor(x)&#125;</span> to rank <span class="hljs-subst">&#123;rank + <span class="hljs-number">1</span>&#125;</span>&quot;</span>)<br>            dist.send(tensor=x, dst=rank + <span class="hljs-number">1</span>)<br>    <br>    <span class="hljs-comment"># 未处理：重叠通信/计算以消除流水线气泡</span><br>    <br>    <span class="hljs-comment"># 反向传播：作业练习</span><br>    <br>    cleanup()<br></code></pre></td></tr></table></figure>
+<hr />
+<h4 id="关键观察-2">关键观察</h4>
+<p><strong>Micro-Batch 技术：</strong> - 将批次分成更小的 micro-batch -
+减少流水线气泡（idle time） - 提高 GPU 利用率</p>
+<p><strong>通信模式：</strong> - 点对点通信（send/recv） - 只在相邻 rank
+间通信</p>
+<p><strong>优点：</strong> - 内存效率高（每个 GPU 只存储部分层） -
+适合深模型</p>
+<p><strong>缺点：</strong> - 流水线气泡导致 GPU 空闲 - 需要精心设计
+micro-batch 调度</p>
+<hr />
+<h2 id="并行策略对比">并行策略对比</h2>
+<table>
+
+<thead>
+<tr class="header">
+<th>策略</th>
+<th>分片维度</th>
+<th>通信模式</th>
+<th>内存效率</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Data Parallelism</strong></td>
+<td>Batch</td>
+<td>All-Reduce</td>
+<td>低（完整模型）</td>
+<td>小模型，大批次</td>
+</tr>
+<tr class="even">
+<td><strong>Tensor Parallelism</strong></td>
+<td>Width</td>
+<td>All-Gather</td>
+<td>中（参数分片）</td>
+<td>宽模型</td>
+</tr>
+<tr class="odd">
+<td><strong>Pipeline Parallelism</strong></td>
+<td>Depth</td>
+<td>Send/Recv</td>
+<td>高（层分片）</td>
+<td>深模型</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="混合并行策略">混合并行策略</h2>
+<p><strong>实际应用：</strong> 通常组合多种策略</p>
+<p><strong>示例：GPT-3 训练</strong> - Data Parallelism: 跨节点 - Tensor
+Parallelism: 节点内（利用 NVLink） - Pipeline Parallelism: 跨层</p>
+<p><strong>其他并行维度：</strong> - <strong>Sequence
+Parallelism：</strong> 沿序列长度切分 - <strong>Expert
+Parallelism：</strong> MoE 模型中的专家并行</p>
+<hr />
+<h2 id="高级话题">高级话题</h2>
+<h3 id="通信与计算重叠">通信与计算重叠</h3>
+<p><strong>目标：</strong> 在计算时进行通信，隐藏通信延迟</p>
+<p><strong>技术：</strong> - 异步通信（<code>async_op=True</code>） -
+梯度累积 - 流水线调度</p>
+<h3 id="内存优化">内存优化</h3>
+<p><strong>权衡：</strong> - <strong>重计算（Recomputation）：</strong>
+节省内存，增加计算 - <strong>存储（Memory）：</strong>
+增加内存，减少计算 - <strong>通信（Communication）：</strong> 存储在其他
+GPU，需要通信</p>
+<p><strong>ZeRO 优化：</strong> - ZeRO-1: 优化器状态分片 - ZeRO-2:
+梯度分片 - ZeRO-3: 参数分片</p>
+<hr />
+<h2 id="课程未涵盖的内容">课程未涵盖的内容</h2>
+<p><strong>更复杂的模型：</strong> - Attention 机制 - 更复杂的架构</p>
+<p><strong>更多优化：</strong> - 通信/计算重叠 - 更复杂的调度</p>
+<p><strong>其他框架：</strong> - <strong>JAX/TPU：</strong>
+只需定义模型和分片策略，编译器处理其余部分 - 参考：<a
+target="_blank" rel="noopener" href="https://crfm.stanford.edu/2023/06/16/levanter-1_0-release.html">Levanter</a>
+- <strong>PyTorch：</strong> 本课程使用，可以看到如何从原语构建</p>
+<hr />
+<h2 id="总结">总结</h2>
+<h3 id="核心概念">核心概念</h3>
+<ol type="1">
+<li><strong>多种并行化方式：</strong>
+<ul>
+<li>Data（batch）</li>
+<li>Tensor/Expert（width）</li>
+<li>Pipeline（depth）</li>
+<li>Sequence（length）</li>
+</ul></li>
+<li><strong>三种权衡：</strong>
+<ul>
+<li><strong>重计算（Recompute）</strong></li>
+<li><strong>存储在内存（Memory）</strong></li>
+<li><strong>存储在其他 GPU 并通信（Communicate）</strong></li>
+</ul></li>
+<li><strong>硬件趋势：</strong>
+<ul>
+<li>硬件越来越快</li>
+<li>但总是想要更大的模型</li>
+<li>因此总会有这种层次结构</li>
+</ul></li>
+</ol>
+<h3 id="关键原则">关键原则</h3>
+<p><strong>统一主题：</strong> 编排计算以避免数据传输瓶颈</p>
+<p><strong>上周：</strong> 单 GPU 内 - 减少内存访问（融合/分块）<br />
+<strong>本周：</strong> 多 GPU 间 - 减少通信（复制/分片）</p>
+<hr />
+<h2 id="实践建议">实践建议</h2>
+<h3 id="setup-函数">Setup 函数</h3>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">setup</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span></span>):<br>    <span class="hljs-comment"># 指定 master 位置（rank 0），用于协调</span><br>    os.environ[<span class="hljs-string">&quot;MASTER_ADDR&quot;</span>] = <span class="hljs-string">&quot;localhost&quot;</span><br>    os.environ[<span class="hljs-string">&quot;MASTER_PORT&quot;</span>] = <span class="hljs-string">&quot;15623&quot;</span><br>    <br>    <span class="hljs-keyword">if</span> torch.cuda.is_available():<br>        dist.init_process_group(<span class="hljs-string">&quot;nccl&quot;</span>, rank=rank, world_size=world_size)<br>    <span class="hljs-keyword">else</span>:<br>        dist.init_process_group(<span class="hljs-string">&quot;gloo&quot;</span>, rank=rank, world_size=world_size)<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">cleanup</span>():<br>    torch.distributed.destroy_process_group()<br></code></pre></td></tr></table></figure>
+<h3 id="多进程启动">多进程启动</h3>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">from</span> lecture_08_utils <span class="hljs-keyword">import</span> spawn<br><br><span class="hljs-comment"># 启动 4 个进程</span><br>spawn(your_function, world_size=<span class="hljs-number">4</span>, **kwargs)<br></code></pre></td></tr></table></figure>
+<hr />
+<h2 id="延伸阅读">延伸阅读</h2>
+<p><strong>NCCL 性能：</strong> - <a
+target="_blank" rel="noopener" href="https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#allreduce">How
+to reason about operations</a> - <a
+target="_blank" rel="noopener" href="https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/all_reduce_bench.py">Sample
+benchmark code</a></p>
+<p><strong>分布式训练：</strong> - <a
+target="_blank" rel="noopener" href="https://pytorch.org/tutorials/beginner/dist_overview.html">PyTorch
+Distributed Tutorial</a> - <a
+target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/fsdp.html">FSDP Documentation</a>
+- <a target="_blank" rel="noopener" href="https://www.deepspeed.ai/">DeepSpeed</a> - <a
+target="_blank" rel="noopener" href="https://github.com/NVIDIA/Megatron-LM">Megatron-LM</a></p>
+<p><strong>硬件：</strong> - <a
+target="_blank" rel="noopener" href="https://www.nvidia.com/en-us/data-center/nvlink/">NVLink
+Documentation</a> - <a
+target="_blank" rel="noopener" href="https://resources.nvidia.com/en-us-tensor-core/nvidia-tensor-core-gpu-datasheet">H100
+Datasheet</a></p>
+<hr />
+<h2 id="作业练习">作业练习</h2>
+<ol type="1">
+<li><strong>实现 Tensor Parallelism 的反向传播</strong></li>
+<li><strong>实现 Pipeline Parallelism 的反向传播</strong></li>
+<li><strong>测量不同并行策略的通信开销</strong></li>
+<li><strong>实现混合并行策略（Data + Tensor）</strong></li>
+<li><strong>优化流水线调度以减少气泡</strong></li>
+</ol>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/stanford-cs336/" class="category-chain-item">stanford-cs336</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/HTML/">#HTML</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/architect/">#architect</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>大模型从0到1｜第八讲：手撕大模型并行训练 (CS336)</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/第八课：手撕大模型并行训练/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年11月23日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E4%B8%83%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E5%8C%96%E7%AD%96%E7%95%A5/" title="大模型从0到1｜第七讲：详解大模型并行化策略">
+                        <span class="hidden-mobile">大模型从0到1｜第七讲：详解大模型并行化策略</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '5e38b9b7957b9bb76da20fbcaf6a0466'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

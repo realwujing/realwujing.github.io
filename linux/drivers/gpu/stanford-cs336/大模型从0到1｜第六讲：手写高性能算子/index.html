@@ -1,0 +1,1218 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
+  
+    <meta name="description" content="大模型从0到1｜第六讲：手写高性能算子  课程链接：Stanford CS336 Spring 2025 - Lecture 6: Writing Fast Kernels   课程概述 上节课回顾： GPU 的高层次概述和性能分析 本节课重点： 性能测试&#x2F;分析 + 手写 GPU 算子 核心内容： - Benchmarking 和 Profiling 技术 - Kernel Fusion（算子融合">
+<meta property="og:type" content="article">
+<meta property="og:title" content="大模型从0到1｜第六讲：手写高性能算子">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%85%AD%E8%AE%B2%EF%BC%9A%E6%89%8B%E5%86%99%E9%AB%98%E6%80%A7%E8%83%BD%E7%AE%97%E5%AD%90/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="大模型从0到1｜第六讲：手写高性能算子  课程链接：Stanford CS336 Spring 2025 - Lecture 6: Writing Fast Kernels   课程概述 上节课回顾： GPU 的高层次概述和性能分析 本节课重点： 性能测试&#x2F;分析 + 手写 GPU 算子 核心内容： - Benchmarking 和 Profiling 技术 - Kernel Fusion（算子融合">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://horace.io/img/perf_intro/factory_bandwidth.png">
+<meta property="og:image" content="https://horace.io/img/perf_intro/multi_operators.png">
+<meta property="og:image" content="https://horace.io/img/perf_intro/operator_fusion.png">
+<meta property="article:published_time" content="2025-11-23T19:52:05.000Z">
+<meta property="article:modified_time" content="2025-11-23T19:52:05.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="HTML">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="architect">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://horace.io/img/perf_intro/factory_bandwidth.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>大模型从0到1｜第六讲：手写高性能算子 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="大模型从0到1｜第六讲：手写高性能算子"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-11-23 19:52" pubdate>
+          2025年11月23日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          9.8k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          82 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">大模型从0到1｜第六讲：手写高性能算子</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1
+id="大模型从0到1第六讲手写高性能算子">大模型从0到1｜第六讲：手写高性能算子</h1>
+<blockquote>
+<p>课程链接：<a
+target="_blank" rel="noopener" href="https://stanford-cs336.github.io/spring2025-lectures/?trace=var/traces/lecture_06.json">Stanford
+CS336 Spring 2025 - Lecture 6: Writing Fast Kernels</a></p>
+</blockquote>
+<hr />
+<h2 id="课程概述">课程概述</h2>
+<p><strong>上节课回顾：</strong> GPU 的高层次概述和性能分析<br />
+<strong>本节课重点：</strong> 性能测试/分析 + 手写 GPU 算子</p>
+<p><strong>核心内容：</strong> - Benchmarking 和 Profiling 技术 - Kernel
+Fusion（算子融合）的动机 - 三种编写算子的方式：CUDA、Triton、PyTorch
+编译</p>
+<hr />
+<h2 id="part-1-gpu-架构回顾">Part 1: GPU 架构回顾</h2>
+<h3 id="硬件架构">1.1 硬件架构</h3>
+<figure>
+<img
+src="https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg" srcset="/img/loading.gif" lazyload
+alt="GPU Architecture" />
+<figcaption aria-hidden="true">GPU Architecture</figcaption>
+</figure>
+<p><strong>计算单元：</strong> - Streaming Multiprocessors (SMs) [A100:
+108个]</p>
+<p><strong>内存层次：</strong> - <strong>DRAM</strong> [A100: 80GB] -
+容量大，速度慢 - <strong>L2 Cache</strong> [A100: 40MB] - <strong>L1
+Cache</strong> [A100: 192KB per SM] - 容量小，速度快</p>
+<h3 id="执行模型">1.2 执行模型</h3>
+<figure>
+<img
+src="https://docs.nvidia.com/cuda/parallel-thread-execution/_images/grid-with-CTAs.png" srcset="/img/loading.gif" lazyload
+alt="Execution Model" />
+<figcaption aria-hidden="true">Execution Model</figcaption>
+</figure>
+<p><strong>三层结构：</strong> - <strong>Thread（线程）：</strong>
+处理单个索引 i，即执行 f(i) - <strong>Thread Block（线程块）：</strong>
+调度到单个 SM 上，又称 CTA (Concurrent Thread Arrays) -
+<strong>Grid（网格）：</strong> 线程块的集合</p>
+<p><strong>为什么需要 Thread Block？</strong> - <strong>共享内存（Shared
+Memory）：</strong> 线程块内的线程可以共享内存（速度与 L1 Cache
+相当）[A100: 164KB] - <strong>同步机制：</strong>
+可以在块内同步线程（但不能跨块同步） - <strong>设计原则：</strong>
+将读取相似数据的 f(i) 分组到一起</p>
+<h3 id="硬件与执行的交互">1.3 硬件与执行的交互</h3>
+<figure>
+<img
+src="https://developer-blogs.nvidia.com/wp-content/uploads/2019/06/pasted-image-0.png" srcset="/img/loading.gif" lazyload
+alt="Wave Quantization" />
+<figcaption aria-hidden="true">Wave Quantization</figcaption>
+</figure>
+<p><strong>Wave Quantization 问题：</strong> - 线程块以"波次"调度到 SM
+上 - 最后一波可能线程块较少，导致部分 SM 空闲（低占用率） -
+<strong>解决方案：</strong> 让线程块数量能被 SM 数量整除 -
+<strong>经验法则：</strong> 线程块数量应 &gt;= 4x SM 数量</p>
+<p><strong>挑战：</strong>
+硬件的某些方面对执行模型是隐藏的（如调度策略、SM 数量）</p>
+<h3 id="算术强度-arithmetic-intensity">1.4 算术强度 (Arithmetic
+Intensity)</h3>
+<p><strong>定义：</strong>
+<code>算术强度 = FLOPs 数量 / 字节数</code></p>
+<ul>
+<li><strong>高算术强度：</strong> 计算密集型（compute-bound）✅ 好</li>
+<li><strong>低算术强度：</strong> 内存密集型（memory-bound）❌ 差</li>
+</ul>
+<p><strong>通用规则：</strong> - 矩阵乘法：计算密集型 -
+其他大部分操作：内存密集型</p>
+<hr />
+<h2 id="part-2-benchmarking-和-profiling">Part 2: Benchmarking 和
+Profiling</h2>
+<h3 id="为什么需要性能测试">2.1 为什么需要性能测试？</h3>
+<p><strong>重要性：</strong> 必须对代码进行 benchmark 和 profile！</p>
+<p>虽然可以阅读规格表和论文，但性能取决于： - 库版本 - 硬件配置 -
+工作负载特性</p>
+<p><strong>没有替代品：</strong> 必须亲自测试你的代码</p>
+<h3 id="示例mlp-模型">2.2 示例：MLP 模型</h3>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">MLP</span>(nn.Module):<br>    <span class="hljs-string">&quot;&quot;&quot;简单的 MLP: linear -&gt; GeLU -&gt; linear -&gt; GeLU -&gt; ...&quot;&quot;&quot;</span><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, dim: <span class="hljs-built_in">int</span>, num_layers: <span class="hljs-built_in">int</span></span>):<br>        <span class="hljs-built_in">super</span>().__init__()<br>        self.layers = nn.ModuleList([nn.Linear(dim, dim) <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_layers)])<br><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">forward</span>(<span class="hljs-params">self, x: torch.Tensor</span>):<br>        <span class="hljs-keyword">for</span> layer <span class="hljs-keyword">in</span> self.layers:<br>            x = layer(x)<br>            x = torch.nn.functional.gelu(x)<br>        <span class="hljs-keyword">return</span> x<br></code></pre></td></tr></table></figure>
+<h3 id="benchmarking测量时间">2.3 Benchmarking：测量时间</h3>
+<p><strong>目的：</strong> 测量操作的实际运行时间</p>
+<p><strong>用途：</strong> - 比较不同实现（哪个更快？） -
+理解性能如何扩展（如随维度变化）</p>
+<p><strong>实现要点：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">benchmark</span>(<span class="hljs-params">description: <span class="hljs-built_in">str</span>, run: <span class="hljs-type">Callable</span>, num_warmups: <span class="hljs-built_in">int</span> = <span class="hljs-number">1</span>, num_trials: <span class="hljs-built_in">int</span> = <span class="hljs-number">3</span></span>):<br>    <span class="hljs-comment"># Warmup: 首次运行可能较慢（编译、缓存等）</span><br>    <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_warmups):<br>        run()<br>    torch.cuda.synchronize()  <span class="hljs-comment"># 等待 CUDA 线程完成（重要！）</span><br>    <br>    <span class="hljs-comment"># 正式计时</span><br>    times = []<br>    <span class="hljs-keyword">for</span> trial <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_trials):<br>        start_time = time.time()<br>        run()<br>        torch.cuda.synchronize()  <span class="hljs-comment"># 重要！</span><br>        end_time = time.time()<br>        times.append((end_time - start_time) * <span class="hljs-number">1000</span>)<br>    <br>    <span class="hljs-keyword">return</span> mean(times)<br></code></pre></td></tr></table></figure></p>
+<p><strong>测试场景：</strong> - 扩展步数（num_steps） -
+扩展层数（num_layers） - 扩展批大小（batch_size） - 扩展维度（dim）</p>
+<p><strong>注意：</strong> 由于 CUDA kernel
+的非均质性、硬件等因素，时间并不总是可预测的</p>
+<h3 id="profiling分析瓶颈">2.4 Profiling：分析瓶颈</h3>
+<p><strong>目的：</strong> 了解时间花在哪里</p>
+<p><strong>深层价值：</strong> 帮助理解底层调用了什么</p>
+<p><strong>PyTorch Profiler：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">profile</span>(<span class="hljs-params">description: <span class="hljs-built_in">str</span>, run: <span class="hljs-type">Callable</span>, with_stack: <span class="hljs-built_in">bool</span> = <span class="hljs-literal">False</span></span>):<br>    <span class="hljs-comment"># Warmup</span><br>    <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_warmups):<br>        run()<br>    torch.cuda.synchronize()<br>    <br>    <span class="hljs-comment"># 使用 profiler 运行</span><br>    <span class="hljs-keyword">with</span> torch.profiler.profile(<br>            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],<br>            with_stack=with_stack) <span class="hljs-keyword">as</span> prof:<br>        run()<br>        torch.cuda.synchronize()<br>    <br>    <span class="hljs-comment"># 打印表格</span><br>    table = prof.key_averages().table(sort_by=<span class="hljs-string">&quot;cuda_time_total&quot;</span>,<br>                                      max_name_column_width=<span class="hljs-number">80</span>,<br>                                      row_limit=<span class="hljs-number">10</span>)<br>    <span class="hljs-keyword">return</span> table<br></code></pre></td></tr></table></figure></p>
+<p><strong>观察结果：</strong> - 可以看到实际调用的 CUDA kernel - 不同的
+tensor 维度会调用不同的 CUDA kernel - Kernel 名称透露实现信息 -
+例如：<code>cutlass_80_simt_sgemm_256x128_8x4_nn_align1</code> -
+cutlass: NVIDIA 的线性代数 CUDA 库 - 256x128: tile 大小</p>
+<p><strong>Flame Graph：</strong> 可视化堆栈跟踪，显示时间分布</p>
+<hr />
+<h2 id="part-3-kernel-fusion-动机">Part 3: Kernel Fusion 动机</h2>
+<h3 id="仓库与工厂的类比">3.1 仓库与工厂的类比</h3>
+<p><strong>参考：</strong> <a
+target="_blank" rel="noopener" href="https://horace.io/brrr_intro.html">Horace He's Blog Post</a></p>
+<p><strong>类比：</strong> - <strong>仓库 ≈ DRAM (HBM)</strong> -
+<strong>工厂 ≈ SRAM (L1 Cache / Shared Memory)</strong></p>
+<figure>
+<img src="https://horace.io/img/perf_intro/factory_bandwidth.png" srcset="/img/loading.gif" lazyload
+alt="Factory Bandwidth" />
+<figcaption aria-hidden="true">Factory Bandwidth</figcaption>
+</figure>
+<h4 id="深入理解这个类比">深入理解这个类比</h4>
+<p><strong>现实世界的工厂运作：</strong></p>
+<p>想象你经营一家制造工厂： - <strong>仓库（Warehouse）：</strong>
+远离工厂，容量巨大，但运输慢且昂贵 - <strong>工厂车间（Factory
+Floor）：</strong> 空间有限，但工人可以快速拿取材料并加工</p>
+<p><strong>最优策略：</strong> 1. 一次性从仓库运来一批原材料 2.
+在工厂车间内完成所有加工步骤 3. 一次性把成品运回仓库</p>
+<p><strong>最差策略：</strong> 1. 从仓库拿原材料 → 加工一步 → 送回仓库
+2. 再从仓库拿 → 加工第二步 → 送回仓库 3. 重复多次...</p>
+<p>每次往返仓库都是巨大的时间浪费！</p>
+<hr />
+<p><strong>映射到 GPU 内存：</strong></p>
+<table>
+
+<thead>
+<tr class="header">
+<th>现实世界</th>
+<th>GPU 硬件</th>
+<th>特性</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>仓库</td>
+<td>DRAM/HBM</td>
+<td>容量大（40-80GB），带宽低（~2 TB/s）</td>
+</tr>
+<tr class="even">
+<td>运输卡车</td>
+<td>内存总线</td>
+<td>带宽有限，往返成本高</td>
+</tr>
+<tr class="odd">
+<td>工厂车间</td>
+<td>SRAM (L1/Shared Memory)</td>
+<td>容量小（<sub>192KB），带宽高（</sub>19 TB/s）</td>
+</tr>
+<tr class="even">
+<td>工人</td>
+<td>计算单元 (CUDA Cores)</td>
+<td>执行实际计算</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关键数字对比（A100 GPU）：</strong> - <strong>DRAM
+带宽：</strong> ~2 TB/s（慢 10 倍） - <strong>SRAM 带宽：</strong> ~19
+TB/s（快 10 倍） - <strong>容量差异：</strong> DRAM 是 SRAM 的 ~400,000
+倍</p>
+<hr />
+<h4 id="未融合操作的问题">未融合操作的问题</h4>
+<p><strong>场景：</strong> 计算 <code>output = gelu(x + bias)</code></p>
+<p><strong>未融合的执行流程：</strong></p>
+<figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs mipsasm">步骤 <span class="hljs-number">1</span>: x + <span class="hljs-keyword">bias</span><br><span class="hljs-keyword"></span>  DRAM → <span class="hljs-keyword">SRAM: </span>读取 x (慢)<br>  DRAM → <span class="hljs-keyword">SRAM: </span>读取 <span class="hljs-keyword">bias </span>(慢)<br>  <span class="hljs-keyword">SRAM </span>计算: x + <span class="hljs-keyword">bias </span>(快)<br>  <span class="hljs-keyword">SRAM </span>→ DRAM: 写入 temp (慢)<br>  <br>步骤 <span class="hljs-number">2</span>: gelu(temp)<br>  DRAM → <span class="hljs-keyword">SRAM: </span>读取 temp (慢！刚写进去又读出来)<br>  <span class="hljs-keyword">SRAM </span>计算: gelu(temp) (快)<br>  <span class="hljs-keyword">SRAM </span>→ DRAM: 写入 output (慢)<br></code></pre></td></tr></table></figure>
+<p><strong>内存访问次数：</strong> - 读取：3 次（x, bias, temp） -
+写入：2 次（temp, output） - <strong>总计：5 次 DRAM 访问</strong>
+🐌</p>
+<p><strong>类比：</strong> 就像从仓库拿材料 → 加工一步 → 送回仓库 →
+再拿出来 → 加工第二步 → 送回仓库</p>
+<hr />
+<h4 id="融合操作的优势">融合操作的优势</h4>
+<p><strong>融合后的执行流程：</strong></p>
+<figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs mipsasm">步骤 <span class="hljs-number">1</span>+<span class="hljs-number">2</span>: fused_gelu_bias(x, <span class="hljs-keyword">bias)</span><br><span class="hljs-keyword"></span>  DRAM → <span class="hljs-keyword">SRAM: </span>读取 x (慢)<br>  DRAM → <span class="hljs-keyword">SRAM: </span>读取 <span class="hljs-keyword">bias </span>(慢)<br>  <span class="hljs-keyword">SRAM </span>计算: temp = x + <span class="hljs-keyword">bias </span>(快)<br>  <span class="hljs-keyword">SRAM </span>计算: output = gelu(temp) (快，temp 还在 <span class="hljs-keyword">SRAM </span>中！)<br>  <span class="hljs-keyword">SRAM </span>→ DRAM: 写入 output (慢)<br></code></pre></td></tr></table></figure>
+<p><strong>内存访问次数：</strong> - 读取：2 次（x, bias） - 写入：1
+次（output） - <strong>总计：3 次 DRAM 访问</strong> ⚡</p>
+<p><strong>性能提升：</strong> 5 → 3，减少了 40% 的内存访问！</p>
+<p><strong>类比：</strong> 一次性从仓库拿所有材料 → 在工厂内完成所有加工
+→ 一次性送回成品</p>
+<hr />
+<h4 id="为什么内存访问是瓶颈">为什么内存访问是瓶颈？</h4>
+<p><strong>计算速度 vs 内存速度的差距：</strong></p>
+<p>假设处理 1M 个元素（4MB 数据）：</p>
+<p><strong>计算时间（在 SRAM 中）：</strong> - 加法：~0.001 ms -
+GeLU：~0.01 ms - <strong>总计：可以忽略不计</strong></p>
+<p><strong>内存传输时间（DRAM ↔︎ SRAM）：</strong> - 未融合：5 次 × 4MB ÷
+2TB/s = <strong>0.01 ms</strong> - 融合：3 次 × 4MB ÷ 2TB/s =
+<strong>0.006 ms</strong></p>
+<p><strong>结论：</strong> 内存传输时间 &gt;&gt; 计算时间！</p>
+<p>这就是为什么说大多数操作是 <strong>memory-bound（内存受限）</strong>
+而不是 compute-bound（计算受限）。</p>
+<hr />
+<h4 id="实际性能数据">实际性能数据</h4>
+<p><strong>GeLU 性能对比（dim=16384）：</strong></p>
+<figure class="highlight crmsh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs crmsh">manual_gelu (未融合):    ~<span class="hljs-number">2.5</span> <span class="hljs-keyword">ms</span><br><span class="hljs-title">pytorch_gelu</span> (融合):     ~<span class="hljs-number">0.3</span> <span class="hljs-keyword">ms</span><br><span class="hljs-title">cuda_gelu</span> (手写融合):    ~<span class="hljs-number">0.5</span> <span class="hljs-keyword">ms</span><br><span class="hljs-title">triton_gelu</span> (融合):      ~<span class="hljs-number">0.35</span> ms<br></code></pre></td></tr></table></figure>
+<p><strong>融合带来 5-8 倍性能提升！</strong></p>
+<hr />
+<h4 id="扩展到更复杂的场景">扩展到更复杂的场景</h4>
+<p><strong>Transformer 中的典型操作链：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 未融合（灾难）</span><br>x = layer_norm(x)      <span class="hljs-comment"># DRAM 读写</span><br>x = x + residual       <span class="hljs-comment"># DRAM 读写</span><br>x = dropout(x)         <span class="hljs-comment"># DRAM 读写</span><br>x = gelu(x)           <span class="hljs-comment"># DRAM 读写</span><br><span class="hljs-comment"># 总计：8 次 DRAM 访问</span><br><br><span class="hljs-comment"># 融合（高效）</span><br>x = fused_ln_residual_dropout_gelu(x, residual)<br><span class="hljs-comment"># 总计：2 次 DRAM 访问（读 x 和 residual，写 output）</span><br></code></pre></td></tr></table></figure>
+<p><strong>性能提升：</strong> 可达 4-10 倍！</p>
+<hr />
+<h4 id="关键洞察总结">关键洞察总结</h4>
+<ol type="1">
+<li><strong>DRAM 是瓶颈：</strong> 不是计算慢，是数据搬运慢</li>
+<li><strong>SRAM 是宝贵资源：</strong> 容量小但速度快，要充分利用</li>
+<li><strong>最小化往返次数：</strong> 每次 DRAM 访问都是昂贵的</li>
+<li><strong>在 SRAM 中完成尽可能多的工作：</strong> 这就是 kernel fusion
+的本质</li>
+</ol>
+<p><strong>记住：</strong> GPU
+编程的核心不是"让计算更快"，而是"让数据搬运更少"！</p>
+<p>这就是为什么 FlashAttention、Fused LayerNorm
+等优化如此重要——它们都在减少内存往返次数。</p>
+<h3 id="未融合-vs-融合">3.2 未融合 vs 融合</h3>
+<p><strong>未融合操作：</strong> 每个操作都需要 读取 → 计算 → 写入</p>
+<figure>
+<img src="https://horace.io/img/perf_intro/multi_operators.png" srcset="/img/loading.gif" lazyload
+alt="Multi Operators" />
+<figcaption aria-hidden="true">Multi Operators</figcaption>
+</figure>
+<p><strong>融合操作：</strong> 只需要读写一次</p>
+<figure>
+<img src="https://horace.io/img/perf_intro/operator_fusion.png" srcset="/img/loading.gif" lazyload
+alt="Operator Fusion" />
+<figcaption aria-hidden="true">Operator Fusion</figcaption>
+</figure>
+<h3 id="案例gelu-激活函数">3.3 案例：GeLU 激活函数</h3>
+<p><strong>GeLU 公式：</strong> <figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">gelu</span>(x) = <span class="hljs-number">0</span>.<span class="hljs-number">5</span> * x * (<span class="hljs-number">1</span> + tanh(sqrt(<span class="hljs-number">2</span>/π) * (x + <span class="hljs-number">0</span>.<span class="hljs-number">044715</span> * x³)))<br></code></pre></td></tr></table></figure></p>
+<p><strong>两种实现方式：</strong></p>
+<ol type="1">
+<li><p><strong>Manual GeLU（未融合）：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">manual_gelu</span>(<span class="hljs-params">x</span>):<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0.5</span> * x * (<span class="hljs-number">1</span> + torch.tanh(<br>        torch.sqrt(torch.tensor(<span class="hljs-number">2.0</span> / torch.pi)) * <br>        (x + <span class="hljs-number">0.044715</span> * torch.<span class="hljs-built_in">pow</span>(x, <span class="hljs-number">3</span>))<br>    ))<br></code></pre></td></tr></table></figure></p></li>
+<li><p><strong>PyTorch GeLU（融合）：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">pytorch_gelu</span>(<span class="hljs-params">x</span>):<br>    <span class="hljs-keyword">return</span> torch.nn.functional.gelu(x)<br></code></pre></td></tr></table></figure></p></li>
+</ol>
+<p><strong>性能对比：</strong> - 融合版本显著更快 - Manual 版本调用多个
+kernel - PyTorch 版本只调用一个 kernel</p>
+<p><strong>关键洞察：</strong> 记住仓库/工厂的类比！</p>
+<hr />
+<h2 id="part-4-cuda-kernels">Part 4: CUDA Kernels</h2>
+<h3 id="cuda-基础">4.1 CUDA 基础</h3>
+<p><strong>CUDA 是什么？</strong> - C/C++ 的扩展，带有管理 GPU 的 API -
+简化模型：编写 f(i)，CUDA kernel 为所有 i 计算 f(i)</p>
+<p><strong>编程模型：</strong> - Grid: 线程块集合，如 numBlocks = (2,
+4), blockDim = (1, 8) - Thread Block: 线程集合，如 blockIdx = (0, 1) -
+Thread: 单个操作单元，如 threadIdx = (0, 3)</p>
+<p><strong>编程方式：</strong> - 编写单个线程执行的代码 - 使用
+(blockIdx, blockDim, threadIdx) 确定要做什么</p>
+<h3 id="cuda-gelu-实现">4.2 CUDA GeLU 实现</h3>
+<p><strong>CUDA 代码示例（gelu.cu）：</strong> <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs cuda">#include &lt;torch/extension.h&gt;<br>#include &lt;cuda_runtime.h&gt;<br><br>__global__ void gelu_kernel(const float* x, float* y, int n) &#123;<br>    int idx = blockIdx.x * blockDim.x + threadIdx.x;<br>    if (idx &lt; n) &#123;<br>        float val = x[idx];<br>        float a = 0.79788456f * (val + 0.044715f * val * val * val);<br>        float exp_2a = expf(2.0f * a);<br>        float tanh_a = (exp_2a - 1.0f) / (exp_2a + 1.0f);<br>        y[idx] = 0.5f * val * (1.0f + tanh_a);<br>    &#125;<br>&#125;<br><br>torch::Tensor gelu(torch::Tensor x) &#123;<br>    auto y = torch::empty_like(x);<br>    int n = x.numel();<br>    int threads = 256;<br>    int blocks = (n + threads - 1) / threads;<br>    <br>    gelu_kernel&lt;&lt;&lt;blocks, threads&gt;&gt;&gt;(<br>        x.data_ptr&lt;float&gt;(),<br>        y.data_ptr&lt;float&gt;(),<br>        n<br>    );<br>    <br>    return y;<br>&#125;<br></code></pre></td></tr></table></figure></p>
+<p><strong>编译和使用：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">from</span> torch.utils.cpp_extension <span class="hljs-keyword">import</span> load_inline<br><br>module = load_inline(<br>    cuda_sources=[cuda_gelu_src],<br>    cpp_sources=[cpp_gelu_src],<br>    functions=[<span class="hljs-string">&quot;gelu&quot;</span>],<br>    extra_cflags=[<span class="hljs-string">&quot;-O2&quot;</span>],<br>    name=<span class="hljs-string">&quot;inline_gelu&quot;</span>,<br>    build_directory=<span class="hljs-string">&quot;var/cuda_gelu&quot;</span>,<br>)<br><br>cuda_gelu = module.gelu<br></code></pre></td></tr></table></figure></p>
+<p><strong>性能：</strong> - CUDA 实现比 manual 快 - 但不如 PyTorch
+实现</p>
+<p><strong>局限性：</strong> - 逐元素操作在 CUDA 中容易实现 -
+但大多数有趣的操作（matmul、softmax、RMSNorm）需要读取多个值 -
+需要考虑共享内存管理等</p>
+<hr />
+<h2 id="part-5-triton-kernels">Part 5: Triton Kernels</h2>
+<h3 id="triton-简介">5.1 Triton 简介</h3>
+<p><strong>开发者：</strong> OpenAI (2021)<br />
+<strong>目标：</strong> 让 GPU 编程更易用</p>
+<p><strong>优势：</strong> - 用 Python 编写 - 思考线程块而非单个线程</p>
+<p><strong>Triton vs CUDA：</strong> <figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs nginx">                                    <span class="hljs-attribute">CUDA</span>      Triton<br>内存合并（从 DRAM 传输）             手动      自动<br>共享内存管理                         手动      自动<br>SM 内调度                           手动      自动<br>跨 SM 调度                          手动      手动<br></code></pre></td></tr></table></figure></p>
+<p><strong>关键点：</strong> 编译器做更多工作，实际上可以超越 PyTorch
+实现！</p>
+<h3 id="triton-gelu-实现">5.2 Triton GeLU 实现</h3>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-meta">@triton.jit</span><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">triton_gelu_kernel</span>(<span class="hljs-params">x_ptr, y_ptr, num_elements, BLOCK_SIZE: tl.constexpr</span>):<br>    <span class="hljs-comment"># 输入在 x_ptr，输出在 y_ptr</span><br>    <span class="hljs-comment"># |    Block 0    |    Block 1    |  ...  |</span><br>    <span class="hljs-comment">#            BLOCK_SIZE              num_elements</span><br>    <br>    pid = tl.program_id(axis=<span class="hljs-number">0</span>)<br>    block_start = pid * BLOCK_SIZE<br>    <br>    <span class="hljs-comment"># 此线程块应操作的索引</span><br>    offsets = block_start + tl.arange(<span class="hljs-number">0</span>, BLOCK_SIZE)<br>    <br>    <span class="hljs-comment"># 处理边界</span><br>    mask = offsets &lt; num_elements<br>    <br>    <span class="hljs-comment"># 读取</span><br>    x = tl.load(x_ptr + offsets, mask=mask)<br>    <br>    <span class="hljs-comment"># 计算 gelu (使用 tanh(a) = (exp(2a) - 1) / (exp(2a) + 1))</span><br>    a = <span class="hljs-number">0.79788456</span> * (x + <span class="hljs-number">0.044715</span> * x * x * x)<br>    exp = tl.exp(<span class="hljs-number">2</span> * a)<br>    tanh = (exp - <span class="hljs-number">1</span>) / (exp + <span class="hljs-number">1</span>)<br>    y = <span class="hljs-number">0.5</span> * x * (<span class="hljs-number">1</span> + tanh)<br>    <br>    <span class="hljs-comment"># 存储</span><br>    tl.store(y_ptr + offsets, y, mask=mask)<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">triton_gelu</span>(<span class="hljs-params">x: torch.Tensor</span>):<br>    y = torch.empty_like(x)<br>    num_elements = x.numel()<br>    block_size = <span class="hljs-number">1024</span><br>    num_blocks = triton.cdiv(num_elements, block_size)<br>    <br>    triton_gelu_kernel[(num_blocks,)](x, y, num_elements, BLOCK_SIZE=block_size)<br>    <span class="hljs-keyword">return</span> y<br></code></pre></td></tr></table></figure>
+<p><strong>调试优势：</strong> 可以单步调试 Python 代码！</p>
+<h3 id="ptx-汇编">5.3 PTX 汇编</h3>
+<p><strong>PTX (Parallel Thread Execution)：</strong> GPU
+的类汇编语言</p>
+<p><strong>可以查看 Triton 生成的 PTX 代码：</strong> -
+<code>ld.global.*</code> 和 <code>st.global.*</code>：从全局内存读写 -
+<code>%ctaid.x</code>：块索引，<code>%tid.x</code>：线程索引 -
+<code>%f*</code>：浮点寄存器，<code>%r*</code>：整数寄存器 -
+<strong>Thread Coarsening：</strong> 一个线程同时处理 8 个元素</p>
+<p><strong>性能对比：</strong> - Triton 实现几乎与 PyTorch 一样好 -
+实际上比我们的朴素 CUDA 实现慢 - 但都远快于 manual 实现</p>
+<p><strong>原因：</strong> - Triton 操作块，CUDA 操作线程 - 块允许
+Triton 编译器进行其他优化（如线程粗化）</p>
+<hr />
+<h2 id="part-6-pytorch-编译">Part 6: PyTorch 编译</h2>
+<h3 id="torch.compile">6.1 torch.compile</h3>
+<p><strong>第五种方式：</strong> 用 Python 编写，编译成 Triton</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">compiled_gelu = torch.<span class="hljs-built_in">compile</span>(manual_gelu)<br></code></pre></td></tr></table></figure>
+<p><strong>优势：</strong> - 自动融合操作 - 无需手写 CUDA 或 Triton -
+性能接近手写实现</p>
+<p><strong>检查正确性：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">check_equal(compiled_gelu, manual_gelu)<br></code></pre></td></tr></table></figure></p>
+<p><strong>性能：</strong> 与 Triton 手写版本相当</p>
+<hr />
+<h2 id="part-7-softmax-案例研究">Part 7: Softmax 案例研究</h2>
+<h3 id="softmax-操作">7.1 Softmax 操作</h3>
+<p><strong>定义：</strong> 对矩阵的每一行进行归一化</p>
+<figure class="highlight armasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs armasm">[<span class="hljs-built_in">A1</span> <span class="hljs-built_in">A2</span> <span class="hljs-built_in">A3</span>]   =&gt;   [<span class="hljs-built_in">A1</span>/A <span class="hljs-built_in">A2</span>/A <span class="hljs-built_in">A3</span>/A]<br>[B1 B2 B3]   =&gt;   [B1/<span class="hljs-keyword">B</span> B2/<span class="hljs-keyword">B</span> B3/B]<br></code></pre></td></tr></table></figure>
+<p><strong>用途：</strong> - Attention 机制 - 生成概率分布</p>
+<h3 id="manual-softmax未融合">7.2 Manual Softmax（未融合）</h3>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">manual_softmax</span>(<span class="hljs-params">x</span>):<br>    <span class="hljs-comment"># 数值稳定性：减去最大值</span><br>    x_max = x.<span class="hljs-built_in">max</span>(dim=-<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)[<span class="hljs-number">0</span>]<br>    x_shifted = x - x_max<br>    <br>    <span class="hljs-comment"># 计算 exp</span><br>    exp_x = torch.exp(x_shifted)<br>    <br>    <span class="hljs-comment"># 归一化</span><br>    sum_exp = exp_x.<span class="hljs-built_in">sum</span>(dim=-<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)<br>    <span class="hljs-keyword">return</span> exp_x / sum_exp<br></code></pre></td></tr></table></figure>
+<p><strong>问题：</strong> 多次读写内存</p>
+<h3 id="triton-softmax融合">7.3 Triton Softmax（融合）</h3>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-meta">@triton.jit</span><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">triton_softmax_kernel</span>(<span class="hljs-params"></span><br><span class="hljs-params">    input_ptr, output_ptr,</span><br><span class="hljs-params">    n_rows, n_cols,</span><br><span class="hljs-params">    BLOCK_SIZE: tl.constexpr</span><br><span class="hljs-params"></span>):<br>    <span class="hljs-comment"># 每个程序处理一行</span><br>    row_idx = tl.program_id(<span class="hljs-number">0</span>)<br>    row_start_ptr = input_ptr + row_idx * n_cols<br>    <br>    <span class="hljs-comment"># 列偏移</span><br>    col_offsets = tl.arange(<span class="hljs-number">0</span>, BLOCK_SIZE)<br>    mask = col_offsets &lt; n_cols<br>    <br>    <span class="hljs-comment"># 加载行</span><br>    row = tl.load(row_start_ptr + col_offsets, mask=mask, other=-<span class="hljs-built_in">float</span>(<span class="hljs-string">&#x27;inf&#x27;</span>))<br>    <br>    <span class="hljs-comment"># 减去最大值（数值稳定性）</span><br>    row_max = tl.<span class="hljs-built_in">max</span>(row, axis=<span class="hljs-number">0</span>)<br>    row_shifted = row - row_max<br>    <br>    <span class="hljs-comment"># 计算 exp 和 sum</span><br>    numerator = tl.exp(row_shifted)<br>    denominator = tl.<span class="hljs-built_in">sum</span>(numerator, axis=<span class="hljs-number">0</span>)<br>    <br>    <span class="hljs-comment"># 归一化</span><br>    softmax_output = numerator / denominator<br>    <br>    <span class="hljs-comment"># 写回</span><br>    output_row_start_ptr = output_ptr + row_idx * n_cols<br>    tl.store(output_row_start_ptr + col_offsets, softmax_output, mask=mask)<br></code></pre></td></tr></table></figure>
+<p><strong>关键优化：</strong> - 每个线程块处理一行 -
+所有操作在共享内存中完成 - 只读写一次全局内存</p>
+<h3 id="性能对比">7.4 性能对比</h3>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python">manual_time = benchmark(<span class="hljs-string">&quot;manual_softmax&quot;</span>, ...)<br>compiled_time = benchmark(<span class="hljs-string">&quot;compiled_softmax&quot;</span>, ...)<br>pytorch_time = benchmark(<span class="hljs-string">&quot;pytorch_softmax&quot;</span>, ...)<br>triton_time = benchmark(<span class="hljs-string">&quot;triton_softmax&quot;</span>, ...)<br></code></pre></td></tr></table></figure>
+<p><strong>结果：</strong> - 融合版本显著快于未融合版本 - Triton 和
+torch.compile 性能接近 PyTorch</p>
+<hr />
+<h2 id="总结">总结</h2>
+<h3 id="核心概念">核心概念</h3>
+<ol type="1">
+<li><strong>编程模型与硬件的差距</strong> → 性能之谜
+<ul>
+<li>PyTorch、Triton、PTX 与实际硬件之间存在抽象层</li>
+</ul></li>
+<li><strong>Benchmarking</strong> → 理解扩展性
+<ul>
+<li>测量不同配置下的性能</li>
+</ul></li>
+<li><strong>Profiling</strong> → 理解内部机制
+<ul>
+<li>了解 PyTorch 函数的底层实现（最终是 kernel）</li>
+</ul></li>
+<li><strong>PTX 汇编</strong> → 理解 CUDA kernel 内部
+<ul>
+<li>查看实际生成的指令</li>
+</ul></li>
+</ol>
+<h3 id="五种编写函数的方式">五种编写函数的方式</h3>
+<ol type="1">
+<li><strong>Manual（手动）：</strong> 用 PyTorch 操作组合</li>
+<li><strong>PyTorch：</strong> 使用内置函数</li>
+<li><strong>Compiled：</strong> torch.compile 自动优化</li>
+<li><strong>CUDA：</strong> 手写 C++/CUDA 代码</li>
+<li><strong>Triton：</strong> 用 Python 编写 GPU kernel</li>
+</ol>
+<p><strong>示例操作：</strong> - GeLU（逐元素） - Softmax（按行） -
+Matmul（复杂聚合）</p>
+<h3 id="关键原则">关键原则</h3>
+<p><strong>核心原则：</strong> 组织计算以最小化读写</p>
+<p><strong>关键思想：</strong> - <strong>Kernel
+Fusion（算子融合）：</strong> 仓库/工厂类比 -
+<strong>Tiling（分块）：</strong> 使用共享内存</p>
+<p><strong>未来展望：</strong> -
+自动编译器（Triton、torch.compile）会越来越好 -
+但理解底层原理仍然重要</p>
+<hr />
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://horace.io/brrr_intro.html">Horace He's Blog: Making
+Deep Learning Go Brrrr</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://pytorch.org/tutorials/recipes/recipes/profiler_recipe.html">PyTorch
+Profiler Tutorial</a></li>
+<li><a target="_blank" rel="noopener" href="https://triton-lang.org/">Triton Documentation</a></li>
+<li><a target="_blank" rel="noopener" href="https://discord.gg/cudamode">CUDA MODE Community</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://docs.nvidia.com/cuda/parallel-thread-execution/">NVIDIA
+PTX ISA</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://pytorch.org/tutorials/recipes/recipes/benchmark.html">PyTorch
+Benchmarking</a></li>
+</ul>
+<hr />
+<h2 id="实践建议">实践建议</h2>
+<ol type="1">
+<li><strong>每次修改后都要 benchmark/profile！</strong></li>
+<li><strong>从简单实现开始，逐步优化</strong></li>
+<li><strong>使用 profiler 找出瓶颈</strong></li>
+<li><strong>理解内存访问模式</strong></li>
+<li><strong>考虑算子融合机会</strong></li>
+<li><strong>设置 <code>CUDA_LAUNCH_BLOCKING=1</code>
+以便调试</strong></li>
+<li><strong>设置 <code>TRITON_INTERPRET=0</code>
+以获得最佳性能</strong></li>
+</ol>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/stanford-cs336/" class="category-chain-item">stanford-cs336</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/HTML/">#HTML</a>
+      
+        <a href="/tags/C/">#C++</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/architect/">#architect</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>大模型从0到1｜第六讲：手写高性能算子</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/大模型从0到1｜第六讲：手写高性能算子/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年11月23日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E4%B8%83%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E5%8C%96%E7%AD%96%E7%95%A5/" title="大模型从0到1｜第七讲：详解大模型并行化策略">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">大模型从0到1｜第七讲：详解大模型并行化策略</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E4%BA%94%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3%20GPU%20%E6%9E%B6%E6%9E%84%E4%B8%8E%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/" title="大模型从0到1｜第五讲：详解 GPU 架构与性能优化">
+                        <span class="hidden-mobile">大模型从0到1｜第五讲：详解 GPU 架构与性能优化</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '3ec511fe7216286b21b4b4591713d89c'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
