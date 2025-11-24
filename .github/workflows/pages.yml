@@ -33,24 +33,13 @@ jobs:
           pwd
           ls -lah
           git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" README.md
-          find . -name "*.md" -exec bash -c '
-            file="$1";
-            date=$(git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" "$file" | head -1);
-            updated=$(git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" "$file" | tail -1);
-            # 从文件内容中提取第一个# 标题作为title
-            title=$(grep -m 1 "^# " "$file" | sed "s/^# //")
-            # 如果没有找到标题,使用文件名(去掉.md扩展名)
-            if [ -z "$title" ]; then
-              title=$(basename "$file" .md)
-            fi
-            # 插入front matter,包含title
-            sed -i "1i---" "$file";
-            sed -i "2ititle: $title" "$file";
-            sed -i "3idate: $date" "$file";
-            sed -i "4iupdated: $updated" "$file";
-            sed -i "5i---" "$file";
-            sed -i "6i\ " "$file";
-          ' _ {} \;
+          # 从 hexo 分支获取 front_matter.sh
+          git show origin/hexo:front_matter.sh > front_matter.sh
+          chmod +x front_matter.sh
+          # 为所有 markdown 文件添加 front matter
+          find . -name "*.md" -type f -exec bash front_matter.sh {} \;
+          # 清理临时文件
+          rm -f front_matter.sh
           rm -rf ../hexo-site
           mkdir ../hexo-site
           cp -r ./* ../hexo-site
@@ -59,7 +48,8 @@ jobs:
           rsync -avP  --delete --exclude='.git'--exclude='.github' --exclude='node_modules' --exclude='public' --exclude='source' --exclude='scaffolds' --exclude='themes' --include='*/' --include='*.md' --exclude='*' ../hexo-site/ ./source/_posts/
           rsync -avP ../hexo-site/README.md source/about/index.md
           # 修复所有markdown文件中的相对链接为GitHub绝对链接
-          python3 scripts/fix_relative_links.py
+          # fix_relative_links.py 已经在 hexo 分支中，无需从其他地方复制
+          python3 ./fix_relative_links.py
           pwd
           git status
           git add -A .
