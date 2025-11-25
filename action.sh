@@ -24,7 +24,13 @@ git show hexo:front_matter.sh > front_matter.sh
 chmod +x front_matter.sh
 
 # 为所有 markdown 文件添加 front matter
-find . -name "*.md" -exec bash front_matter.sh {} \;
+find . -name "*.md" -type f -exec bash front_matter.sh {} \;
+
+# 生成动态标签
+# 扫描git追踪的markdown文件生成标签（前三级目录，过滤隐藏目录、纯数字目录、包含空格的目录、长度>20的目录、包含特殊字符的目录）
+TAGS=$(git ls-files "*.md" | while read file; do 
+  dirname "$file" | cut -d'/' -f1-4 | tr '/' '\n'
+done | sort -u | grep -v "^\.$" | grep -v "^$" | grep -v "^\." | grep -v "^[0-9]*$" | grep -v " " | grep -v '"' | awk 'length<=20' | paste -sd ',' - | sed 's/,/, /g')
 
 # 准备 hexo 站点
 rm -f front_matter.sh
@@ -38,17 +44,11 @@ cp -r ./* ../hexo-site
 git checkout -- .
 git checkout hexo
 
-# 生成动态标签（调用generate_tags.sh）
-git show hexo:generate_tags.sh > generate_tags.sh
-chmod +x generate_tags.sh
-TAGS=$(cd ../hexo-site && bash ../$(basename $(pwd))/generate_tags.sh)
-
-# 更新 _config.yml 中的 keywords 和 tags
+# 替换 _config.yml 中的 keywords 和 tags
 if [ -n "$TAGS" ]; then
   sed -i "s/^keywords:.*/keywords: $TAGS/" _config.yml
   sed -i "s/^tags:.*/tags: $TAGS/" _config.yml
 fi
-rm -f generate_tags.sh
 
 # 同步markdown文件到 hexo 分支
 rsync -avP --delete \
