@@ -19,21 +19,6 @@ ls -lah
 # 测试 git log
 git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" README.md
 
-# 准备临时目录
-rm -rf ../hexo-site
-mkdir ../hexo-site
-
-# 复制 process_md.sh 到 main 分支（从 hexo 分支）
-git show hexo:process_md.sh > process_md.sh
-chmod +x process_md.sh
-
-# 为所有 markdown 文件添加 front matter
-find . -name "*.md" -exec bash process_md.sh {} \;
-
-# 准备 hexo 站点
-rm -rf ../hexo-site
-mkdir ../hexo-site
-
 # 复制 front_matter.sh 到 main 分支（从 hexo 分支）
 git show hexo:front_matter.sh > front_matter.sh
 chmod +x front_matter.sh
@@ -41,12 +26,16 @@ chmod +x front_matter.sh
 # 为所有 markdown 文件添加 front matter
 find . -name "*.md" -exec bash front_matter.sh {} \;
 
+# 准备 hexo 站点
+rm -f front_matter.sh
+rm -rf ../hexo-site
+mkdir ../hexo-site
+
 # 复制处理后的文件到临时目录
 cp -r ./* ../hexo-site
 
 # 切换回 hexo 分支
 git checkout -- .
-rm -f front_matter.sh
 git checkout hexo
 
 # 同步文件到 hexo 分支
