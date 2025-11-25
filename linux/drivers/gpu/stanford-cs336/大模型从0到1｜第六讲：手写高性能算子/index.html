@@ -23,23 +23,21 @@
 <meta property="og:site_name" content="WuJing&#39;s Blog">
 <meta property="og:description" content="大模型从0到1｜第六讲：手写高性能算子  课程链接：Stanford CS336 Spring 2025 - Lecture 6: Writing Fast Kernels   课程概述 上节课回顾： GPU 的高层次概述和性能分析 本节课重点： 性能测试&#x2F;分析 + 手写 GPU 算子 核心内容： - Benchmarking 和 Profiling 技术 - Kernel Fusion（算子融合">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg">
-<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://docs.nvidia.com/cuda/parallel-thread-execution/_images/grid-with-CTAs.png">
-<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://developer-blogs.nvidia.com/wp-content/uploads/2019/06/pasted-image-0.png">
-<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/factory_bandwidth.png">
-<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/multi_operators.png">
-<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/operator_fusion.png">
+<meta property="og:image" content="https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg">
+<meta property="og:image" content="https://docs.nvidia.com/cuda/parallel-thread-execution/_images/grid-with-CTAs.png">
+<meta property="og:image" content="https://developer-blogs.nvidia.com/wp-content/uploads/2019/06/pasted-image-0.png">
+<meta property="og:image" content="https://horace.io/img/perf_intro/factory_bandwidth.png">
+<meta property="og:image" content="https://horace.io/img/perf_intro/multi_operators.png">
+<meta property="og:image" content="https://horace.io/img/perf_intro/operator_fusion.png">
 <meta property="article:published_time" content="2025-11-23T19:52:05.000Z">
 <meta property="article:modified_time" content="2025-11-23T19:52:05.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="HTML">
-<meta property="article:tag" content="Linux">
 <meta property="article:tag" content="C++">
 <meta property="article:tag" content="git">
 <meta property="article:tag" content="architect">
-<meta property="article:tag" content="linux">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg">
+<meta name="twitter:image" content="https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
@@ -356,7 +354,7 @@ Fusion（算子融合）的动机 - 三种编写算子的方式：CUDA、Triton�
 <h2 id="part-1-gpu-架构回顾">Part 1: GPU 架构回顾</h2>
 <h3 id="硬件架构">1.1 硬件架构</h3>
 <figure>
-<img src="/images/linux/drivers/gpu/stanford-cs336/https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg" srcset="/img/loading.gif" lazyload alt="GPU Architecture">
+<img src="https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg" srcset="/img/loading.gif" lazyload alt="GPU Architecture">
 <figcaption aria-hidden="true">GPU Architecture</figcaption>
 </figure>
 <p><strong>计算单元：</strong> - Streaming Multiprocessors (SMs) [A100:
@@ -366,7 +364,7 @@ Fusion（算子融合）的动机 - 三种编写算子的方式：CUDA、Triton�
 Cache</strong> [A100: 192KB per SM] - 容量小，速度快</p>
 <h3 id="执行模型">1.2 执行模型</h3>
 <figure>
-<img src="/images/linux/drivers/gpu/stanford-cs336/https://docs.nvidia.com/cuda/parallel-thread-execution/_images/grid-with-CTAs.png" srcset="/img/loading.gif" lazyload alt="Execution Model">
+<img src="https://docs.nvidia.com/cuda/parallel-thread-execution/_images/grid-with-CTAs.png" srcset="/img/loading.gif" lazyload alt="Execution Model">
 <figcaption aria-hidden="true">Execution Model</figcaption>
 </figure>
 <p><strong>三层结构：</strong> - <strong>Thread（线程）：</strong>
@@ -380,7 +378,7 @@ Memory）：</strong> 线程块内的线程可以共享内存（速度与 L1 Cac
 将读取相似数据的 f(i) 分组到一起</p>
 <h3 id="硬件与执行的交互">1.3 硬件与执行的交互</h3>
 <figure>
-<img src="/images/linux/drivers/gpu/stanford-cs336/https://developer-blogs.nvidia.com/wp-content/uploads/2019/06/pasted-image-0.png" srcset="/img/loading.gif" lazyload alt="Wave Quantization">
+<img src="https://developer-blogs.nvidia.com/wp-content/uploads/2019/06/pasted-image-0.png" srcset="/img/loading.gif" lazyload alt="Wave Quantization">
 <figcaption aria-hidden="true">Wave Quantization</figcaption>
 </figure>
 <p><strong>Wave Quantization 问题：</strong> - 线程块以"波次"调度到 SM
@@ -434,7 +432,7 @@ cutlass: NVIDIA 的线性代数 CUDA 库 - 256x128: tile 大小</p>
 <p><strong>类比：</strong> - <strong>仓库 ≈ DRAM (HBM)</strong> -
 <strong>工厂 ≈ SRAM (L1 Cache / Shared Memory)</strong></p>
 <figure>
-<img src="/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/factory_bandwidth.png" srcset="/img/loading.gif" lazyload alt="Factory Bandwidth">
+<img src="https://horace.io/img/perf_intro/factory_bandwidth.png" srcset="/img/loading.gif" lazyload alt="Factory Bandwidth">
 <figcaption aria-hidden="true">Factory Bandwidth</figcaption>
 </figure>
 <h4 id="深入理解这个类比">深入理解这个类比</h4>
@@ -542,12 +540,12 @@ GeLU：~0.01 ms - <strong>总计：可以忽略不计</strong></p>
 <h3 id="未融合-vs-融合">3.2 未融合 vs 融合</h3>
 <p><strong>未融合操作：</strong> 每个操作都需要 读取 → 计算 → 写入</p>
 <figure>
-<img src="/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/multi_operators.png" srcset="/img/loading.gif" lazyload alt="Multi Operators">
+<img src="https://horace.io/img/perf_intro/multi_operators.png" srcset="/img/loading.gif" lazyload alt="Multi Operators">
 <figcaption aria-hidden="true">Multi Operators</figcaption>
 </figure>
 <p><strong>融合操作：</strong> 只需要读写一次</p>
 <figure>
-<img src="/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/operator_fusion.png" srcset="/img/loading.gif" lazyload alt="Operator Fusion">
+<img src="https://horace.io/img/perf_intro/operator_fusion.png" srcset="/img/loading.gif" lazyload alt="Operator Fusion">
 <figcaption aria-hidden="true">Operator Fusion</figcaption>
 </figure>
 <h3 id="案例gelu-激活函数">3.3 案例：GeLU 激活函数</h3>
@@ -750,15 +748,11 @@ Benchmarking</a></li>
       
         <a href="/tags/HTML/">#HTML</a>
       
-        <a href="/tags/Linux/">#Linux</a>
-      
         <a href="/tags/C/">#C++</a>
       
         <a href="/tags/git/">#git</a>
       
         <a href="/tags/architect/">#architect</a>
-      
-        <a href="/tags/linux/">#linux</a>
       
     </div>
   
