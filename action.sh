@@ -92,10 +92,10 @@ python3 ./fix_relative_links.py
 
 # 提交更改
 pwd
-git status
-git add -A .
-find source -name '*.md'
-git commit -m "feat: bot auto commit"
+# git status
+# git add -A .
+# find source -name '*.md'
+# git commit -m "feat: bot auto commit"
 
 # 安装依赖
 npm install
