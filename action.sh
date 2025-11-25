@@ -11,8 +11,8 @@ fi
 
 # 切换到 main 分支并更新
 git checkout main
-git fetch origin
-git pull origin main
+# git fetch origin
+# git pull origin main
 pwd
 ls -lah
 
