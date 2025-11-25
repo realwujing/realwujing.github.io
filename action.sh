@@ -87,8 +87,7 @@ git commit -m "feat: bot auto commit"
 
 # 安装依赖
 npm install
-npm uninstall hexo-renderer-marked --save
-npm install hexo-renderer-pandoc --save
+npm install hexo-renderer-marked --save
 npm install hexo-filter-plantuml --save
 
 # 构建站点
