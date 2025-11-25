@@ -16,12 +16,12 @@
   <meta name="author" content="Wu Jing">
   <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
   
-    <meta name="description" content="大模型从0到1｜第五讲：详解 GPU 架构与性能优化 讲师： Tatsu H 核心主题： 深入剖析 GPU 的底层硬件原理、性能分析方法论（Roofline Model），以及如何通过 Tiling、Fusion、Coalescing 等技巧优化深度学习负载，最后以 FlashAttention 为例进行融会贯通。  Part 1: GPU 深度解析 (GPUs in Depth)  Page 1">
+    <meta name="description" content="大模型从0到1｜第五讲：详解 GPU 架构与性能优化讲师： Tatsu H核心主题： 深入剖析 GPU 的底层硬件原理、性能分析方法论（Roofline Model），以及如何通过 Tiling、Fusion、Coalescing 等技巧优化深度学习负载，最后以 FlashAttention 为例进行融会贯通。  Part 1: GPU 深度解析 (GPUs in Depth) Page 1: 课">
 <meta property="og:type" content="article">
 <meta property="og:title" content="大模型从0到1｜第五讲：详解 GPU 架构与性能优化">
 <meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E4%BA%94%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3%20GPU%20%E6%9E%B6%E6%9E%84%E4%B8%8E%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/index.html">
 <meta property="og:site_name" content="WuJing&#39;s Blog">
-<meta property="og:description" content="大模型从0到1｜第五讲：详解 GPU 架构与性能优化 讲师： Tatsu H 核心主题： 深入剖析 GPU 的底层硬件原理、性能分析方法论（Roofline Model），以及如何通过 Tiling、Fusion、Coalescing 等技巧优化深度学习负载，最后以 FlashAttention 为例进行融会贯通。  Part 1: GPU 深度解析 (GPUs in Depth)  Page 1">
+<meta property="og:description" content="大模型从0到1｜第五讲：详解 GPU 架构与性能优化讲师： Tatsu H核心主题： 深入剖析 GPU 的底层硬件原理、性能分析方法论（Roofline Model），以及如何通过 Tiling、Fusion、Coalescing 等技巧优化深度学习负载，最后以 FlashAttention 为例进行融会贯通。  Part 1: GPU 深度解析 (GPUs in Depth) Page 1: 课">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_01.png">
 <meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_02.png">
@@ -118,6 +118,10 @@
     <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
   
 
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
 
 
 
@@ -327,7 +331,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          7.7k 字
+          7.8k 字
         
       </span>
     
@@ -338,7 +342,7 @@
         
         
         
-          65 分钟
+          66 分钟
         
       </span>
     
@@ -381,670 +385,443 @@
             
               <div class="markdown-body">
                 
-                <h1 id="大模型从0到1第五讲详解-gpu-架构与性能优化">大模型从0到1｜第五讲：详解
-GPU 架构与性能优化</h1>
-<p><strong>讲师：</strong> Tatsu H <strong>核心主题：</strong> 深入剖析
-GPU 的底层硬件原理、性能分析方法论（Roofline Model），以及如何通过
-Tiling、Fusion、Coalescing 等技巧优化深度学习负载，最后以 FlashAttention
-为例进行融会贯通。</p>
+                <h1 id="大模型从0到1｜第五讲：详解-GPU-架构与性能优化"><a href="#大模型从0到1｜第五讲：详解-GPU-架构与性能优化" class="headerlink" title="大模型从0到1｜第五讲：详解 GPU 架构与性能优化"></a>大模型从0到1｜第五讲：详解 GPU 架构与性能优化</h1><p><strong>讲师：</strong> Tatsu H<br><strong>核心主题：</strong> 深入剖析 GPU 的底层硬件原理、性能分析方法论（Roofline Model），以及如何通过 Tiling、Fusion、Coalescing 等技巧优化深度学习负载，最后以 FlashAttention 为例进行融会贯通。</p>
 <hr>
-<h2 id="part-1-gpu-深度解析-gpus-in-depth">Part 1: GPU 深度解析 (GPUs in
-Depth)</h2>
-<p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_01.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-1-课程标题"><strong>Page 1: 课程标题</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 课程正式开始。本节课的主题是
-<strong>GPUs</strong>。在深度学习时代，理解 GPU
-不仅仅是系统工程师的工作，对于算法工程师理解模型扩展性（Scaling）和性能瓶颈至关重要。</li>
+<h2 id="Part-1-GPU-深度解析-GPUs-in-Depth"><a href="#Part-1-GPU-深度解析-GPUs-in-Depth" class="headerlink" title="Part 1: GPU 深度解析 (GPUs in Depth)"></a>Part 1: GPU 深度解析 (GPUs in Depth)</h2><p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_01.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-1-课程标题"><a href="#Page-1-课程标题" class="headerlink" title="Page 1: 课程标题"></a><strong>Page 1: 课程标题</strong></h3><ul>
+<li><strong>内容解析：</strong> 课程正式开始。本节课的主题是 <strong>GPUs</strong>。在深度学习时代，理解 GPU 不仅仅是系统工程师的工作，对于算法工程师理解模型扩展性（Scaling）和性能瓶颈至关重要。</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_02.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-2-课程大纲"><strong>Page 2: 课程大纲</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 本节课的组织结构分为三部分：
-<ol type="1">
-<li><strong>Part 1: GPUs in depth</strong> —— 深入硬件底层，讲解 GPU
-的工作原理、内存层级和核心组件。</li>
-<li><strong>Part 2: Understanding GPU performance</strong> —— 讲解如何让
-GPU 跑得快，介绍 Roofline 模型和关键优化技巧。</li>
-<li><strong>Part 3: Putting it together</strong> —— 拆解
-<strong>FlashAttention</strong>，看它如何综合运用上述技巧解决实际问题。</li>
-</ol></li>
+<h3 id="Page-2-课程大纲"><a href="#Page-2-课程大纲" class="headerlink" title="Page 2: 课程大纲"></a><strong>Page 2: 课程大纲</strong></h3><ul>
+<li><strong>内容解析：</strong> 本节课的组织结构分为三部分：<ol>
+<li><strong>Part 1: GPUs in depth</strong> —— 深入硬件底层，讲解 GPU 的工作原理、内存层级和核心组件。</li>
+<li><strong>Part 2: Understanding GPU performance</strong> —— 讲解如何让 GPU 跑得快，介绍 Roofline 模型和关键优化技巧。</li>
+<li><strong>Part 3: Putting it together</strong> —— 拆解 <strong>FlashAttention</strong>，看它如何综合运用上述技巧解决实际问题。</li>
+</ol>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_03.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-3-致谢与资源"><strong>Page 3: 致谢与资源</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 课程内容参考了多个高质量来源。
-<ul>
-<li><strong>Horace He's blog:</strong> "Thonk From First
-Principles"，非常硬核的 ML 系统博客。</li>
-<li><strong>CUDA MODE:</strong> 一个专注于 CUDA
-编程和高性能计算的开源社区和 Discord 群组，推荐学生加入。</li>
-</ul></li>
+<h3 id="Page-3-致谢与资源"><a href="#Page-3-致谢与资源" class="headerlink" title="Page 3: 致谢与资源"></a><strong>Page 3: 致谢与资源</strong></h3><ul>
+<li><strong>内容解析：</strong> 课程内容参考了多个高质量来源。<ul>
+<li><strong>Horace He’s blog:</strong> “Thonk From First Principles”，非常硬核的 ML 系统博客。</li>
+<li><strong>CUDA MODE:</strong> 一个专注于 CUDA 编程和高性能计算的开源社区和 Discord 群组，推荐学生加入。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_04.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-4-背景---算力即性能"><strong>Page 4: 背景 -
-算力即性能</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 这张图展示了 <strong>Scaling
-Laws（扩展定律）</strong>。
-<ul>
-<li><strong>现象：</strong> 随着计算量（Compute,
-PetaFLOP/s-days）的指数级增加，模型的 Loss 呈现线性下降趋势。</li>
-<li><strong>结论：</strong>
-对于语言模型来说，算力通常能直接转化为可预测的性能提升。硬件越快，我们在单位时间内能跑的算力越多，模型效果就越好。</li>
-</ul></li>
+<h3 id="Page-4-背景-算力即性能"><a href="#Page-4-背景-算力即性能" class="headerlink" title="Page 4: 背景 - 算力即性能"></a><strong>Page 4: 背景 - 算力即性能</strong></h3><ul>
+<li><strong>内容解析：</strong> 这张图展示了 <strong>Scaling Laws（扩展定律）</strong>。<ul>
+<li><strong>现象：</strong> 随着计算量（Compute, PetaFLOP&#x2F;s-days）的指数级增加，模型的 Loss 呈现线性下降趋势。</li>
+<li><strong>结论：</strong> 对于语言模型来说，算力通常能直接转化为可预测的性能提升。硬件越快，我们在单位时间内能跑的算力越多，模型效果就越好。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_05.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-5-计算扩展的瓶颈---dennard-scaling-失效"><strong>Page 5:
-计算扩展的瓶颈 - Dennard Scaling 失效</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 回顾处理器历史（1970-2010）。
-<ul>
-<li><strong>趋势：</strong> 绿色点代表频率（Frequency）。在 2005
-年之前，频率随时间指数增长；但 2005 年后，频率增长停滞（Plateau）。</li>
-<li><strong>原因：</strong> <strong>Dennard
-Scaling（登纳德缩放比例定律）</strong> 失效。由于功耗和散热限制（Power
-Wall），单核性能无法再通过单纯提高主频来提升。这迫使我们寻找新的扩展路径。</li>
-</ul></li>
+<h3 id="Page-5-计算扩展的瓶颈-Dennard-Scaling-失效"><a href="#Page-5-计算扩展的瓶颈-Dennard-Scaling-失效" class="headerlink" title="Page 5: 计算扩展的瓶颈 - Dennard Scaling 失效"></a><strong>Page 5: 计算扩展的瓶颈 - Dennard Scaling 失效</strong></h3><ul>
+<li><strong>内容解析：</strong> 回顾处理器历史（1970-2010）。<ul>
+<li><strong>趋势：</strong> 绿色点代表频率（Frequency）。在 2005 年之前，频率随时间指数增长；但 2005 年后，频率增长停滞（Plateau）。</li>
+<li><strong>原因：</strong> <strong>Dennard Scaling（登纳德缩放比例定律）</strong> 失效。由于功耗和散热限制（Power Wall），单核性能无法再通过单纯提高主频来提升。这迫使我们寻找新的扩展路径。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_06.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-6-并行扩展的接力-parallel-scaling"><strong>Page 6:
-并行扩展的接力 (Parallel Scaling)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 既然单核快不起来，那就堆核心。
-<ul>
-<li><strong>图表：</strong> 展示了 GPU（如 K80 到 H100）和 TPU
-算力在过去 10 年的爆发式增长。</li>
-<li><strong>关键点：</strong>
-虽然内存带宽（Memory）也在增长，但计算能力（Compute,
-尤其是低精度计算）的增长速度远超内存。</li>
-<li><strong>结论：</strong> LLM 的扩展完全依赖于 GPU
-的并行扩展能力。</li>
-</ul></li>
+<h3 id="Page-6-并行扩展的接力-Parallel-Scaling"><a href="#Page-6-并行扩展的接力-Parallel-Scaling" class="headerlink" title="Page 6: 并行扩展的接力 (Parallel Scaling)"></a><strong>Page 6: 并行扩展的接力 (Parallel Scaling)</strong></h3><ul>
+<li><strong>内容解析：</strong> 既然单核快不起来，那就堆核心。<ul>
+<li><strong>图表：</strong> 展示了 GPU（如 K80 到 H100）和 TPU 算力在过去 10 年的爆发式增长。</li>
+<li><strong>关键点：</strong> 虽然内存带宽（Memory）也在增长，但计算能力（Compute, 尤其是低精度计算）的增长速度远超内存。</li>
+<li><strong>结论：</strong> LLM 的扩展完全依赖于 GPU 的并行扩展能力。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_07.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-7-gpu-模型的优势"><strong>Page 7: GPU
-模型的优势</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 为什么 GPU 能成为 AI 的主力？
-<ol type="1">
-<li><strong>易于扩展 (Scalability)：</strong> GPU
-架构是模块化的，可以通过增加 <strong>SM (Streaming
-Multiprocessors)</strong> 轻松扩展算力。</li>
-<li><strong>编程模型 (SIMT)：</strong>
-单指令多线程。虽然编写复杂，但适合处理大规模数据并行任务。</li>
-<li><strong>轻量级线程：</strong> GPU
-线程启动和切换极快，能够以低开销隐藏延迟。</li>
-</ol></li>
+<h3 id="Page-7-GPU-模型的优势"><a href="#Page-7-GPU-模型的优势" class="headerlink" title="Page 7: GPU 模型的优势"></a><strong>Page 7: GPU 模型的优势</strong></h3><ul>
+<li><strong>内容解析：</strong> 为什么 GPU 能成为 AI 的主力？<ol>
+<li><strong>易于扩展 (Scalability)：</strong> GPU 架构是模块化的，可以通过增加 <strong>SM (Streaming Multiprocessors)</strong> 轻松扩展算力。</li>
+<li><strong>编程模型 (SIMT)：</strong> 单指令多线程。虽然编写复杂，但适合处理大规模数据并行任务。</li>
+<li><strong>轻量级线程：</strong> GPU 线程启动和切换极快，能够以低开销隐藏延迟。</li>
+</ol>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_08.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-8-cpu-vs.-gpu-架构设计"><strong>Page 8: CPU vs. GPU
-架构设计</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>CPU (左)：</strong> 巨大的 <strong>Cache</strong> 和复杂的
-<strong>Control</strong> 单元，ALU（计算单元）占比小。
-<ul>
-<li><em>目标：</em> <strong>低延迟
-(Latency)</strong>。擅长逻辑复杂的串行任务。</li>
-</ul></li>
-<li><strong>GPU (右)：</strong> 绝大部分面积是绿色的
-<strong>ALU</strong>，Control 和 Cache 很小。
-<ul>
-<li><em>目标：</em> <strong>高吞吐
-(Throughput)</strong>。擅长海量数据的并行处理，不介意单个任务的延迟，只在乎整体完成量。</li>
-</ul></li>
-</ul></li>
+<h3 id="Page-8-CPU-vs-GPU-架构设计"><a href="#Page-8-CPU-vs-GPU-架构设计" class="headerlink" title="Page 8: CPU vs. GPU 架构设计"></a><strong>Page 8: CPU vs. GPU 架构设计</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>CPU (左)：</strong> 巨大的 <strong>Cache</strong> 和复杂的 <strong>Control</strong> 单元，ALU（计算单元）占比小。<ul>
+<li><em>目标：</em> **低延迟 (Latency)**。擅长逻辑复杂的串行任务。</li>
+</ul>
+</li>
+<li><strong>GPU (右)：</strong> 绝大部分面积是绿色的 <strong>ALU</strong>，Control 和 Cache 很小。<ul>
+<li><em>目标：</em> **高吞吐 (Throughput)**。擅长海量数据的并行处理，不介意单个任务的延迟，只在乎整体完成量。</li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_09.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-9-gpu-解剖---宏观与微观"><strong>Page 9: GPU 解剖 -
-宏观与微观</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>GA100 Full GPU (右)：</strong> 宏观上看，GPU 由 128 个
-<strong>SM (Streaming Multiprocessors)</strong> 组成。</li>
-<li><strong>SM 内部 (左)：</strong> 每个 SM 包含多个 <strong>SP
-(Streaming Processor)</strong> 也就是 CUDA Core，以及专用的
-<strong>Tensor Cores</strong>（用于矩阵加速）、寄存器堆（Register
-File）和调度器。</li>
-</ul></li>
+<h3 id="Page-9-GPU-解剖-宏观与微观"><a href="#Page-9-GPU-解剖-宏观与微观" class="headerlink" title="Page 9: GPU 解剖 - 宏观与微观"></a><strong>Page 9: GPU 解剖 - 宏观与微观</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>GA100 Full GPU (右)：</strong> 宏观上看，GPU 由 128 个 <strong>SM (Streaming Multiprocessors)</strong> 组成。</li>
+<li><strong>SM 内部 (左)：</strong> 每个 SM 包含多个 <strong>SP (Streaming Processor)</strong> 也就是 CUDA Core，以及专用的 <strong>Tensor Cores</strong>（用于矩阵加速）、寄存器堆（Register File）和调度器。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_10.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-10-gpu-解剖---内存层级"><strong>Page 10: GPU 解剖 -
-内存层级</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 理解内存位置是优化的关键。
-<ul>
-<li><strong>L1 Cache / Shared Memory：</strong> 位于 SM
-内部（图中绿色部分），是 <strong>SRAM</strong>。速度极快（19
-TB/s），但容量极小。</li>
+<h3 id="Page-10-GPU-解剖-内存层级"><a href="#Page-10-GPU-解剖-内存层级" class="headerlink" title="Page 10: GPU 解剖 - 内存层级"></a><strong>Page 10: GPU 解剖 - 内存层级</strong></h3><ul>
+<li><strong>内容解析：</strong> 理解内存位置是优化的关键。<ul>
+<li><strong>L1 Cache &#x2F; Shared Memory：</strong> 位于 SM 内部（图中绿色部分），是 <strong>SRAM</strong>。速度极快（19 TB&#x2F;s），但容量极小。</li>
 <li><strong>L2 Cache：</strong> 芯片中间，所有 SM 共享。</li>
-<li><strong>HBM (High Bandwidth Memory)：</strong>
-芯片边缘的显存颗粒。这是
-<strong>DRAM</strong>，容量大（40-80GB），但速度最慢（1.5-2.0
-TB/s）。</li>
+<li><strong>HBM (High Bandwidth Memory)：</strong> 芯片边缘的显存颗粒。这是 <strong>DRAM</strong>，容量大（40-80GB），但速度最慢（1.5-2.0 TB&#x2F;s）。</li>
 <li><strong>法则：</strong> 离计算单元越近，速度越快，容量越小。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_11.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-11-gpu-执行模型"><strong>Page 11: GPU
-执行模型</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 软件层面的三个核心概念：
-<ol type="1">
+<h3 id="Page-11-GPU-执行模型"><a href="#Page-11-GPU-执行模型" class="headerlink" title="Page 11: GPU 执行模型"></a><strong>Page 11: GPU 执行模型</strong></h3><ul>
+<li><strong>内容解析：</strong> 软件层面的三个核心概念：<ol>
 <li><strong>Threads (线程)：</strong> 并行工作的最小单位。</li>
-<li><strong>Blocks (线程块)：</strong> 一组线程，运行在同一个 SM
-上，共享该 SM 的 Shared Memory。</li>
-<li><strong>Warps (线程束)：</strong> 硬件调度的最小单位，通常由
-<strong>32 个连续线程</strong> 组成，物理上同步执行同一条指令。</li>
-</ol></li>
+<li><strong>Blocks (线程块)：</strong> 一组线程，运行在同一个 SM 上，共享该 SM 的 Shared Memory。</li>
+<li><strong>Warps (线程束)：</strong> 硬件调度的最小单位，通常由 <strong>32 个连续线程</strong> 组成，物理上同步执行同一条指令。</li>
+</ol>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_12.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-12-侧记---关于-tpu"><strong>Page 12: 侧记 - 关于
-TPU</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> TPU (Tensor Processing Unit) 与 GPU
-的异同。
-<ul>
-<li><strong>核心差异：</strong> GPU 有很多个通用的 SM；TPU 则拥有巨大的
-<strong>Matrix Multiply Unit (MXU)</strong>，采用脉动阵列架构。</li>
-<li><strong>权衡：</strong> TPU 牺牲了通用性（Lightweight
-control），换取了极致的矩阵乘法密度。但在内存带宽（HBM）上，两者面临相似的物理限制。</li>
-</ul></li>
+<h3 id="Page-12-侧记-关于-TPU"><a href="#Page-12-侧记-关于-TPU" class="headerlink" title="Page 12: 侧记 - 关于 TPU"></a><strong>Page 12: 侧记 - 关于 TPU</strong></h3><ul>
+<li><strong>内容解析：</strong> TPU (Tensor Processing Unit) 与 GPU 的异同。<ul>
+<li><strong>核心差异：</strong> GPU 有很多个通用的 SM；TPU 则拥有巨大的 **Matrix Multiply Unit (MXU)**，采用脉动阵列架构。</li>
+<li><strong>权衡：</strong> TPU 牺牲了通用性（Lightweight control），换取了极致的矩阵乘法密度。但在内存带宽（HBM）上，两者面临相似的物理限制。</li>
+</ul>
+</li>
 </ul>
 <hr>
-<h2 id="part-2-理解-gpu-性能与优化-making-ml-workloads-fast">Part 2:
-理解 GPU 性能与优化 (Making ML Workloads Fast)</h2>
-<p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_13.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-13-part-2-标题"><strong>Page 13: Part 2 标题</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 如何让机器学习工作负载在 GPU
-上飞快运行？这部分将介绍核心的性能模型和优化技巧。</li>
+<h2 id="Part-2-理解-GPU-性能与优化-Making-ML-Workloads-Fast"><a href="#Part-2-理解-GPU-性能与优化-Making-ML-Workloads-Fast" class="headerlink" title="Part 2: 理解 GPU 性能与优化 (Making ML Workloads Fast)"></a>Part 2: 理解 GPU 性能与优化 (Making ML Workloads Fast)</h2><p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_13.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-13-Part-2-标题"><a href="#Page-13-Part-2-标题" class="headerlink" title="Page 13: Part 2 标题"></a><strong>Page 13: Part 2 标题</strong></h3><ul>
+<li><strong>内容解析：</strong> 如何让机器学习工作负载在 GPU 上飞快运行？这部分将介绍核心的性能模型和优化技巧。</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_14.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-14-屋顶模型-the-roofline-model"><strong>Page 14: 屋顶模型
-(The Roofline Model)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 分析性能的黄金法则。
-<ul>
-<li><strong>Memory Bound (斜线)：</strong> <strong>算术强度
-(FLOPs/Byte)</strong> 低。GPU
-算得快，但数据传输慢，处于“等数据”状态。大多数 Element-wise 操作（如
-Activation）在此区域。</li>
-<li><strong>Compute Bound (平顶)：</strong>
-算术强度高。数据传输跟得上，瓶颈在于计算单元的峰值性能。大矩阵乘法在此区域。</li>
-<li><strong>优化目标：</strong> 提高算术强度，向右移动，利用满 GPU
-的算力。</li>
-</ul></li>
+<h3 id="Page-14-屋顶模型-The-Roofline-Model"><a href="#Page-14-屋顶模型-The-Roofline-Model" class="headerlink" title="Page 14: 屋顶模型 (The Roofline Model)"></a><strong>Page 14: 屋顶模型 (The Roofline Model)</strong></h3><ul>
+<li><strong>内容解析：</strong> 分析性能的黄金法则。<ul>
+<li><strong>Memory Bound (斜线)：</strong> <strong>算术强度 (FLOPs&#x2F;Byte)</strong> 低。GPU 算得快，但数据传输慢，处于“等数据”状态。大多数 Element-wise 操作（如 Activation）在此区域。</li>
+<li><strong>Compute Bound (平顶)：</strong> 算术强度高。数据传输跟得上，瓶颈在于计算单元的峰值性能。大矩阵乘法在此区域。</li>
+<li><strong>优化目标：</strong> 提高算术强度，向右移动，利用满 GPU 的算力。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_15.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-15-技巧-1---低精度计算-low-precision"><strong>Page 15: 技巧
-1 - 低精度计算 (Low Precision)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>原理：</strong> 使用 FP16 (16-bit) 或 INT8 代替 FP32
-(32-bit)。</li>
-<li><strong>收益：</strong> <strong>"If you have fewer bits, you have
-fewer bits to move."</strong>
-核心收益不仅仅是计算快了，更重要的是减少了数据搬运量，变相提升了内存带宽利用率。</li>
-</ul></li>
+<h3 id="Page-15-技巧-1-低精度计算-Low-Precision"><a href="#Page-15-技巧-1-低精度计算-Low-Precision" class="headerlink" title="Page 15: 技巧 1 - 低精度计算 (Low Precision)"></a><strong>Page 15: 技巧 1 - 低精度计算 (Low Precision)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>原理：</strong> 使用 FP16 (16-bit) 或 INT8 代替 FP32 (32-bit)。</li>
+<li><strong>收益：</strong> <strong>“If you have fewer bits, you have fewer bits to move.”</strong> 核心收益不仅仅是计算快了，更重要的是减少了数据搬运量，变相提升了内存带宽利用率。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_16.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-16-低精度提升算术强度"><strong>Page 16:
-低精度提升算术强度</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 以 ReLU 为例：
-<ul>
-<li><strong>FP32:</strong> 读 4 字节，写 4 字节，算 1 次。强度 = 1/8
-FLOP/Byte。</li>
-<li><strong>FP16:</strong> 读 2 字节，写 2 字节，算 1 次。强度 = 1/4
-FLOP/Byte。</li>
-<li><strong>结论：</strong> 切换到 FP16，算术强度翻倍，性能上限（在
-Memory Bound 区域）直接翻倍。</li>
-</ul></li>
+<h3 id="Page-16-低精度提升算术强度"><a href="#Page-16-低精度提升算术强度" class="headerlink" title="Page 16: 低精度提升算术强度"></a><strong>Page 16: 低精度提升算术强度</strong></h3><ul>
+<li><strong>内容解析：</strong> 以 ReLU 为例：<ul>
+<li><strong>FP32:</strong> 读 4 字节，写 4 字节，算 1 次。强度 &#x3D; 1&#x2F;8 FLOP&#x2F;Byte。</li>
+<li><strong>FP16:</strong> 读 2 字节，写 2 字节，算 1 次。强度 &#x3D; 1&#x2F;4 FLOP&#x2F;Byte。</li>
+<li><strong>结论：</strong> 切换到 FP16，算术强度翻倍，性能上限（在 Memory Bound 区域）直接翻倍。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_17.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-17-tensor-cores"><strong>Page 17: Tensor
-Cores</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>定义：</strong> 现代 GPU (Volta+)
-引入的专用电路，专门用于加速矩阵乘法 (<span class="math inline">\(D = A
-\times B + C\)</span>)。</li>
-<li><strong>威力：</strong> 在混合精度下，Tensor Cores 的吞吐量是普通
-CUDA Cores 的 <strong>10 倍以上</strong>。</li>
-<li><strong>影响：</strong> 这让矩阵乘法变得极快，使得非矩阵操作（如
-Softmax, LayerNorm）更容易成为性能瓶颈。</li>
-</ul></li>
+<h3 id="Page-17-Tensor-Cores"><a href="#Page-17-Tensor-Cores" class="headerlink" title="Page 17: Tensor Cores"></a><strong>Page 17: Tensor Cores</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>定义：</strong> 现代 GPU (Volta+) 引入的专用电路，专门用于加速矩阵乘法 ($D &#x3D; A \times B + C$)。</li>
+<li><strong>威力：</strong> 在混合精度下，Tensor Cores 的吞吐量是普通 CUDA Cores 的 <strong>10 倍以上</strong>。</li>
+<li><strong>影响：</strong> 这让矩阵乘法变得极快，使得非矩阵操作（如 Softmax, LayerNorm）更容易成为性能瓶颈。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_18.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-18-技巧-2---算子融合-operator-fusion"><strong>Page 18: 技巧
-2 - 算子融合 (Operator Fusion)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>左图 (无融合)：</strong> 像一个低效的工厂。每做一步（Add,
-Mul），都要把产品运回仓库（显存），再运回来做下一步。</li>
-<li><strong>右图 (融合)：</strong>
-流水线作业。数据读入寄存器后，一次性完成一系列计算（Add + Mul +
-Relu），最后只写回一次。</li>
+<h3 id="Page-18-技巧-2-算子融合-Operator-Fusion"><a href="#Page-18-技巧-2-算子融合-Operator-Fusion" class="headerlink" title="Page 18: 技巧 2 - 算子融合 (Operator Fusion)"></a><strong>Page 18: 技巧 2 - 算子融合 (Operator Fusion)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>左图 (无融合)：</strong> 像一个低效的工厂。每做一步（Add, Mul），都要把产品运回仓库（显存），再运回来做下一步。</li>
+<li><strong>右图 (融合)：</strong> 流水线作业。数据读入寄存器后，一次性完成一系列计算（Add + Mul + Relu），最后只写回一次。</li>
 <li><strong>核心：</strong> 最小化 HBM 的读写次数。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_19.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-19-融合的内存视角"><strong>Page 19:
-融合的内存视角</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 对比图解。
-<ul>
-<li><strong>Naive:</strong> 多个 Kernel 串行，中间结果频繁读写
-HBM，带宽压力大。</li>
-<li><strong>Fused Kernel:</strong> 一个 Kernel
-完成所有工作，中间结果在寄存器或 Shared Memory 中传递，极其高效。</li>
-</ul></li>
+<h3 id="Page-19-融合的内存视角"><a href="#Page-19-融合的内存视角" class="headerlink" title="Page 19: 融合的内存视角"></a><strong>Page 19: 融合的内存视角</strong></h3><ul>
+<li><strong>内容解析：</strong> 对比图解。<ul>
+<li><strong>Naive:</strong> 多个 Kernel 串行，中间结果频繁读写 HBM，带宽压力大。</li>
+<li><strong>Fused Kernel:</strong> 一个 Kernel 完成所有工作，中间结果在寄存器或 Shared Memory 中传递，极其高效。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_20.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-20-融合案例---sincos"><strong>Page 20: 融合案例 -
-Sin/Cos</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 计算 <span class="math inline">\(\sin^2(x) + \cos^2(x)\)</span>。
-<ul>
+<h3 id="Page-20-融合案例-Sin-Cos"><a href="#Page-20-融合案例-Sin-Cos" class="headerlink" title="Page 20: 融合案例 - Sin&#x2F;Cos"></a><strong>Page 20: 融合案例 - Sin&#x2F;Cos</strong></h3><ul>
+<li><strong>内容解析：</strong> 计算 $\sin^2(x) + \cos^2(x)$。<ul>
 <li>如果不融合，需要启动 5 个 Kernel，反复搬运数据。</li>
 <li>融合后，只需 1 个 Kernel，数据只读写一次。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_21.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-21-编译器自动融合"><strong>Page 21:
-编译器自动融合</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>TorchInductor:</strong> PyTorch 2.0
-的编译器。它可以自动分析计算图，将多个 Pointwise 操作“融合”成一个单一的
-CUDA Kernel，无需手写 CUDA 代码。</li>
-</ul></li>
+<h3 id="Page-21-编译器自动融合"><a href="#Page-21-编译器自动融合" class="headerlink" title="Page 21: 编译器自动融合"></a><strong>Page 21: 编译器自动融合</strong></h3><ul>
+<li><strong>内容解析：</strong> <ul>
+<li><strong>TorchInductor:</strong> PyTorch 2.0 的编译器。它可以自动分析计算图，将多个 Pointwise 操作“融合”成一个单一的 CUDA Kernel，无需手写 CUDA 代码。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_22.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-22-技巧-3---重计算-recomputation"><strong>Page 22: 技巧 3 -
-重计算 (Recomputation)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
+<h3 id="Page-22-技巧-3-重计算-Recomputation"><a href="#Page-22-技巧-3-重计算-Recomputation" class="headerlink" title="Page 22: 技巧 3 - 重计算 (Recomputation)"></a><strong>Page 22: 技巧 3 - 重计算 (Recomputation)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
 <li><strong>问题：</strong> 显存不够存下所有激活值（Activations）。</li>
-<li><strong>策略：</strong> <strong>Throw away the activations,
-re-compute them!</strong>
-在反向传播时，不读取缓存的激活值，而是重新计算一遍。</li>
-<li><strong>逻辑：</strong> 因为 Compute (FLOPs) 很便宜且快，Memory
-(HBM) 很贵且慢。在 Memory Bound 场景下，重计算往往比去 HBM
-读数据还要快。</li>
-</ul></li>
+<li><strong>策略：</strong> <strong>Throw away the activations, re-compute them!</strong> 在反向传播时，不读取缓存的激活值，而是重新计算一遍。</li>
+<li><strong>逻辑：</strong> 因为 Compute (FLOPs) 很便宜且快，Memory (HBM) 很贵且慢。在 Memory Bound 场景下，重计算往往比去 HBM 读数据还要快。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_23.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-23-技巧-4---内存合并-memory-coalescing"><strong>Page 23:
-技巧 4 - 内存合并 (Memory Coalescing)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>DRAM 特性：</strong> 内存读取是 <strong>Burst
-Mode</strong>（爆发模式）。即使你只请求 1 个字节，DRAM
-也会发给你一块连续数据（例如 128 字节）。</li>
-<li><strong>隐喻：</strong>
-就像快递，不会送一根牙签，至少是一个盒子。</li>
-</ul></li>
+<h3 id="Page-23-技巧-4-内存合并-Memory-Coalescing"><a href="#Page-23-技巧-4-内存合并-Memory-Coalescing" class="headerlink" title="Page 23: 技巧 4 - 内存合并 (Memory Coalescing)"></a><strong>Page 23: 技巧 4 - 内存合并 (Memory Coalescing)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>DRAM 特性：</strong> 内存读取是 <strong>Burst Mode</strong>（爆发模式）。即使你只请求 1 个字节，DRAM 也会发给你一块连续数据（例如 128 字节）。</li>
+<li><strong>隐喻：</strong> 就像快递，不会送一根牙签，至少是一个盒子。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_24.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-24-什么是-coalesced-loads"><strong>Page 24: 什么是
-Coalesced Loads</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
+<h3 id="Page-24-什么是-Coalesced-Loads"><a href="#Page-24-什么是-Coalesced-Loads" class="headerlink" title="Page 24: 什么是 Coalesced Loads"></a><strong>Page 24: 什么是 Coalesced Loads</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
 <li><strong>图示：</strong> 线程 0-15 依次访问地址 0-15。</li>
-<li><strong>效果：</strong> 硬件将这 16 个请求合并为 <strong>1
-个</strong> 内存事务。这是最高效的访问模式。</li>
-</ul></li>
+<li><strong>效果：</strong> 硬件将这 16 个请求合并为 <strong>1 个</strong> 内存事务。这是最高效的访问模式。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_25.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-25-未合并的代价"><strong>Page 25:
-未合并的代价</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>左图 (Unaligned/Strided)：</strong>
-线程跳跃访问。为了读几个有用数据，不得不触发多次
-Burst，传输了大量无用的红色数据块。带宽浪费严重。</li>
+<h3 id="Page-25-未合并的代价"><a href="#Page-25-未合并的代价" class="headerlink" title="Page 25: 未合并的代价"></a><strong>Page 25: 未合并的代价</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>左图 (Unaligned&#x2F;Strided)：</strong> 线程跳跃访问。为了读几个有用数据，不得不触发多次 Burst，传输了大量无用的红色数据块。带宽浪费严重。</li>
 <li><strong>右图 (Aligned)：</strong> 高效利用带宽。</li>
-<li><strong>总结：</strong> "One Nice Tile vs Two Bad Tiles"。</li>
-</ul></li>
+<li><strong>总结：</strong> “One Nice Tile vs Two Bad Tiles”。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_26.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-26-控制流分歧-control-divergence"><strong>Page 26:
-控制流分歧 (Control Divergence)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
+<h3 id="Page-26-控制流分歧-Control-Divergence"><a href="#Page-26-控制流分歧-Control-Divergence" class="headerlink" title="Page 26: 控制流分歧 (Control Divergence)"></a><strong>Page 26: 控制流分歧 (Control Divergence)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
 <li><strong>问题：</strong> 代码中有 <code>if-else</code>。</li>
-<li><strong>机制：</strong> 由于 SIMT 特性，如果 Warp 内部分线程走
-<code>if</code>，部分走
-<code>else</code>，硬件会<strong>串行化</strong>执行——先跑
-<code>if</code>（另一半线程空转等待），再跑 <code>else</code>。</li>
-<li><strong>影响：</strong>
-这不是内存问题，而是并行效率问题，会导致算力利用率减半。</li>
-</ul></li>
+<li><strong>机制：</strong> 由于 SIMT 特性，如果 Warp 内部分线程走 <code>if</code>，部分走 <code>else</code>，硬件会<strong>串行化</strong>执行——先跑 <code>if</code>（另一半线程空转等待），再跑 <code>else</code>。</li>
+<li><strong>影响：</strong> 这不是内存问题，而是并行效率问题，会导致算力利用率减半。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_27.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-27-技巧-5---分块-tiling-最重要"><strong>Page 27: 技巧 5 -
-分块 (Tiling) [最重要]</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
+<h3 id="Page-27-技巧-5-分块-Tiling-最重要"><a href="#Page-27-技巧-5-分块-Tiling-最重要" class="headerlink" title="Page 27: 技巧 5 - 分块 (Tiling) [最重要]"></a><strong>Page 27: 技巧 5 - 分块 (Tiling) [最重要]</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
 <li><strong>概念：</strong> 将大矩阵切分成小块（Tiles）。</li>
-<li><strong>目的：</strong> 利用 <strong>Shared Memory (SRAM)</strong>
-这种高速片上内存。将小块数据加载到 SRAM，让线程反复在 SRAM
-上读取数据进行计算，从而减少对慢速 HBM 的访问。</li>
-</ul></li>
+<li><strong>目的：</strong> 利用 <strong>Shared Memory (SRAM)</strong> 这种高速片上内存。将小块数据加载到 SRAM，让线程反复在 SRAM 上读取数据进行计算，从而减少对慢速 HBM 的访问。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_28.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-28-tiling-的数学原理"><strong>Page 28: Tiling
-的数学原理</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>Non-tiled:</strong> 计算 <span class="math inline">\(C\)</span> 的每个元素都要从 HBM 读取 <span class="math inline">\(A\)</span> 的一行和 <span class="math inline">\(B\)</span> 的一列。每个数据被重复从 HBM 读取 <span class="math inline">\(N\)</span> 次。</li>
-<li><strong>Tiled:</strong> 每个数据只从 HBM 读取 <span class="math inline">\(N/T\)</span> 次（<span class="math inline">\(T\)</span> 是 Tile 大小）。</li>
-<li><strong>收益：</strong> 内存访问量减少了 <span class="math inline">\(T\)</span> 倍。这是矩阵乘法高效的根本原因。</li>
-</ul></li>
+<h3 id="Page-28-Tiling-的数学原理"><a href="#Page-28-Tiling-的数学原理" class="headerlink" title="Page 28: Tiling 的数学原理"></a><strong>Page 28: Tiling 的数学原理</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>Non-tiled:</strong> 计算 $C$ 的每个元素都要从 HBM 读取 $A$ 的一行和 $B$ 的一列。每个数据被重复从 HBM 读取 $N$ 次。</li>
+<li><strong>Tiled:</strong> 每个数据只从 HBM 读取 $N&#x2F;T$ 次（$T$ 是 Tile 大小）。</li>
+<li><strong>收益：</strong> 内存访问量减少了 $T$ 倍。这是矩阵乘法高效的根本原因。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_29.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-29-tiling-与-shared-memory"><strong>Page 29: Tiling 与
-Shared Memory</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 流程演示：
-<ol type="1">
-<li>协作将 <span class="math inline">\(M_{0,0}\)</span> 和 <span class="math inline">\(N_{0,0}\)</span> 块从 HBM 加载到 Shared
-Memory。</li>
+<h3 id="Page-29-Tiling-与-Shared-Memory"><a href="#Page-29-Tiling-与-Shared-Memory" class="headerlink" title="Page 29: Tiling 与 Shared Memory"></a><strong>Page 29: Tiling 与 Shared Memory</strong></h3><ul>
+<li><strong>内容解析：</strong> 流程演示：<ol>
+<li>协作将 $M_{0,0}$ 和 $N_{0,0}$ 块从 HBM 加载到 Shared Memory。</li>
 <li>线程在 Shared Memory 上进行高速计算。</li>
 <li>加载下一块。</li>
 </ol>
 <ul>
 <li>通过这种方式，大部分内存访问都发生在高速的 SRAM 上。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_30.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-30-tiling-的复杂性-1---边界问题"><strong>Page 30: Tiling
-的复杂性 1 - 边界问题</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
+<h3 id="Page-30-Tiling-的复杂性-1-边界问题"><a href="#Page-30-Tiling-的复杂性-1-边界问题" class="headerlink" title="Page 30: Tiling 的复杂性 1 - 边界问题"></a><strong>Page 30: Tiling 的复杂性 1 - 边界问题</strong></h3><ul>
+<li><strong>内容解析：</strong> <ul>
 <li>如果矩阵大小不能被 Tile 大小整除，边缘会多出一部分。</li>
-<li>需要处理 <strong>Padding</strong> 或者在代码中加
-<strong>边界检查</strong>，这会导致利用率下降（部分线程空转）。</li>
-</ul></li>
+<li>需要处理 <strong>Padding</strong> 或者在代码中加 <strong>边界检查</strong>，这会导致利用率下降（部分线程空转）。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_31.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-31-tiling-的复杂性-2---对齐问题"><strong>Page 31: Tiling
-的复杂性 2 - 对齐问题</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
+<h3 id="Page-31-Tiling-的复杂性-2-对齐问题"><a href="#Page-31-Tiling-的复杂性-2-对齐问题" class="headerlink" title="Page 31: Tiling 的复杂性 2 - 对齐问题"></a><strong>Page 31: Tiling 的复杂性 2 - 对齐问题</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
 <li><strong>Aligned:</strong> 完美对齐，利用 Coalescing。</li>
-<li><strong>Unaligned:</strong> 数据起始位置未对齐，导致一次 Tile
-读取需要跨越多个内存块，带宽减半。</li>
-</ul></li>
+<li><strong>Unaligned:</strong> 数据起始位置未对齐，导致一次 Tile 读取需要跨越多个内存块，带宽减半。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_32.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-32-矩阵性能之谜"><strong>Page 32:
-矩阵性能之谜</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-展示了一个锯齿状的性能曲线。为什么矩阵大小从 2048 增加到
-2049，性能会突然下降？</li>
+<h3 id="Page-32-矩阵性能之谜"><a href="#Page-32-矩阵性能之谜" class="headerlink" title="Page 32: 矩阵性能之谜"></a><strong>Page 32: 矩阵性能之谜</strong></h3><ul>
+<li><strong>内容解析：</strong> 展示了一个锯齿状的性能曲线。为什么矩阵大小从 2048 增加到 2049，性能会突然下降？</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_33.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-33-波浪量化-wave-quantization"><strong>Page 33: 波浪量化
-(Wave Quantization)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 解释了锯齿原因。
-<ul>
+<h3 id="Page-33-波浪量化-Wave-Quantization"><a href="#Page-33-波浪量化-Wave-Quantization" class="headerlink" title="Page 33: 波浪量化 (Wave Quantization)"></a><strong>Page 33: 波浪量化 (Wave Quantization)</strong></h3><ul>
+<li><strong>内容解析：</strong> 解释了锯齿原因。<ul>
 <li>GPU 的 SM 数量是固定的（如 108 个）。</li>
-<li><strong>Wave Effect:</strong> 如果任务块数量是 108，GPU
-刚好一波跑完，效率 100%。</li>
-<li><strong>Tail Effect:</strong> 如果任务块是 109，前 108
-个跑完后，剩下 1 个块还需要占用一整波的时间，此时 107 个 SM
-是空闲的。</li>
+<li><strong>Wave Effect:</strong> 如果任务块数量是 108，GPU 刚好一波跑完，效率 100%。</li>
+<li><strong>Tail Effect:</strong> 如果任务块是 109，前 108 个跑完后，剩下 1 个块还需要占用一整波的时间，此时 107 个 SM 是空闲的。</li>
 <li><strong>结论：</strong> 矩阵大小最好是 SM 数量的整数倍。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_34.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-34-新一代硬件-matmuls-are-fast"><strong>Page 34: 新一代硬件
-(Matmuls are fast)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li>由于 Tensor Cores 的存在，矩阵乘法现在非常快（比其他操作快 10
-倍）。</li>
+<h3 id="Page-34-新一代硬件-Matmuls-are-fast"><a href="#Page-34-新一代硬件-Matmuls-are-fast" class="headerlink" title="Page 34: 新一代硬件 (Matmuls are fast)"></a><strong>Page 34: 新一代硬件 (Matmuls are fast)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li>由于 Tensor Cores 的存在，矩阵乘法现在非常快（比其他操作快 10 倍）。</li>
 <li>现在的瓶颈往往转移到了那些不能利用 Tensor Core 的操作上。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_35.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-35-历史回顾"><strong>Page 35: 历史回顾</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 在 CUDA
-出现之前，研究人员不得不把矩阵运算伪装成图形渲染任务（Graphics
-Hardware）来利用 GPU。现在我们有了专门的工具。</li>
+<h3 id="Page-35-历史回顾"><a href="#Page-35-历史回顾" class="headerlink" title="Page 35: 历史回顾"></a><strong>Page 35: 历史回顾</strong></h3><ul>
+<li><strong>内容解析：</strong> 在 CUDA 出现之前，研究人员不得不把矩阵运算伪装成图形渲染任务（Graphics Hardware）来利用 GPU。现在我们有了专门的工具。</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_36.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-36-part-2-总结"><strong>Page 36: Part 2 总结</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 让 ML 负载变快的三个关键：
-<ol type="1">
-<li><strong>Reduce memory access:</strong> 通过 Coalescing 和
-Fusion。</li>
+<h3 id="Page-36-Part-2-总结"><a href="#Page-36-Part-2-总结" class="headerlink" title="Page 36: Part 2 总结"></a><strong>Page 36: Part 2 总结</strong></h3><ul>
+<li><strong>内容解析：</strong> 让 ML 负载变快的三个关键：<ol>
+<li><strong>Reduce memory access:</strong> 通过 Coalescing 和 Fusion。</li>
 <li><strong>Shared memory:</strong> 通过 Tiling 复用数据。</li>
 <li><strong>Compute trade-offs:</strong> 低精度、重计算。</li>
-</ol></li>
+</ol>
+</li>
 </ul>
 <hr>
-<h2 id="part-3-实战案例---flashattention-putting-it-all-together">Part
-3: 实战案例 - FlashAttention (Putting it all together)</h2>
-<p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_37.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-37-part-3-标题"><strong>Page 37: Part 3 标题</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 这一部分将前面的理论知识综合运用，解构
-<strong>FlashAttention</strong>。这是一个完美的案例，展示了如何通过硬件感知（IO-aware）的算法设计来突破性能瓶颈。</li>
+<h2 id="Part-3-实战案例-FlashAttention-Putting-it-all-together"><a href="#Part-3-实战案例-FlashAttention-Putting-it-all-together" class="headerlink" title="Part 3: 实战案例 - FlashAttention (Putting it all together)"></a>Part 3: 实战案例 - FlashAttention (Putting it all together)</h2><p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_37.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-37-Part-3-标题"><a href="#Page-37-Part-3-标题" class="headerlink" title="Page 37: Part 3 标题"></a><strong>Page 37: Part 3 标题</strong></h3><ul>
+<li><strong>内容解析：</strong> 这一部分将前面的理论知识综合运用，解构 <strong>FlashAttention</strong>。这是一个完美的案例，展示了如何通过硬件感知（IO-aware）的算法设计来突破性能瓶颈。</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_38.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-38-attention-计算回顾"><strong>Page 38: Attention
-计算回顾</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>公式：</strong> <span class="math inline">\(Attention(Q, K,
-V) = Softmax(QK^T)V\)</span>。</li>
-<li><strong>流程：</strong> 包含三个矩阵乘法。中间会生成一个 <span class="math inline">\(N \times N\)</span> 的矩阵（Attention
-Scores）。</li>
-<li><strong>痛点：</strong> <span class="math inline">\(N \times
-N\)</span> 矩阵读写量巨大，且显存占用是平方级 <span class="math inline">\(O(N^2)\)</span>。这导致长序列训练极其缓慢且显存不足。</li>
-</ul></li>
+<h3 id="Page-38-Attention-计算回顾"><a href="#Page-38-Attention-计算回顾" class="headerlink" title="Page 38: Attention 计算回顾"></a><strong>Page 38: Attention 计算回顾</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>公式：</strong> $Attention(Q, K, V) &#x3D; Softmax(QK^T)V$。</li>
+<li><strong>流程：</strong> 包含三个矩阵乘法。中间会生成一个 $N \times N$ 的矩阵（Attention Scores）。</li>
+<li><strong>痛点：</strong> $N \times N$ 矩阵读写量巨大，且显存占用是平方级 $O(N^2)$。这导致长序列训练极其缓慢且显存不足。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_39.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-39-flashattention-的效果"><strong>Page 39: FlashAttention
-的效果</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>Runtime (左图)：</strong> 随着 Block Size
-增加，FlashAttention 速度显著快于标准 Attention。</li>
-<li><strong>Memory (右图)：</strong>
-显存占用从平方级降低到了线性级。</li>
-<li><strong>核心思想：</strong> <strong>Tiling (分块)</strong> +
-<strong>Recomputation (重计算)</strong>。避免物化（Materialize）巨大的
-<span class="math inline">\(N \times N\)</span> 矩阵。</li>
-</ul></li>
+<h3 id="Page-39-FlashAttention-的效果"><a href="#Page-39-FlashAttention-的效果" class="headerlink" title="Page 39: FlashAttention 的效果"></a><strong>Page 39: FlashAttention 的效果</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>Runtime (左图)：</strong> 随着 Block Size 增加，FlashAttention 速度显著快于标准 Attention。</li>
+<li><strong>Memory (右图)：</strong> 显存占用从平方级降低到了线性级。</li>
+<li><strong>核心思想：</strong> <strong>Tiling (分块)</strong> + **Recomputation (重计算)**。避免物化（Materialize）巨大的 $N \times N$ 矩阵。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_40.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-40-tiling-part-1---矩阵乘法"><strong>Page 40: Tiling Part 1
-- 矩阵乘法</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li>这部分利用了标准的 Tiling 技巧。将 <span class="math inline">\(Q, K,
-V\)</span> 矩阵切分成小块。</li>
-<li>将小块加载到 SRAM，计算局部的 <span class="math inline">\(Q \times
-K^T\)</span>。这部分比较直观。</li>
-</ul></li>
+<h3 id="Page-40-Tiling-Part-1-矩阵乘法"><a href="#Page-40-Tiling-Part-1-矩阵乘法" class="headerlink" title="Page 40: Tiling Part 1 - 矩阵乘法"></a><strong>Page 40: Tiling Part 1 - 矩阵乘法</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li>这部分利用了标准的 Tiling 技巧。将 $Q, K, V$ 矩阵切分成小块。</li>
+<li>将小块加载到 SRAM，计算局部的 $Q \times K^T$。这部分比较直观。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_41.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-41-tiling-part-2---softmax-的难题"><strong>Page 41: Tiling
-Part 2 - Softmax 的难题</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>挑战：</strong> Softmax 是一个全局操作，需要一整行的
-<strong>Max</strong> 和 <strong>Sum</strong> 才能进行归一化。</li>
-<li><strong>困境：</strong>
-如果我们把矩阵切块了，在计算当前块时，无法预知后续块的数值，因此无法知道全局最大值，也就无法直接计算
-Softmax。</li>
-</ul></li>
+<h3 id="Page-41-Tiling-Part-2-Softmax-的难题"><a href="#Page-41-Tiling-Part-2-Softmax-的难题" class="headerlink" title="Page 41: Tiling Part 2 - Softmax 的难题"></a><strong>Page 41: Tiling Part 2 - Softmax 的难题</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>挑战：</strong> Softmax 是一个全局操作，需要一整行的 <strong>Max</strong> 和 <strong>Sum</strong> 才能进行归一化。</li>
+<li><strong>困境：</strong> 如果我们把矩阵切块了，在计算当前块时，无法预知后续块的数值，因此无法知道全局最大值，也就无法直接计算 Softmax。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_42.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-42-在线-softmax-online-softmax"><strong>Page 42: 在线
-Softmax (Online Softmax)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
+<h3 id="Page-42-在线-Softmax-Online-Softmax"><a href="#Page-42-在线-Softmax-Online-Softmax" class="headerlink" title="Page 42: 在线 Softmax (Online Softmax)"></a><strong>Page 42: 在线 Softmax (Online Softmax)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
 <li>这是 FlashAttention 的算法创新。引用了 Mikailov 2018 的论文。</li>
-<li><strong>技巧：</strong> <strong>Telescoping Sum Trick
-(伸缩和)</strong>。</li>
-<li><strong>原理：</strong> 维护局部的 max 和
-sum。当处理下一个块时，利用数学公式更新全局统计量，并动态修正之前计算出的结果。</li>
-<li><strong>意义：</strong> 这使得 Softmax 可以
-<strong>Tile-by-tile</strong> 计算，无需一次性生成整个大矩阵。</li>
-</ul></li>
+<li><strong>技巧：</strong> **Telescoping Sum Trick (伸缩和)**。</li>
+<li><strong>原理：</strong> 维护局部的 max 和 sum。当处理下一个块时，利用数学公式更新全局统计量，并动态修正之前计算出的结果。</li>
+<li><strong>意义：</strong> 这使得 Softmax 可以 <strong>Tile-by-tile</strong> 计算，无需一次性生成整个大矩阵。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_43.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-43-完整的-flashattention-前向传播"><strong>Page 43: 完整的
-FlashAttention 前向传播</strong></h3>
-<ul>
-<li><strong>内容解析：</strong> 这是 FlashAttention 的核心流程图。
-<ol type="1">
-<li><strong>Outer Loop:</strong> 遍历 <span class="math inline">\(K,
-V\)</span> 的块。</li>
-<li><strong>Inner Loop:</strong> 遍历 <span class="math inline">\(Q\)</span> 的块。</li>
-<li><strong>SRAM 计算:</strong> 在 SRAM 中计算 <span class="math inline">\(S = QK^T\)</span>，更新 Online Softmax
-统计量，计算 <span class="math inline">\(O = SV\)</span>。</li>
+<h3 id="Page-43-完整的-FlashAttention-前向传播"><a href="#Page-43-完整的-FlashAttention-前向传播" class="headerlink" title="Page 43: 完整的 FlashAttention 前向传播"></a><strong>Page 43: 完整的 FlashAttention 前向传播</strong></h3><ul>
+<li><strong>内容解析：</strong> 这是 FlashAttention 的核心流程图。<ol>
+<li><strong>Outer Loop:</strong> 遍历 $K, V$ 的块。</li>
+<li><strong>Inner Loop:</strong> 遍历 $Q$ 的块。</li>
+<li><strong>SRAM 计算:</strong> 在 SRAM 中计算 $S &#x3D; QK^T$，更新 Online Softmax 统计量，计算 $O &#x3D; SV$。</li>
 <li><strong>Output:</strong> 将结果写回 HBM。</li>
 </ol>
 <ul>
-<li><strong>关键：</strong> 巨大的 Attention 矩阵从未在 HBM
-中完整存在过，全程在 SRAM 中流转并被丢弃。</li>
-</ul></li>
+<li><strong>关键：</strong> 巨大的 Attention 矩阵从未在 HBM 中完整存在过，全程在 SRAM 中流转并被丢弃。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_44.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-44-课程总结-recap-of-attention"><strong>Page 44: 课程总结
-(Recap of Attention)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
+<h3 id="Page-44-课程总结-Recap-of-Attention"><a href="#Page-44-课程总结-Recap-of-Attention" class="headerlink" title="Page 44: 课程总结 (Recap of Attention)"></a><strong>Page 44: 课程总结 (Recap of Attention)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
 <li>回顾了 Attention 计算的三个矩阵乘法和中间的 Softmax。</li>
-<li>强调了 <span class="math inline">\(N \times N\)</span> 矩阵带来的 IO
-瓶颈。</li>
-</ul></li>
+<li>强调了 $N \times N$ 矩阵带来的 IO 瓶颈。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_45.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-45-io-复杂度分析-io-complexity"><strong>Page 45: IO
-复杂度分析 (IO Complexity)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>标准 Attention:</strong> IO 复杂度是 <span class="math inline">\(O(N^2)\)</span>。</li>
-<li><strong>FlashAttention:</strong> 通过 Tiling，IO 复杂度降低到了
-<span class="math inline">\(O(N^2 / \sqrt{M})\)</span>，其中 <span class="math inline">\(M\)</span> 是 SRAM 的大小。</li>
-<li><strong>结论：</strong> 这证明了 FlashAttention
-不仅仅是工程优化，在算法理论上也是 IO 最优的。</li>
-</ul></li>
+<h3 id="Page-45-IO-复杂度分析-IO-Complexity"><a href="#Page-45-IO-复杂度分析-IO-Complexity" class="headerlink" title="Page 45: IO 复杂度分析 (IO Complexity)"></a><strong>Page 45: IO 复杂度分析 (IO Complexity)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>标准 Attention:</strong> IO 复杂度是 $O(N^2)$。</li>
+<li><strong>FlashAttention:</strong> 通过 Tiling，IO 复杂度降低到了 $O(N^2 &#x2F; \sqrt{M})$，其中 $M$ 是 SRAM 的大小。</li>
+<li><strong>结论：</strong> 这证明了 FlashAttention 不仅仅是工程优化，在算法理论上也是 IO 最优的。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_46.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-46-反向传播-backward-pass"><strong>Page 46: 反向传播
-(Backward Pass)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li>FlashAttention 的反向传播也使用了 <strong>重计算
-(Recomputation)</strong> 技巧。</li>
+<h3 id="Page-46-反向传播-Backward-Pass"><a href="#Page-46-反向传播-Backward-Pass" class="headerlink" title="Page 46: 反向传播 (Backward Pass)"></a><strong>Page 46: 反向传播 (Backward Pass)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li>FlashAttention 的反向传播也使用了 <strong>重计算 (Recomputation)</strong> 技巧。</li>
 <li>前向传播时不保存 Attention 矩阵。</li>
-<li>反向传播时，利用保存的 <span class="math inline">\(Q, K, V\)</span>
-和 Output，在 SRAM 中快速重新计算出 Attention 矩阵，用于梯度计算。</li>
-<li>虽然多算了，但省去了巨大的 HBM 写/读开销，总体速度更快。</li>
-</ul></li>
+<li>反向传播时，利用保存的 $Q, K, V$ 和 Output，在 SRAM 中快速重新计算出 Attention 矩阵，用于梯度计算。</li>
+<li>虽然多算了，但省去了巨大的 HBM 写&#x2F;读开销，总体速度更快。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_47.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-47-flashattention-2"><strong>Page 47: FlashAttention
-2</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
+<h3 id="Page-47-FlashAttention-2"><a href="#Page-47-FlashAttention-2" class="headerlink" title="Page 47: FlashAttention 2"></a><strong>Page 47: FlashAttention 2</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
 <li>提到了后续版本 <strong>FlashAttention-2</strong>。</li>
-<li>进一步优化了并行策略（从并行化 Batch 变为并行化 Sequence），减少了非
-MatMul 操作的开销，使得性能更接近硬件极限。</li>
-</ul></li>
+<li>进一步优化了并行策略（从并行化 Batch 变为并行化 Sequence），减少了非 MatMul 操作的开销，使得性能更接近硬件极限。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_48.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-48-广泛应用"><strong>Page 48: 广泛应用</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li>FlashAttention 已经成为所有现代 LLM 训练框架（PyTorch, MosaicML,
-DeepSpeed）的标配。</li>
+<h3 id="Page-48-广泛应用"><a href="#Page-48-广泛应用" class="headerlink" title="Page 48: 广泛应用"></a><strong>Page 48: 广泛应用</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li>FlashAttention 已经成为所有现代 LLM 训练框架（PyTorch, MosaicML, DeepSpeed）的标配。</li>
 <li>它使得长上下文（Long Context）模型成为可能。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_49.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-49-recap-part-1-gpus-in-depth"><strong>Page 49: Recap Part
-1 (GPUs in Depth)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
+<h3 id="Page-49-Recap-Part-1-GPUs-in-Depth"><a href="#Page-49-Recap-Part-1-GPUs-in-Depth" class="headerlink" title="Page 49: Recap Part 1 (GPUs in Depth)"></a><strong>Page 49: Recap Part 1 (GPUs in Depth)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
 <li>GPU 是为吞吐量设计的，拥有海量 ALU。</li>
 <li>内存层级（HBM vs SRAM）是理解性能的关键。</li>
-<li>执行模型（Grid/Block/Warp）决定了代码的组织方式。</li>
-</ul></li>
+<li>执行模型（Grid&#x2F;Block&#x2F;Warp）决定了代码的组织方式。</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_50.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-50-recap-part-2-performance-optimization"><strong>Page 50:
-Recap Part 2 (Performance Optimization)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ul>
-<li><strong>Roofline Model:</strong> 区分 Compute Bound 和 Memory
-Bound。</li>
-<li><strong>Optimization Tricks:</strong>
-<ol type="1">
+<h3 id="Page-50-Recap-Part-2-Performance-Optimization"><a href="#Page-50-Recap-Part-2-Performance-Optimization" class="headerlink" title="Page 50: Recap Part 2 (Performance Optimization)"></a><strong>Page 50: Recap Part 2 (Performance Optimization)</strong></h3><ul>
+<li><strong>内容解析：</strong><ul>
+<li><strong>Roofline Model:</strong> 区分 Compute Bound 和 Memory Bound。</li>
+<li><strong>Optimization Tricks:</strong><ol>
 <li><strong>Tiling:</strong> 利用 SRAM 复用数据。</li>
 <li><strong>Coalescing:</strong> 对齐内存访问。</li>
 <li><strong>Fusion:</strong> 减少 HBM 访问。</li>
 <li><strong>Tensor Cores:</strong> 加速矩阵计算。</li>
-</ol></li>
-</ul></li>
+</ol>
+</li>
+</ul>
+</li>
 </ul>
 <p><img src="/images/linux/drivers/gpu/stanford-cs336/gpu/2025%20Lecture%205%20-%20GPUs_51.png" srcset="/img/loading.gif" lazyload></p>
-<h3 id="page-51-全课总结-recap-for-the-whole-lecture"><strong>Page 51:
-全课总结 (Recap for the whole lecture)</strong></h3>
-<ul>
-<li><strong>内容解析：</strong>
-<ol type="1">
-<li><strong>Hardware:</strong> 硬件算力和底层细节（SRAM
-带宽）决定了扩展的上限。</li>
-<li><strong>Performance:</strong> 当前 GPU 编程的核心在于思考
-<strong>MatMul + Data Movement</strong>。显存带宽通常是最大的瓶颈。</li>
-<li><strong>Tricks:</strong> 仔细思考 GPU 特性 —— Coalescing, Tiling,
-Fusion —— 能带来巨大的性能提升。<strong>FlashAttention</strong>
-就是这些原则的集大成者，它通过算法创新将一个 Memory Bound 的问题转化为了
-Compute Bound 的问题。</li>
-</ol></li>
+<h3 id="Page-51-全课总结-Recap-for-the-whole-lecture"><a href="#Page-51-全课总结-Recap-for-the-whole-lecture" class="headerlink" title="Page 51: 全课总结 (Recap for the whole lecture)"></a><strong>Page 51: 全课总结 (Recap for the whole lecture)</strong></h3><ul>
+<li><strong>内容解析：</strong><ol>
+<li><strong>Hardware:</strong> 硬件算力和底层细节（SRAM 带宽）决定了扩展的上限。</li>
+<li><strong>Performance:</strong> 当前 GPU 编程的核心在于思考 <strong>MatMul + Data Movement</strong>。显存带宽通常是最大的瓶颈。</li>
+<li><strong>Tricks:</strong> 仔细思考 GPU 特性 —— Coalescing, Tiling, Fusion —— 能带来巨大的性能提升。<strong>FlashAttention</strong> 就是这些原则的集大成者，它通过算法创新将一个 Memory Bound 的问题转化为了 Compute Bound 的问题。</li>
+</ol>
+</li>
 </ul>
 
                 

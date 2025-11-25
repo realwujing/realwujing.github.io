@@ -16,12 +16,12 @@
   <meta name="author" content="Wu Jing">
   <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
   
-    <meta name="description" content="大模型从0到1｜第二讲：PyTorch手把手搭建LLM  课程链接：Stanford CS336 Spring 2025 - Lecture 2   课程概述 上节课回顾： 课程概述、Tokenization 本讲概览： - 讨论训练模型所需的所有原语（primitives） - 自底向上：从张量 → 模型 → 优化器 → 训练循环 - 密切关注效率（资源使用） 两类资源： 1. 内存（Memor">
+    <meta name="description" content="大模型从0到1｜第二讲：PyTorch手把手搭建LLM 课程链接：Stanford CS336 Spring 2025 - Lecture 2   课程概述上节课回顾： 课程概述、Tokenization 本讲概览：  讨论训练模型所需的所有原语（primitives） 自底向上：从张量 → 模型 → 优化器 → 训练循环 密切关注效率（资源使用）  两类资源：  内存（Memory） - GB">
 <meta property="og:type" content="article">
 <meta property="og:title" content="大模型从0到1｜第二讲：PyTorch手把手搭建LLM">
 <meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E4%BA%8C%E8%AE%B2%EF%BC%9Apytorch%E6%89%8B%E6%8A%8A%E6%89%8B%E6%90%AD%E5%BB%BALLM/index.html">
 <meta property="og:site_name" content="WuJing&#39;s Blog">
-<meta property="og:description" content="大模型从0到1｜第二讲：PyTorch手把手搭建LLM  课程链接：Stanford CS336 Spring 2025 - Lecture 2   课程概述 上节课回顾： 课程概述、Tokenization 本讲概览： - 讨论训练模型所需的所有原语（primitives） - 自底向上：从张量 → 模型 → 优化器 → 训练循环 - 密切关注效率（资源使用） 两类资源： 1. 内存（Memor">
+<meta property="og:description" content="大模型从0到1｜第二讲：PyTorch手把手搭建LLM 课程链接：Stanford CS336 Spring 2025 - Lecture 2   课程概述上节课回顾： 课程概述、Tokenization 本讲概览：  讨论训练模型所需的所有原语（primitives） 自底向上：从张量 → 模型 → 优化器 → 训练循环 密切关注效率（资源使用）  两类资源：  内存（Memory） - GB">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/fp32.png">
 <meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/fp16.png">
@@ -75,6 +75,10 @@
     <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
   
 
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
 
 
 
@@ -346,390 +350,472 @@
             
               <div class="markdown-body">
                 
-                <h1 id="大模型从0到1第二讲pytorch手把手搭建llm">大模型从0到1｜第二讲：PyTorch手把手搭建LLM</h1>
-<blockquote>
-<p>课程链接：<a target="_blank" rel="noopener" href="https://stanford-cs336.github.io/spring2025-lectures/?trace=var/traces/lecture_02.json">Stanford
-CS336 Spring 2025 - Lecture 2</a></p>
+                <h1 id="大模型从0到1｜第二讲：PyTorch手把手搭建LLM"><a href="#大模型从0到1｜第二讲：PyTorch手把手搭建LLM" class="headerlink" title="大模型从0到1｜第二讲：PyTorch手把手搭建LLM"></a>大模型从0到1｜第二讲：PyTorch手把手搭建LLM</h1><blockquote>
+<p>课程链接：<a target="_blank" rel="noopener" href="https://stanford-cs336.github.io/spring2025-lectures/?trace=var/traces/lecture_02.json">Stanford CS336 Spring 2025 - Lecture 2</a></p>
 </blockquote>
 <hr>
-<h2 id="课程概述">课程概述</h2>
-<p><strong>上节课回顾：</strong> 课程概述、Tokenization</p>
-<p><strong>本讲概览：</strong> -
-讨论训练模型所需的所有<strong>原语（primitives）</strong> -
-自底向上：从张量 → 模型 → 优化器 → 训练循环 -
-密切关注效率（<strong>资源</strong>使用）</p>
-<p><strong>两类资源：</strong> 1. <strong>内存（Memory）</strong> - GB
-2. <strong>计算（Compute）</strong> - FLOPs</p>
+<h2 id="课程概述"><a href="#课程概述" class="headerlink" title="课程概述"></a>课程概述</h2><p><strong>上节课回顾：</strong> 课程概述、Tokenization</p>
+<p><strong>本讲概览：</strong></p>
+<ul>
+<li>讨论训练模型所需的所有<strong>原语（primitives）</strong></li>
+<li>自底向上：从张量 → 模型 → 优化器 → 训练循环</li>
+<li>密切关注效率（<strong>资源</strong>使用）</li>
+</ul>
+<p><strong>两类资源：</strong></p>
+<ol>
+<li><strong>内存（Memory）</strong> - GB</li>
+<li><strong>计算（Compute）</strong> - FLOPs</li>
+</ol>
 <hr>
-<h2 id="动机问题">动机问题</h2>
-<p>让我们做一些粗略计算：</p>
-<h3 id="问题-1训练时间估算">问题 1：训练时间估算</h3>
-<p><strong>问题：</strong> 在 1024 个 H100 上训练 70B 参数模型，使用 15T
-token，需要多长时间？</p>
+<h2 id="动机问题"><a href="#动机问题" class="headerlink" title="动机问题"></a>动机问题</h2><p>让我们做一些粗略计算：</p>
+<h3 id="问题-1：训练时间估算"><a href="#问题-1：训练时间估算" class="headerlink" title="问题 1：训练时间估算"></a>问题 1：训练时间估算</h3><p><strong>问题：</strong> 在 1024 个 H100 上训练 70B 参数模型，使用 15T token，需要多长时间？</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 总 FLOPs = 6 × 参数量 × token 数</span><br>total_flops = <span class="hljs-number">6</span> * <span class="hljs-number">70e9</span> * <span class="hljs-number">15e12</span>  <span class="hljs-comment"># 6.3e24 FLOPs</span><br><br><span class="hljs-comment"># H100 性能</span><br>h100_flop_per_sec = <span class="hljs-number">1979e12</span> / <span class="hljs-number">2</span>  <span class="hljs-comment"># 989.5 TFLOP/s（无稀疏性）</span><br><br><span class="hljs-comment"># 模型 FLOPs 利用率（MFU）</span><br>mfu = <span class="hljs-number">0.5</span><br><br><span class="hljs-comment"># 每天的 FLOPs</span><br>flops_per_day = h100_flop_per_sec * mfu * <span class="hljs-number">1024</span> * <span class="hljs-number">60</span> * <span class="hljs-number">60</span> * <span class="hljs-number">24</span><br><span class="hljs-comment"># ≈ 4.37e22 FLOPs/day</span><br><br><span class="hljs-comment"># 所需天数</span><br>days = total_flops / flops_per_day  <span class="hljs-comment"># ≈ 144 天</span><br></code></pre></td></tr></table></figure>
+
 <hr>
-<h3 id="问题-2内存容量估算">问题 2：内存容量估算</h3>
-<p><strong>问题：</strong> 使用 AdamW 在 8 个 H100
-上能训练多大的模型？</p>
+<h3 id="问题-2：内存容量估算"><a href="#问题-2：内存容量估算" class="headerlink" title="问题 2：内存容量估算"></a>问题 2：内存容量估算</h3><p><strong>问题：</strong> 使用 AdamW 在 8 个 H100 上能训练多大的模型？</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># H100 内存</span><br>h100_bytes = <span class="hljs-number">80e9</span>  <span class="hljs-comment"># 80 GB</span><br><br><span class="hljs-comment"># 每个参数的字节数</span><br>bytes_per_parameter = <span class="hljs-number">4</span> + <span class="hljs-number">4</span> + (<span class="hljs-number">4</span> + <span class="hljs-number">4</span>)  <span class="hljs-comment"># 16 bytes</span><br><span class="hljs-comment"># - 参数：4 bytes (float32)</span><br><span class="hljs-comment"># - 梯度：4 bytes (float32)</span><br><span class="hljs-comment"># - 优化器状态：8 bytes (m, v for Adam)</span><br><br><span class="hljs-comment"># 可容纳的参数量</span><br>num_parameters = (h100_bytes * <span class="hljs-number">8</span>) / bytes_per_parameter<br><span class="hljs-comment"># ≈ 40B 参数</span><br></code></pre></td></tr></table></figure>
-<p><strong>注意事项：</strong> 1. 可以使用 bf16
-存储参数和梯度（2+2），保留 float32 副本（4），不节省内存但更快 2.
-激活（activations）未计入（取决于批大小和序列长度）</p>
+
+<p><strong>注意事项：</strong></p>
+<ol>
+<li>可以使用 bf16 存储参数和梯度（2+2），保留 float32 副本（4），不节省内存但更快</li>
+<li>激活（activations）未计入（取决于批大小和序列长度）</li>
+</ol>
 <p>这只是粗略的估算！</p>
 <hr>
-<h2 id="part-1-内存核算">Part 1: 内存核算</h2>
-<h3 id="张量基础">1.1 张量基础</h3>
-<p><strong>张量：</strong> 存储一切的基本构建块 - 参数（Parameters） -
-梯度（Gradients） - 优化器状态（Optimizer State） - 数据（Data） -
-激活（Activations）</p>
-<p><strong>文档：</strong> <a target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/tensors.html">PyTorch
-Tensors</a></p>
-<h4 id="创建张量">创建张量</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 方式 1：从列表创建</span><br>x = torch.tensor([[<span class="hljs-number">1.</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>], [<span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>]])<br><br><span class="hljs-comment"># 方式 2：全零矩阵</span><br>x = torch.zeros(<span class="hljs-number">4</span>, <span class="hljs-number">8</span>)  <span class="hljs-comment"># 4x8 矩阵</span><br><br><span class="hljs-comment"># 方式 3：全一矩阵</span><br>x = torch.ones(<span class="hljs-number">4</span>, <span class="hljs-number">8</span>)<br><br><span class="hljs-comment"># 方式 4：随机正态分布</span><br>x = torch.randn(<span class="hljs-number">4</span>, <span class="hljs-number">8</span>)  <span class="hljs-comment"># N(0, 1)</span><br><br><span class="hljs-comment"># 方式 5：分配但不初始化（更快）</span><br>x = torch.empty(<span class="hljs-number">4</span>, <span class="hljs-number">8</span>)<br><span class="hljs-comment"># 稍后使用自定义逻辑初始化</span><br>nn.init.trunc_normal_(x, mean=<span class="hljs-number">0</span>, std=<span class="hljs-number">1</span>, a=-<span class="hljs-number">2</span>, b=<span class="hljs-number">2</span>)<br></code></pre></td></tr></table></figure>
+<h2 id="Part-1-内存核算"><a href="#Part-1-内存核算" class="headerlink" title="Part 1: 内存核算"></a>Part 1: 内存核算</h2><h3 id="1-1-张量基础"><a href="#1-1-张量基础" class="headerlink" title="1.1 张量基础"></a>1.1 张量基础</h3><p><strong>张量：</strong> 存储一切的基本构建块</p>
+<ul>
+<li>参数（Parameters）</li>
+<li>梯度（Gradients）</li>
+<li>优化器状态（Optimizer State）</li>
+<li>数据（Data）</li>
+<li>激活（Activations）</li>
+</ul>
+<p><strong>文档：</strong> <a target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/tensors.html">PyTorch Tensors</a></p>
+<h4 id="创建张量"><a href="#创建张量" class="headerlink" title="创建张量"></a>创建张量</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 方式 1：从列表创建</span><br>x = torch.tensor([[<span class="hljs-number">1.</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>], [<span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>]])<br><br><span class="hljs-comment"># 方式 2：全零矩阵</span><br>x = torch.zeros(<span class="hljs-number">4</span>, <span class="hljs-number">8</span>)  <span class="hljs-comment"># 4x8 矩阵</span><br><br><span class="hljs-comment"># 方式 3：全一矩阵</span><br>x = torch.ones(<span class="hljs-number">4</span>, <span class="hljs-number">8</span>)<br><br><span class="hljs-comment"># 方式 4：随机正态分布</span><br>x = torch.randn(<span class="hljs-number">4</span>, <span class="hljs-number">8</span>)  <span class="hljs-comment"># N(0, 1)</span><br><br><span class="hljs-comment"># 方式 5：分配但不初始化（更快）</span><br>x = torch.empty(<span class="hljs-number">4</span>, <span class="hljs-number">8</span>)<br><span class="hljs-comment"># 稍后使用自定义逻辑初始化</span><br>nn.init.trunc_normal_(x, mean=<span class="hljs-number">0</span>, std=<span class="hljs-number">1</span>, a=-<span class="hljs-number">2</span>, b=<span class="hljs-number">2</span>)<br></code></pre></td></tr></table></figure>
+
 <hr>
-<h3 id="浮点数类型">1.2 浮点数类型</h3>
-<p>几乎所有内容（参数、梯度、激活、优化器状态）都存储为浮点数。</p>
-<h4 id="float32单精度">float32（单精度）</h4>
-<figure>
-<img src="https://stanford-cs336.github.io/spring2025-lectures/images/fp32.png" srcset="/img/loading.gif" lazyload alt="FP32">
-<figcaption aria-hidden="true">FP32</figcaption>
-</figure>
-<p><strong>特点：</strong> - 默认数据类型 - 1 位符号 + 8 位指数 + 23
-位尾数 - 每个值 4 字节</p>
-<p><strong>示例：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.zeros(<span class="hljs-number">4</span>, <span class="hljs-number">8</span>)<br><span class="hljs-keyword">assert</span> x.dtype == torch.float32  <span class="hljs-comment"># 默认类型</span><br><span class="hljs-keyword">assert</span> x.numel() == <span class="hljs-number">32</span>  <span class="hljs-comment"># 元素数量</span><br><span class="hljs-keyword">assert</span> x.element_size() == <span class="hljs-number">4</span>  <span class="hljs-comment"># 每个元素 4 字节</span><br><span class="hljs-keyword">assert</span> x.numel() * x.element_size() == <span class="hljs-number">128</span>  <span class="hljs-comment"># 总共 128 字节</span><br></code></pre></td></tr></table></figure></p>
-<p><strong>GPT-3 的一个前馈层矩阵：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 12288 * 4 × 12288 = 2.3 GB</span><br>torch.empty(<span class="hljs-number">12288</span> * <span class="hljs-number">4</span>, <span class="hljs-number">12288</span>).numel() * <span class="hljs-number">4</span> / (<span class="hljs-number">1024</span>**<span class="hljs-number">3</span>)  <span class="hljs-comment"># 2.3 GB</span><br></code></pre></td></tr></table></figure></p>
+<h3 id="1-2-浮点数类型"><a href="#1-2-浮点数类型" class="headerlink" title="1.2 浮点数类型"></a>1.2 浮点数类型</h3><p>几乎所有内容（参数、梯度、激活、优化器状态）都存储为浮点数。</p>
+<h4 id="float32（单精度）"><a href="#float32（单精度）" class="headerlink" title="float32（单精度）"></a>float32（单精度）</h4><p><img src="https://stanford-cs336.github.io/spring2025-lectures/images/fp32.png" srcset="/img/loading.gif" lazyload alt="FP32"></p>
+<p><strong>特点：</strong></p>
+<ul>
+<li>默认数据类型</li>
+<li>1 位符号 + 8 位指数 + 23 位尾数</li>
+<li>每个值 4 字节</li>
+</ul>
+<p><strong>示例：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.zeros(<span class="hljs-number">4</span>, <span class="hljs-number">8</span>)<br><span class="hljs-keyword">assert</span> x.dtype == torch.float32  <span class="hljs-comment"># 默认类型</span><br><span class="hljs-keyword">assert</span> x.numel() == <span class="hljs-number">32</span>  <span class="hljs-comment"># 元素数量</span><br><span class="hljs-keyword">assert</span> x.element_size() == <span class="hljs-number">4</span>  <span class="hljs-comment"># 每个元素 4 字节</span><br><span class="hljs-keyword">assert</span> x.numel() * x.element_size() == <span class="hljs-number">128</span>  <span class="hljs-comment"># 总共 128 字节</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>GPT-3 的一个前馈层矩阵：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 12288 * 4 × 12288 = 2.3 GB</span><br>torch.empty(<span class="hljs-number">12288</span> * <span class="hljs-number">4</span>, <span class="hljs-number">12288</span>).numel() * <span class="hljs-number">4</span> / (<span class="hljs-number">1024</span>**<span class="hljs-number">3</span>)  <span class="hljs-comment"># 2.3 GB</span><br></code></pre></td></tr></table></figure>
+
 <p>这太多了！</p>
 <hr>
-<h4 id="float16半精度">float16（半精度）</h4>
-<figure>
-<img src="https://stanford-cs336.github.io/spring2025-lectures/images/fp16.png" srcset="/img/loading.gif" lazyload alt="FP16">
-<figcaption aria-hidden="true">FP16</figcaption>
-</figure>
-<p><strong>特点：</strong> - 1 位符号 + 5 位指数 + 10 位尾数 - 每个值 2
-字节 - 内存减半</p>
-<p><strong>问题：动态范围不足</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.tensor([<span class="hljs-number">1e-8</span>], dtype=torch.float16)<br><span class="hljs-keyword">assert</span> x == <span class="hljs-number">0</span>  <span class="hljs-comment"># 下溢！</span><br></code></pre></td></tr></table></figure></p>
+<h4 id="float16（半精度）"><a href="#float16（半精度）" class="headerlink" title="float16（半精度）"></a>float16（半精度）</h4><p><img src="https://stanford-cs336.github.io/spring2025-lectures/images/fp16.png" srcset="/img/loading.gif" lazyload alt="FP16"></p>
+<p><strong>特点：</strong></p>
+<ul>
+<li>1 位符号 + 5 位指数 + 10 位尾数</li>
+<li>每个值 2 字节</li>
+<li>内存减半</li>
+</ul>
+<p><strong>问题：动态范围不足</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.tensor([<span class="hljs-number">1e-8</span>], dtype=torch.float16)<br><span class="hljs-keyword">assert</span> x == <span class="hljs-number">0</span>  <span class="hljs-comment"># 下溢！</span><br></code></pre></td></tr></table></figure>
+
 <p>训练时可能导致不稳定。</p>
 <hr>
-<h4 id="bfloat16brain-float">bfloat16（Brain Float）</h4>
-<figure>
-<img src="https://stanford-cs336.github.io/spring2025-lectures/images/bf16.png" srcset="/img/loading.gif" lazyload alt="BF16">
-<figcaption aria-hidden="true">BF16</figcaption>
-</figure>
-<p><strong>特点：</strong> - Google Brain 2018 年开发 - 1 位符号 + 8
-位指数 + 7 位尾数 - 与 float16 相同内存（2 字节） - 与 float32
-相同动态范围！ - 只是精度较低（但深度学习不太在意）</p>
+<h4 id="bfloat16（Brain-Float）"><a href="#bfloat16（Brain-Float）" class="headerlink" title="bfloat16（Brain Float）"></a>bfloat16（Brain Float）</h4><p><img src="https://stanford-cs336.github.io/spring2025-lectures/images/bf16.png" srcset="/img/loading.gif" lazyload alt="BF16"></p>
+<p><strong>特点：</strong></p>
+<ul>
+<li>Google Brain 2018 年开发</li>
+<li>1 位符号 + 8 位指数 + 7 位尾数</li>
+<li>与 float16 相同内存（2 字节）</li>
+<li>与 float32 相同动态范围！</li>
+<li>只是精度较低（但深度学习不太在意）</li>
+</ul>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.tensor([<span class="hljs-number">1e-8</span>], dtype=torch.bfloat16)<br><span class="hljs-keyword">assert</span> x != <span class="hljs-number">0</span>  <span class="hljs-comment"># 没有下溢！</span><br></code></pre></td></tr></table></figure>
-<p><strong>对比：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs python">float32_info = torch.finfo(torch.float32)<br><span class="hljs-comment"># max=3.4e38, min=-3.4e38, eps=1.19e-07</span><br><br>float16_info = torch.finfo(torch.float16)<br><span class="hljs-comment"># max=65504, min=-65504, eps=0.000977</span><br><br>bfloat16_info = torch.finfo(torch.bfloat16)<br><span class="hljs-comment"># max=3.39e38, min=-3.39e38, eps=0.0078</span><br></code></pre></td></tr></table></figure></p>
+
+<p><strong>对比：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs python">float32_info = torch.finfo(torch.float32)<br><span class="hljs-comment"># max=3.4e38, min=-3.4e38, eps=1.19e-07</span><br><br>float16_info = torch.finfo(torch.float16)<br><span class="hljs-comment"># max=65504, min=-65504, eps=0.000977</span><br><br>bfloat16_info = torch.finfo(torch.bfloat16)<br><span class="hljs-comment"># max=3.39e38, min=-3.39e38, eps=0.0078</span><br></code></pre></td></tr></table></figure>
+
 <hr>
-<h4 id="fp8">FP8</h4>
-<p><strong>2022 年标准化，专为机器学习设计</strong></p>
-<figure>
-<img src="https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/_images/fp8_formats.png" srcset="/img/loading.gif" lazyload alt="FP8 Formats">
-<figcaption aria-hidden="true">FP8 Formats</figcaption>
-</figure>
-<p><strong>H100 支持两种 FP8 变体：</strong> - <strong>E4M3：</strong>
-范围 [-448, 448] - <strong>E5M2：</strong> 范围 [-57344, 57344]</p>
-<p><strong>参考：</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2209.05433.pdf">FP8 Formats for Deep
-Learning</a></p>
+<h4 id="FP8"><a href="#FP8" class="headerlink" title="FP8"></a>FP8</h4><p><strong>2022 年标准化，专为机器学习设计</strong></p>
+<p><img src="https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/_images/fp8_formats.png" srcset="/img/loading.gif" lazyload alt="FP8 Formats"></p>
+<p><strong>H100 支持两种 FP8 变体：</strong></p>
+<ul>
+<li><strong>E4M3：</strong> 范围 [-448, 448]</li>
+<li><strong>E5M2：</strong> 范围 [-57344, 57344]</li>
+</ul>
+<p><strong>参考：</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2209.05433.pdf">FP8 Formats for Deep Learning</a></p>
 <hr>
-<h4 id="训练的影响">训练的影响</h4>
-<p><strong>问题：</strong> - float32 训练可行，但需要大量内存 -
-fp8、float16 甚至 bfloat16 训练有风险，可能不稳定</p>
+<h4 id="训练的影响"><a href="#训练的影响" class="headerlink" title="训练的影响"></a>训练的影响</h4><p><strong>问题：</strong></p>
+<ul>
+<li>float32 训练可行，但需要大量内存</li>
+<li>fp8、float16 甚至 bfloat16 训练有风险，可能不稳定</li>
+</ul>
 <p><strong>解决方案：</strong> 混合精度训练（稍后讨论）</p>
 <hr>
-<h3 id="gpu-上的张量">1.3 GPU 上的张量</h3>
-<p><strong>默认：</strong> 张量存储在 CPU 内存中</p>
+<h3 id="1-3-GPU-上的张量"><a href="#1-3-GPU-上的张量" class="headerlink" title="1.3 GPU 上的张量"></a>1.3 GPU 上的张量</h3><p><strong>默认：</strong> 张量存储在 CPU 内存中</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.zeros(<span class="hljs-number">32</span>, <span class="hljs-number">32</span>)<br><span class="hljs-keyword">assert</span> x.device == torch.device(<span class="hljs-string">&quot;cpu&quot;</span>)<br></code></pre></td></tr></table></figure>
+
 <p><strong>GPU 加速：</strong> 需要将张量移动到 GPU 内存</p>
-<figure>
-<img src="https://stanford-cs336.github.io/spring2025-lectures/images/cpu-gpu.png" srcset="/img/loading.gif" lazyload alt="CPU-GPU">
-<figcaption aria-hidden="true">CPU-GPU</figcaption>
-</figure>
-<h4 id="检查-gpu">检查 GPU</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 检查是否有 GPU</span><br>torch.cuda.is_available()  <span class="hljs-comment"># True/False</span><br><br><span class="hljs-comment"># GPU 数量</span><br>num_gpus = torch.cuda.device_count()<br><br><span class="hljs-comment"># GPU 属性</span><br><span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_gpus):<br>    properties = torch.cuda.get_device_properties(i)<br>    <span class="hljs-comment"># name, total_memory, etc.</span><br><br><span class="hljs-comment"># 当前内存使用</span><br>memory_allocated = torch.cuda.memory_allocated()<br></code></pre></td></tr></table></figure>
-<h4 id="移动到-gpu">移动到 GPU</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 方式 1：移动现有张量</span><br>x = torch.zeros(<span class="hljs-number">32</span>, <span class="hljs-number">32</span>)<br>y = x.to(<span class="hljs-string">&quot;cuda:0&quot;</span>)<br><span class="hljs-keyword">assert</span> y.device == torch.device(<span class="hljs-string">&quot;cuda&quot;</span>, <span class="hljs-number">0</span>)<br><br><span class="hljs-comment"># 方式 2：直接在 GPU 上创建</span><br>z = torch.zeros(<span class="hljs-number">32</span>, <span class="hljs-number">32</span>, device=<span class="hljs-string">&quot;cuda:0&quot;</span>)<br><br><span class="hljs-comment"># 检查内存使用</span><br>new_memory = torch.cuda.memory_allocated()<br>memory_used = new_memory - memory_allocated<br><span class="hljs-keyword">assert</span> memory_used == <span class="hljs-number">2</span> * (<span class="hljs-number">32</span> * <span class="hljs-number">32</span> * <span class="hljs-number">4</span>)  <span class="hljs-comment"># 两个 32x32 float32 矩阵</span><br></code></pre></td></tr></table></figure>
+<p><img src="https://stanford-cs336.github.io/spring2025-lectures/images/cpu-gpu.png" srcset="/img/loading.gif" lazyload alt="CPU-GPU"></p>
+<h4 id="检查-GPU"><a href="#检查-GPU" class="headerlink" title="检查 GPU"></a>检查 GPU</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 检查是否有 GPU</span><br>torch.cuda.is_available()  <span class="hljs-comment"># True/False</span><br><br><span class="hljs-comment"># GPU 数量</span><br>num_gpus = torch.cuda.device_count()<br><br><span class="hljs-comment"># GPU 属性</span><br><span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_gpus):<br>    properties = torch.cuda.get_device_properties(i)<br>    <span class="hljs-comment"># name, total_memory, etc.</span><br><br><span class="hljs-comment"># 当前内存使用</span><br>memory_allocated = torch.cuda.memory_allocated()<br></code></pre></td></tr></table></figure>
+
+<h4 id="移动到-GPU"><a href="#移动到-GPU" class="headerlink" title="移动到 GPU"></a>移动到 GPU</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 方式 1：移动现有张量</span><br>x = torch.zeros(<span class="hljs-number">32</span>, <span class="hljs-number">32</span>)<br>y = x.to(<span class="hljs-string">&quot;cuda:0&quot;</span>)<br><span class="hljs-keyword">assert</span> y.device == torch.device(<span class="hljs-string">&quot;cuda&quot;</span>, <span class="hljs-number">0</span>)<br><br><span class="hljs-comment"># 方式 2：直接在 GPU 上创建</span><br>z = torch.zeros(<span class="hljs-number">32</span>, <span class="hljs-number">32</span>, device=<span class="hljs-string">&quot;cuda:0&quot;</span>)<br><br><span class="hljs-comment"># 检查内存使用</span><br>new_memory = torch.cuda.memory_allocated()<br>memory_used = new_memory - memory_allocated<br><span class="hljs-keyword">assert</span> memory_used == <span class="hljs-number">2</span> * (<span class="hljs-number">32</span> * <span class="hljs-number">32</span> * <span class="hljs-number">4</span>)  <span class="hljs-comment"># 两个 32x32 float32 矩阵</span><br></code></pre></td></tr></table></figure>
+
 <hr>
-<h3 id="张量存储机制">1.4 张量存储机制</h3>
-<p><strong>PyTorch 张量 = 指向内存的指针 + 元数据</strong></p>
-<figure>
-<img src="https://martinlwx.github.io/img/2D_tensor_strides.png" srcset="/img/loading.gif" lazyload alt="Tensor Strides">
-<figcaption aria-hidden="true">Tensor Strides</figcaption>
-</figure>
+<h3 id="1-4-张量存储机制"><a href="#1-4-张量存储机制" class="headerlink" title="1.4 张量存储机制"></a>1.4 张量存储机制</h3><p><strong>PyTorch 张量 &#x3D; 指向内存的指针 + 元数据</strong></p>
+<p><img src="https://martinlwx.github.io/img/2D_tensor_strides.png" srcset="/img/loading.gif" lazyload alt="Tensor Strides"></p>
 <p><strong>Stride（步长）：</strong> 描述如何访问任何元素</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.tensor([<br>    [<span class="hljs-number">0.</span>, <span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>],<br>    [<span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>, <span class="hljs-number">7</span>],<br>    [<span class="hljs-number">8</span>, <span class="hljs-number">9</span>, <span class="hljs-number">10</span>, <span class="hljs-number">11</span>],<br>    [<span class="hljs-number">12</span>, <span class="hljs-number">13</span>, <span class="hljs-number">14</span>, <span class="hljs-number">15</span>],<br>])<br><br><span class="hljs-comment"># 下一行：跳过 4 个元素</span><br><span class="hljs-keyword">assert</span> x.stride(<span class="hljs-number">0</span>) == <span class="hljs-number">4</span><br><br><span class="hljs-comment"># 下一列：跳过 1 个元素</span><br><span class="hljs-keyword">assert</span> x.stride(<span class="hljs-number">1</span>) == <span class="hljs-number">1</span><br><br><span class="hljs-comment"># 访问元素 [1, 2]</span><br>r, c = <span class="hljs-number">1</span>, <span class="hljs-number">2</span><br>index = r * x.stride(<span class="hljs-number">0</span>) + c * x.stride(<span class="hljs-number">1</span>)  <span class="hljs-comment"># 1*4 + 2*1 = 6</span><br><span class="hljs-keyword">assert</span> x.storage()[index] == <span class="hljs-number">6.0</span><br></code></pre></td></tr></table></figure>
+
 <hr>
-<h3 id="张量视图views">1.5 张量视图（Views）</h3>
-<p>许多操作只是提供张量的不同<strong>视图</strong>，不复制数据。</p>
-<h4 id="切片">切片</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.tensor([[<span class="hljs-number">1.</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>], [<span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>]])<br><br><span class="hljs-comment"># 获取第 0 行</span><br>y = x[<span class="hljs-number">0</span>]  <span class="hljs-comment"># [1., 2., 3.]</span><br><span class="hljs-keyword">assert</span> same_storage(x, y)  <span class="hljs-comment"># 共享存储！</span><br><br><span class="hljs-comment"># 获取第 1 列</span><br>y = x[:, <span class="hljs-number">1</span>]  <span class="hljs-comment"># [2., 5.]</span><br><span class="hljs-keyword">assert</span> same_storage(x, y)<br></code></pre></td></tr></table></figure>
-<h4 id="重塑">重塑</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 2x3 → 3x2</span><br>y = x.view(<span class="hljs-number">3</span>, <span class="hljs-number">2</span>)  <span class="hljs-comment"># [[1, 2], [3, 4], [5, 6]]</span><br><span class="hljs-keyword">assert</span> same_storage(x, y)<br><br><span class="hljs-comment"># 转置</span><br>y = x.transpose(<span class="hljs-number">1</span>, <span class="hljs-number">0</span>)  <span class="hljs-comment"># [[1, 4], [2, 5], [3, 6]]</span><br><span class="hljs-keyword">assert</span> same_storage(x, y)<br></code></pre></td></tr></table></figure>
-<h4 id="突变共享">突变共享</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python">x[<span class="hljs-number">0</span>][<span class="hljs-number">0</span>] = <span class="hljs-number">100</span><br><span class="hljs-comment"># y 也会改变！</span><br><span class="hljs-keyword">assert</span> y[<span class="hljs-number">0</span>][<span class="hljs-number">0</span>] == <span class="hljs-number">100</span><br></code></pre></td></tr></table></figure>
+<h3 id="1-5-张量视图（Views）"><a href="#1-5-张量视图（Views）" class="headerlink" title="1.5 张量视图（Views）"></a>1.5 张量视图（Views）</h3><p>许多操作只是提供张量的不同<strong>视图</strong>，不复制数据。</p>
+<h4 id="切片"><a href="#切片" class="headerlink" title="切片"></a>切片</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.tensor([[<span class="hljs-number">1.</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>], [<span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>]])<br><br><span class="hljs-comment"># 获取第 0 行</span><br>y = x[<span class="hljs-number">0</span>]  <span class="hljs-comment"># [1., 2., 3.]</span><br><span class="hljs-keyword">assert</span> same_storage(x, y)  <span class="hljs-comment"># 共享存储！</span><br><br><span class="hljs-comment"># 获取第 1 列</span><br>y = x[:, <span class="hljs-number">1</span>]  <span class="hljs-comment"># [2., 5.]</span><br><span class="hljs-keyword">assert</span> same_storage(x, y)<br></code></pre></td></tr></table></figure>
+
+<h4 id="重塑"><a href="#重塑" class="headerlink" title="重塑"></a>重塑</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 2x3 → 3x2</span><br>y = x.view(<span class="hljs-number">3</span>, <span class="hljs-number">2</span>)  <span class="hljs-comment"># [[1, 2], [3, 4], [5, 6]]</span><br><span class="hljs-keyword">assert</span> same_storage(x, y)<br><br><span class="hljs-comment"># 转置</span><br>y = x.transpose(<span class="hljs-number">1</span>, <span class="hljs-number">0</span>)  <span class="hljs-comment"># [[1, 4], [2, 5], [3, 6]]</span><br><span class="hljs-keyword">assert</span> same_storage(x, y)<br></code></pre></td></tr></table></figure>
+
+<h4 id="突变共享"><a href="#突变共享" class="headerlink" title="突变共享"></a>突变共享</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python">x[<span class="hljs-number">0</span>][<span class="hljs-number">0</span>] = <span class="hljs-number">100</span><br><span class="hljs-comment"># y 也会改变！</span><br><span class="hljs-keyword">assert</span> y[<span class="hljs-number">0</span>][<span class="hljs-number">0</span>] == <span class="hljs-number">100</span><br></code></pre></td></tr></table></figure>
+
 <hr>
-<h4 id="连续性contiguity">连续性（Contiguity）</h4>
-<p>某些视图是非连续的，无法进一步视图化：</p>
+<h4 id="连续性（Contiguity）"><a href="#连续性（Contiguity）" class="headerlink" title="连续性（Contiguity）"></a>连续性（Contiguity）</h4><p>某些视图是非连续的，无法进一步视图化：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.tensor([[<span class="hljs-number">1.</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>], [<span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>]])<br>y = x.transpose(<span class="hljs-number">1</span>, <span class="hljs-number">0</span>)<br><span class="hljs-keyword">assert</span> <span class="hljs-keyword">not</span> y.is_contiguous()<br><br><span class="hljs-comment"># 尝试 view 会失败</span><br><span class="hljs-keyword">try</span>:<br>    y.view(<span class="hljs-number">2</span>, <span class="hljs-number">3</span>)<br><span class="hljs-keyword">except</span> RuntimeError:<br>    <span class="hljs-comment"># &quot;view size is not compatible...&quot;</span><br>    <span class="hljs-keyword">pass</span><br><br><span class="hljs-comment"># 解决方案：先使其连续</span><br>y = x.transpose(<span class="hljs-number">1</span>, <span class="hljs-number">0</span>).contiguous().view(<span class="hljs-number">2</span>, <span class="hljs-number">3</span>)<br><span class="hljs-keyword">assert</span> <span class="hljs-keyword">not</span> same_storage(x, y)  <span class="hljs-comment"># 现在是副本</span><br></code></pre></td></tr></table></figure>
-<p><strong>权衡：</strong> - 视图：免费，无额外内存/计算 -
-复制：需要额外内存和计算</p>
+
+<p><strong>权衡：</strong></p>
+<ul>
+<li>视图：免费，无额外内存&#x2F;计算</li>
+<li>复制：需要额外内存和计算</li>
+</ul>
 <hr>
-<h2 id="part-2-计算核算">Part 2: 计算核算</h2>
-<h3 id="张量操作">2.1 张量操作</h3>
-<p>大多数张量是通过对其他张量执行操作创建的。</p>
+<h2 id="Part-2-计算核算"><a href="#Part-2-计算核算" class="headerlink" title="Part 2: 计算核算"></a>Part 2: 计算核算</h2><h3 id="2-1-张量操作"><a href="#2-1-张量操作" class="headerlink" title="2.1 张量操作"></a>2.1 张量操作</h3><p>大多数张量是通过对其他张量执行操作创建的。</p>
 <p>每个操作都有内存和计算后果。</p>
-<h4 id="逐元素操作">逐元素操作</h4>
-<p>对张量的每个元素应用操作，返回相同形状的张量：</p>
+<h4 id="逐元素操作"><a href="#逐元素操作" class="headerlink" title="逐元素操作"></a>逐元素操作</h4><p>对张量的每个元素应用操作，返回相同形状的张量：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.tensor([<span class="hljs-number">1</span>, <span class="hljs-number">4</span>, <span class="hljs-number">9</span>])<br><br><span class="hljs-comment"># 幂运算</span><br>x.<span class="hljs-built_in">pow</span>(<span class="hljs-number">2</span>)  <span class="hljs-comment"># [1, 16, 81]</span><br><br><span class="hljs-comment"># 平方根</span><br>x.sqrt()  <span class="hljs-comment"># [1, 2, 3]</span><br><br><span class="hljs-comment"># 倒数平方根</span><br>x.rsqrt()  <span class="hljs-comment"># [1, 1/2, 1/3]</span><br><br><span class="hljs-comment"># 算术运算</span><br>x + x  <span class="hljs-comment"># [2, 8, 18]</span><br>x * <span class="hljs-number">2</span>  <span class="hljs-comment"># [2, 8, 18]</span><br>x / <span class="hljs-number">0.5</span>  <span class="hljs-comment"># [2, 8, 18]</span><br></code></pre></td></tr></table></figure>
-<p><strong>上三角矩阵：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.ones(<span class="hljs-number">3</span>, <span class="hljs-number">3</span>).triu()<br><span class="hljs-comment"># [[1, 1, 1],</span><br><span class="hljs-comment">#  [0, 1, 1],</span><br><span class="hljs-comment">#  [0, 0, 1]]</span><br></code></pre></td></tr></table></figure></p>
+
+<p><strong>上三角矩阵：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.ones(<span class="hljs-number">3</span>, <span class="hljs-number">3</span>).triu()<br><span class="hljs-comment"># [[1, 1, 1],</span><br><span class="hljs-comment">#  [0, 1, 1],</span><br><span class="hljs-comment">#  [0, 0, 1]]</span><br></code></pre></td></tr></table></figure>
+
 <p>用于计算因果注意力掩码，其中 M[i, j] 是 i 对 j 的贡献。</p>
 <hr>
-<h4 id="矩阵乘法">矩阵乘法</h4>
-<p><strong>深度学习的核心：</strong></p>
+<h4 id="矩阵乘法"><a href="#矩阵乘法" class="headerlink" title="矩阵乘法"></a>矩阵乘法</h4><p><strong>深度学习的核心：</strong></p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.ones(<span class="hljs-number">16</span>, <span class="hljs-number">32</span>)<br>w = torch.ones(<span class="hljs-number">32</span>, <span class="hljs-number">2</span>)<br>y = x @ w<br><span class="hljs-keyword">assert</span> y.size() == torch.Size([<span class="hljs-number">16</span>, <span class="hljs-number">2</span>])<br></code></pre></td></tr></table></figure>
+
 <p><strong>批处理和序列：</strong></p>
-<figure>
-<img src="https://stanford-cs336.github.io/spring2025-lectures/images/batch-sequence.png" srcset="/img/loading.gif" lazyload alt="Batch Sequence">
-<figcaption aria-hidden="true">Batch Sequence</figcaption>
-</figure>
+<p><img src="https://stanford-cs336.github.io/spring2025-lectures/images/batch-sequence.png" srcset="/img/loading.gif" lazyload alt="Batch Sequence"></p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># batch=4, seq=8, input_dim=16, output_dim=2</span><br>x = torch.ones(<span class="hljs-number">4</span>, <span class="hljs-number">8</span>, <span class="hljs-number">16</span>, <span class="hljs-number">32</span>)<br>w = torch.ones(<span class="hljs-number">32</span>, <span class="hljs-number">2</span>)<br>y = x @ w<br><span class="hljs-keyword">assert</span> y.size() == torch.Size([<span class="hljs-number">4</span>, <span class="hljs-number">8</span>, <span class="hljs-number">16</span>, <span class="hljs-number">2</span>])<br></code></pre></td></tr></table></figure>
+
 <p>迭代前两个维度，每个与 w 相乘。</p>
 <hr>
-<h3 id="einops优雅的张量操作">2.2 Einops：优雅的张量操作</h3>
-<p><strong>动机：</strong> 传统 PyTorch 代码容易出错</p>
+<h3 id="2-2-Einops：优雅的张量操作"><a href="#2-2-Einops：优雅的张量操作" class="headerlink" title="2.2 Einops：优雅的张量操作"></a>2.2 Einops：优雅的张量操作</h3><p><strong>动机：</strong> 传统 PyTorch 代码容易出错</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 传统方式</span><br>x = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>)  <span class="hljs-comment"># batch, sequence, hidden</span><br>y = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>)<br>z = x @ y.transpose(-<span class="hljs-number">2</span>, -<span class="hljs-number">1</span>)  <span class="hljs-comment"># -2, -1 是什么？</span><br></code></pre></td></tr></table></figure>
+
 <p><strong>Einops：</strong> 受 Einstein 求和记号启发（1916）</p>
-<p><a target="_blank" rel="noopener" href="https://einops.rocks/1-einops-basics/">Einops
-Tutorial</a></p>
+<p><a target="_blank" rel="noopener" href="https://einops.rocks/1-einops-basics/">Einops Tutorial</a></p>
 <hr>
-<h4 id="jaxtyping维度标注">JaxTyping：维度标注</h4>
-<p><strong>旧方式：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">2</span>, <span class="hljs-number">1</span>, <span class="hljs-number">3</span>)  <span class="hljs-comment"># batch seq heads hidden</span><br></code></pre></td></tr></table></figure></p>
-<p><strong>新方式（JaxTyping）：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">from</span> jaxtyping <span class="hljs-keyword">import</span> Float<br><br>x: Float[torch.Tensor, <span class="hljs-string">&quot;batch seq heads hidden&quot;</span>] = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">2</span>, <span class="hljs-number">1</span>, <span class="hljs-number">3</span>)<br></code></pre></td></tr></table></figure></p>
+<h4 id="JaxTyping：维度标注"><a href="#JaxTyping：维度标注" class="headerlink" title="JaxTyping：维度标注"></a>JaxTyping：维度标注</h4><p><strong>旧方式：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">x = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">2</span>, <span class="hljs-number">1</span>, <span class="hljs-number">3</span>)  <span class="hljs-comment"># batch seq heads hidden</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>新方式（JaxTyping）：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">from</span> jaxtyping <span class="hljs-keyword">import</span> Float<br><br>x: Float[torch.Tensor, <span class="hljs-string">&quot;batch seq heads hidden&quot;</span>] = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">2</span>, <span class="hljs-number">1</span>, <span class="hljs-number">3</span>)<br></code></pre></td></tr></table></figure>
+
 <p>注意：这只是文档（无强制执行）</p>
 <hr>
-<h4 id="einsum广义矩阵乘法">Einsum：广义矩阵乘法</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">from</span> einops <span class="hljs-keyword">import</span> einsum<br><br>x: Float[torch.Tensor, <span class="hljs-string">&quot;batch seq1 hidden&quot;</span>] = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>)<br>y: Float[torch.Tensor, <span class="hljs-string">&quot;batch seq2 hidden&quot;</span>] = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>)<br><br><span class="hljs-comment"># 旧方式</span><br>z = x @ y.transpose(-<span class="hljs-number">2</span>, -<span class="hljs-number">1</span>)<br><br><span class="hljs-comment"># 新方式（Einops）</span><br>z = einsum(x, y, <span class="hljs-string">&quot;batch seq1 hidden, batch seq2 hidden -&gt; batch seq1 seq2&quot;</span>)<br></code></pre></td></tr></table></figure>
+<h4 id="Einsum：广义矩阵乘法"><a href="#Einsum：广义矩阵乘法" class="headerlink" title="Einsum：广义矩阵乘法"></a>Einsum：广义矩阵乘法</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">from</span> einops <span class="hljs-keyword">import</span> einsum<br><br>x: Float[torch.Tensor, <span class="hljs-string">&quot;batch seq1 hidden&quot;</span>] = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>)<br>y: Float[torch.Tensor, <span class="hljs-string">&quot;batch seq2 hidden&quot;</span>] = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>)<br><br><span class="hljs-comment"># 旧方式</span><br>z = x @ y.transpose(-<span class="hljs-number">2</span>, -<span class="hljs-number">1</span>)<br><br><span class="hljs-comment"># 新方式（Einops）</span><br>z = einsum(x, y, <span class="hljs-string">&quot;batch seq1 hidden, batch seq2 hidden -&gt; batch seq1 seq2&quot;</span>)<br></code></pre></td></tr></table></figure>
+
 <p><strong>规则：</strong> 输出中未命名的维度会被求和。</p>
 <p><strong>广播：</strong> 使用 <code>...</code> 表示任意数量的维度</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">z = einsum(x, y, <span class="hljs-string">&quot;... seq1 hidden, ... seq2 hidden -&gt; ... seq1 seq2&quot;</span>)<br></code></pre></td></tr></table></figure>
+
 <hr>
-<h4 id="reduce归约操作">Reduce：归约操作</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">from</span> einops <span class="hljs-keyword">import</span> reduce<br><br>x: Float[torch.Tensor, <span class="hljs-string">&quot;batch seq hidden&quot;</span>] = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>)<br><br><span class="hljs-comment"># 旧方式</span><br>y = x.mean(dim=-<span class="hljs-number">1</span>)<br><br><span class="hljs-comment"># 新方式（Einops）</span><br>y = reduce(x, <span class="hljs-string">&quot;... hidden -&gt; ...&quot;</span>, <span class="hljs-string">&quot;mean&quot;</span>)<br><span class="hljs-comment"># 也支持：sum, max, min</span><br></code></pre></td></tr></table></figure>
+<h4 id="Reduce：归约操作"><a href="#Reduce：归约操作" class="headerlink" title="Reduce：归约操作"></a>Reduce：归约操作</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">from</span> einops <span class="hljs-keyword">import</span> reduce<br><br>x: Float[torch.Tensor, <span class="hljs-string">&quot;batch seq hidden&quot;</span>] = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>)<br><br><span class="hljs-comment"># 旧方式</span><br>y = x.mean(dim=-<span class="hljs-number">1</span>)<br><br><span class="hljs-comment"># 新方式（Einops）</span><br>y = reduce(x, <span class="hljs-string">&quot;... hidden -&gt; ...&quot;</span>, <span class="hljs-string">&quot;mean&quot;</span>)<br><span class="hljs-comment"># 也支持：sum, max, min</span><br></code></pre></td></tr></table></figure>
+
 <hr>
-<h4 id="rearrange重塑维度">Rearrange：重塑维度</h4>
-<p>有时一个维度代表两个维度，你想单独操作其中一个。</p>
+<h4 id="Rearrange：重塑维度"><a href="#Rearrange：重塑维度" class="headerlink" title="Rearrange：重塑维度"></a>Rearrange：重塑维度</h4><p>有时一个维度代表两个维度，你想单独操作其中一个。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">from</span> einops <span class="hljs-keyword">import</span> rearrange<br><br>x: Float[torch.Tensor, <span class="hljs-string">&quot;batch seq total_hidden&quot;</span>] = torch.ones(<span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">8</span>)<br><span class="hljs-comment"># total_hidden 是 heads * hidden1 的扁平表示</span><br><br>w: Float[torch.Tensor, <span class="hljs-string">&quot;hidden1 hidden2&quot;</span>] = torch.ones(<span class="hljs-number">4</span>, <span class="hljs-number">4</span>)<br><br><span class="hljs-comment"># 步骤 1：分解 total_hidden</span><br>x = rearrange(x, <span class="hljs-string">&quot;... (heads hidden1) -&gt; ... heads hidden1&quot;</span>, heads=<span class="hljs-number">2</span>)<br><span class="hljs-comment"># 现在 x.shape = (2, 3, 2, 4)</span><br><br><span class="hljs-comment"># 步骤 2：应用变换</span><br>x = einsum(x, w, <span class="hljs-string">&quot;... hidden1, hidden1 hidden2 -&gt; ... hidden2&quot;</span>)<br><br><span class="hljs-comment"># 步骤 3：合并回去</span><br>x = rearrange(x, <span class="hljs-string">&quot;... heads hidden2 -&gt; ... (heads hidden2)&quot;</span>)<br></code></pre></td></tr></table></figure>
+
 <hr>
-<h3 id="flops-计算">2.3 FLOPs 计算</h3>
-<p><strong>FLOP（浮点运算）：</strong> 基本操作如加法（x + y）或乘法（x
-* y）</p>
-<p><strong>两个容易混淆的缩写：</strong> - <strong>FLOPs：</strong>
-浮点运算数量（计算量的度量） - <strong>FLOP/s（或 FLOPS）：</strong>
-每秒浮点运算数（硬件速度的度量）</p>
-<hr>
-<h4 id="直觉">直觉</h4>
-<p><strong>训练成本：</strong> - GPT-3 (2020)：3.14e23 FLOPs - GPT-4
-(2023)：推测 2e25 FLOPs - 美国行政命令（2025 年撤销）：≥1e26 FLOPs
-的模型必须向政府报告</p>
-<p><strong>硬件性能：</strong> - A100：312 TFLOP/s（峰值） - H100：1979
-TFLOP/s（带稀疏性），989.5 TFLOP/s（无稀疏性）</p>
-<p><strong>8 个 H100 运行 2 周：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python">total_flops = <span class="hljs-number">8</span> * (<span class="hljs-number">60</span> * <span class="hljs-number">60</span> * <span class="hljs-number">24</span> * <span class="hljs-number">14</span>) * <span class="hljs-number">989.5e12</span><br><span class="hljs-comment"># ≈ 6.8e21 FLOPs</span><br></code></pre></td></tr></table></figure></p>
-<hr>
-<h4 id="线性模型示例">线性模型示例</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python">B = <span class="hljs-number">16384</span>  <span class="hljs-comment"># 数据点数量</span><br>D = <span class="hljs-number">32768</span>  <span class="hljs-comment"># 维度</span><br>K = <span class="hljs-number">8192</span>   <span class="hljs-comment"># 输出数量</span><br><br>x = torch.ones(B, D, device=<span class="hljs-string">&quot;cuda&quot;</span>)<br>w = torch.randn(D, K, device=<span class="hljs-string">&quot;cuda&quot;</span>)<br>y = x @ w<br></code></pre></td></tr></table></figure>
-<p><strong>FLOPs 计算：</strong> - 每个 (i, j, k) 三元组：1 次乘法 + 1
-次加法 - 总 FLOPs = 2 * B * D * K</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python">actual_num_flops = <span class="hljs-number">2</span> * <span class="hljs-number">16384</span> * <span class="hljs-number">32768</span> * <span class="hljs-number">8192</span><br><span class="hljs-comment"># ≈ 8.8e15 FLOPs</span><br></code></pre></td></tr></table></figure>
-<hr>
-<h4 id="其他操作的-flops">其他操作的 FLOPs</h4>
+<h3 id="2-3-FLOPs-计算"><a href="#2-3-FLOPs-计算" class="headerlink" title="2.3 FLOPs 计算"></a>2.3 FLOPs 计算</h3><p><strong>FLOP（浮点运算）：</strong> 基本操作如加法（x + y）或乘法（x * y）</p>
+<p><strong>两个容易混淆的缩写：</strong></p>
 <ul>
+<li><strong>FLOPs：</strong> 浮点运算数量（计算量的度量）</li>
+<li><strong>FLOP&#x2F;s（或 FLOPS）：</strong> 每秒浮点运算数（硬件速度的度量）</li>
+</ul>
+<hr>
+<h4 id="直觉"><a href="#直觉" class="headerlink" title="直觉"></a>直觉</h4><p><strong>训练成本：</strong></p>
+<ul>
+<li>GPT-3 (2020)：3.14e23 FLOPs</li>
+<li>GPT-4 (2023)：推测 2e25 FLOPs</li>
+<li>美国行政命令（2025 年撤销）：≥1e26 FLOPs 的模型必须向政府报告</li>
+</ul>
+<p><strong>硬件性能：</strong></p>
+<ul>
+<li>A100：312 TFLOP&#x2F;s（峰值）</li>
+<li>H100：1979 TFLOP&#x2F;s（带稀疏性），989.5 TFLOP&#x2F;s（无稀疏性）</li>
+</ul>
+<p><strong>8 个 H100 运行 2 周：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python">total_flops = <span class="hljs-number">8</span> * (<span class="hljs-number">60</span> * <span class="hljs-number">60</span> * <span class="hljs-number">24</span> * <span class="hljs-number">14</span>) * <span class="hljs-number">989.5e12</span><br><span class="hljs-comment"># ≈ 6.8e21 FLOPs</span><br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="线性模型示例"><a href="#线性模型示例" class="headerlink" title="线性模型示例"></a>线性模型示例</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python">B = <span class="hljs-number">16384</span>  <span class="hljs-comment"># 数据点数量</span><br>D = <span class="hljs-number">32768</span>  <span class="hljs-comment"># 维度</span><br>K = <span class="hljs-number">8192</span>   <span class="hljs-comment"># 输出数量</span><br><br>x = torch.ones(B, D, device=<span class="hljs-string">&quot;cuda&quot;</span>)<br>w = torch.randn(D, K, device=<span class="hljs-string">&quot;cuda&quot;</span>)<br>y = x @ w<br></code></pre></td></tr></table></figure>
+
+<p><strong>FLOPs 计算：</strong></p>
+<ul>
+<li>每个 (i, j, k) 三元组：1 次乘法 + 1 次加法</li>
+<li>总 FLOPs &#x3D; 2 * B * D * K</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python">actual_num_flops = <span class="hljs-number">2</span> * <span class="hljs-number">16384</span> * <span class="hljs-number">32768</span> * <span class="hljs-number">8192</span><br><span class="hljs-comment"># ≈ 8.8e15 FLOPs</span><br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="其他操作的-FLOPs"><a href="#其他操作的-FLOPs" class="headerlink" title="其他操作的 FLOPs"></a>其他操作的 FLOPs</h4><ul>
 <li><strong>逐元素操作：</strong> O(m * n) FLOPs（m×n 矩阵）</li>
 <li><strong>矩阵加法：</strong> m * n FLOPs</li>
 </ul>
-<p><strong>关键洞察：</strong>
-对于足够大的矩阵，没有其他操作比矩阵乘法更昂贵。</p>
+<p><strong>关键洞察：</strong> 对于足够大的矩阵，没有其他操作比矩阵乘法更昂贵。</p>
 <hr>
-<h4 id="训练的-flops">训练的 FLOPs</h4>
-<p><strong>解释：</strong> - B = token 数量 - (D * K) = 参数数量 -
-<strong>前向传播 FLOPs = 2 × token 数 × 参数数</strong></p>
+<h4 id="训练的-FLOPs"><a href="#训练的-FLOPs" class="headerlink" title="训练的 FLOPs"></a>训练的 FLOPs</h4><p><strong>解释：</strong></p>
+<ul>
+<li>B &#x3D; token 数量</li>
+<li>(D * K) &#x3D; 参数数量</li>
+<li><strong>前向传播 FLOPs &#x3D; 2 × token 数 × 参数数</strong></li>
+</ul>
 <p>这推广到 Transformer（一阶近似）！</p>
 <hr>
-<h4 id="实际性能测试">实际性能测试</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">import</span> time<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">time_matmul</span>(<span class="hljs-params">x, w</span>):<br>    <span class="hljs-comment"># Warmup</span><br>    <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">10</span>):<br>        _ = x @ w<br>    torch.cuda.synchronize()<br>    <br>    <span class="hljs-comment"># 计时</span><br>    start = time.time()<br>    <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">100</span>):<br>        _ = x @ w<br>    torch.cuda.synchronize()<br>    end = time.time()<br>    <br>    <span class="hljs-keyword">return</span> (end - start) / <span class="hljs-number">100</span><br><br>actual_time = time_matmul(x, w)  <span class="hljs-comment"># 例如 0.002 秒</span><br>actual_flop_per_sec = actual_num_flops / actual_time<br><span class="hljs-comment"># 例如 4.4e18 FLOP/s</span><br></code></pre></td></tr></table></figure>
+<h4 id="实际性能测试"><a href="#实际性能测试" class="headerlink" title="实际性能测试"></a>实际性能测试</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">import</span> time<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">time_matmul</span>(<span class="hljs-params">x, w</span>):<br>    <span class="hljs-comment"># Warmup</span><br>    <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">10</span>):<br>        _ = x @ w<br>    torch.cuda.synchronize()<br>    <br>    <span class="hljs-comment"># 计时</span><br>    start = time.time()<br>    <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">100</span>):<br>        _ = x @ w<br>    torch.cuda.synchronize()<br>    end = time.time()<br>    <br>    <span class="hljs-keyword">return</span> (end - start) / <span class="hljs-number">100</span><br><br>actual_time = time_matmul(x, w)  <span class="hljs-comment"># 例如 0.002 秒</span><br>actual_flop_per_sec = actual_num_flops / actual_time<br><span class="hljs-comment"># 例如 4.4e18 FLOP/s</span><br></code></pre></td></tr></table></figure>
+
 <hr>
-<h4 id="模型-flops-利用率mfu">模型 FLOPs 利用率（MFU）</h4>
-<p><strong>定义：</strong> MFU = 实际 FLOP/s / 承诺 FLOP/s</p>
+<h4 id="模型-FLOPs-利用率（MFU）"><a href="#模型-FLOPs-利用率（MFU）" class="headerlink" title="模型 FLOPs 利用率（MFU）"></a>模型 FLOPs 利用率（MFU）</h4><p><strong>定义：</strong> MFU &#x3D; 实际 FLOP&#x2F;s &#x2F; 承诺 FLOP&#x2F;s</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python">promised_flop_per_sec = <span class="hljs-number">989.5e12</span>  <span class="hljs-comment"># H100 无稀疏性</span><br>mfu = actual_flop_per_sec / promised_flop_per_sec<br><span class="hljs-comment"># 例如 0.44（44%）</span><br></code></pre></td></tr></table></figure>
-<p><strong>通常 MFU ≥ 0.5
-就很好了</strong>（如果矩阵乘法占主导会更高）</p>
+
+<p><strong>通常 MFU ≥ 0.5 就很好了</strong>（如果矩阵乘法占主导会更高）</p>
 <hr>
-<h4 id="bfloat16-性能">bfloat16 性能</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python">x = x.to(torch.bfloat16)<br>w = w.to(torch.bfloat16)<br><br>bf16_actual_time = time_matmul(x, w)<br>bf16_actual_flop_per_sec = actual_num_flops / bf16_actual_time<br>bf16_promised_flop_per_sec = <span class="hljs-number">1979e12</span>  <span class="hljs-comment"># H100 bf16 峰值</span><br>bf16_mfu = bf16_actual_flop_per_sec / bf16_promised_flop_per_sec<br></code></pre></td></tr></table></figure>
-<p><strong>观察：</strong> - bfloat16 的实际 FLOP/s 更高 - MFU
-可能较低（承诺的 FLOPs 有点乐观）</p>
-<hr>
-<h3 id="梯度计算">2.4 梯度计算</h3>
-<h4 id="基础示例">基础示例</h4>
-<p>简单线性模型：y = 0.5 * (x * w - 5)²</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 前向传播</span><br>x = torch.tensor([<span class="hljs-number">1.</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>])<br>w = torch.tensor([<span class="hljs-number">1.</span>, <span class="hljs-number">1</span>, <span class="hljs-number">1</span>], requires_grad=<span class="hljs-literal">True</span>)<br>pred_y = x @ w<br>loss = <span class="hljs-number">0.5</span> * (pred_y - <span class="hljs-number">5</span>).<span class="hljs-built_in">pow</span>(<span class="hljs-number">2</span>)<br><br><span class="hljs-comment"># 反向传播</span><br>loss.backward()<br><br><span class="hljs-comment"># 检查梯度</span><br><span class="hljs-keyword">assert</span> loss.grad <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span><br><span class="hljs-keyword">assert</span> pred_y.grad <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span><br><span class="hljs-keyword">assert</span> x.grad <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span><br><span class="hljs-keyword">assert</span> torch.equal(w.grad, torch.tensor([<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>]))<br></code></pre></td></tr></table></figure>
-<hr>
-<h4 id="梯度的-flops">梯度的 FLOPs</h4>
-<p><strong>模型：</strong> x --w1--&gt; h1 --w2--&gt; h2 -&gt; loss</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs python">B = <span class="hljs-number">16384</span>  <span class="hljs-comment"># 批大小</span><br>D = <span class="hljs-number">32768</span>  <span class="hljs-comment"># 维度</span><br>K = <span class="hljs-number">8192</span>   <span class="hljs-comment"># 输出维度</span><br><br>x = torch.ones(B, D, device=<span class="hljs-string">&quot;cuda&quot;</span>)<br>w1 = torch.randn(D, D, device=<span class="hljs-string">&quot;cuda&quot;</span>, requires_grad=<span class="hljs-literal">True</span>)<br>w2 = torch.randn(D, K, device=<span class="hljs-string">&quot;cuda&quot;</span>, requires_grad=<span class="hljs-literal">True</span>)<br><br>h1 = x @ w1<br>h2 = h1 @ w2<br>loss = h2.<span class="hljs-built_in">pow</span>(<span class="hljs-number">2</span>).mean()<br></code></pre></td></tr></table></figure>
-<p><strong>前向 FLOPs：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">num_forward_flops = (<span class="hljs-number">2</span> * B * D * D) + (<span class="hljs-number">2</span> * B * D * K)<br></code></pre></td></tr></table></figure></p>
-<p><strong>反向传播：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python">h1.retain_grad()<br>h2.retain_grad()<br>loss.backward()<br></code></pre></td></tr></table></figure></p>
-<p><strong>计算 w2.grad：</strong> <figure class="highlight inform7"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs inform7">w2.grad<span class="hljs-comment">[j,k]</span> = sum_i h1<span class="hljs-comment">[i,j]</span> * h2.grad<span class="hljs-comment">[i,k]</span><br></code></pre></td></tr></table></figure> - FLOPs = 2 * B * D *
-K</p>
-<p><strong>计算 h1.grad：</strong> <figure class="highlight inform7"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs inform7">h1.grad<span class="hljs-comment">[i,j]</span> = sum_k w2<span class="hljs-comment">[j,k]</span> * h2.grad<span class="hljs-comment">[i,k]</span><br></code></pre></td></tr></table></figure> - FLOPs = 2 * B * D *
-K</p>
-<p><strong>w1 同理：</strong> - FLOPs = (2 + 2) * B * D * D</p>
-<p><strong>总反向 FLOPs：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">num_backward_flops = <span class="hljs-number">4</span> * B * D * D + <span class="hljs-number">4</span> * B * D * K<br></code></pre></td></tr></table></figure></p>
-<hr>
-<h4 id="可视化">可视化</h4>
-<figure>
-<img src="https://miro.medium.com/v2/resize:fit:1400/format:webp/1*VC9y_dHhCKFPXj90Qshj3w.gif" srcset="/img/loading.gif" lazyload alt="FLOPs Calculus">
-<figcaption aria-hidden="true">FLOPs Calculus</figcaption>
-</figure>
-<p><a target="_blank" rel="noopener" href="https://medium.com/@dzmitrybahdanau/the-flops-calculus-of-language-model-training-3b19c1f025e4">Blog
-Post: FLOPs Calculus</a></p>
-<hr>
-<h4 id="总结">总结</h4>
-<p><strong>训练一步的 FLOPs：</strong> - 前向传播：2 × token 数 × 参数数
-- 反向传播：4 × token 数 × 参数数 - <strong>总计：6 × token 数 ×
-参数数</strong></p>
-<hr>
-<h2 id="part-3-模型">Part 3: 模型</h2>
-<h3 id="参数">3.1 参数</h3>
-<p>模型参数在 PyTorch 中存储为 <code>nn.Parameter</code> 对象。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs python">input_dim = <span class="hljs-number">16384</span><br>output_dim = <span class="hljs-number">32</span><br><br>w = nn.Parameter(torch.randn(input_dim, output_dim))<br><span class="hljs-keyword">assert</span> <span class="hljs-built_in">isinstance</span>(w, torch.Tensor)  <span class="hljs-comment"># 行为像张量</span><br><span class="hljs-keyword">assert</span> <span class="hljs-built_in">type</span>(w.data) == torch.Tensor  <span class="hljs-comment"># 访问底层张量</span><br></code></pre></td></tr></table></figure>
-<hr>
-<h3 id="参数初始化">3.2 参数初始化</h3>
-<p><strong>问题：</strong> 未缩放的初始化</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs python">x = nn.Parameter(torch.randn(input_dim))<br>output = x @ w<br><br><span class="hljs-comment"># 每个元素的规模为 sqrt(input_dim)</span><br><span class="hljs-comment"># 大值会导致梯度爆炸，训练不稳定</span><br></code></pre></td></tr></table></figure>
-<p><strong>解决方案：</strong> 缩放使其与 input_dim 无关</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python">w = nn.Parameter(torch.randn(input_dim, output_dim) / np.sqrt(input_dim))<br>output = x @ w<br><span class="hljs-comment"># 现在每个元素的规模是常数</span><br></code></pre></td></tr></table></figure>
-<p><strong>Xavier 初始化：</strong> - <a target="_blank" rel="noopener" href="https://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf">Paper</a>
-- 截断正态分布到 [-3, 3] 以避免异常值</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python">w = nn.Parameter(<br>    nn.init.trunc_normal_(<br>        torch.empty(input_dim, output_dim),<br>        std=<span class="hljs-number">1</span> / np.sqrt(input_dim),<br>        a=-<span class="hljs-number">3</span>, b=<span class="hljs-number">3</span><br>    )<br>)<br></code></pre></td></tr></table></figure>
-<hr>
-<h3 id="自定义模型">3.3 自定义模型</h3>
-<h4 id="简单线性层">简单线性层</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Linear</span>(nn.Module):<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, input_dim: <span class="hljs-built_in">int</span>, output_dim: <span class="hljs-built_in">int</span></span>):<br>        <span class="hljs-built_in">super</span>().__init__()<br>        self.weight = nn.Parameter(<br>            torch.randn(input_dim, output_dim) / np.sqrt(input_dim)<br>        )<br><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">forward</span>(<span class="hljs-params">self, x: torch.Tensor</span>) -&gt; torch.Tensor:<br>        <span class="hljs-keyword">return</span> x @ self.weight<br></code></pre></td></tr></table></figure>
-<hr>
-<h4 id="深度线性模型">深度线性模型</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Cruncher</span>(nn.Module):<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, dim: <span class="hljs-built_in">int</span>, num_layers: <span class="hljs-built_in">int</span></span>):<br>        <span class="hljs-built_in">super</span>().__init__()<br>        self.layers = nn.ModuleList([<br>            Linear(dim, dim)<br>            <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_layers)<br>        ])<br>        self.final = Linear(dim, <span class="hljs-number">1</span>)<br><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">forward</span>(<span class="hljs-params">self, x: torch.Tensor</span>) -&gt; torch.Tensor:<br>        <span class="hljs-comment"># 应用线性层</span><br>        <span class="hljs-keyword">for</span> layer <span class="hljs-keyword">in</span> self.layers:<br>            x = layer(x)<br>        <br>        <span class="hljs-comment"># 应用最终层</span><br>        x = self.final(x)<br>        <br>        <span class="hljs-comment"># 移除最后一个维度</span><br>        x = x.squeeze(-<span class="hljs-number">1</span>)<br>        <span class="hljs-keyword">return</span> x<br></code></pre></td></tr></table></figure>
-<hr>
-<h4 id="使用模型">使用模型</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs python">D = <span class="hljs-number">64</span><br>num_layers = <span class="hljs-number">2</span><br>model = Cruncher(dim=D, num_layers=num_layers)<br><br><span class="hljs-comment"># 检查参数</span><br>param_sizes = [<br>    (name, param.numel())<br>    <span class="hljs-keyword">for</span> name, param <span class="hljs-keyword">in</span> model.state_dict().items()<br>]<br><span class="hljs-comment"># [(&#x27;layers.0.weight&#x27;, D*D),</span><br><span class="hljs-comment">#  (&#x27;layers.1.weight&#x27;, D*D),</span><br><span class="hljs-comment">#  (&#x27;final.weight&#x27;, D)]</span><br><br>num_parameters = <span class="hljs-built_in">sum</span>(p.numel() <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> model.parameters())<br><span class="hljs-comment"># D*D + D*D + D</span><br><br><span class="hljs-comment"># 移动到 GPU</span><br>device = <span class="hljs-string">&quot;cuda&quot;</span> <span class="hljs-keyword">if</span> torch.cuda.is_available() <span class="hljs-keyword">else</span> <span class="hljs-string">&quot;cpu&quot;</span><br>model = model.to(device)<br><br><span class="hljs-comment"># 运行模型</span><br>B = <span class="hljs-number">8</span><br>x = torch.randn(B, D, device=device)<br>y = model(x)<br><span class="hljs-keyword">assert</span> y.size() == torch.Size([B])<br></code></pre></td></tr></table></figure>
-<hr>
-<h2 id="part-4-训练循环">Part 4: 训练循环</h2>
-<h3 id="随机性注意事项">4.1 随机性注意事项</h3>
-<p>随机性出现在许多地方： - 参数初始化 - Dropout - 数据顺序</p>
-<p><strong>为了可重现性，始终设置随机种子：</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs python">seed = <span class="hljs-number">0</span><br><br><span class="hljs-comment"># PyTorch</span><br>torch.manual_seed(seed)<br><br><span class="hljs-comment"># NumPy</span><br><span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np<br>np.random.seed(seed)<br><br><span class="hljs-comment"># Python</span><br><span class="hljs-keyword">import</span> random<br>random.seed(seed)<br></code></pre></td></tr></table></figure>
-<p>确定性对调试特别有用！</p>
-<hr>
-<h3 id="数据加载">4.2 数据加载</h3>
-<p><strong>语言建模数据：</strong> 整数序列（tokenizer 输出）</p>
-<p><strong>序列化为 NumPy 数组：</strong></p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 保存</span><br>data = np.array([<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>, <span class="hljs-number">7</span>, <span class="hljs-number">8</span>, <span class="hljs-number">9</span>, <span class="hljs-number">10</span>], dtype=np.int32)<br>data.tofile(<span class="hljs-string">&quot;data.npy&quot;</span>)<br><br><span class="hljs-comment"># 加载（使用 memmap 懒加载）</span><br>data = np.memmap(<span class="hljs-string">&quot;data.npy&quot;</span>, dtype=np.int32)<br><span class="hljs-comment"># 不会一次性加载所有数据到内存</span><br><span class="hljs-comment"># LLaMA 数据是 2.8TB！</span><br></code></pre></td></tr></table></figure>
-<hr>
-<h4 id="批处理函数">批处理函数</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">get_batch</span>(<span class="hljs-params">data, batch_size, sequence_length, device</span>):<br>    <span class="hljs-comment"># 随机采样 batch_size 个位置</span><br>    start_indices = torch.randint(<br>        <span class="hljs-built_in">len</span>(data) - sequence_length,<br>        (batch_size,)<br>    )<br>    <br>    <span class="hljs-comment"># 索引数据</span><br>    x = torch.tensor([<br>        data[start:start + sequence_length]<br>        <span class="hljs-keyword">for</span> start <span class="hljs-keyword">in</span> start_indices<br>    ])<br>    <br>    <span class="hljs-comment"># Pinned memory（可选，用于异步传输）</span><br>    <span class="hljs-keyword">if</span> torch.cuda.is_available():<br>        x = x.pin_memory()<br>    <br>    <span class="hljs-comment"># 移动到 GPU（非阻塞）</span><br>    x = x.to(device, non_blocking=<span class="hljs-literal">True</span>)<br>    <br>    <span class="hljs-keyword">return</span> x<br></code></pre></td></tr></table></figure>
-<p><strong>Pinned Memory 优势：</strong> - 允许 CPU → GPU 异步复制 -
-可以并行： - 在 CPU 上获取下一批数据 - 在 GPU 上处理当前批次</p>
-<hr>
-<h3 id="优化器">4.3 优化器</h3>
-<h4 id="sgd随机梯度下降">SGD（随机梯度下降）</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">SGD</span>(torch.optim.Optimizer):<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, params, lr=<span class="hljs-number">0.01</span></span>):<br>        <span class="hljs-built_in">super</span>().__init__(params, <span class="hljs-built_in">dict</span>(lr=lr))<br><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">step</span>(<span class="hljs-params">self</span>):<br>        <span class="hljs-keyword">for</span> group <span class="hljs-keyword">in</span> self.param_groups:<br>            lr = group[<span class="hljs-string">&quot;lr&quot;</span>]<br>            <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> group[<span class="hljs-string">&quot;params&quot;</span>]:<br>                grad = p.grad.data<br>                p.data -= lr * grad<br></code></pre></td></tr></table></figure>
-<hr>
-<h4 id="adagrad">AdaGrad</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">AdaGrad</span>(torch.optim.Optimizer):<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, params, lr=<span class="hljs-number">0.01</span></span>):<br>        <span class="hljs-built_in">super</span>().__init__(params, <span class="hljs-built_in">dict</span>(lr=lr))<br><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">step</span>(<span class="hljs-params">self</span>):<br>        <span class="hljs-keyword">for</span> group <span class="hljs-keyword">in</span> self.param_groups:<br>            lr = group[<span class="hljs-string">&quot;lr&quot;</span>]<br>            <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> group[<span class="hljs-string">&quot;params&quot;</span>]:<br>                state = self.state[p]<br>                grad = p.grad.data<br>                <br>                <span class="hljs-comment"># 获取累积平方梯度</span><br>                g2 = state.get(<span class="hljs-string">&quot;g2&quot;</span>, torch.zeros_like(grad))<br>                <br>                <span class="hljs-comment"># 更新优化器状态</span><br>                g2 += torch.square(grad)<br>                state[<span class="hljs-string">&quot;g2&quot;</span>] = g2<br>                <br>                <span class="hljs-comment"># 更新参数</span><br>                p.data -= lr * grad / torch.sqrt(g2 + <span class="hljs-number">1e-5</span>)<br></code></pre></td></tr></table></figure>
-<hr>
-<h4 id="优化器层次">优化器层次</h4>
+<h4 id="bfloat16-性能"><a href="#bfloat16-性能" class="headerlink" title="bfloat16 性能"></a>bfloat16 性能</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python">x = x.to(torch.bfloat16)<br>w = w.to(torch.bfloat16)<br><br>bf16_actual_time = time_matmul(x, w)<br>bf16_actual_flop_per_sec = actual_num_flops / bf16_actual_time<br>bf16_promised_flop_per_sec = <span class="hljs-number">1979e12</span>  <span class="hljs-comment"># H100 bf16 峰值</span><br>bf16_mfu = bf16_actual_flop_per_sec / bf16_promised_flop_per_sec<br></code></pre></td></tr></table></figure>
+
+<p><strong>观察：</strong></p>
 <ul>
-<li><strong>Momentum</strong> = SGD + 梯度的指数平均</li>
-<li><strong>AdaGrad</strong> = SGD + 按 grad² 平均</li>
-<li><strong>RMSProp</strong> = AdaGrad + grad² 的指数平均</li>
-<li><strong>Adam</strong> = RMSProp + Momentum</li>
+<li>bfloat16 的实际 FLOP&#x2F;s 更高</li>
+<li>MFU 可能较低（承诺的 FLOPs 有点乐观）</li>
 </ul>
 <hr>
-<h4 id="使用优化器">使用优化器</h4>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs python">model = Cruncher(dim=<span class="hljs-number">4</span>, num_layers=<span class="hljs-number">2</span>).to(device)<br>optimizer = AdaGrad(model.parameters(), lr=<span class="hljs-number">0.01</span>)<br><br><span class="hljs-comment"># 前向传播</span><br>x = torch.randn(<span class="hljs-number">2</span>, <span class="hljs-number">4</span>, device=device)<br>y = torch.tensor([<span class="hljs-number">4.</span>, <span class="hljs-number">5.</span>], device=device)<br>pred_y = model(x)<br>loss = F.mse_loss(pred_y, y)<br><br><span class="hljs-comment"># 反向传播</span><br>loss.backward()<br><br><span class="hljs-comment"># 更新参数</span><br>optimizer.step()<br><br><span class="hljs-comment"># 清零梯度</span><br>optimizer.zero_grad(set_to_none=<span class="hljs-literal">True</span>)<br></code></pre></td></tr></table></figure>
+<h3 id="2-4-梯度计算"><a href="#2-4-梯度计算" class="headerlink" title="2.4 梯度计算"></a>2.4 梯度计算</h3><h4 id="基础示例"><a href="#基础示例" class="headerlink" title="基础示例"></a>基础示例</h4><p>简单线性模型：y &#x3D; 0.5 * (x * w - 5)²</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 前向传播</span><br>x = torch.tensor([<span class="hljs-number">1.</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>])<br>w = torch.tensor([<span class="hljs-number">1.</span>, <span class="hljs-number">1</span>, <span class="hljs-number">1</span>], requires_grad=<span class="hljs-literal">True</span>)<br>pred_y = x @ w<br>loss = <span class="hljs-number">0.5</span> * (pred_y - <span class="hljs-number">5</span>).<span class="hljs-built_in">pow</span>(<span class="hljs-number">2</span>)<br><br><span class="hljs-comment"># 反向传播</span><br>loss.backward()<br><br><span class="hljs-comment"># 检查梯度</span><br><span class="hljs-keyword">assert</span> loss.grad <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span><br><span class="hljs-keyword">assert</span> pred_y.grad <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span><br><span class="hljs-keyword">assert</span> x.grad <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span><br><span class="hljs-keyword">assert</span> torch.equal(w.grad, torch.tensor([<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>]))<br></code></pre></td></tr></table></figure>
+
 <hr>
-<h3 id="资源核算">4.4 资源核算</h3>
-<p><strong>内存（float32）：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 参数</span><br>num_parameters = D*D*num_layers + D<br><br><span class="hljs-comment"># 激活</span><br>num_activations = B * D * num_layers<br><br><span class="hljs-comment"># 梯度</span><br>num_gradients = num_parameters<br><br><span class="hljs-comment"># 优化器状态（AdaGrad）</span><br>num_optimizer_states = num_parameters<br><br><span class="hljs-comment"># 总内存</span><br>total_memory = <span class="hljs-number">4</span> * (<br>    num_parameters +<br>    num_activations +<br>    num_gradients +<br>    num_optimizer_states<br>)<br></code></pre></td></tr></table></figure></p>
-<p><strong>计算（一步）：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">flops = <span class="hljs-number">6</span> * B * num_parameters<br></code></pre></td></tr></table></figure></p>
+<h4 id="梯度的-FLOPs"><a href="#梯度的-FLOPs" class="headerlink" title="梯度的 FLOPs"></a>梯度的 FLOPs</h4><p><strong>模型：</strong> x –w1–&gt; h1 –w2–&gt; h2 -&gt; loss</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs python">B = <span class="hljs-number">16384</span>  <span class="hljs-comment"># 批大小</span><br>D = <span class="hljs-number">32768</span>  <span class="hljs-comment"># 维度</span><br>K = <span class="hljs-number">8192</span>   <span class="hljs-comment"># 输出维度</span><br><br>x = torch.ones(B, D, device=<span class="hljs-string">&quot;cuda&quot;</span>)<br>w1 = torch.randn(D, D, device=<span class="hljs-string">&quot;cuda&quot;</span>, requires_grad=<span class="hljs-literal">True</span>)<br>w2 = torch.randn(D, K, device=<span class="hljs-string">&quot;cuda&quot;</span>, requires_grad=<span class="hljs-literal">True</span>)<br><br>h1 = x @ w1<br>h2 = h1 @ w2<br>loss = h2.<span class="hljs-built_in">pow</span>(<span class="hljs-number">2</span>).mean()<br></code></pre></td></tr></table></figure>
+
+<p><strong>前向 FLOPs：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">num_forward_flops = (<span class="hljs-number">2</span> * B * D * D) + (<span class="hljs-number">2</span> * B * D * K)<br></code></pre></td></tr></table></figure>
+
+<p><strong>反向传播：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python">h1.retain_grad()<br>h2.retain_grad()<br>loss.backward()<br></code></pre></td></tr></table></figure>
+
+<p><strong>计算 w2.grad：</strong></p>
+<figure class="highlight inform7"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs inform7">w2.grad<span class="hljs-comment">[j,k]</span> = sum_i h1<span class="hljs-comment">[i,j]</span> * h2.grad<span class="hljs-comment">[i,k]</span><br></code></pre></td></tr></table></figure>
+<ul>
+<li>FLOPs &#x3D; 2 * B * D * K</li>
+</ul>
+<p><strong>计算 h1.grad：</strong></p>
+<figure class="highlight inform7"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs inform7">h1.grad<span class="hljs-comment">[i,j]</span> = sum_k w2<span class="hljs-comment">[j,k]</span> * h2.grad<span class="hljs-comment">[i,k]</span><br></code></pre></td></tr></table></figure>
+<ul>
+<li>FLOPs &#x3D; 2 * B * D * K</li>
+</ul>
+<p><strong>w1 同理：</strong></p>
+<ul>
+<li>FLOPs &#x3D; (2 + 2) * B * D * D</li>
+</ul>
+<p><strong>总反向 FLOPs：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">num_backward_flops = <span class="hljs-number">4</span> * B * D * D + <span class="hljs-number">4</span> * B * D * K<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="可视化"><a href="#可视化" class="headerlink" title="可视化"></a>可视化</h4><p><img src="https://miro.medium.com/v2/resize:fit:1400/format:webp/1*VC9y_dHhCKFPXj90Qshj3w.gif" srcset="/img/loading.gif" lazyload alt="FLOPs Calculus"></p>
+<p><a target="_blank" rel="noopener" href="https://medium.com/@dzmitrybahdanau/the-flops-calculus-of-language-model-training-3b19c1f025e4">Blog Post: FLOPs Calculus</a></p>
+<hr>
+<h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p><strong>训练一步的 FLOPs：</strong></p>
+<ul>
+<li>前向传播：2 × token 数 × 参数数</li>
+<li>反向传播：4 × token 数 × 参数数</li>
+<li><strong>总计：6 × token 数 × 参数数</strong></li>
+</ul>
+<hr>
+<h2 id="Part-3-模型"><a href="#Part-3-模型" class="headerlink" title="Part 3: 模型"></a>Part 3: 模型</h2><h3 id="3-1-参数"><a href="#3-1-参数" class="headerlink" title="3.1 参数"></a>3.1 参数</h3><p>模型参数在 PyTorch 中存储为 <code>nn.Parameter</code> 对象。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs python">input_dim = <span class="hljs-number">16384</span><br>output_dim = <span class="hljs-number">32</span><br><br>w = nn.Parameter(torch.randn(input_dim, output_dim))<br><span class="hljs-keyword">assert</span> <span class="hljs-built_in">isinstance</span>(w, torch.Tensor)  <span class="hljs-comment"># 行为像张量</span><br><span class="hljs-keyword">assert</span> <span class="hljs-built_in">type</span>(w.data) == torch.Tensor  <span class="hljs-comment"># 访问底层张量</span><br></code></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="3-2-参数初始化"><a href="#3-2-参数初始化" class="headerlink" title="3.2 参数初始化"></a>3.2 参数初始化</h3><p><strong>问题：</strong> 未缩放的初始化</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs python">x = nn.Parameter(torch.randn(input_dim))<br>output = x @ w<br><br><span class="hljs-comment"># 每个元素的规模为 sqrt(input_dim)</span><br><span class="hljs-comment"># 大值会导致梯度爆炸，训练不稳定</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>解决方案：</strong> 缩放使其与 input_dim 无关</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python">w = nn.Parameter(torch.randn(input_dim, output_dim) / np.sqrt(input_dim))<br>output = x @ w<br><span class="hljs-comment"># 现在每个元素的规模是常数</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>Xavier 初始化：</strong></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf">Paper</a></li>
+<li>截断正态分布到 [-3, 3] 以避免异常值</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python">w = nn.Parameter(<br>    nn.init.trunc_normal_(<br>        torch.empty(input_dim, output_dim),<br>        std=<span class="hljs-number">1</span> / np.sqrt(input_dim),<br>        a=-<span class="hljs-number">3</span>, b=<span class="hljs-number">3</span><br>    )<br>)<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="3-3-自定义模型"><a href="#3-3-自定义模型" class="headerlink" title="3.3 自定义模型"></a>3.3 自定义模型</h3><h4 id="简单线性层"><a href="#简单线性层" class="headerlink" title="简单线性层"></a>简单线性层</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Linear</span>(nn.Module):<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, input_dim: <span class="hljs-built_in">int</span>, output_dim: <span class="hljs-built_in">int</span></span>):<br>        <span class="hljs-built_in">super</span>().__init__()<br>        self.weight = nn.Parameter(<br>            torch.randn(input_dim, output_dim) / np.sqrt(input_dim)<br>        )<br><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">forward</span>(<span class="hljs-params">self, x: torch.Tensor</span>) -&gt; torch.Tensor:<br>        <span class="hljs-keyword">return</span> x @ self.weight<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="深度线性模型"><a href="#深度线性模型" class="headerlink" title="深度线性模型"></a>深度线性模型</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Cruncher</span>(nn.Module):<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, dim: <span class="hljs-built_in">int</span>, num_layers: <span class="hljs-built_in">int</span></span>):<br>        <span class="hljs-built_in">super</span>().__init__()<br>        self.layers = nn.ModuleList([<br>            Linear(dim, dim)<br>            <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_layers)<br>        ])<br>        self.final = Linear(dim, <span class="hljs-number">1</span>)<br><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">forward</span>(<span class="hljs-params">self, x: torch.Tensor</span>) -&gt; torch.Tensor:<br>        <span class="hljs-comment"># 应用线性层</span><br>        <span class="hljs-keyword">for</span> layer <span class="hljs-keyword">in</span> self.layers:<br>            x = layer(x)<br>        <br>        <span class="hljs-comment"># 应用最终层</span><br>        x = self.final(x)<br>        <br>        <span class="hljs-comment"># 移除最后一个维度</span><br>        x = x.squeeze(-<span class="hljs-number">1</span>)<br>        <span class="hljs-keyword">return</span> x<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="使用模型"><a href="#使用模型" class="headerlink" title="使用模型"></a>使用模型</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs python">D = <span class="hljs-number">64</span><br>num_layers = <span class="hljs-number">2</span><br>model = Cruncher(dim=D, num_layers=num_layers)<br><br><span class="hljs-comment"># 检查参数</span><br>param_sizes = [<br>    (name, param.numel())<br>    <span class="hljs-keyword">for</span> name, param <span class="hljs-keyword">in</span> model.state_dict().items()<br>]<br><span class="hljs-comment"># [(&#x27;layers.0.weight&#x27;, D*D),</span><br><span class="hljs-comment">#  (&#x27;layers.1.weight&#x27;, D*D),</span><br><span class="hljs-comment">#  (&#x27;final.weight&#x27;, D)]</span><br><br>num_parameters = <span class="hljs-built_in">sum</span>(p.numel() <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> model.parameters())<br><span class="hljs-comment"># D*D + D*D + D</span><br><br><span class="hljs-comment"># 移动到 GPU</span><br>device = <span class="hljs-string">&quot;cuda&quot;</span> <span class="hljs-keyword">if</span> torch.cuda.is_available() <span class="hljs-keyword">else</span> <span class="hljs-string">&quot;cpu&quot;</span><br>model = model.to(device)<br><br><span class="hljs-comment"># 运行模型</span><br>B = <span class="hljs-number">8</span><br>x = torch.randn(B, D, device=device)<br>y = model(x)<br><span class="hljs-keyword">assert</span> y.size() == torch.Size([B])<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="Part-4-训练循环"><a href="#Part-4-训练循环" class="headerlink" title="Part 4: 训练循环"></a>Part 4: 训练循环</h2><h3 id="4-1-随机性注意事项"><a href="#4-1-随机性注意事项" class="headerlink" title="4.1 随机性注意事项"></a>4.1 随机性注意事项</h3><p>随机性出现在许多地方：</p>
+<ul>
+<li>参数初始化</li>
+<li>Dropout</li>
+<li>数据顺序</li>
+</ul>
+<p><strong>为了可重现性，始终设置随机种子：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs python">seed = <span class="hljs-number">0</span><br><br><span class="hljs-comment"># PyTorch</span><br>torch.manual_seed(seed)<br><br><span class="hljs-comment"># NumPy</span><br><span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np<br>np.random.seed(seed)<br><br><span class="hljs-comment"># Python</span><br><span class="hljs-keyword">import</span> random<br>random.seed(seed)<br></code></pre></td></tr></table></figure>
+
+<p>确定性对调试特别有用！</p>
+<hr>
+<h3 id="4-2-数据加载"><a href="#4-2-数据加载" class="headerlink" title="4.2 数据加载"></a>4.2 数据加载</h3><p><strong>语言建模数据：</strong> 整数序列（tokenizer 输出）</p>
+<p><strong>序列化为 NumPy 数组：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 保存</span><br>data = np.array([<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>, <span class="hljs-number">7</span>, <span class="hljs-number">8</span>, <span class="hljs-number">9</span>, <span class="hljs-number">10</span>], dtype=np.int32)<br>data.tofile(<span class="hljs-string">&quot;data.npy&quot;</span>)<br><br><span class="hljs-comment"># 加载（使用 memmap 懒加载）</span><br>data = np.memmap(<span class="hljs-string">&quot;data.npy&quot;</span>, dtype=np.int32)<br><span class="hljs-comment"># 不会一次性加载所有数据到内存</span><br><span class="hljs-comment"># LLaMA 数据是 2.8TB！</span><br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="批处理函数"><a href="#批处理函数" class="headerlink" title="批处理函数"></a>批处理函数</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">get_batch</span>(<span class="hljs-params">data, batch_size, sequence_length, device</span>):<br>    <span class="hljs-comment"># 随机采样 batch_size 个位置</span><br>    start_indices = torch.randint(<br>        <span class="hljs-built_in">len</span>(data) - sequence_length,<br>        (batch_size,)<br>    )<br>    <br>    <span class="hljs-comment"># 索引数据</span><br>    x = torch.tensor([<br>        data[start:start + sequence_length]<br>        <span class="hljs-keyword">for</span> start <span class="hljs-keyword">in</span> start_indices<br>    ])<br>    <br>    <span class="hljs-comment"># Pinned memory（可选，用于异步传输）</span><br>    <span class="hljs-keyword">if</span> torch.cuda.is_available():<br>        x = x.pin_memory()<br>    <br>    <span class="hljs-comment"># 移动到 GPU（非阻塞）</span><br>    x = x.to(device, non_blocking=<span class="hljs-literal">True</span>)<br>    <br>    <span class="hljs-keyword">return</span> x<br></code></pre></td></tr></table></figure>
+
+<p><strong>Pinned Memory 优势：</strong></p>
+<ul>
+<li>允许 CPU → GPU 异步复制</li>
+<li>可以并行：<ul>
+<li>在 CPU 上获取下一批数据</li>
+<li>在 GPU 上处理当前批次</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h3 id="4-3-优化器"><a href="#4-3-优化器" class="headerlink" title="4.3 优化器"></a>4.3 优化器</h3><h4 id="SGD（随机梯度下降）"><a href="#SGD（随机梯度下降）" class="headerlink" title="SGD（随机梯度下降）"></a>SGD（随机梯度下降）</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">SGD</span>(torch.optim.Optimizer):<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, params, lr=<span class="hljs-number">0.01</span></span>):<br>        <span class="hljs-built_in">super</span>().__init__(params, <span class="hljs-built_in">dict</span>(lr=lr))<br><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">step</span>(<span class="hljs-params">self</span>):<br>        <span class="hljs-keyword">for</span> group <span class="hljs-keyword">in</span> self.param_groups:<br>            lr = group[<span class="hljs-string">&quot;lr&quot;</span>]<br>            <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> group[<span class="hljs-string">&quot;params&quot;</span>]:<br>                grad = p.grad.data<br>                p.data -= lr * grad<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="AdaGrad"><a href="#AdaGrad" class="headerlink" title="AdaGrad"></a>AdaGrad</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">AdaGrad</span>(torch.optim.Optimizer):<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, params, lr=<span class="hljs-number">0.01</span></span>):<br>        <span class="hljs-built_in">super</span>().__init__(params, <span class="hljs-built_in">dict</span>(lr=lr))<br><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">step</span>(<span class="hljs-params">self</span>):<br>        <span class="hljs-keyword">for</span> group <span class="hljs-keyword">in</span> self.param_groups:<br>            lr = group[<span class="hljs-string">&quot;lr&quot;</span>]<br>            <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> group[<span class="hljs-string">&quot;params&quot;</span>]:<br>                state = self.state[p]<br>                grad = p.grad.data<br>                <br>                <span class="hljs-comment"># 获取累积平方梯度</span><br>                g2 = state.get(<span class="hljs-string">&quot;g2&quot;</span>, torch.zeros_like(grad))<br>                <br>                <span class="hljs-comment"># 更新优化器状态</span><br>                g2 += torch.square(grad)<br>                state[<span class="hljs-string">&quot;g2&quot;</span>] = g2<br>                <br>                <span class="hljs-comment"># 更新参数</span><br>                p.data -= lr * grad / torch.sqrt(g2 + <span class="hljs-number">1e-5</span>)<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="优化器层次"><a href="#优化器层次" class="headerlink" title="优化器层次"></a>优化器层次</h4><ul>
+<li><strong>Momentum</strong> &#x3D; SGD + 梯度的指数平均</li>
+<li><strong>AdaGrad</strong> &#x3D; SGD + 按 grad² 平均</li>
+<li><strong>RMSProp</strong> &#x3D; AdaGrad + grad² 的指数平均</li>
+<li><strong>Adam</strong> &#x3D; RMSProp + Momentum</li>
+</ul>
+<hr>
+<h4 id="使用优化器"><a href="#使用优化器" class="headerlink" title="使用优化器"></a>使用优化器</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs python">model = Cruncher(dim=<span class="hljs-number">4</span>, num_layers=<span class="hljs-number">2</span>).to(device)<br>optimizer = AdaGrad(model.parameters(), lr=<span class="hljs-number">0.01</span>)<br><br><span class="hljs-comment"># 前向传播</span><br>x = torch.randn(<span class="hljs-number">2</span>, <span class="hljs-number">4</span>, device=device)<br>y = torch.tensor([<span class="hljs-number">4.</span>, <span class="hljs-number">5.</span>], device=device)<br>pred_y = model(x)<br>loss = F.mse_loss(pred_y, y)<br><br><span class="hljs-comment"># 反向传播</span><br>loss.backward()<br><br><span class="hljs-comment"># 更新参数</span><br>optimizer.step()<br><br><span class="hljs-comment"># 清零梯度</span><br>optimizer.zero_grad(set_to_none=<span class="hljs-literal">True</span>)<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="4-4-资源核算"><a href="#4-4-资源核算" class="headerlink" title="4.4 资源核算"></a>4.4 资源核算</h3><p><strong>内存（float32）：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 参数</span><br>num_parameters = D*D*num_layers + D<br><br><span class="hljs-comment"># 激活</span><br>num_activations = B * D * num_layers<br><br><span class="hljs-comment"># 梯度</span><br>num_gradients = num_parameters<br><br><span class="hljs-comment"># 优化器状态（AdaGrad）</span><br>num_optimizer_states = num_parameters<br><br><span class="hljs-comment"># 总内存</span><br>total_memory = <span class="hljs-number">4</span> * (<br>    num_parameters +<br>    num_activations +<br>    num_gradients +<br>    num_optimizer_states<br>)<br></code></pre></td></tr></table></figure>
+
+<p><strong>计算（一步）：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">flops = <span class="hljs-number">6</span> * B * num_parameters<br></code></pre></td></tr></table></figure>
+
 <p><strong>Transformer 更复杂，但思路相同。</strong></p>
-<p>参考： - <a target="_blank" rel="noopener" href="https://erees.dev/transformer-memory/">Transformer
-Memory</a> - <a target="_blank" rel="noopener" href="https://www.adamcasson.com/posts/transformer-flops">Transformer
-FLOPs</a></p>
+<p>参考：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://erees.dev/transformer-memory/">Transformer Memory</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.adamcasson.com/posts/transformer-flops">Transformer FLOPs</a></li>
+</ul>
 <hr>
-<h3 id="训练循环">4.5 训练循环</h3>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">train</span>(<span class="hljs-params">get_batch, D, num_layers, B, num_train_steps, lr</span>):<br>    model = Cruncher(dim=D, num_layers=num_layers).to(device)<br>    optimizer = SGD(model.parameters(), lr=lr)<br>    <br>    <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_train_steps):<br>        <span class="hljs-comment"># 获取数据</span><br>        x, y = get_batch(B=B)<br>        <br>        <span class="hljs-comment"># 前向传播</span><br>        pred_y = model(x)<br>        loss = F.mse_loss(pred_y, y)<br>        <br>        <span class="hljs-comment"># 反向传播</span><br>        loss.backward()<br>        <br>        <span class="hljs-comment"># 更新参数</span><br>        optimizer.step()<br>        optimizer.zero_grad(set_to_none=<span class="hljs-literal">True</span>)<br></code></pre></td></tr></table></figure>
+<h3 id="4-5-训练循环"><a href="#4-5-训练循环" class="headerlink" title="4.5 训练循环"></a>4.5 训练循环</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">train</span>(<span class="hljs-params">get_batch, D, num_layers, B, num_train_steps, lr</span>):<br>    model = Cruncher(dim=D, num_layers=num_layers).to(device)<br>    optimizer = SGD(model.parameters(), lr=lr)<br>    <br>    <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_train_steps):<br>        <span class="hljs-comment"># 获取数据</span><br>        x, y = get_batch(B=B)<br>        <br>        <span class="hljs-comment"># 前向传播</span><br>        pred_y = model(x)<br>        loss = F.mse_loss(pred_y, y)<br>        <br>        <span class="hljs-comment"># 反向传播</span><br>        loss.backward()<br>        <br>        <span class="hljs-comment"># 更新参数</span><br>        optimizer.step()<br>        optimizer.zero_grad(set_to_none=<span class="hljs-literal">True</span>)<br></code></pre></td></tr></table></figure>
+
 <hr>
-<h3 id="检查点checkpointing">4.6 检查点（Checkpointing）</h3>
-<p>训练需要很长时间，肯定会崩溃。不想失去所有进度！</p>
+<h3 id="4-6-检查点（Checkpointing）"><a href="#4-6-检查点（Checkpointing）" class="headerlink" title="4.6 检查点（Checkpointing）"></a>4.6 检查点（Checkpointing）</h3><p>训练需要很长时间，肯定会崩溃。不想失去所有进度！</p>
 <p><strong>定期保存模型和优化器状态：</strong></p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs python">model = Cruncher(dim=<span class="hljs-number">64</span>, num_layers=<span class="hljs-number">3</span>).to(device)<br>optimizer = AdaGrad(model.parameters(), lr=<span class="hljs-number">0.01</span>)<br><br><span class="hljs-comment"># 保存检查点</span><br>checkpoint = &#123;<br>    <span class="hljs-string">&quot;model&quot;</span>: model.state_dict(),<br>    <span class="hljs-string">&quot;optimizer&quot;</span>: optimizer.state_dict(),<br>&#125;<br>torch.save(checkpoint, <span class="hljs-string">&quot;model_checkpoint.pt&quot;</span>)<br><br><span class="hljs-comment"># 加载检查点</span><br>loaded_checkpoint = torch.load(<span class="hljs-string">&quot;model_checkpoint.pt&quot;</span>)<br>model.load_state_dict(loaded_checkpoint[<span class="hljs-string">&quot;model&quot;</span>])<br>optimizer.load_state_dict(loaded_checkpoint[<span class="hljs-string">&quot;optimizer&quot;</span>])<br></code></pre></td></tr></table></figure>
+
 <hr>
-<h3 id="混合精度训练">4.7 混合精度训练</h3>
-<p><strong>权衡：</strong> - 高精度：更准确/稳定，更多内存，更多计算 -
-低精度：不太准确/稳定，更少内存，更少计算</p>
+<h3 id="4-7-混合精度训练"><a href="#4-7-混合精度训练" class="headerlink" title="4.7 混合精度训练"></a>4.7 混合精度训练</h3><p><strong>权衡：</strong></p>
+<ul>
+<li>高精度：更准确&#x2F;稳定，更多内存，更多计算</li>
+<li>低精度：不太准确&#x2F;稳定，更少内存，更少计算</li>
+</ul>
 <p><strong>如何两全其美？</strong></p>
-<p><strong>解决方案：</strong> 默认使用 float32，但在可能的地方使用
-{bfloat16, fp8}</p>
-<p><strong>具体计划：</strong> - 前向传播使用 {bfloat16, fp8}（激活） -
-其余使用 float32（参数、梯度）</p>
-<p><strong>参考：</strong> - <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/1710.03740.pdf">Mixed Precision Training
-Paper</a> - <a target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/amp.html">PyTorch
-AMP</a> - <a target="_blank" rel="noopener" href="https://docs.nvidia.com/deeplearning/performance/mixed-precision-training/">NVIDIA
-Mixed Precision</a></p>
-<p><strong>NVIDIA Transformer Engine：</strong> - 支持线性层的 FP8 -
-在整个训练中普遍使用 FP8</p>
+<p><strong>解决方案：</strong> 默认使用 float32，但在可能的地方使用 {bfloat16, fp8}</p>
+<p><strong>具体计划：</strong></p>
+<ul>
+<li>前向传播使用 {bfloat16, fp8}（激活）</li>
+<li>其余使用 float32（参数、梯度）</li>
+</ul>
+<p><strong>参考：</strong></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/1710.03740.pdf">Mixed Precision Training Paper</a></li>
+<li><a target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/amp.html">PyTorch AMP</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.nvidia.com/deeplearning/performance/mixed-precision-training/">NVIDIA Mixed Precision</a></li>
+</ul>
+<p><strong>NVIDIA Transformer Engine：</strong></p>
+<ul>
+<li>支持线性层的 FP8</li>
+<li>在整个训练中普遍使用 FP8</li>
+</ul>
 <hr>
-<h2 id="总结-1">总结</h2>
-<h3 id="知识类型">知识类型</h3>
-<p><strong>机制（Mechanics）：</strong> 直接（只是 PyTorch） - 张量操作
-- 模型定义 - 训练循环</p>
-<p><strong>思维方式（Mindset）：</strong> 资源核算（记得做） -
-内存：参数 + 激活 + 梯度 + 优化器状态 - 计算：6 × token 数 × 参数数</p>
-<p><strong>直觉（Intuitions）：</strong> 大致方向（没有大模型） -
-初始化很重要 - 数据类型权衡 - MFU 作为效率指标</p>
+<h2 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h2><h3 id="知识类型"><a href="#知识类型" class="headerlink" title="知识类型"></a>知识类型</h3><p><strong>机制（Mechanics）：</strong> 直接（只是 PyTorch）</p>
+<ul>
+<li>张量操作</li>
+<li>模型定义</li>
+<li>训练循环</li>
+</ul>
+<p><strong>思维方式（Mindset）：</strong> 资源核算（记得做）</p>
+<ul>
+<li>内存：参数 + 激活 + 梯度 + 优化器状态</li>
+<li>计算：6 × token 数 × 参数数</li>
+</ul>
+<p><strong>直觉（Intuitions）：</strong> 大致方向（没有大模型）</p>
+<ul>
+<li>初始化很重要</li>
+<li>数据类型权衡</li>
+<li>MFU 作为效率指标</li>
+</ul>
 <hr>
-<h3 id="关键要点">关键要点</h3>
-<ol type="1">
-<li><strong>张量是一切的基础</strong>
+<h3 id="关键要点"><a href="#关键要点" class="headerlink" title="关键要点"></a>关键要点</h3><ol>
+<li><p><strong>张量是一切的基础</strong></p>
 <ul>
 <li>理解存储和视图</li>
 <li>注意数据类型</li>
-</ul></li>
-<li><strong>资源核算至关重要</strong>
+</ul>
+</li>
+<li><p><strong>资源核算至关重要</strong></p>
 <ul>
 <li>内存：每个参数 16 字节（AdamW）</li>
 <li>计算：6 × tokens × params FLOPs</li>
-</ul></li>
-<li><strong>效率驱动设计</strong>
+</ul>
+</li>
+<li><p><strong>效率驱动设计</strong></p>
 <ul>
 <li>混合精度训练</li>
 <li>参数初始化</li>
 <li>批处理和数据加载</li>
-</ul></li>
+</ul>
+</li>
 </ol>
 <hr>
-<h3 id="下节课预告">下节课预告</h3>
-<p><strong>主题：</strong> Transformer 架构细节</p>
+<h3 id="下节课预告"><a href="#下节课预告" class="headerlink" title="下节课预告"></a>下节课预告</h3><p><strong>主题：</strong> Transformer 架构细节</p>
 <hr>
-<h2 id="参考资源">参考资源</h2>
-<p><strong>PyTorch 文档：</strong> - <a target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/tensors.html">Tensors</a> - <a target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/amp.html">Automatic Mixed
-Precision</a></p>
-<p><strong>Einops：</strong> - <a target="_blank" rel="noopener" href="https://einops.rocks/1-einops-basics/">Tutorial</a> - <a target="_blank" rel="noopener" href="https://github.com/arogozhnikov/einops">GitHub</a></p>
-<p><strong>博客文章：</strong> - <a target="_blank" rel="noopener" href="https://erees.dev/transformer-memory/">Transformer Memory</a> - <a target="_blank" rel="noopener" href="https://www.adamcasson.com/posts/transformer-flops">Transformer
-FLOPs</a> - <a target="_blank" rel="noopener" href="https://medium.com/@dzmitrybahdanau/the-flops-calculus-of-language-model-training-3b19c1f025e4">FLOPs
-Calculus</a></p>
-<p><strong>论文：</strong> - <a target="_blank" rel="noopener" href="https://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf">Xavier
-Initialization</a> - <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/1710.03740.pdf">Mixed Precision Training</a>
-- <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2209.05433.pdf">FP8 Formats</a></p>
+<h2 id="参考资源"><a href="#参考资源" class="headerlink" title="参考资源"></a>参考资源</h2><p><strong>PyTorch 文档：</strong></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/tensors.html">Tensors</a></li>
+<li><a target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/amp.html">Automatic Mixed Precision</a></li>
+</ul>
+<p><strong>Einops：</strong></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://einops.rocks/1-einops-basics/">Tutorial</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/arogozhnikov/einops">GitHub</a></li>
+</ul>
+<p><strong>博客文章：</strong></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://erees.dev/transformer-memory/">Transformer Memory</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.adamcasson.com/posts/transformer-flops">Transformer FLOPs</a></li>
+<li><a target="_blank" rel="noopener" href="https://medium.com/@dzmitrybahdanau/the-flops-calculus-of-language-model-training-3b19c1f025e4">FLOPs Calculus</a></li>
+</ul>
+<p><strong>论文：</strong></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf">Xavier Initialization</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/1710.03740.pdf">Mixed Precision Training</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2209.05433.pdf">FP8 Formats</a></li>
+</ul>
 
                 
               </div>

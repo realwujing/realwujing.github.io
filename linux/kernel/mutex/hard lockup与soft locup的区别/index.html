@@ -16,12 +16,12 @@
   <meta name="author" content="Wu Jing">
   <meta name="keywords" content="HTML, JavaScript, Hexo, Linux, qemu, C++, namespace, git, bcc, bpf, initramfs, k8s, architect, strings, assembly, linux">
   
-    <meta name="description" content="hard lockup与soft locup的区别  [linux][异常检测] hung task, soft lockup, hard lockup, workqueue stall Softlockup与hardlockup检测机制(又名:nmi_watchdog)  hard lockup与soft lockup的区别 在计算机系统中，尤其是Linux内核中，&quot;hard lockup&quot;和&quot;">
+    <meta name="description" content="hard lockup与soft locup的区别 [linux][异常检测] hung task, soft lockup, hard lockup, workqueue stall Softlockup与hardlockup检测机制(又名:nmi_watchdog)  hard lockup与soft lockup的区别在计算机系统中，尤其是Linux内核中，”hard lockup”和”so">
 <meta property="og:type" content="article">
 <meta property="og:title" content="hard lockup与soft locup的区别">
 <meta property="og:url" content="https://realwujing.github.io/linux/kernel/mutex/hard%20lockup%E4%B8%8Esoft%20locup%E7%9A%84%E5%8C%BA%E5%88%AB/index.html">
 <meta property="og:site_name" content="WuJing&#39;s Blog">
-<meta property="og:description" content="hard lockup与soft locup的区别  [linux][异常检测] hung task, soft lockup, hard lockup, workqueue stall Softlockup与hardlockup检测机制(又名:nmi_watchdog)  hard lockup与soft lockup的区别 在计算机系统中，尤其是Linux内核中，&quot;hard lockup&quot;和&quot;">
+<meta property="og:description" content="hard lockup与soft locup的区别 [linux][异常检测] hung task, soft lockup, hard lockup, workqueue stall Softlockup与hardlockup检测机制(又名:nmi_watchdog)  hard lockup与soft lockup的区别在计算机系统中，尤其是Linux内核中，”hard lockup”和”so">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-05-14T17:08:28.000Z">
 <meta property="article:modified_time" content="2025-05-14T17:08:28.000Z">
@@ -68,6 +68,10 @@
     <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
   
 
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
 
 
 
@@ -288,7 +292,7 @@
         
         
         
-          248 分钟
+          247 分钟
         
       </span>
     
@@ -331,1370 +335,1058 @@
             
               <div class="markdown-body">
                 
-                <h1 id="hard-lockup与soft-locup的区别">hard lockup与soft
-locup的区别</h1>
-<ul>
-<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_38184628/article/details/136208515"><font color="Red">[linux][异常检测]
-hung task, soft lockup, hard lockup, workqueue stall</font></a></li>
+                <h1 id="hard-lockup与soft-locup的区别"><a href="#hard-lockup与soft-locup的区别" class="headerlink" title="hard lockup与soft locup的区别"></a>hard lockup与soft locup的区别</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_38184628/article/details/136208515"><font color="Red">[linux][异常检测] hung task, soft lockup, hard lockup, workqueue stall</font></a></li>
 <li><a target="_blank" rel="noopener" href="https://www.kernel.org/doc/html/latest/translations/zh_CN/admin-guide/lockup-watchdogs.html"><font color="Red">Softlockup与hardlockup检测机制(又名:nmi_watchdog)</font></a></li>
 </ul>
-<h2 id="hard-lockup与soft-lockup的区别">hard lockup与soft
-lockup的区别</h2>
-<p>在计算机系统中，尤其是Linux内核中，"hard lockup"和"soft
-lockup"是指两种不同的系统异常状态，通常与CPU的执行状态和系统响应性有关。以下是它们的区别：</p>
-<h3 id="定义">1. <strong>定义</strong></h3>
-<ul>
-<li><strong>Soft
-Lockup</strong>（软锁死）：指的是某个CPU核心长时间被某个任务占用（例如运行一个死循环或高优先级任务），导致内核无法调度其他任务或响应中断，但该CPU仍然能够执行代码。这种情况通常是由于内核中的代码逻辑问题或调度问题导致。</li>
-<li><strong>Hard
-Lockup</strong>（硬锁死）：指的是某个CPU核心完全停止响应，甚至无法执行任何代码或响应硬件中断。这种情况通常是由硬件问题（如CPU故障）、严重的内核错误（如死锁或无限循环且禁用了中断）或外部干扰引起的。</li>
+<h2 id="hard-lockup与soft-lockup的区别"><a href="#hard-lockup与soft-lockup的区别" class="headerlink" title="hard lockup与soft lockup的区别"></a>hard lockup与soft lockup的区别</h2><p>在计算机系统中，尤其是Linux内核中，”hard lockup”和”soft lockup”是指两种不同的系统异常状态，通常与CPU的执行状态和系统响应性有关。以下是它们的区别：</p>
+<h3 id="1-定义"><a href="#1-定义" class="headerlink" title="1. 定义"></a>1. <strong>定义</strong></h3><ul>
+<li><strong>Soft Lockup</strong>（软锁死）：指的是某个CPU核心长时间被某个任务占用（例如运行一个死循环或高优先级任务），导致内核无法调度其他任务或响应中断，但该CPU仍然能够执行代码。这种情况通常是由于内核中的代码逻辑问题或调度问题导致。</li>
+<li><strong>Hard Lockup</strong>（硬锁死）：指的是某个CPU核心完全停止响应，甚至无法执行任何代码或响应硬件中断。这种情况通常是由硬件问题（如CPU故障）、严重的内核错误（如死锁或无限循环且禁用了中断）或外部干扰引起的。</li>
 </ul>
-<h3 id="检测机制">2. <strong>检测机制</strong></h3>
-<ul>
-<li><strong>Soft
-Lockup</strong>：Linux内核通过"watchdog"机制检测。当一个CPU核心在一定时间（如默认20秒）内未执行调度（即未切换任务）时，内核会触发soft
-lockup警告。这种情况依赖软件层面的检测。</li>
-<li><strong>Hard Lockup</strong>：Hard
-lockup通常由硬件支持的NMI（非屏蔽中断，Non-Maskable
-Interrupt）检测。如果CPU没有响应NMI定期发送的"心跳"信号，系统会认为发生了hard
-lockup。需要注意的是，hard
-lockup检测依赖硬件支持（如APIC或特定的watchdog硬件），如果没有启用相关功能，可能无法检测到。</li>
+<h3 id="2-检测机制"><a href="#2-检测机制" class="headerlink" title="2. 检测机制"></a>2. <strong>检测机制</strong></h3><ul>
+<li><strong>Soft Lockup</strong>：Linux内核通过”watchdog”机制检测。当一个CPU核心在一定时间（如默认20秒）内未执行调度（即未切换任务）时，内核会触发soft lockup警告。这种情况依赖软件层面的检测。</li>
+<li><strong>Hard Lockup</strong>：Hard lockup通常由硬件支持的NMI（非屏蔽中断，Non-Maskable Interrupt）检测。如果CPU没有响应NMI定期发送的”心跳”信号，系统会认为发生了hard lockup。需要注意的是，hard lockup检测依赖硬件支持（如APIC或特定的watchdog硬件），如果没有启用相关功能，可能无法检测到。</li>
 </ul>
-<h3 id="根本原因">3. <strong>根本原因</strong></h3>
-<ul>
-<li><strong>Soft
-Lockup</strong>：常见于软件问题，比如内核中的无限循环、过长的临界区（critical
-section）未释放、或者用户态程序通过高优先级抢占CPU。</li>
-<li><strong>Hard
-Lockup</strong>：更多与硬件相关，比如CPU过热、内存错误、驱动程序导致的中断风暴，或者内核bug导致的中断被意外禁用。</li>
+<h3 id="3-根本原因"><a href="#3-根本原因" class="headerlink" title="3. 根本原因"></a>3. <strong>根本原因</strong></h3><ul>
+<li><strong>Soft Lockup</strong>：常见于软件问题，比如内核中的无限循环、过长的临界区（critical section）未释放、或者用户态程序通过高优先级抢占CPU。</li>
+<li><strong>Hard Lockup</strong>：更多与硬件相关，比如CPU过热、内存错误、驱动程序导致的中断风暴，或者内核bug导致的中断被意外禁用。</li>
 </ul>
-<h3 id="严重程度">4. <strong>严重程度</strong></h3>
-<ul>
-<li><strong>Soft
-Lockup</strong>：相对较轻，系统可能仍然部分可用，其他CPU核心可能还能正常工作。可以通过重启相关进程或调整代码解决。</li>
-<li><strong>Hard
-Lockup</strong>：更严重，通常意味着系统某个核心完全不可用，可能导致整个系统崩溃（panic），需要重启系统甚至检查硬件。</li>
+<h3 id="4-严重程度"><a href="#4-严重程度" class="headerlink" title="4. 严重程度"></a>4. <strong>严重程度</strong></h3><ul>
+<li><strong>Soft Lockup</strong>：相对较轻，系统可能仍然部分可用，其他CPU核心可能还能正常工作。可以通过重启相关进程或调整代码解决。</li>
+<li><strong>Hard Lockup</strong>：更严重，通常意味着系统某个核心完全不可用，可能导致整个系统崩溃（panic），需要重启系统甚至检查硬件。</li>
 </ul>
-<h3 id="日志示例">5. <strong>日志示例</strong></h3>
-<ul>
-<li><strong>Soft Lockup</strong>日志： <figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<span class="hljs-meta"> [process_name:1234]</span><br></code></pre></td></tr></table></figure></li>
-<li><strong>Hard Lockup</strong>日志： <figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">NMI</span> watchdog: Watchdog detected hard LOCKUP <span class="hljs-literal">on</span> cpu <span class="hljs-number">0</span><br></code></pre></td></tr></table></figure></li>
+<h3 id="5-日志示例"><a href="#5-日志示例" class="headerlink" title="5. 日志示例"></a>5. <strong>日志示例</strong></h3><ul>
+<li><strong>Soft Lockup</strong>日志：<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<span class="hljs-meta"> [process_name:1234]</span><br></code></pre></td></tr></table></figure></li>
+<li><strong>Hard Lockup</strong>日志：<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">NMI</span> watchdog: Watchdog detected hard LOCKUP <span class="hljs-literal">on</span> cpu <span class="hljs-number">0</span><br></code></pre></td></tr></table></figure></li>
 </ul>
-<h3 id="解决方法">6. <strong>解决方法</strong></h3>
-<ul>
-<li><strong>Soft
-Lockup</strong>：检查内核日志（dmesg），定位问题代码或进程，优化调度策略，或者调整watchdog阈值（<code>kernel.watchdog_thresh</code>）。</li>
-<li><strong>Hard
-Lockup</strong>：检查硬件状态（如温度、电源）、更新内核或驱动程序，确保NMI
-watchdog功能正常开启（通过内核参数<code>nmi_watchdog=1</code>）。</li>
+<h3 id="6-解决方法"><a href="#6-解决方法" class="headerlink" title="6. 解决方法"></a>6. <strong>解决方法</strong></h3><ul>
+<li><strong>Soft Lockup</strong>：检查内核日志（dmesg），定位问题代码或进程，优化调度策略，或者调整watchdog阈值（<code>kernel.watchdog_thresh</code>）。</li>
+<li><strong>Hard Lockup</strong>：检查硬件状态（如温度、电源）、更新内核或驱动程序，确保NMI watchdog功能正常开启（通过内核参数<code>nmi_watchdog=1</code>）。</li>
 </ul>
-<h3 id="总结">总结</h3>
-<ul>
-<li><strong>Soft
-Lockup</strong>：软件层面，CPU被占用但仍在运行，系统可能还能恢复。</li>
-<li><strong>Hard
-Lockup</strong>：硬件或严重内核问题，CPU完全无响应，通常需要更深入的排查。</li>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><ul>
+<li><strong>Soft Lockup</strong>：软件层面，CPU被占用但仍在运行，系统可能还能恢复。</li>
+<li><strong>Hard Lockup</strong>：硬件或严重内核问题，CPU完全无响应，通常需要更深入的排查。</li>
 </ul>
-<h2 id="触发-soft-lockup-和-hard-lockup-的示例代码">触发 <strong>soft
-lockup</strong> 和 <strong>hard lockup</strong> 的示例代码</h2>
-<p>以下是分别可能触发 <strong>soft lockup</strong> 和 <strong>hard
-lockup</strong>
-的示例代码。这些代码仅用于演示和学习目的，请勿在生产环境中运行，因为它们可能导致系统不稳定或崩溃。运行前请确保在测试环境（如虚拟机）中操作，并有权限访问内核相关功能。</p>
-<h3 id="soft-lockup-示例代码">1. <strong>Soft Lockup
-示例代码</strong></h3>
-<p>Soft lockup
-通常由内核模块中的长时间循环或未释放CPU导致。以下是一个简单的Linux内核模块示例：</p>
+<h2 id="触发-soft-lockup-和-hard-lockup-的示例代码"><a href="#触发-soft-lockup-和-hard-lockup-的示例代码" class="headerlink" title="触发 soft lockup 和 hard lockup 的示例代码"></a>触发 <strong>soft lockup</strong> 和 <strong>hard lockup</strong> 的示例代码</h2><p>以下是分别可能触发 <strong>soft lockup</strong> 和 <strong>hard lockup</strong> 的示例代码。这些代码仅用于演示和学习目的，请勿在生产环境中运行，因为它们可能导致系统不稳定或崩溃。运行前请确保在测试环境（如虚拟机）中操作，并有权限访问内核相关功能。</p>
+<h3 id="1-Soft-Lockup-示例代码"><a href="#1-Soft-Lockup-示例代码" class="headerlink" title="1. Soft Lockup 示例代码"></a>1. <strong>Soft Lockup 示例代码</strong></h3><p>Soft lockup 通常由内核模块中的长时间循环或未释放CPU导致。以下是一个简单的Linux内核模块示例：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/module.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/kernel.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/delay.h&gt;</span></span><br><br>MODULE_LICENSE(<span class="hljs-string">&quot;GPL&quot;</span>);<br>MODULE_AUTHOR(<span class="hljs-string">&quot;Demo&quot;</span>);<br>MODULE_DESCRIPTION(<span class="hljs-string">&quot;Soft Lockup Demo&quot;</span>);<br><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">soft_lockup_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Starting soft lockup demo...\n&quot;</span>);<br><br>    <span class="hljs-comment">/* 模拟一个无限循环，占用CPU但不关闭中断 */</span><br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-comment">/* 故意不让出CPU，触发soft lockup */</span><br>        printk(KERN_INFO <span class="hljs-string">&quot;Running in loop...\n&quot;</span>);<br>        mdelay(<span class="hljs-number">1000</span>); <span class="hljs-comment">/* 延迟1秒，模拟长时间任务 */</span><br>    &#125;<br><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> __exit <span class="hljs-title function_">soft_lockup_exit</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Exiting soft lockup demo...\n&quot;</span>);<br>&#125;<br><br>module_init(soft_lockup_init);<br>module_exit(soft_lockup_exit);<br></code></pre></td></tr></table></figure>
-<h4 id="编译和运行">编译和运行</h4>
-<ol type="1">
+
+<h4 id="编译和运行"><a href="#编译和运行" class="headerlink" title="编译和运行"></a>编译和运行</h4><ol>
 <li>保存为 <code>soft_lockup.c</code>。</li>
-<li>创建一个 <code>Makefile</code>： <figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs makefile">obj-m += soft_lockup.o<br><span class="hljs-section">all:</span><br>    make -C /lib/modules/<span class="hljs-variable">$(<span class="hljs-built_in">shell</span> uname -r)</span>/build M=<span class="hljs-variable">$(PWD)</span> modules<br><span class="hljs-section">clean:</span><br>    make -C /lib/modules/<span class="hljs-variable">$(<span class="hljs-built_in">shell</span> uname -r)</span>/build M=<span class="hljs-variable">$(PWD)</span> clean<br></code></pre></td></tr></table></figure></li>
+<li>创建一个 <code>Makefile</code>：<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs makefile">obj-m += soft_lockup.o<br><span class="hljs-section">all:</span><br>    make -C /lib/modules/<span class="hljs-variable">$(<span class="hljs-built_in">shell</span> uname -r)</span>/build M=<span class="hljs-variable">$(PWD)</span> modules<br><span class="hljs-section">clean:</span><br>    make -C /lib/modules/<span class="hljs-variable">$(<span class="hljs-built_in">shell</span> uname -r)</span>/build M=<span class="hljs-variable">$(PWD)</span> clean<br></code></pre></td></tr></table></figure></li>
 <li>编译：<code>make</code></li>
 <li>加载模块：<code>sudo insmod soft_lockup.ko</code></li>
 <li>检查日志：<code>dmesg | tail -n 20</code></li>
 </ol>
-<h4 id="预期结果">预期结果</h4>
-<p>大约20秒后（取决于 <code>kernel.watchdog_thresh</code>
-设置，默认10-20秒），内核会检测到soft lockup，并输出类似以下信息：
-<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<span class="hljs-meta"> [insmod:1234]</span><br></code></pre></td></tr></table></figure></p>
-<h4 id="清理">清理</h4>
-<p>卸载模块：<code>sudo rmmod soft_lockup</code></p>
+<h4 id="预期结果"><a href="#预期结果" class="headerlink" title="预期结果"></a>预期结果</h4><p>大约20秒后（取决于 <code>kernel.watchdog_thresh</code> 设置，默认10-20秒），内核会检测到soft lockup，并输出类似以下信息：</p>
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<span class="hljs-meta"> [insmod:1234]</span><br></code></pre></td></tr></table></figure>
+
+<h4 id="清理"><a href="#清理" class="headerlink" title="清理"></a>清理</h4><p>卸载模块：<code>sudo rmmod soft_lockup</code></p>
 <hr>
-<h3 id="hard-lockup-示例代码">2. <strong>Hard Lockup
-示例代码</strong></h3>
-<p>Hard lockup
-需要禁用中断并让CPU完全停止响应。以下是一个内核模块示例，禁用本地中断并进入死循环：</p>
+<h3 id="2-Hard-Lockup-示例代码"><a href="#2-Hard-Lockup-示例代码" class="headerlink" title="2. Hard Lockup 示例代码"></a>2. <strong>Hard Lockup 示例代码</strong></h3><p>Hard lockup 需要禁用中断并让CPU完全停止响应。以下是一个内核模块示例，禁用本地中断并进入死循环：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/module.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/kernel.h&gt;</span></span><br><br>MODULE_LICENSE(<span class="hljs-string">&quot;GPL&quot;</span>);<br>MODULE_AUTHOR(<span class="hljs-string">&quot;Demo&quot;</span>);<br>MODULE_DESCRIPTION(<span class="hljs-string">&quot;Hard Lockup Demo&quot;</span>);<br><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">hard_lockup_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Starting hard lockup demo...\n&quot;</span>);<br><br>    <span class="hljs-comment">/* 禁用本地CPU的中断 */</span><br>    local_irq_disable();<br><br>    <span class="hljs-comment">/* 进入死循环，完全占用CPU */</span><br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-comment">/* 不做任何操作，模拟硬锁死 */</span><br>    &#125;<br><br>    <span class="hljs-comment">/* 永远不会到达这里 */</span><br>    local_irq_enable();<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> __exit <span class="hljs-title function_">hard_lockup_exit</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Exiting hard lockup demo...\n&quot;</span>);<br>&#125;<br><br>module_init(hard_lockup_init);<br>module_exit(hard_lockup_exit);<br></code></pre></td></tr></table></figure>
-<h4 id="编译和运行-1">编译和运行</h4>
-<p>与soft lockup示例相同： 1. 保存为 <code>hard_lockup.c</code>。 2.
-使用相同的 <code>Makefile</code>。 3. 编译：<code>make</code> 4.
-加载模块：<code>sudo insmod hard_lockup.ko</code> 5.
-检查日志：<code>dmesg</code></p>
-<h4 id="预期结果-1">预期结果</h4>
-<p>如果系统启用了NMI watchdog（通过内核参数 <code>nmi_watchdog=1</code>
-或硬件支持），加载模块后，CPU会停止响应，最终触发hard lockup警告，例如：
-<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">NMI</span> watchdog: Watchdog detected hard LOCKUP <span class="hljs-literal">on</span> cpu <span class="hljs-number">0</span><br></code></pre></td></tr></table></figure> 如果未启用NMI
-watchdog，系统可能直接无响应，甚至需要重启。</p>
-<h4 id="注意事项">注意事项</h4>
-<ul>
+
+<h4 id="编译和运行-1"><a href="#编译和运行-1" class="headerlink" title="编译和运行"></a>编译和运行</h4><p>与soft lockup示例相同：</p>
+<ol>
+<li>保存为 <code>hard_lockup.c</code>。</li>
+<li>使用相同的 <code>Makefile</code>。</li>
+<li>编译：<code>make</code></li>
+<li>加载模块：<code>sudo insmod hard_lockup.ko</code></li>
+<li>检查日志：<code>dmesg</code></li>
+</ol>
+<h4 id="预期结果-1"><a href="#预期结果-1" class="headerlink" title="预期结果"></a>预期结果</h4><p>如果系统启用了NMI watchdog（通过内核参数 <code>nmi_watchdog=1</code> 或硬件支持），加载模块后，CPU会停止响应，最终触发hard lockup警告，例如：</p>
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">NMI</span> watchdog: Watchdog detected hard LOCKUP <span class="hljs-literal">on</span> cpu <span class="hljs-number">0</span><br></code></pre></td></tr></table></figure>
+<p>如果未启用NMI watchdog，系统可能直接无响应，甚至需要重启。</p>
+<h4 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h4><ul>
 <li>运行此代码可能导致系统崩溃，尤其是在单核系统中。</li>
-<li>确保硬件和内核支持NMI（如通过 <code>cat /proc/interrupts</code>
-检查NMI计数）。</li>
-<li>清理方法：如果系统未崩溃，可尝试
-<code>sudo rmmod hard_lockup</code>；否则需要重启。</li>
+<li>确保硬件和内核支持NMI（如通过 <code>cat /proc/interrupts</code> 检查NMI计数）。</li>
+<li>清理方法：如果系统未崩溃，可尝试 <code>sudo rmmod hard_lockup</code>；否则需要重启。</li>
 </ul>
 <hr>
-<h3 id="关键差异">关键差异</h3>
-<ul>
-<li><strong>Soft Lockup
-示例</strong>：没有禁用中断，CPU仍在执行代码，只是未调度其他任务。</li>
-<li><strong>Hard Lockup
-示例</strong>：禁用了中断，CPU完全停止响应，连内核都无法干预。</li>
+<h3 id="关键差异"><a href="#关键差异" class="headerlink" title="关键差异"></a>关键差异</h3><ul>
+<li><strong>Soft Lockup 示例</strong>：没有禁用中断，CPU仍在执行代码，只是未调度其他任务。</li>
+<li><strong>Hard Lockup 示例</strong>：禁用了中断，CPU完全停止响应，连内核都无法干预。</li>
 </ul>
-<h3 id="测试建议">测试建议</h3>
-<ul>
+<h3 id="测试建议"><a href="#测试建议" class="headerlink" title="测试建议"></a>测试建议</h3><ul>
 <li>在虚拟机（如QEMU或VirtualBox）中运行，设置单核CPU以更容易触发。</li>
 <li>调整内核参数：<code>echo 10 &gt; /proc/sys/kernel/watchdog_thresh</code>（缩短检测时间）。</li>
 <li>检查NMI支持：<code>cat /proc/sys/kernel/nmi_watchdog</code>（1表示启用）。</li>
 </ul>
-<h2 id="soft-lockup-示例代码中又没关闭cpu抢占也没关中断为啥会触发soft-lockup">Soft
-Lockup 示例代码中又没关闭cpu抢占，也没关中断，为啥会触发soft
-lockup？</h2>
-<p>你提出了一个非常好的问题！关于为什么我给出的 <strong>soft lockup
-示例代码</strong>
-既没有关闭CPU抢占（preemption），也没有禁用中断（interrupts），却仍然能触发soft
-lockup，让我详细解释一下。</p>
-<h3 id="示例代码回顾">示例代码回顾</h3>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">soft_lockup_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Starting soft lockup demo...\n&quot;</span>);<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        printk(KERN_INFO <span class="hljs-string">&quot;Running in loop...\n&quot;</span>);<br>        mdelay(<span class="hljs-number">1000</span>); <span class="hljs-comment">/* 延迟1秒 */</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
-<h3 id="soft-lockup-的触发条件">Soft Lockup 的触发条件</h3>
-<p>在Linux内核中，soft lockup 并不是因为CPU完全无法响应（那是hard
-lockup），而是由于某个CPU核心在一段时间内（默认由
-<code>kernel.watchdog_thresh</code>
-定义，通常是10-20秒）未能执行任务调度（schedule）。具体来说，soft lockup
-的检测依赖于内核的 <strong>watchdog</strong>
-机制，它通过一个高优先级的内核线程（watchdog/N）周期性地检查每个CPU是否“活跃”。活跃的标志是CPU是否在规定时间内调用了调度器（scheduler）。</p>
-<p>触发soft lockup的关键条件是： 1.
-<strong>CPU长时间未让出控制权</strong>：某个任务（内核态或用户态）持续占用CPU，导致调度器无法运行。
-2. <strong>未禁用中断</strong>：soft
-lockup不要求中断被禁用，因为它关注的是调度，而不是硬件响应。</p>
-<h3 id="为什么这个代码会触发soft-lockup">为什么这个代码会触发soft
-lockup？</h3>
-<p>尽管代码没有显式关闭抢占（preemption）或中断，以下是触发的原因：</p>
-<h4 id="内核态执行的无限循环">1.
-<strong>内核态执行的无限循环</strong></h4>
-<ul>
-<li>这个代码运行在内核模块的 <code>init</code>
-函数中，也就是内核态（kernel
-space）。在内核态运行的代码默认是<strong>不可抢占的</strong>（除非显式启用了内核抢占并在适当位置调用了
-<code>preempt_enable()</code> 或 <code>schedule()</code>）。</li>
-<li>在默认的Linux内核配置中（非完全抢占式内核，<code>CONFIG_PREEMPT=n</code>
-或
-<code>CONFIG_PREEMPT_VOLUNTARY=y</code>），内核态代码运行时不会被其他任务抢占，除非它主动调用
-<code>schedule()</code> 或其他让出CPU的函数。</li>
-<li>示例中的 <code>while (1)</code> 循环没有调用任何调度相关的函数（如
-<code>schedule()</code> 或
-<code>cond_resched()</code>），因此它会一直占用CPU。</li>
+<h2 id="Soft-Lockup-示例代码中又没关闭cpu抢占，也没关中断，为啥会触发soft-lockup？"><a href="#Soft-Lockup-示例代码中又没关闭cpu抢占，也没关中断，为啥会触发soft-lockup？" class="headerlink" title="Soft Lockup 示例代码中又没关闭cpu抢占，也没关中断，为啥会触发soft lockup？"></a>Soft Lockup 示例代码中又没关闭cpu抢占，也没关中断，为啥会触发soft lockup？</h2><p>你提出了一个非常好的问题！关于为什么我给出的 <strong>soft lockup 示例代码</strong> 既没有关闭CPU抢占（preemption），也没有禁用中断（interrupts），却仍然能触发soft lockup，让我详细解释一下。</p>
+<h3 id="示例代码回顾"><a href="#示例代码回顾" class="headerlink" title="示例代码回顾"></a>示例代码回顾</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">soft_lockup_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Starting soft lockup demo...\n&quot;</span>);<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        printk(KERN_INFO <span class="hljs-string">&quot;Running in loop...\n&quot;</span>);<br>        mdelay(<span class="hljs-number">1000</span>); <span class="hljs-comment">/* 延迟1秒 */</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h3 id="Soft-Lockup-的触发条件"><a href="#Soft-Lockup-的触发条件" class="headerlink" title="Soft Lockup 的触发条件"></a>Soft Lockup 的触发条件</h3><p>在Linux内核中，soft lockup 并不是因为CPU完全无法响应（那是hard lockup），而是由于某个CPU核心在一段时间内（默认由 <code>kernel.watchdog_thresh</code> 定义，通常是10-20秒）未能执行任务调度（schedule）。具体来说，soft lockup 的检测依赖于内核的 <strong>watchdog</strong> 机制，它通过一个高优先级的内核线程（watchdog&#x2F;N）周期性地检查每个CPU是否“活跃”。活跃的标志是CPU是否在规定时间内调用了调度器（scheduler）。</p>
+<p>触发soft lockup的关键条件是：</p>
+<ol>
+<li><strong>CPU长时间未让出控制权</strong>：某个任务（内核态或用户态）持续占用CPU，导致调度器无法运行。</li>
+<li><strong>未禁用中断</strong>：soft lockup不要求中断被禁用，因为它关注的是调度，而不是硬件响应。</li>
+</ol>
+<h3 id="为什么这个代码会触发soft-lockup？"><a href="#为什么这个代码会触发soft-lockup？" class="headerlink" title="为什么这个代码会触发soft lockup？"></a>为什么这个代码会触发soft lockup？</h3><p>尽管代码没有显式关闭抢占（preemption）或中断，以下是触发的原因：</p>
+<h4 id="1-内核态执行的无限循环"><a href="#1-内核态执行的无限循环" class="headerlink" title="1. 内核态执行的无限循环"></a>1. <strong>内核态执行的无限循环</strong></h4><ul>
+<li>这个代码运行在内核模块的 <code>init</code> 函数中，也就是内核态（kernel space）。在内核态运行的代码默认是<strong>不可抢占的</strong>（除非显式启用了内核抢占并在适当位置调用了 <code>preempt_enable()</code> 或 <code>schedule()</code>）。</li>
+<li>在默认的Linux内核配置中（非完全抢占式内核，<code>CONFIG_PREEMPT=n</code> 或 <code>CONFIG_PREEMPT_VOLUNTARY=y</code>），内核态代码运行时不会被其他任务抢占，除非它主动调用 <code>schedule()</code> 或其他让出CPU的函数。</li>
+<li>示例中的 <code>while (1)</code> 循环没有调用任何调度相关的函数（如 <code>schedule()</code> 或 <code>cond_resched()</code>），因此它会一直占用CPU。</li>
 </ul>
-<h4 id="mdelay1000-的行为">2. <strong><code>mdelay(1000)</code>
-的行为</strong></h4>
-<ul>
-<li><code>mdelay(1000)</code>
-是一个忙等待（busy-waiting）函数，它通过循环等待指定的毫秒数（这里是1秒）来实现延迟。它本质上是一个死循环，依赖硬件时钟计数，但不会主动让出CPU。</li>
-<li>在这个循环中，<code>mdelay()</code>
-不会触发任务切换或调用调度器，因此CPU仍然被当前任务（模块初始化代码）完全占用。</li>
-<li>虽然 <code>mdelay()</code>
-本身不禁用中断，但它不会让内核有机会运行调度器，因此watchdog线程无法被调度到该CPU上。</li>
+<h4 id="2-mdelay-1000-的行为"><a href="#2-mdelay-1000-的行为" class="headerlink" title="2. mdelay(1000) 的行为"></a>2. <strong><code>mdelay(1000)</code> 的行为</strong></h4><ul>
+<li><code>mdelay(1000)</code> 是一个忙等待（busy-waiting）函数，它通过循环等待指定的毫秒数（这里是1秒）来实现延迟。它本质上是一个死循环，依赖硬件时钟计数，但不会主动让出CPU。</li>
+<li>在这个循环中，<code>mdelay()</code> 不会触发任务切换或调用调度器，因此CPU仍然被当前任务（模块初始化代码）完全占用。</li>
+<li>虽然 <code>mdelay()</code> 本身不禁用中断，但它不会让内核有机会运行调度器，因此watchdog线程无法被调度到该CPU上。</li>
 </ul>
-<h4 id="watchdog检测机制">3. <strong>Watchdog检测机制</strong></h4>
-<ul>
-<li>每个CPU上运行的watchdog线程会定期检查该CPU是否在
-<code>kernel.watchdog_thresh</code> 时间内更新了“心跳”（通常通过
-<code>touch_softlockup_watchdog()</code> 或调度器调用实现）。</li>
-<li>在这个代码中，CPU被无限循环和 <code>mdelay()</code>
-占用，没有机会更新心跳。超过阈值（默认20秒）后，watchdog检测到该CPU“卡住”，触发soft
-lockup警告。</li>
+<h4 id="3-Watchdog检测机制"><a href="#3-Watchdog检测机制" class="headerlink" title="3. Watchdog检测机制"></a>3. <strong>Watchdog检测机制</strong></h4><ul>
+<li>每个CPU上运行的watchdog线程会定期检查该CPU是否在 <code>kernel.watchdog_thresh</code> 时间内更新了“心跳”（通常通过 <code>touch_softlockup_watchdog()</code> 或调度器调用实现）。</li>
+<li>在这个代码中，CPU被无限循环和 <code>mdelay()</code> 占用，没有机会更新心跳。超过阈值（默认20秒）后，watchdog检测到该CPU“卡住”，触发soft lockup警告。</li>
 </ul>
-<h4 id="未关闭中断的影响">4. <strong>未关闭中断的影响</strong></h4>
-<ul>
-<li>中断没有被禁用（<code>local_irq_disable()</code>），所以硬件中断仍然可以发生。然而，soft
-lockup的检测不依赖中断是否开启，而是关注调度器是否运行。即使中断发生，它们不会自动触发任务切换（除非中断处理程序显式调用调度器，但这不是默认行为）。</li>
+<h4 id="4-未关闭中断的影响"><a href="#4-未关闭中断的影响" class="headerlink" title="4. 未关闭中断的影响"></a>4. <strong>未关闭中断的影响</strong></h4><ul>
+<li>中断没有被禁用（<code>local_irq_disable()</code>），所以硬件中断仍然可以发生。然而，soft lockup的检测不依赖中断是否开启，而是关注调度器是否运行。即使中断发生，它们不会自动触发任务切换（除非中断处理程序显式调用调度器，但这不是默认行为）。</li>
 <li>因此，未关闭中断并不妨碍soft lockup的触发。</li>
 </ul>
-<h3 id="为什么不需要显式关闭抢占">为什么不需要显式关闭抢占？</h3>
-<ul>
-<li>如果内核启用了完全抢占（<code>CONFIG_PREEMPT=y</code>），内核态代码可能被更高优先级的任务抢占，这种情况下这个代码可能不会触发soft
-lockup（因为调度器有机会运行）。</li>
-<li>但在默认或部分抢占配置下（<code>CONFIG_PREEMPT=n</code> 或
-<code>CONFIG_PREEMPT_VOLUNTARY=y</code>），内核态代码需要主动让出CPU（例如通过
-<code>cond_resched()</code>）。我的示例假设的是这种常见配置，因此不需要显式关闭抢占。</li>
+<h3 id="为什么不需要显式关闭抢占？"><a href="#为什么不需要显式关闭抢占？" class="headerlink" title="为什么不需要显式关闭抢占？"></a>为什么不需要显式关闭抢占？</h3><ul>
+<li>如果内核启用了完全抢占（<code>CONFIG_PREEMPT=y</code>），内核态代码可能被更高优先级的任务抢占，这种情况下这个代码可能不会触发soft lockup（因为调度器有机会运行）。</li>
+<li>但在默认或部分抢占配置下（<code>CONFIG_PREEMPT=n</code> 或 <code>CONFIG_PREEMPT_VOLUNTARY=y</code>），内核态代码需要主动让出CPU（例如通过 <code>cond_resched()</code>）。我的示例假设的是这种常见配置，因此不需要显式关闭抢占。</li>
 </ul>
-<h3 id="修改验证">修改验证</h3>
-<p>如果想验证抢占和中断的影响，可以试试以下改动： 1.
-<strong>添加主动调度</strong>： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Running in loop...\n&quot;</span>);<br>    mdelay(<span class="hljs-number">1000</span>);<br>    cond_resched(); <span class="hljs-comment">/* 主动让出CPU */</span><br>&#125;<br></code></pre></td></tr></table></figure> 这样就不会触发soft
-lockup，因为调度器会定期运行。</p>
-<ol start="2" type="1">
-<li><strong>用户态对比</strong>：
-在用户态写一个类似的死循环（如下），通常不会触发soft
-lockup，因为用户态进程会被调度器抢占： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;stdio.h&gt;</span></span><br><span class="hljs-type">int</span> <span class="hljs-title function_">main</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;Running...\n&quot;</span>);<br>        sleep(<span class="hljs-number">1</span>); <span class="hljs-comment">/* 或usleep(1000000) */</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure></li>
+<h3 id="修改验证"><a href="#修改验证" class="headerlink" title="修改验证"></a>修改验证</h3><p>如果想验证抢占和中断的影响，可以试试以下改动：</p>
+<ol>
+<li><p><strong>添加主动调度</strong>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Running in loop...\n&quot;</span>);<br>    mdelay(<span class="hljs-number">1000</span>);<br>    cond_resched(); <span class="hljs-comment">/* 主动让出CPU */</span><br>&#125;<br></code></pre></td></tr></table></figure>
+<p>这样就不会触发soft lockup，因为调度器会定期运行。</p>
+</li>
+<li><p><strong>用户态对比</strong>：<br>在用户态写一个类似的死循环（如下），通常不会触发soft lockup，因为用户态进程会被调度器抢占：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;stdio.h&gt;</span></span><br><span class="hljs-type">int</span> <span class="hljs-title function_">main</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;Running...\n&quot;</span>);<br>        sleep(<span class="hljs-number">1</span>); <span class="hljs-comment">/* 或usleep(1000000) */</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure></li>
 </ol>
-<h3 id="总结-1">总结</h3>
-<p>这个代码触发soft lockup的原因是： - 它在内核态运行，默认不可抢占。 -
-无限循环和 <code>mdelay()</code> 导致CPU长时间未调用调度器。 -
-不需要关闭中断或抢占，因为soft lockup关注的是调度，而不是硬件响应。</p>
-<h2 id="为啥用户态进程会被调度器抢占">为啥用户态进程会被调度器抢占？</h2>
-<p>用户态进程会被调度器抢占的原因，根源于操作系统设计中对任务管理的核心机制——<strong>多任务调度</strong>（multitasking）和<strong>抢占式调度</strong>（preemptive
-scheduling）。在Linux这样的现代操作系统中，用户态进程的抢占是由内核通过调度器实现的。以下是详细的解释：</p>
-<hr>
-<h3 id="用户态与内核态的本质区别">1.
-<strong>用户态与内核态的本质区别</strong></h3>
+<h3 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h3><p>这个代码触发soft lockup的原因是：</p>
 <ul>
-<li><strong>用户态（User
-Space）</strong>：运行用户程序（如应用程序）的环境，受限于较低的特权级（例如x86架构中的Ring
-3）。用户态代码不能直接控制硬件或调度，必须依赖内核提供的系统调用。</li>
-<li><strong>内核态（Kernel
-Space）</strong>：操作系统内核运行的环境，具有最高特权级（Ring
-0），可以直接操作硬件、管理调度和中断。</li>
+<li>它在内核态运行，默认不可抢占。</li>
+<li>无限循环和 <code>mdelay()</code> 导致CPU长时间未调用调度器。</li>
+<li>不需要关闭中断或抢占，因为soft lockup关注的是调度，而不是硬件响应。</li>
+</ul>
+<h2 id="为啥用户态进程会被调度器抢占？"><a href="#为啥用户态进程会被调度器抢占？" class="headerlink" title="为啥用户态进程会被调度器抢占？"></a>为啥用户态进程会被调度器抢占？</h2><p>用户态进程会被调度器抢占的原因，根源于操作系统设计中对任务管理的核心机制——<strong>多任务调度</strong>（multitasking）和<strong>抢占式调度</strong>（preemptive scheduling）。在Linux这样的现代操作系统中，用户态进程的抢占是由内核通过调度器实现的。以下是详细的解释：</p>
+<hr>
+<h3 id="1-用户态与内核态的本质区别"><a href="#1-用户态与内核态的本质区别" class="headerlink" title="1. 用户态与内核态的本质区别"></a>1. <strong>用户态与内核态的本质区别</strong></h3><ul>
+<li><strong>用户态（User Space）</strong>：运行用户程序（如应用程序）的环境，受限于较低的特权级（例如x86架构中的Ring 3）。用户态代码不能直接控制硬件或调度，必须依赖内核提供的系统调用。</li>
+<li><strong>内核态（Kernel Space）</strong>：操作系统内核运行的环境，具有最高特权级（Ring 0），可以直接操作硬件、管理调度和中断。</li>
 </ul>
 <p>用户态进程不像内核态代码那样可以“自我控制”执行流程，它们的运行完全受内核调度器的支配。</p>
 <hr>
-<h3 id="抢占式调度的基本原理">2.
-<strong>抢占式调度的基本原理</strong></h3>
-<p>Linux内核采用的是<strong>抢占式调度</strong>，这意味着调度器可以在特定时机（如时间片用尽或更高优先级任务出现）强制中断当前运行的进程，将CPU控制权交给另一个进程。用户态进程的抢占依赖以下机制：</p>
-<h4 id="a.-时间片time-slice">a. <strong>时间片（Time
-Slice）</strong></h4>
-<ul>
+<h3 id="2-抢占式调度的基本原理"><a href="#2-抢占式调度的基本原理" class="headerlink" title="2. 抢占式调度的基本原理"></a>2. <strong>抢占式调度的基本原理</strong></h3><p>Linux内核采用的是<strong>抢占式调度</strong>，这意味着调度器可以在特定时机（如时间片用尽或更高优先级任务出现）强制中断当前运行的进程，将CPU控制权交给另一个进程。用户态进程的抢占依赖以下机制：</p>
+<h4 id="a-时间片（Time-Slice）"><a href="#a-时间片（Time-Slice）" class="headerlink" title="a. 时间片（Time Slice）"></a>a. <strong>时间片（Time Slice）</strong></h4><ul>
 <li>每个用户态进程在运行时会被分配一个时间片（由调度器根据优先级和策略决定，通常是毫秒级，例如10ms）。</li>
-<li>时间片的长度由内核的调度算法（如CFS，Completely Fair
-Scheduler）动态调整。</li>
+<li>时间片的长度由内核的调度算法（如CFS，Completely Fair Scheduler）动态调整。</li>
 <li>时间片用尽后，硬件时钟（timer）会触发一个中断，内核接管控制权，调用调度器（<code>schedule()</code>）选择下一个任务。</li>
 </ul>
-<h4 id="b.-时钟中断timer-interrupt">b. <strong>时钟中断（Timer
-Interrupt）</strong></h4>
-<ul>
-<li>内核通过硬件定时器（如PIT、HPET或TSC）定期产生时钟中断（频率由
-<code>HZ</code> 参数定义，例如100Hz或1000Hz）。</li>
+<h4 id="b-时钟中断（Timer-Interrupt）"><a href="#b-时钟中断（Timer-Interrupt）" class="headerlink" title="b. 时钟中断（Timer Interrupt）"></a>b. <strong>时钟中断（Timer Interrupt）</strong></h4><ul>
+<li>内核通过硬件定时器（如PIT、HPET或TSC）定期产生时钟中断（频率由 <code>HZ</code> 参数定义，例如100Hz或1000Hz）。</li>
 <li>每次时钟中断发生时，内核会检查当前进程的时间片是否用尽。如果用尽，调度器会切换到其他就绪进程。</li>
 <li>即使进程在忙等待（如死循环），时钟中断仍然会发生，强制抢占。</li>
 </ul>
-<h4 id="c.-优先级和就绪队列">c. <strong>优先级和就绪队列</strong></h4>
-<ul>
+<h4 id="c-优先级和就绪队列"><a href="#c-优先级和就绪队列" class="headerlink" title="c. 优先级和就绪队列"></a>c. <strong>优先级和就绪队列</strong></h4><ul>
 <li>调度器维护一个就绪队列（run queue），跟踪所有可运行的任务。</li>
-<li>如果一个更高优先级的任务进入就绪状态（例如I/O完成或新进程创建），调度器会在下一次调度点抢占当前进程。</li>
+<li>如果一个更高优先级的任务进入就绪状态（例如I&#x2F;O完成或新进程创建），调度器会在下一次调度点抢占当前进程。</li>
 </ul>
 <hr>
-<h3 id="用户态进程无法阻止抢占">3.
-<strong>用户态进程无法阻止抢占</strong></h3>
-<p>用户态进程无法阻止调度器抢占的原因如下：</p>
-<h4 id="a.-无权控制中断">a. <strong>无权控制中断</strong></h4>
-<ul>
-<li>用户态代码无法禁用硬件中断（<code>cli</code> 或
-<code>local_irq_disable()</code> 是内核态指令，用户态无权限执行）。</li>
+<h3 id="3-用户态进程无法阻止抢占"><a href="#3-用户态进程无法阻止抢占" class="headerlink" title="3. 用户态进程无法阻止抢占"></a>3. <strong>用户态进程无法阻止抢占</strong></h3><p>用户态进程无法阻止调度器抢占的原因如下：</p>
+<h4 id="a-无权控制中断"><a href="#a-无权控制中断" class="headerlink" title="a. 无权控制中断"></a>a. <strong>无权控制中断</strong></h4><ul>
+<li>用户态代码无法禁用硬件中断（<code>cli</code> 或 <code>local_irq_disable()</code> 是内核态指令，用户态无权限执行）。</li>
 <li>即使进程在死循环中，定时器中断依然会触发，内核会接管CPU。</li>
 </ul>
-<h4 id="b.-无权控制调度器">b. <strong>无权控制调度器</strong></h4>
-<ul>
-<li>用户态进程不能直接调用 <code>schedule()</code>
-或修改调度策略，只能通过系统调用（如
-<code>nice()</code>、<code>sched_setscheduler()</code>）间接影响优先级，但最终控制权仍在内核。</li>
-<li>内核在中断处理或系统调用返回时会检查是否需要调度（<code>need_resched</code>
-标志），用户态无法阻止这一检查。</li>
+<h4 id="b-无权控制调度器"><a href="#b-无权控制调度器" class="headerlink" title="b. 无权控制调度器"></a>b. <strong>无权控制调度器</strong></h4><ul>
+<li>用户态进程不能直接调用 <code>schedule()</code> 或修改调度策略，只能通过系统调用（如 <code>nice()</code>、<code>sched_setscheduler()</code>）间接影响优先级，但最终控制权仍在内核。</li>
+<li>内核在中断处理或系统调用返回时会检查是否需要调度（<code>need_resched</code> 标志），用户态无法阻止这一检查。</li>
 </ul>
-<h4 id="c.-系统调用和异常">c. <strong>系统调用和异常</strong></h4>
-<ul>
-<li>当用户态进程执行系统调用（如
-<code>read()</code>、<code>write()</code>）或触发异常（如页面错误），控制权会转移到内核。此时，内核可能决定调度其他进程。</li>
+<h4 id="c-系统调用和异常"><a href="#c-系统调用和异常" class="headerlink" title="c. 系统调用和异常"></a>c. <strong>系统调用和异常</strong></h4><ul>
+<li>当用户态进程执行系统调用（如 <code>read()</code>、<code>write()</code>）或触发异常（如页面错误），控制权会转移到内核。此时，内核可能决定调度其他进程。</li>
 </ul>
 <hr>
-<h3 id="用户态死循环的例子">4. <strong>用户态死循环的例子</strong></h3>
-<p>以下是一个用户态死循环： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;stdio.h&gt;</span></span><br><span class="hljs-type">int</span> <span class="hljs-title function_">main</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;Running...\n&quot;</span>);<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure> -
-<strong>为什么不会锁死CPU？</strong> - 每隔一段时间（例如10ms，取决于
-<code>HZ</code> 和时间片），时钟中断会触发，内核检查时间片并调用调度器。
-- 调度器发现其他进程（如bash、系统服务）需要运行，就会抢占当前进程。 -
-你可以通过 <code>top</code> 或 <code>ps</code>
-看到这个进程占用CPU很高（接近100%），但系统仍然响应，因为其他进程也能获得CPU时间。</p>
+<h3 id="4-用户态死循环的例子"><a href="#4-用户态死循环的例子" class="headerlink" title="4. 用户态死循环的例子"></a>4. <strong>用户态死循环的例子</strong></h3><p>以下是一个用户态死循环：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;stdio.h&gt;</span></span><br><span class="hljs-type">int</span> <span class="hljs-title function_">main</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;Running...\n&quot;</span>);<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
 <ul>
-<li><strong>对比内核态</strong>：
+<li><p><strong>为什么不会锁死CPU？</strong></p>
 <ul>
-<li>如果在内核态运行类似的死循环（如同之前的soft
-lockup示例），除非主动让出（如
-<code>cond_resched()</code>），调度器无法介入，因为内核态默认不可抢占（视
-<code>CONFIG_PREEMPT</code> 配置而定）。</li>
-</ul></li>
+<li>每隔一段时间（例如10ms，取决于 <code>HZ</code> 和时间片），时钟中断会触发，内核检查时间片并调用调度器。</li>
+<li>调度器发现其他进程（如bash、系统服务）需要运行，就会抢占当前进程。</li>
+<li>你可以通过 <code>top</code> 或 <code>ps</code> 看到这个进程占用CPU很高（接近100%），但系统仍然响应，因为其他进程也能获得CPU时间。</li>
+</ul>
+</li>
+<li><p><strong>对比内核态</strong>：</p>
+<ul>
+<li>如果在内核态运行类似的死循环（如同之前的soft lockup示例），除非主动让出（如 <code>cond_resched()</code>），调度器无法介入，因为内核态默认不可抢占（视 <code>CONFIG_PREEMPT</code> 配置而定）。</li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="抢占的实现细节">5. <strong>抢占的实现细节</strong></h3>
-<p>在Linux中，用户态抢占的实现依赖以下关键点： -
-<strong>中断驱动</strong>：时钟中断是抢占的“触发器”，由硬件保证，无法被用户态绕过。
-- <strong><code>CONFIG_PREEMPT</code> 配置</strong>： -
-<code>CONFIG_PREEMPT=n</code>：仅在用户态强制抢占，内核态依赖主动让出。
--
-<code>CONFIG_PREEMPT_VOLUNTARY=y</code>：增加了一些抢占点，但用户态依然强制抢占。
--
-<code>CONFIG_PREEMPT=y</code>：完全抢占，连内核态也能被抢占（但用户态抢占始终存在）。
-- <strong>TIF_NEED_RESCHED
-标志</strong>：内核在中断或系统调用时设置此标志，通知调度器在返回用户态前切换任务。</p>
-<hr>
-<h3 id="验证实验">6. <strong>验证实验</strong></h3>
-<p>你可以试试以下方法验证用户态抢占： 1. 运行上述死循环程序。 2.
-打开另一个终端，运行 <code>top</code>，观察CPU使用率和系统响应性。 3. 用
-<code>sched_setscheduler()</code> 设置高优先级（需要root权限）：
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;sched.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;stdio.h&gt;</span></span><br><span class="hljs-type">int</span> <span class="hljs-title function_">main</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sched_param</span> <span class="hljs-title">param</span> =</span> &#123; .sched_priority = <span class="hljs-number">99</span> &#125;;<br>    sched_setscheduler(<span class="hljs-number">0</span>, SCHED_FIFO, &amp;param); <span class="hljs-comment">// 实时调度</span><br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;Running...\n&quot;</span>);<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure> -
-即使是实时调度（<code>SCHED_FIFO</code>），系统仍能响应，因为内核保留了对系统任务（如watchdog、kworker）的调度能力。</p>
-<hr>
-<h3 id="总结-2">总结</h3>
-<p>用户态进程会被调度器抢占，因为： 1.
-<strong>内核掌控全局</strong>：调度器运行在内核态，通过时钟中断强制介入。
-2. <strong>用户态无特权</strong>：无法禁用中断或阻止调度。 3.
-<strong>时间片机制</strong>：确保CPU公平分配给所有任务。</p>
-<p>相比之下，内核态代码（如soft
-lockup示例）在默认配置下不可抢占，除非主动让出CPU。这就是用户态和内核态在调度行为上的根本差异。</p>
-<h2 id="在默认的linux内核配置中非完全抢占式内核config_preemptn-或-config_preempt_voluntaryy内核态代码运行时不会被其他任务抢占除非它主动调用-schedule-或其他让出cpu的函数为啥">在默认的Linux内核配置中（非完全抢占式内核，CONFIG_PREEMPT=n
-或
-CONFIG_PREEMPT_VOLUNTARY=y），内核态代码运行时不会被其他任务抢占，除非它主动调用
-schedule() 或其他让出CPU的函数。为啥？</h2>
-<p>在默认的Linux内核配置中（<code>CONFIG_PREEMPT=n</code> 或
-<code>CONFIG_PREEMPT_VOLUNTARY=y</code>），内核态代码运行时不会被其他任务抢占，除非主动调用
-<code>schedule()</code>
-或其他让出CPU的函数，这是由Linux内核的抢占模型设计和实现决定的。让我详细解释原因：</p>
-<hr>
-<h3 id="linux内核的抢占模型">1.
-<strong>Linux内核的抢占模型</strong></h3>
-<p>Linux内核支持三种主要的抢占配置，它们决定了内核态代码是否以及何时可以被抢占：
--
-<strong><code>CONFIG_PREEMPT=n</code>（无抢占）</strong>：默认情况下，内核态代码完全不可抢占。
--
-<strong><code>CONFIG_PREEMPT_VOLUNTARY=y</code>（自愿抢占）</strong>：内核在特定点（如
-<code>cond_resched()</code>）提供自愿让出CPU的机会，但不强制抢占。 -
-<strong><code>CONFIG_PREEMPT=y</code>（完全抢占）</strong>：内核态代码可以在任意安全点（preemptible
-point）被抢占。</p>
-<p>在默认配置（特别是嵌入式系统或服务器发行版中常见的
-<code>CONFIG_PREEMPT=n</code> 或
-<code>CONFIG_PREEMPT_VOLUNTARY=y</code>），内核倾向于<strong>非抢占式设计</strong>，这与性能、复杂性和历史演进有关。</p>
-<hr>
-<h3 id="为什么内核态默认不可抢占">2.
-<strong>为什么内核态默认不可抢占？</strong></h3>
-<p>在 <code>CONFIG_PREEMPT=n</code> 或
-<code>CONFIG_PREEMPT_VOLUNTARY=y</code>
-下，内核态代码不可被抢占的原因如下：</p>
-<h4 id="a.-简化内核设计">a. <strong>简化内核设计</strong></h4>
+<h3 id="5-抢占的实现细节"><a href="#5-抢占的实现细节" class="headerlink" title="5. 抢占的实现细节"></a>5. <strong>抢占的实现细节</strong></h3><p>在Linux中，用户态抢占的实现依赖以下关键点：</p>
 <ul>
-<li><strong>数据一致性</strong>：内核态代码经常操作共享资源（如内存管理器、文件系统、设备驱动）。如果允许抢占，另一个任务可能在关键代码执行到一半时介入，导致数据结构损坏或竞争条件（race
-condition）。</li>
+<li><strong>中断驱动</strong>：时钟中断是抢占的“触发器”，由硬件保证，无法被用户态绕过。</li>
+<li><strong><code>CONFIG_PREEMPT</code> 配置</strong>：<ul>
+<li><code>CONFIG_PREEMPT=n</code>：仅在用户态强制抢占，内核态依赖主动让出。</li>
+<li><code>CONFIG_PREEMPT_VOLUNTARY=y</code>：增加了一些抢占点，但用户态依然强制抢占。</li>
+<li><code>CONFIG_PREEMPT=y</code>：完全抢占，连内核态也能被抢占（但用户态抢占始终存在）。</li>
+</ul>
+</li>
+<li><strong>TIF_NEED_RESCHED 标志</strong>：内核在中断或系统调用时设置此标志，通知调度器在返回用户态前切换任务。</li>
+</ul>
+<hr>
+<h3 id="6-验证实验"><a href="#6-验证实验" class="headerlink" title="6. 验证实验"></a>6. <strong>验证实验</strong></h3><p>你可以试试以下方法验证用户态抢占：</p>
+<ol>
+<li>运行上述死循环程序。</li>
+<li>打开另一个终端，运行 <code>top</code>，观察CPU使用率和系统响应性。</li>
+<li>用 <code>sched_setscheduler()</code> 设置高优先级（需要root权限）：<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;sched.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;stdio.h&gt;</span></span><br><span class="hljs-type">int</span> <span class="hljs-title function_">main</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sched_param</span> <span class="hljs-title">param</span> =</span> &#123; .sched_priority = <span class="hljs-number">99</span> &#125;;<br>    sched_setscheduler(<span class="hljs-number">0</span>, SCHED_FIFO, &amp;param); <span class="hljs-comment">// 实时调度</span><br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;Running...\n&quot;</span>);<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+<ul>
+<li>即使是实时调度（<code>SCHED_FIFO</code>），系统仍能响应，因为内核保留了对系统任务（如watchdog、kworker）的调度能力。</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h3 id="总结-2"><a href="#总结-2" class="headerlink" title="总结"></a>总结</h3><p>用户态进程会被调度器抢占，因为：</p>
+<ol>
+<li><strong>内核掌控全局</strong>：调度器运行在内核态，通过时钟中断强制介入。</li>
+<li><strong>用户态无特权</strong>：无法禁用中断或阻止调度。</li>
+<li><strong>时间片机制</strong>：确保CPU公平分配给所有任务。</li>
+</ol>
+<p>相比之下，内核态代码（如soft lockup示例）在默认配置下不可抢占，除非主动让出CPU。这就是用户态和内核态在调度行为上的根本差异。</p>
+<h2 id="在默认的Linux内核配置中（非完全抢占式内核，CONFIG-PREEMPT-n-或-CONFIG-PREEMPT-VOLUNTARY-y），内核态代码运行时不会被其他任务抢占，除非它主动调用-schedule-或其他让出CPU的函数。为啥？"><a href="#在默认的Linux内核配置中（非完全抢占式内核，CONFIG-PREEMPT-n-或-CONFIG-PREEMPT-VOLUNTARY-y），内核态代码运行时不会被其他任务抢占，除非它主动调用-schedule-或其他让出CPU的函数。为啥？" class="headerlink" title="在默认的Linux内核配置中（非完全抢占式内核，CONFIG_PREEMPT&#x3D;n 或 CONFIG_PREEMPT_VOLUNTARY&#x3D;y），内核态代码运行时不会被其他任务抢占，除非它主动调用 schedule() 或其他让出CPU的函数。为啥？"></a>在默认的Linux内核配置中（非完全抢占式内核，CONFIG_PREEMPT&#x3D;n 或 CONFIG_PREEMPT_VOLUNTARY&#x3D;y），内核态代码运行时不会被其他任务抢占，除非它主动调用 schedule() 或其他让出CPU的函数。为啥？</h2><p>在默认的Linux内核配置中（<code>CONFIG_PREEMPT=n</code> 或 <code>CONFIG_PREEMPT_VOLUNTARY=y</code>），内核态代码运行时不会被其他任务抢占，除非主动调用 <code>schedule()</code> 或其他让出CPU的函数，这是由Linux内核的抢占模型设计和实现决定的。让我详细解释原因：</p>
+<hr>
+<h3 id="1-Linux内核的抢占模型"><a href="#1-Linux内核的抢占模型" class="headerlink" title="1. Linux内核的抢占模型"></a>1. <strong>Linux内核的抢占模型</strong></h3><p>Linux内核支持三种主要的抢占配置，它们决定了内核态代码是否以及何时可以被抢占：</p>
+<ul>
+<li><strong><code>CONFIG_PREEMPT=n</code>（无抢占）</strong>：默认情况下，内核态代码完全不可抢占。</li>
+<li><strong><code>CONFIG_PREEMPT_VOLUNTARY=y</code>（自愿抢占）</strong>：内核在特定点（如 <code>cond_resched()</code>）提供自愿让出CPU的机会，但不强制抢占。</li>
+<li><strong><code>CONFIG_PREEMPT=y</code>（完全抢占）</strong>：内核态代码可以在任意安全点（preemptible point）被抢占。</li>
+</ul>
+<p>在默认配置（特别是嵌入式系统或服务器发行版中常见的 <code>CONFIG_PREEMPT=n</code> 或 <code>CONFIG_PREEMPT_VOLUNTARY=y</code>），内核倾向于<strong>非抢占式设计</strong>，这与性能、复杂性和历史演进有关。</p>
+<hr>
+<h3 id="2-为什么内核态默认不可抢占？"><a href="#2-为什么内核态默认不可抢占？" class="headerlink" title="2. 为什么内核态默认不可抢占？"></a>2. <strong>为什么内核态默认不可抢占？</strong></h3><p>在 <code>CONFIG_PREEMPT=n</code> 或 <code>CONFIG_PREEMPT_VOLUNTARY=y</code> 下，内核态代码不可被抢占的原因如下：</p>
+<h4 id="a-简化内核设计"><a href="#a-简化内核设计" class="headerlink" title="a. 简化内核设计"></a>a. <strong>简化内核设计</strong></h4><ul>
+<li><strong>数据一致性</strong>：内核态代码经常操作共享资源（如内存管理器、文件系统、设备驱动）。如果允许抢占，另一个任务可能在关键代码执行到一半时介入，导致数据结构损坏或竞争条件（race condition）。</li>
 <li><strong>锁的复杂性</strong>：非抢占式内核可以用简单的自旋锁（spinlock）保护临界区，而抢占式内核需要更复杂的机制（如互斥锁或禁用抢占计数器），增加了实现难度和开销。</li>
 <li>例如，一个非抢占式内核中，持有锁的代码只需确保不被中断打断（禁用中断即可），而抢占式内核还需要额外防止任务切换。</li>
 </ul>
-<h4 id="b.-性能优化">b. <strong>性能优化</strong></h4>
-<ul>
+<h4 id="b-性能优化"><a href="#b-性能优化" class="headerlink" title="b. 性能优化"></a>b. <strong>性能优化</strong></h4><ul>
 <li><strong>上下文切换开销</strong>：抢占意味着频繁的上下文切换（保存和恢复寄存器、切换栈等），这在高负载系统（如服务器）中会降低吞吐量。</li>
 <li><strong>延迟可预测性</strong>：非抢占式内核让开发者更容易预测代码执行时间，特别是在实时性要求不高的场景中。</li>
 <li>在默认配置下，内核优先选择吞吐量而非低延迟，因此避免了不必要的抢占。</li>
 </ul>
-<h4 id="c.-历史原因">c. <strong>历史原因</strong></h4>
-<ul>
-<li>Linux最初是为单任务系统设计的（早期的0.x版本），后来演变为多任务系统，但内核抢占是逐步引入的（2.6版本开始支持
-<code>CONFIG_PREEMPT</code>）。</li>
+<h4 id="c-历史原因"><a href="#c-历史原因" class="headerlink" title="c. 历史原因"></a>c. <strong>历史原因</strong></h4><ul>
+<li>Linux最初是为单任务系统设计的（早期的0.x版本），后来演变为多任务系统，但内核抢占是逐步引入的（2.6版本开始支持 <code>CONFIG_PREEMPT</code>）。</li>
 <li>默认配置保留了非抢占式模型，以兼容旧代码和减少对现有系统的破坏。</li>
 </ul>
 <hr>
-<h3 id="非抢占式内核的工作方式">3.
-<strong>非抢占式内核的工作方式</strong></h3>
-<p>在 <code>CONFIG_PREEMPT=n</code> 下： -
-<strong>内核态不可抢占</strong>：一旦CPU进入内核态（通过系统调用、中断或异常），当前任务会一直运行，直到：
-1. 完成内核态工作并返回用户态。 2. 主动调用
-<code>schedule()</code>（例如在阻塞操作如 <code>wait_event()</code>
-中）。 - <strong>调度时机</strong>：调度器只在以下情况被调用： -
-返回用户态时（检查 <code>TIF_NEED_RESCHED</code> 标志）。 - 显式调用
-<code>schedule()</code>。 -
-<strong>中断不触发抢占</strong>：即使时钟中断发生，内核只会标记
-<code>need_resched</code>，但不会立即切换任务，必须等到内核态代码执行完毕。</p>
-<p>在 <code>CONFIG_PREEMPT_VOLUNTARY=y</code> 下： -
-<strong>自愿抢占点</strong>：内核在一些常用路径中插入了
-<code>cond_resched()</code>，允许任务在这些点让出CPU，但这仍然是主动行为，不是强制抢占。
-- 如果代码没有调用这些函数（如同soft
-lockup示例中的死循环），仍然不会被抢占。</p>
-<hr>
-<h3 id="用户态与内核态的对比">4.
-<strong>用户态与内核态的对比</strong></h3>
+<h3 id="3-非抢占式内核的工作方式"><a href="#3-非抢占式内核的工作方式" class="headerlink" title="3. 非抢占式内核的工作方式"></a>3. <strong>非抢占式内核的工作方式</strong></h3><p>在 <code>CONFIG_PREEMPT=n</code> 下：</p>
 <ul>
+<li><strong>内核态不可抢占</strong>：一旦CPU进入内核态（通过系统调用、中断或异常），当前任务会一直运行，直到：<ol>
+<li>完成内核态工作并返回用户态。</li>
+<li>主动调用 <code>schedule()</code>（例如在阻塞操作如 <code>wait_event()</code> 中）。</li>
+</ol>
+</li>
+<li><strong>调度时机</strong>：调度器只在以下情况被调用：<ul>
+<li>返回用户态时（检查 <code>TIF_NEED_RESCHED</code> 标志）。</li>
+<li>显式调用 <code>schedule()</code>。</li>
+</ul>
+</li>
+<li><strong>中断不触发抢占</strong>：即使时钟中断发生，内核只会标记 <code>need_resched</code>，但不会立即切换任务，必须等到内核态代码执行完毕。</li>
+</ul>
+<p>在 <code>CONFIG_PREEMPT_VOLUNTARY=y</code> 下：</p>
+<ul>
+<li><strong>自愿抢占点</strong>：内核在一些常用路径中插入了 <code>cond_resched()</code>，允许任务在这些点让出CPU，但这仍然是主动行为，不是强制抢占。</li>
+<li>如果代码没有调用这些函数（如同soft lockup示例中的死循环），仍然不会被抢占。</li>
+</ul>
+<hr>
+<h3 id="4-用户态与内核态的对比"><a href="#4-用户态与内核态的对比" class="headerlink" title="4. 用户态与内核态的对比"></a>4. <strong>用户态与内核态的对比</strong></h3><ul>
 <li><strong>用户态</strong>：总是抢占式的，因为内核通过时钟中断和时间片机制强制切换任务，用户态代码无权干预。</li>
 <li><strong>内核态（默认配置）</strong>：不可抢占，因为内核需要控制执行流程，避免在关键操作（如分配内存、处理中断）中被打断。</li>
 </ul>
-<p>例如： - 用户态死循环：时钟中断触发后，调度器接管，切换任务。 -
-内核态死循环（如soft
-lockup示例）：没有主动让出，调度器无法介入，除非代码调用
-<code>schedule()</code> 或返回用户态。</p>
-<hr>
-<h3 id="为什么需要主动让出cpu">5.
-<strong>为什么需要主动让出CPU？</strong></h3>
-<p>在非抢占式内核中，调度器不会自动抢占内核态代码，必须依赖代码本身提供合作：
--
-<strong><code>schedule()</code></strong>：直接调用调度器，切换到就绪队列中的下一个任务。
-- <strong><code>cond_resched()</code></strong>：检查是否需要调度，如果
-<code>need_resched</code> 标志置位，则调用 <code>schedule()</code>。 -
-<strong>阻塞操作</strong>：如 <code>wait_event()</code> 或
-<code>sleep()</code>，会隐式调用 <code>schedule()</code>。</p>
-<p>如果内核态代码陷入无限循环（如
-<code>while(1)</code>），且没有这些让出点，调度器无法运行，watchdog检测到CPU“卡住”，触发soft
-lockup。</p>
-<hr>
-<h3 id="抢占式内核config_preempty的不同">6.
-<strong>抢占式内核（CONFIG_PREEMPT=y）的不同</strong></h3>
-<p>在完全抢占式内核中： -
-内核态代码可以在“安全点”（没有持有锁或禁用抢占计数器时）被抢占。 -
-时钟中断或其他事件会直接触发
-<code>preempt_schedule()</code>，无需等待主动调用。 -
-但这需要额外的同步机制（如 <code>preempt_disable()</code> 和
-<code>preempt_enable()</code>），增加了复杂性和开销，因此不是默认配置。</p>
-<hr>
-<h3 id="验证与示例">7. <strong>验证与示例</strong></h3>
-<p>以下代码在 <code>CONFIG_PREEMPT=n</code> 下会触发soft lockup：
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">demo_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-comment">/* 无让出点 */</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure> - <strong>原因</strong>：没有调用 <code>schedule()</code>
-或 <code>cond_resched()</code>，调度器无法介入。 - 添加
-<code>cond_resched()</code> 后： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>    cond_resched(); <span class="hljs-comment">/* 让出CPU */</span><br>&#125;<br></code></pre></td></tr></table></figure> 就不会触发soft
-lockup，因为调度器有机会运行。</p>
-<hr>
-<h3 id="总结-3">总结</h3>
-<p>在默认配置（<code>CONFIG_PREEMPT=n</code> 或
-<code>CONFIG_PREEMPT_VOLUNTARY=y</code>）下，内核态代码不可抢占，因为：
-1.
-<strong>设计选择</strong>：优先数据一致性和性能，避免抢占带来的复杂性。
-2.
-<strong>调度依赖合作</strong>：调度器只在显式让出点或返回用户态时运行。
-3.
-<strong>中断不直接抢占</strong>：时钟中断仅标记需求，实际切换需等待代码配合。</p>
-<p>这与用户态的强制抢占形成鲜明对比，是Linux内核平衡安全性和效率的结果。</p>
-<h2 id="为啥死锁会导致soft-locup">为啥死锁会导致soft locup?</h2>
-<p>你提到“死锁会导致soft
-lockup”，但严格来说，死锁（deadlock）本身并不直接导致soft
-lockup，而是可能在特定条件下引发类似soft
-lockup的行为。让我详细分析一下死锁与soft
-lockup的关系，并解释为什么会出现这种混淆，以及在什么情况下死锁可能间接导致soft
-lockup。</p>
-<hr>
-<h3 id="死锁与soft-lockup的定义">1. <strong>死锁与Soft
-Lockup的定义</strong></h3>
+<p>例如：</p>
 <ul>
-<li><strong>死锁（Deadlock）</strong>：
+<li>用户态死循环：时钟中断触发后，调度器接管，切换任务。</li>
+<li>内核态死循环（如soft lockup示例）：没有主动让出，调度器无法介入，除非代码调用 <code>schedule()</code> 或返回用户态。</li>
+</ul>
+<hr>
+<h3 id="5-为什么需要主动让出CPU？"><a href="#5-为什么需要主动让出CPU？" class="headerlink" title="5. 为什么需要主动让出CPU？"></a>5. <strong>为什么需要主动让出CPU？</strong></h3><p>在非抢占式内核中，调度器不会自动抢占内核态代码，必须依赖代码本身提供合作：</p>
+<ul>
+<li>**<code>schedule()</code>**：直接调用调度器，切换到就绪队列中的下一个任务。</li>
+<li>**<code>cond_resched()</code>**：检查是否需要调度，如果 <code>need_resched</code> 标志置位，则调用 <code>schedule()</code>。</li>
+<li><strong>阻塞操作</strong>：如 <code>wait_event()</code> 或 <code>sleep()</code>，会隐式调用 <code>schedule()</code>。</li>
+</ul>
+<p>如果内核态代码陷入无限循环（如 <code>while(1)</code>），且没有这些让出点，调度器无法运行，watchdog检测到CPU“卡住”，触发soft lockup。</p>
+<hr>
+<h3 id="6-抢占式内核（CONFIG-PREEMPT-y）的不同"><a href="#6-抢占式内核（CONFIG-PREEMPT-y）的不同" class="headerlink" title="6. 抢占式内核（CONFIG_PREEMPT&#x3D;y）的不同"></a>6. <strong>抢占式内核（CONFIG_PREEMPT&#x3D;y）的不同</strong></h3><p>在完全抢占式内核中：</p>
+<ul>
+<li>内核态代码可以在“安全点”（没有持有锁或禁用抢占计数器时）被抢占。</li>
+<li>时钟中断或其他事件会直接触发 <code>preempt_schedule()</code>，无需等待主动调用。</li>
+<li>但这需要额外的同步机制（如 <code>preempt_disable()</code> 和 <code>preempt_enable()</code>），增加了复杂性和开销，因此不是默认配置。</li>
+</ul>
+<hr>
+<h3 id="7-验证与示例"><a href="#7-验证与示例" class="headerlink" title="7. 验证与示例"></a>7. <strong>验证与示例</strong></h3><p>以下代码在 <code>CONFIG_PREEMPT=n</code> 下会触发soft lockup：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">demo_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-comment">/* 无让出点 */</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+<ul>
+<li><strong>原因</strong>：没有调用 <code>schedule()</code> 或 <code>cond_resched()</code>，调度器无法介入。</li>
+<li>添加 <code>cond_resched()</code> 后：<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>    cond_resched(); <span class="hljs-comment">/* 让出CPU */</span><br>&#125;<br></code></pre></td></tr></table></figure>
+就不会触发soft lockup，因为调度器有机会运行。</li>
+</ul>
+<hr>
+<h3 id="总结-3"><a href="#总结-3" class="headerlink" title="总结"></a>总结</h3><p>在默认配置（<code>CONFIG_PREEMPT=n</code> 或 <code>CONFIG_PREEMPT_VOLUNTARY=y</code>）下，内核态代码不可抢占，因为：</p>
+<ol>
+<li><strong>设计选择</strong>：优先数据一致性和性能，避免抢占带来的复杂性。</li>
+<li><strong>调度依赖合作</strong>：调度器只在显式让出点或返回用户态时运行。</li>
+<li><strong>中断不直接抢占</strong>：时钟中断仅标记需求，实际切换需等待代码配合。</li>
+</ol>
+<p>这与用户态的强制抢占形成鲜明对比，是Linux内核平衡安全性和效率的结果。</p>
+<h2 id="为啥死锁会导致soft-locup"><a href="#为啥死锁会导致soft-locup" class="headerlink" title="为啥死锁会导致soft locup?"></a>为啥死锁会导致soft locup?</h2><p>你提到“死锁会导致soft lockup”，但严格来说，死锁（deadlock）本身并不直接导致soft lockup，而是可能在特定条件下引发类似soft lockup的行为。让我详细分析一下死锁与soft lockup的关系，并解释为什么会出现这种混淆，以及在什么情况下死锁可能间接导致soft lockup。</p>
+<hr>
+<h3 id="1-死锁与Soft-Lockup的定义"><a href="#1-死锁与Soft-Lockup的定义" class="headerlink" title="1. 死锁与Soft Lockup的定义"></a>1. <strong>死锁与Soft Lockup的定义</strong></h3><ul>
+<li><p><strong>死锁（Deadlock）</strong>：</p>
 <ul>
 <li>死锁是指多个任务（进程或线程）互相等待对方持有的资源，导致所有任务都无法继续执行的一种状态。</li>
 <li>在内核中，死锁通常发生在任务等待锁（如spinlock、mutex）或信号量时。</li>
 <li>例如：任务A持有锁L1并等待锁L2，任务B持有锁L2并等待锁L1，双方陷入僵局。</li>
-</ul></li>
-<li><strong>Soft Lockup</strong>：
+</ul>
+</li>
+<li><p><strong>Soft Lockup</strong>：</p>
 <ul>
-<li>Soft
-lockup是Linux内核中的一种检测机制，当某个CPU核心在一段时间内（默认<code>kernel.watchdog_thresh</code>，如20秒）未执行任务调度（即未调用调度器），watchdog会触发警告。</li>
+<li>Soft lockup是Linux内核中的一种检测机制，当某个CPU核心在一段时间内（默认<code>kernel.watchdog_thresh</code>，如20秒）未执行任务调度（即未调用调度器），watchdog会触发警告。</li>
 <li>它表示CPU被某个任务“霸占”，但仍然在执行代码（未完全失控）。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="死锁为什么通常不会直接导致soft-lockup">2.
-<strong>死锁为什么通常不会直接导致Soft Lockup？</strong></h3>
-<p>死锁本身并不必然触发soft
-lockup，因为死锁的任务通常是<strong>阻塞</strong>状态，而不是持续占用CPU。以下是原因：</p>
+<h3 id="2-死锁为什么通常不会直接导致Soft-Lockup？"><a href="#2-死锁为什么通常不会直接导致Soft-Lockup？" class="headerlink" title="2. 死锁为什么通常不会直接导致Soft Lockup？"></a>2. <strong>死锁为什么通常不会直接导致Soft Lockup？</strong></h3><p>死锁本身并不必然触发soft lockup，因为死锁的任务通常是<strong>阻塞</strong>状态，而不是持续占用CPU。以下是原因：</p>
 <ul>
-<li><strong>阻塞状态不占用CPU</strong>：
+<li><p><strong>阻塞状态不占用CPU</strong>：</p>
 <ul>
-<li>在死锁中，任务通常在等待资源（如调用<code>wait_event()</code>、<code>mutex_lock()</code>），这些操作会使任务进入睡眠状态（<code>TASK_UNINTERRUPTIBLE</code>
-或 <code>TASK_INTERRUPTIBLE</code>）。</li>
-<li>睡眠状态会调用<code>schedule()</code>，让出CPU给其他任务，调度器仍然可以运行，因此不会触发soft
-lockup。</li>
-</ul></li>
-<li><strong>Soft Lockup需要忙等待</strong>：
+<li>在死锁中，任务通常在等待资源（如调用<code>wait_event()</code>、<code>mutex_lock()</code>），这些操作会使任务进入睡眠状态（<code>TASK_UNINTERRUPTIBLE</code> 或 <code>TASK_INTERRUPTIBLE</code>）。</li>
+<li>睡眠状态会调用<code>schedule()</code>，让出CPU给其他任务，调度器仍然可以运行，因此不会触发soft lockup。</li>
+</ul>
+</li>
+<li><p><strong>Soft Lockup需要忙等待</strong>：</p>
 <ul>
-<li>Soft
-lockup的典型触发条件是CPU被一个忙等待（busy-waiting）的任务占用，例如无限循环或长时间不释放CPU的操作。</li>
-<li>例如：<code>while(1) &#123;&#125;</code> 或 <code>mdelay(1000)</code>
-不让出CPU。</li>
-</ul></li>
-<li><strong>死锁的典型场景</strong>：
+<li>Soft lockup的典型触发条件是CPU被一个忙等待（busy-waiting）的任务占用，例如无限循环或长时间不释放CPU的操作。</li>
+<li>例如：<code>while(1) &#123;&#125;</code> 或 <code>mdelay(1000)</code> 不让出CPU。</li>
+</ul>
+</li>
+<li><p><strong>死锁的典型场景</strong>：</p>
 <ul>
 <li>如果两个任务互相等待锁，它们会被挂起（pending），调度器会切换到其他就绪任务，CPU不会被“锁死”。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="死锁间接导致soft-lockup的情况">3. <strong>死锁间接导致Soft
-Lockup的情况</strong></h3>
-<p>尽管死锁本身不直接触发soft
-lockup，但在某些特定条件下，死锁可能间接导致类似soft
-lockup的现象。以下是可能的情况：</p>
-<h4 id="a.-spinlock死锁与忙等待">a.
-<strong>Spinlock死锁与忙等待</strong></h4>
-<ul>
-<li><strong>场景</strong>：
-<ul>
+<h3 id="3-死锁间接导致Soft-Lockup的情况"><a href="#3-死锁间接导致Soft-Lockup的情况" class="headerlink" title="3. 死锁间接导致Soft Lockup的情况"></a>3. <strong>死锁间接导致Soft Lockup的情况</strong></h3><p>尽管死锁本身不直接触发soft lockup，但在某些特定条件下，死锁可能间接导致类似soft lockup的现象。以下是可能的情况：</p>
+<h4 id="a-Spinlock死锁与忙等待"><a href="#a-Spinlock死锁与忙等待" class="headerlink" title="a. Spinlock死锁与忙等待"></a>a. <strong>Spinlock死锁与忙等待</strong></h4><ul>
+<li><strong>场景</strong>：<ul>
 <li>在内核中使用<code>spinlock</code>（自旋锁）时，如果发生死锁，任务不会睡眠，而是进入忙等待状态。</li>
 <li>自旋锁是一种轻量级锁，调用<code>spin_lock()</code>时，如果锁不可用，任务会循环等待（spin），持续占用CPU。</li>
-<li>示例： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">spinlock_t</span> lock1, lock2;<br><span class="hljs-type">void</span> <span class="hljs-title function_">thread1</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    spin_lock(&amp;lock1);<br>    spin_lock(&amp;lock2); <span class="hljs-comment">// 等待lock2</span><br>&#125;<br><span class="hljs-type">void</span> <span class="hljs-title function_">thread2</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    spin_lock(&amp;lock2);<br>    spin_lock(&amp;lock1); <span class="hljs-comment">// 等待lock1</span><br>&#125;<br></code></pre></td></tr></table></figure></li>
+<li>示例：<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">spinlock_t</span> lock1, lock2;<br><span class="hljs-type">void</span> <span class="hljs-title function_">thread1</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    spin_lock(&amp;lock1);<br>    spin_lock(&amp;lock2); <span class="hljs-comment">// 等待lock2</span><br>&#125;<br><span class="hljs-type">void</span> <span class="hljs-title function_">thread2</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    spin_lock(&amp;lock2);<br>    spin_lock(&amp;lock1); <span class="hljs-comment">// 等待lock1</span><br>&#125;<br></code></pre></td></tr></table></figure></li>
 <li>如果<code>thread1</code>和<code>thread2</code>在不同CPU上运行，互相等待对方的锁，每个CPU都会陷入<code>spin_lock()</code>的忙等待循环。</li>
-</ul></li>
-<li><strong>结果</strong>：
-<ul>
-<li>每个CPU都在执行死循环（等待锁），没有调用<code>schedule()</code>，超过<code>watchdog_thresh</code>时间后，触发soft
-lockup。</li>
-<li>日志可能显示： <figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<br></code></pre></td></tr></table></figure></li>
-</ul></li>
 </ul>
-<h4 id="b.-中断上下文中的死锁">b.
-<strong>中断上下文中的死锁</strong></h4>
-<ul>
-<li><strong>场景</strong>：
-<ul>
+</li>
+<li><strong>结果</strong>：<ul>
+<li>每个CPU都在执行死循环（等待锁），没有调用<code>schedule()</code>，超过<code>watchdog_thresh</code>时间后，触发soft lockup。</li>
+<li>日志可能显示：<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<br></code></pre></td></tr></table></figure></li>
+</ul>
+</li>
+</ul>
+<h4 id="b-中断上下文中的死锁"><a href="#b-中断上下文中的死锁" class="headerlink" title="b. 中断上下文中的死锁"></a>b. <strong>中断上下文中的死锁</strong></h4><ul>
+<li><strong>场景</strong>：<ul>
 <li>如果死锁发生在中断处理程序中（例如持有spinlock时被中断嵌套），中断上下文无法让出CPU。</li>
-<li>示例： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">spinlock_t</span> lock;<br><span class="hljs-type">void</span> <span class="hljs-title function_">interrupt_handler</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    spin_lock(&amp;lock);<br>    <span class="hljs-comment">// 嵌套中断或错误逻辑导致等待</span><br>    spin_lock(&amp;lock); <span class="hljs-comment">// 自锁死</span><br>&#125;<br></code></pre></td></tr></table></figure></li>
+<li>示例：<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">spinlock_t</span> lock;<br><span class="hljs-type">void</span> <span class="hljs-title function_">interrupt_handler</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    spin_lock(&amp;lock);<br>    <span class="hljs-comment">// 嵌套中断或错误逻辑导致等待</span><br>    spin_lock(&amp;lock); <span class="hljs-comment">// 自锁死</span><br>&#125;<br></code></pre></td></tr></table></figure></li>
 <li>中断上下文默认不可抢占（即使<code>CONFIG_PREEMPT=y</code>），且不会调用调度器。</li>
-</ul></li>
-<li><strong>结果</strong>：
-<ul>
-<li>CPU被困在中断处理程序的死循环中，触发soft lockup。</li>
-</ul></li>
 </ul>
-<h4 id="c.-死锁导致调度器无法运行">c.
-<strong>死锁导致调度器无法运行</strong></h4>
-<ul>
-<li><strong>场景</strong>：
-<ul>
+</li>
+<li><strong>结果</strong>：<ul>
+<li>CPU被困在中断处理程序的死循环中，触发soft lockup。</li>
+</ul>
+</li>
+</ul>
+<h4 id="c-死锁导致调度器无法运行"><a href="#c-死锁导致调度器无法运行" class="headerlink" title="c. 死锁导致调度器无法运行"></a>c. <strong>死锁导致调度器无法运行</strong></h4><ul>
+<li><strong>场景</strong>：<ul>
 <li>如果死锁涉及调度器本身的关键资源（例如<code>rq-&gt;lock</code>，运行队列锁），可能导致调度器无法正常工作。</li>
 <li>这种情况极少见，通常是内核bug。</li>
-</ul></li>
-<li><strong>结果</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>结果</strong>：<ul>
 <li>CPU无法切换任务，watchdog检测到长时间未调度，触发soft lockup。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="死锁与soft-lockup的根本区别">4. <strong>死锁与Soft
-Lockup的根本区别</strong></h3>
-<ul>
-<li><strong>死锁</strong>：
-<ul>
+<h3 id="4-死锁与Soft-Lockup的根本区别"><a href="#4-死锁与Soft-Lockup的根本区别" class="headerlink" title="4. 死锁与Soft Lockup的根本区别"></a>4. <strong>死锁与Soft Lockup的根本区别</strong></h3><ul>
+<li><strong>死锁</strong>：<ul>
 <li>关注资源争用，任务可能阻塞或忙等待。</li>
 <li>不一定影响CPU调度，可能只影响部分任务。</li>
-</ul></li>
-<li><strong>Soft Lockup</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>Soft Lockup</strong>：<ul>
 <li>关注CPU调度，检测的是CPU是否被“霸占”而无法运行调度器。</li>
 <li>通常由忙等待或不让出CPU的代码引起。</li>
-</ul></li>
 </ul>
-<p>死锁只有在导致CPU持续忙等待、不让出控制权时，才可能触发soft
-lockup。</p>
+</li>
+</ul>
+<p>死锁只有在导致CPU持续忙等待、不让出控制权时，才可能触发soft lockup。</p>
 <hr>
-<h3 id="示例代码死锁触发soft-lockup">5. <strong>示例代码：死锁触发Soft
-Lockup</strong></h3>
-<p>以下是一个可能触发soft lockup的死锁示例（基于spinlock）：
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/module.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/kernel.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/spinlock.h&gt;</span></span><br><br>MODULE_LICENSE(<span class="hljs-string">&quot;GPL&quot;</span>);<br><br><span class="hljs-type">static</span> <span class="hljs-type">spinlock_t</span> lock1, lock2;<br><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">deadlock_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags;<br><br>    spin_lock_init(&amp;lock1);<br>    spin_lock_init(&amp;lock2);<br><br>    printk(KERN_INFO <span class="hljs-string">&quot;Starting deadlock demo...\n&quot;</span>);<br><br>    <span class="hljs-comment">/* 模拟CPU0上的任务 */</span><br>    spin_lock_irqsave(&amp;lock1, flags); <span class="hljs-comment">// 获取lock1</span><br>    printk(KERN_INFO <span class="hljs-string">&quot;CPU0: Acquired lock1, waiting for lock2...\n&quot;</span>);<br>    spin_lock(&amp;lock2); <span class="hljs-comment">// 等待lock2，但永远不可用</span><br><br>    spin_unlock(&amp;lock2);<br>    spin_unlock_irqrestore(&amp;lock1, flags);<br><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> __exit <span class="hljs-title function_">deadlock_exit</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Exiting deadlock demo...\n&quot;</span>);<br>&#125;<br><br>module_init(deadlock_init);<br>module_exit(deadlock_exit);<br></code></pre></td></tr></table></figure> - <strong>假设条件</strong>： -
-另一个CPU上的任务持有<code>lock2</code>并等待<code>lock1</code>，形成死锁。
-- 这里简化为单线程，但实际需要多核或中断触发。 -
-<strong>运行结果</strong>： -
-当前CPU陷入<code>spin_lock(&amp;lock2)</code>的忙等待，持续占用CPU。 -
-超过20秒后，watchdog触发： <figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<br></code></pre></td></tr></table></figure></p>
+<h3 id="5-示例代码：死锁触发Soft-Lockup"><a href="#5-示例代码：死锁触发Soft-Lockup" class="headerlink" title="5. 示例代码：死锁触发Soft Lockup"></a>5. <strong>示例代码：死锁触发Soft Lockup</strong></h3><p>以下是一个可能触发soft lockup的死锁示例（基于spinlock）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/module.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/kernel.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/spinlock.h&gt;</span></span><br><br>MODULE_LICENSE(<span class="hljs-string">&quot;GPL&quot;</span>);<br><br><span class="hljs-type">static</span> <span class="hljs-type">spinlock_t</span> lock1, lock2;<br><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">deadlock_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags;<br><br>    spin_lock_init(&amp;lock1);<br>    spin_lock_init(&amp;lock2);<br><br>    printk(KERN_INFO <span class="hljs-string">&quot;Starting deadlock demo...\n&quot;</span>);<br><br>    <span class="hljs-comment">/* 模拟CPU0上的任务 */</span><br>    spin_lock_irqsave(&amp;lock1, flags); <span class="hljs-comment">// 获取lock1</span><br>    printk(KERN_INFO <span class="hljs-string">&quot;CPU0: Acquired lock1, waiting for lock2...\n&quot;</span>);<br>    spin_lock(&amp;lock2); <span class="hljs-comment">// 等待lock2，但永远不可用</span><br><br>    spin_unlock(&amp;lock2);<br>    spin_unlock_irqrestore(&amp;lock1, flags);<br><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> __exit <span class="hljs-title function_">deadlock_exit</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Exiting deadlock demo...\n&quot;</span>);<br>&#125;<br><br>module_init(deadlock_init);<br>module_exit(deadlock_exit);<br></code></pre></td></tr></table></figure>
+<ul>
+<li><strong>假设条件</strong>：<ul>
+<li>另一个CPU上的任务持有<code>lock2</code>并等待<code>lock1</code>，形成死锁。</li>
+<li>这里简化为单线程，但实际需要多核或中断触发。</li>
+</ul>
+</li>
+<li><strong>运行结果</strong>：<ul>
+<li>当前CPU陷入<code>spin_lock(&amp;lock2)</code>的忙等待，持续占用CPU。</li>
+<li>超过20秒后，watchdog触发：<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<br></code></pre></td></tr></table></figure></li>
+</ul>
+</li>
+</ul>
 <hr>
-<h3 id="如何避免混淆">6. <strong>如何避免混淆</strong></h3>
-<ul>
-<li><strong>检查死锁类型</strong>：
-<ul>
+<h3 id="6-如何避免混淆"><a href="#6-如何避免混淆" class="headerlink" title="6. 如何避免混淆"></a>6. <strong>如何避免混淆</strong></h3><ul>
+<li><strong>检查死锁类型</strong>：<ul>
 <li>如果任务阻塞（睡眠），不会触发soft lockup。</li>
 <li>如果任务忙等待（如spinlock），可能触发。</li>
-</ul></li>
-<li><strong>日志分析</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>日志分析</strong>：<ul>
 <li>用<code>dmesg</code>查看调用栈，判断是死锁（锁等待）还是单纯的忙循环。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="总结-4">7. <strong>总结</strong></h3>
-<p>死锁本身不会直接导致soft lockup，但以下情况可能间接触发： 1.
-<strong>Spinlock死锁</strong>：任务忙等待锁，持续占用CPU。 2.
-<strong>中断上下文死锁</strong>：无法让出CPU。 3.
-<strong>调度器相关死锁</strong>：极少数情况下影响调度。</p>
-<p>在大多数死锁场景中，任务是阻塞的，不会触发soft
-lockup。只有当死锁导致CPU忙等待且不调用调度器时，才会与soft
-lockup关联起来。</p>
-<h2 id="为啥死锁会导致hard-locup">为啥死锁会导致hard locup?</h2>
-<p>死锁（deadlock）本身并不必然直接导致 <strong>hard
-lockup</strong>，但在特定条件下，死锁可能引发类似hard
-lockup的现象，或者间接导致系统进入硬锁死状态。让我详细分析死锁与hard
-lockup的关系，解释为什么会出现这种关联，以及在什么情况下死锁可能导致hard
-lockup。</p>
+<h3 id="7-总结"><a href="#7-总结" class="headerlink" title="7. 总结"></a>7. <strong>总结</strong></h3><p>死锁本身不会直接导致soft lockup，但以下情况可能间接触发：</p>
+<ol>
+<li><strong>Spinlock死锁</strong>：任务忙等待锁，持续占用CPU。</li>
+<li><strong>中断上下文死锁</strong>：无法让出CPU。</li>
+<li><strong>调度器相关死锁</strong>：极少数情况下影响调度。</li>
+</ol>
+<p>在大多数死锁场景中，任务是阻塞的，不会触发soft lockup。只有当死锁导致CPU忙等待且不调用调度器时，才会与soft lockup关联起来。</p>
+<h2 id="为啥死锁会导致hard-locup"><a href="#为啥死锁会导致hard-locup" class="headerlink" title="为啥死锁会导致hard locup?"></a>为啥死锁会导致hard locup?</h2><p>死锁（deadlock）本身并不必然直接导致 <strong>hard lockup</strong>，但在特定条件下，死锁可能引发类似hard lockup的现象，或者间接导致系统进入硬锁死状态。让我详细分析死锁与hard lockup的关系，解释为什么会出现这种关联，以及在什么情况下死锁可能导致hard lockup。</p>
 <hr>
-<h3 id="死锁与hard-lockup的定义">1. <strong>死锁与Hard
-Lockup的定义</strong></h3>
-<ul>
-<li><strong>死锁（Deadlock）</strong>：
-<ul>
+<h3 id="1-死锁与Hard-Lockup的定义"><a href="#1-死锁与Hard-Lockup的定义" class="headerlink" title="1. 死锁与Hard Lockup的定义"></a>1. <strong>死锁与Hard Lockup的定义</strong></h3><ul>
+<li><strong>死锁（Deadlock）</strong>：<ul>
 <li>多个任务互相等待对方持有的资源，导致所有相关任务无法继续执行。</li>
 <li>例如，任务A等待任务B释放锁L2，任务B等待任务A释放锁L1。</li>
-</ul></li>
-<li><strong>Hard Lockup</strong>：
-<ul>
-<li>Hard
-lockup是指某个CPU核心完全停止响应，甚至无法处理硬件中断（如NMI，非屏蔽中断）。</li>
-<li>Linux通过NMI
-watchdog检测，当CPU在一段时间内（通常与<code>watchdog_thresh</code>相关）未响应NMI“心跳”时，触发hard
-lockup警告。</li>
-<li>日志示例： <figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">NMI</span> watchdog: Watchdog detected hard LOCKUP <span class="hljs-literal">on</span> cpu <span class="hljs-number">0</span><br></code></pre></td></tr></table></figure></li>
-</ul></li>
+</ul>
+</li>
+<li><strong>Hard Lockup</strong>：<ul>
+<li>Hard lockup是指某个CPU核心完全停止响应，甚至无法处理硬件中断（如NMI，非屏蔽中断）。</li>
+<li>Linux通过NMI watchdog检测，当CPU在一段时间内（通常与<code>watchdog_thresh</code>相关）未响应NMI“心跳”时，触发hard lockup警告。</li>
+<li>日志示例：<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">NMI</span> watchdog: Watchdog detected hard LOCKUP <span class="hljs-literal">on</span> cpu <span class="hljs-number">0</span><br></code></pre></td></tr></table></figure></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="死锁为什么通常不会直接导致hard-lockup">2.
-<strong>死锁为什么通常不会直接导致Hard Lockup？</strong></h3>
-<p>与soft lockup类似，死锁本身并不直接触发hard
-lockup，因为死锁通常涉及任务阻塞或忙等待，而不是让CPU完全失控。以下是原因：</p>
+<h3 id="2-死锁为什么通常不会直接导致Hard-Lockup？"><a href="#2-死锁为什么通常不会直接导致Hard-Lockup？" class="headerlink" title="2. 死锁为什么通常不会直接导致Hard Lockup？"></a>2. <strong>死锁为什么通常不会直接导致Hard Lockup？</strong></h3><p>与soft lockup类似，死锁本身并不直接触发hard lockup，因为死锁通常涉及任务阻塞或忙等待，而不是让CPU完全失控。以下是原因：</p>
 <ul>
-<li><strong>阻塞状态不影响硬件响应</strong>：
+<li><p><strong>阻塞状态不影响硬件响应</strong>：</p>
 <ul>
 <li>大多数死锁场景中，任务等待资源（如mutex、semaphore）时会进入睡眠状态（调用<code>schedule()</code>），让出CPU。</li>
-<li>睡眠任务不会阻止CPU响应中断（包括NMI），因此不会触发hard
-lockup。</li>
-</ul></li>
-<li><strong>Hard Lockup需要更严重条件</strong>：
+<li>睡眠任务不会阻止CPU响应中断（包括NMI），因此不会触发hard lockup。</li>
+</ul>
+</li>
+<li><p><strong>Hard Lockup需要更严重条件</strong>：</p>
 <ul>
-<li>Hard lockup通常由以下情况引起：
-<ol type="1">
+<li>Hard lockup通常由以下情况引起：<ol>
 <li>中断被禁用（<code>local_irq_disable()</code>）且陷入死循环。</li>
 <li>硬件故障（如CPU过热、内存错误）。</li>
 <li>内核bug导致CPU完全无响应。</li>
-</ol></li>
+</ol>
+</li>
 <li>单纯的死锁（即使是spinlock忙等待）通常不会禁用中断，CPU仍能响应NMI。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="死锁导致hard-lockup的可能情况">3. <strong>死锁导致Hard
-Lockup的可能情况</strong></h3>
-<p>尽管死锁本身不直接触发hard
-lockup，但在某些极端条件下，死锁可能间接导致CPU进入硬锁死状态。以下是具体场景：</p>
-<h4 id="a.-死锁发生在禁用中断的上下文中">a.
-<strong>死锁发生在禁用中断的上下文中</strong></h4>
-<ul>
-<li><strong>场景</strong>：
-<ul>
+<h3 id="3-死锁导致Hard-Lockup的可能情况"><a href="#3-死锁导致Hard-Lockup的可能情况" class="headerlink" title="3. 死锁导致Hard Lockup的可能情况"></a>3. <strong>死锁导致Hard Lockup的可能情况</strong></h3><p>尽管死锁本身不直接触发hard lockup，但在某些极端条件下，死锁可能间接导致CPU进入硬锁死状态。以下是具体场景：</p>
+<h4 id="a-死锁发生在禁用中断的上下文中"><a href="#a-死锁发生在禁用中断的上下文中" class="headerlink" title="a. 死锁发生在禁用中断的上下文中"></a>a. <strong>死锁发生在禁用中断的上下文中</strong></h4><ul>
+<li><strong>场景</strong>：<ul>
 <li>如果死锁发生在禁用了本地中断（<code>local_irq_disable()</code>）的代码段中，且涉及忙等待（如spinlock），CPU可能陷入无法响应的状态。</li>
-<li>示例： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">spinlock_t</span> lock1, lock2;<br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">deadlock_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags;<br>    local_irq_save(flags); <span class="hljs-comment">// 禁用中断</span><br>    spin_lock(&amp;lock1);<br>    spin_lock(&amp;lock2); <span class="hljs-comment">// 等待另一个任务释放lock2</span><br>    local_irq_restore(flags);<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure></li>
+<li>示例：<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">spinlock_t</span> lock1, lock2;<br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">deadlock_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags;<br>    local_irq_save(flags); <span class="hljs-comment">// 禁用中断</span><br>    spin_lock(&amp;lock1);<br>    spin_lock(&amp;lock2); <span class="hljs-comment">// 等待另一个任务释放lock2</span><br>    local_irq_restore(flags);<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure></li>
 <li>如果另一个CPU持有<code>lock2</code>并等待<code>lock1</code>，当前CPU会在禁用中断的情况下陷入<code>spin_lock(&amp;lock2)</code>的死循环。</li>
-</ul></li>
-<li><strong>结果</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>结果</strong>：<ul>
 <li>中断被禁用，NMI watchdog无法通过中断检查CPU状态。</li>
 <li>CPU持续执行死循环，无法响应NMI心跳，触发hard lockup。</li>
-<li>日志： <figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">NMI</span> watchdog: Watchdog detected hard LOCKUP <span class="hljs-literal">on</span> cpu <span class="hljs-number">0</span><br></code></pre></td></tr></table></figure></li>
-</ul></li>
+<li>日志：<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">NMI</span> watchdog: Watchdog detected hard LOCKUP <span class="hljs-literal">on</span> cpu <span class="hljs-number">0</span><br></code></pre></td></tr></table></figure></li>
 </ul>
-<h4 id="b.-中断处理程序中的死锁">b.
-<strong>中断处理程序中的死锁</strong></h4>
-<ul>
-<li><strong>场景</strong>：
-<ul>
+</li>
+</ul>
+<h4 id="b-中断处理程序中的死锁"><a href="#b-中断处理程序中的死锁" class="headerlink" title="b. 中断处理程序中的死锁"></a>b. <strong>中断处理程序中的死锁</strong></h4><ul>
+<li><strong>场景</strong>：<ul>
 <li>如果死锁发生在中断处理程序中，且中断处理程序禁用了某些关键中断（或硬件配置错误），可能导致CPU失控。</li>
-<li>示例： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">spinlock_t</span> lock;<br><span class="hljs-type">void</span> <span class="hljs-title function_">irq_handler</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    spin_lock(&amp;lock);<br>    spin_lock(&amp;lock); <span class="hljs-comment">// 自锁死或等待其他中断上下文</span><br>&#125;<br></code></pre></td></tr></table></figure></li>
+<li>示例：<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">spinlock_t</span> lock;<br><span class="hljs-type">void</span> <span class="hljs-title function_">irq_handler</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    spin_lock(&amp;lock);<br>    spin_lock(&amp;lock); <span class="hljs-comment">// 自锁死或等待其他中断上下文</span><br>&#125;<br></code></pre></td></tr></table></figure></li>
 <li>中断上下文默认不可抢占，且可能隐式禁用部分中断。</li>
-</ul></li>
-<li><strong>结果</strong>：
-<ul>
-<li>CPU被困在中断处理程序的死循环中，无法退出。</li>
-<li>如果NMI也被禁用或无法触发（例如硬件问题），CPU完全无响应，触发hard
-lockup。</li>
-</ul></li>
 </ul>
-<h4 id="c.-死锁引发内核崩溃">c. <strong>死锁引发内核崩溃</strong></h4>
-<ul>
-<li><strong>场景</strong>：
-<ul>
+</li>
+<li><strong>结果</strong>：<ul>
+<li>CPU被困在中断处理程序的死循环中，无法退出。</li>
+<li>如果NMI也被禁用或无法触发（例如硬件问题），CPU完全无响应，触发hard lockup。</li>
+</ul>
+</li>
+</ul>
+<h4 id="c-死锁引发内核崩溃"><a href="#c-死锁引发内核崩溃" class="headerlink" title="c. 死锁引发内核崩溃"></a>c. <strong>死锁引发内核崩溃</strong></h4><ul>
+<li><strong>场景</strong>：<ul>
 <li>如果死锁涉及内核关键组件（如调度器、内存分配器）的资源，可能导致内核进入不可恢复状态。</li>
 <li>例如，死锁阻塞了所有CPU的调度队列锁（<code>rq-&gt;lock</code>），所有核心都无法继续执行。</li>
-</ul></li>
-<li><strong>结果</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>结果</strong>：<ul>
 <li>CPU可能进入未定义状态，甚至停止响应硬件中断。</li>
 <li>NMI watchdog检测到CPU无心跳，触发hard lockup。</li>
-</ul></li>
 </ul>
-<h4 id="d.-硬件交互中的死锁">d. <strong>硬件交互中的死锁</strong></h4>
-<ul>
-<li><strong>场景</strong>：
-<ul>
+</li>
+</ul>
+<h4 id="d-硬件交互中的死锁"><a href="#d-硬件交互中的死锁" class="headerlink" title="d. 硬件交互中的死锁"></a>d. <strong>硬件交互中的死锁</strong></h4><ul>
+<li><strong>场景</strong>：<ul>
 <li>如果死锁发生在与硬件交互的代码中（如驱动程序等待硬件响应），且硬件未正确响应，可能导致CPU挂起。</li>
 <li>示例：驱动程序禁用中断并等待硬件DMA完成，但硬件由于死锁未完成任务。</li>
-</ul></li>
-<li><strong>结果</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>结果</strong>：<ul>
 <li>CPU无法退出等待状态，失去对NMI的响应，触发hard lockup。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="hard-lockup与soft-lockup的区别-1">4. <strong>Hard Lockup与Soft
-Lockup的区别</strong></h3>
-<ul>
-<li><strong>Soft Lockup</strong>：
-<ul>
+<h3 id="4-Hard-Lockup与Soft-Lockup的区别"><a href="#4-Hard-Lockup与Soft-Lockup的区别" class="headerlink" title="4. Hard Lockup与Soft Lockup的区别"></a>4. <strong>Hard Lockup与Soft Lockup的区别</strong></h3><ul>
+<li><strong>Soft Lockup</strong>：<ul>
 <li>CPU仍在执行代码，但未调用调度器。</li>
 <li>中断通常未被禁用，watchdog线程可检测。</li>
 <li>死锁中的spinlock忙等待可能触发。</li>
-</ul></li>
-<li><strong>Hard Lockup</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>Hard Lockup</strong>：<ul>
 <li>CPU完全无响应，连NMI都无法处理。</li>
 <li>通常需要禁用中断或硬件故障。</li>
 <li>死锁只有在极端条件（如禁用中断+忙等待）下才可能触发。</li>
-</ul></li>
 </ul>
-<p>死锁导致hard
-lockup的关键在于<strong>中断被禁用</strong>，否则只会停留在soft
-lockup级别。</p>
+</li>
+</ul>
+<p>死锁导致hard lockup的关键在于<strong>中断被禁用</strong>，否则只会停留在soft lockup级别。</p>
 <hr>
-<h3 id="示例代码死锁触发hard-lockup">5. <strong>示例代码：死锁触发Hard
-Lockup</strong></h3>
-<p>以下是一个可能触发hard lockup的死锁示例： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/module.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/kernel.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/spinlock.h&gt;</span></span><br><br>MODULE_LICENSE(<span class="hljs-string">&quot;GPL&quot;</span>);<br><br><span class="hljs-type">static</span> <span class="hljs-type">spinlock_t</span> lock1, lock2;<br><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">hardlockup_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags;<br><br>    spin_lock_init(&amp;lock1);<br>    spin_lock_init(&amp;lock2);<br><br>    printk(KERN_INFO <span class="hljs-string">&quot;Starting hard lockup demo...\n&quot;</span>);<br><br>    local_irq_save(flags); <span class="hljs-comment">// 禁用本地中断</span><br>    spin_lock(&amp;lock1);<br>    printk(KERN_INFO <span class="hljs-string">&quot;Acquired lock1, waiting for lock2...\n&quot;</span>);<br>    spin_lock(&amp;lock2); <span class="hljs-comment">// 假设lock2被其他CPU持有且等待lock1</span><br><br>    spin_unlock(&amp;lock2);<br>    spin_unlock(&amp;lock1);<br>    local_irq_restore(flags);<br><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> __exit <span class="hljs-title function_">hardlockup_exit</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Exiting hard lockup demo...\n&quot;</span>);<br>&#125;<br><br>module_init(hardlockup_init);<br>module_exit(hardlockup_exit);<br></code></pre></td></tr></table></figure> -
-<strong>假设条件</strong>： -
-另一个CPU持有<code>lock2</code>并等待<code>lock1</code>，形成死锁。 -
-当前CPU禁用中断并忙等待<code>lock2</code>。 -
-<strong>运行结果</strong>： - CPU陷入死循环，且无法响应NMI。 - 如果NMI
-watchdog启用（<code>nmi_watchdog=1</code>），会检测到hard lockup：
-<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">NMI</span> watchdog: Watchdog detected hard LOCKUP <span class="hljs-literal">on</span> cpu <span class="hljs-number">0</span><br></code></pre></td></tr></table></figure></p>
+<h3 id="5-示例代码：死锁触发Hard-Lockup"><a href="#5-示例代码：死锁触发Hard-Lockup" class="headerlink" title="5. 示例代码：死锁触发Hard Lockup"></a>5. <strong>示例代码：死锁触发Hard Lockup</strong></h3><p>以下是一个可能触发hard lockup的死锁示例：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/module.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/kernel.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/spinlock.h&gt;</span></span><br><br>MODULE_LICENSE(<span class="hljs-string">&quot;GPL&quot;</span>);<br><br><span class="hljs-type">static</span> <span class="hljs-type">spinlock_t</span> lock1, lock2;<br><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">hardlockup_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags;<br><br>    spin_lock_init(&amp;lock1);<br>    spin_lock_init(&amp;lock2);<br><br>    printk(KERN_INFO <span class="hljs-string">&quot;Starting hard lockup demo...\n&quot;</span>);<br><br>    local_irq_save(flags); <span class="hljs-comment">// 禁用本地中断</span><br>    spin_lock(&amp;lock1);<br>    printk(KERN_INFO <span class="hljs-string">&quot;Acquired lock1, waiting for lock2...\n&quot;</span>);<br>    spin_lock(&amp;lock2); <span class="hljs-comment">// 假设lock2被其他CPU持有且等待lock1</span><br><br>    spin_unlock(&amp;lock2);<br>    spin_unlock(&amp;lock1);<br>    local_irq_restore(flags);<br><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> __exit <span class="hljs-title function_">hardlockup_exit</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Exiting hard lockup demo...\n&quot;</span>);<br>&#125;<br><br>module_init(hardlockup_init);<br>module_exit(hardlockup_exit);<br></code></pre></td></tr></table></figure>
+<ul>
+<li><strong>假设条件</strong>：<ul>
+<li>另一个CPU持有<code>lock2</code>并等待<code>lock1</code>，形成死锁。</li>
+<li>当前CPU禁用中断并忙等待<code>lock2</code>。</li>
+</ul>
+</li>
+<li><strong>运行结果</strong>：<ul>
+<li>CPU陷入死循环，且无法响应NMI。</li>
+<li>如果NMI watchdog启用（<code>nmi_watchdog=1</code>），会检测到hard lockup：<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">NMI</span> watchdog: Watchdog detected hard LOCKUP <span class="hljs-literal">on</span> cpu <span class="hljs-number">0</span><br></code></pre></td></tr></table></figure></li>
+</ul>
+</li>
+</ul>
 <hr>
-<h3 id="如何区分和排查">6. <strong>如何区分和排查</strong></h3>
-<ul>
-<li><strong>检查中断状态</strong>：
-<ul>
-<li>Hard lockup需要中断被禁用（<code>local_irq_disable()</code>
-或硬件问题）。</li>
+<h3 id="6-如何区分和排查"><a href="#6-如何区分和排查" class="headerlink" title="6. 如何区分和排查"></a>6. <strong>如何区分和排查</strong></h3><ul>
+<li><strong>检查中断状态</strong>：<ul>
+<li>Hard lockup需要中断被禁用（<code>local_irq_disable()</code> 或硬件问题）。</li>
 <li>用<code>dmesg</code>查看调用栈，确认是否涉及<code>irq_save</code>。</li>
-</ul></li>
-<li><strong>硬件依赖</strong>：
-<ul>
-<li>Hard
-lockup检测依赖NMI支持，检查<code>cat /proc/sys/kernel/nmi_watchdog</code>是否为1。</li>
-</ul></li>
-<li><strong>死锁类型</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>硬件依赖</strong>：<ul>
+<li>Hard lockup检测依赖NMI支持，检查<code>cat /proc/sys/kernel/nmi_watchdog</code>是否为1。</li>
+</ul>
+</li>
+<li><strong>死锁类型</strong>：<ul>
 <li>普通阻塞死锁（如mutex）不会触发hard lockup。</li>
 <li>Spinlock死锁+禁用中断可能触发。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="总结-5">7. <strong>总结</strong></h3>
-<p>死锁导致hard lockup的条件： 1.
-<strong>禁用中断</strong>：如<code>local_irq_disable()</code>，阻止NMI介入。
-2. <strong>忙等待</strong>：如spinlock死锁，CPU持续执行循环。 3.
-<strong>关键上下文</strong>：发生在中断处理或内核核心代码中。</p>
-<p>在大多数情况下，死锁只会导致任务阻塞或soft
-lockup。只有当死锁结合禁用中断和忙等待时，才可能触发hard lockup。</p>
-<h2 id="soft-lockup">Soft Lockup：</h2>
-<p>CPU仍在执行代码，但未调用调度器。
-中断通常未被禁用，watchdog线程可检测。
-死锁中的spinlock忙等待可能触发。</p>
+<h3 id="7-总结-1"><a href="#7-总结-1" class="headerlink" title="7. 总结"></a>7. <strong>总结</strong></h3><p>死锁导致hard lockup的条件：</p>
+<ol>
+<li><strong>禁用中断</strong>：如<code>local_irq_disable()</code>，阻止NMI介入。</li>
+<li><strong>忙等待</strong>：如spinlock死锁，CPU持续执行循环。</li>
+<li><strong>关键上下文</strong>：发生在中断处理或内核核心代码中。</li>
+</ol>
+<p>在大多数情况下，死锁只会导致任务阻塞或soft lockup。只有当死锁结合禁用中断和忙等待时，才可能触发hard lockup。</p>
+<h2 id="Soft-Lockup："><a href="#Soft-Lockup：" class="headerlink" title="Soft Lockup："></a>Soft Lockup：</h2><p>CPU仍在执行代码，但未调用调度器。<br>中断通常未被禁用，watchdog线程可检测。<br>死锁中的spinlock忙等待可能触发。</p>
 <p>CPU仍在执行代码，但未调用调度器。这句话啥意思？</p>
-<p>“CPU仍在执行代码，但未调用调度器” 这句话描述了 <strong>soft
-lockup</strong> 的核心特征，是理解soft
-lockup与系统调度机制关系的钥匙。让我详细解释一下这句话的含义，以及它在soft
-lockup上下文中的意义。</p>
+<p>“CPU仍在执行代码，但未调用调度器” 这句话描述了 <strong>soft lockup</strong> 的核心特征，是理解soft lockup与系统调度机制关系的钥匙。让我详细解释一下这句话的含义，以及它在soft lockup上下文中的意义。</p>
 <hr>
-<h3 id="基本含义">1. <strong>基本含义</strong></h3>
-<ul>
-<li><strong>“CPU仍在执行代码”</strong>：
-<ul>
-<li>表示CPU没有完全停止运行（不像hard
-lockup那样无响应），它仍在按照指令顺序执行某个任务的代码。</li>
+<h3 id="1-基本含义"><a href="#1-基本含义" class="headerlink" title="1. 基本含义"></a>1. <strong>基本含义</strong></h3><ul>
+<li><strong>“CPU仍在执行代码”</strong>：<ul>
+<li>表示CPU没有完全停止运行（不像hard lockup那样无响应），它仍在按照指令顺序执行某个任务的代码。</li>
 <li>例如，CPU可能在运行一个无限循环、忙等待（busy-waiting）或长时间计算的任务。</li>
-</ul></li>
-<li><strong>“但未调用调度器”</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>“但未调用调度器”</strong>：<ul>
 <li>指的是CPU在执行代码的过程中，没有调用Linux内核的调度函数（如<code>schedule()</code>），因此无法切换到其他任务。</li>
 <li>调度器（scheduler）是内核中负责管理任务切换的组件，它决定哪个任务（进程或线程）接下来获得CPU时间。</li>
-</ul></li>
 </ul>
-<p>在正常情况下，CPU会周期性地调用调度器（例如通过时钟中断或主动让出），以确保所有任务都能公平共享CPU。但在soft
-lockup中，这个过程被中断了。</p>
+</li>
+</ul>
+<p>在正常情况下，CPU会周期性地调用调度器（例如通过时钟中断或主动让出），以确保所有任务都能公平共享CPU。但在soft lockup中，这个过程被中断了。</p>
 <hr>
-<h3 id="为什么会发生这种情况">2.
-<strong>为什么会发生这种情况？</strong></h3>
-<p>Soft
-lockup发生时，CPU被某个任务“霸占”，没有机会运行调度器。以下是具体原因：</p>
-<h4 id="a.-任务不让出cpu">a. <strong>任务不让出CPU</strong></h4>
-<ul>
+<h3 id="2-为什么会发生这种情况？"><a href="#2-为什么会发生这种情况？" class="headerlink" title="2. 为什么会发生这种情况？"></a>2. <strong>为什么会发生这种情况？</strong></h3><p>Soft lockup发生时，CPU被某个任务“霸占”，没有机会运行调度器。以下是具体原因：</p>
+<h4 id="a-任务不让出CPU"><a href="#a-任务不让出CPU" class="headerlink" title="a. 任务不让出CPU"></a>a. <strong>任务不让出CPU</strong></h4><ul>
 <li>如果一个任务（通常是内核态代码）陷入无限循环或长时间操作，且没有主动调用<code>schedule()</code>或<code>cond_resched()</code>，调度器就无法介入。</li>
-<li>示例： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>    <span class="hljs-comment">/* 无限循环，不让出CPU */</span><br>&#125;<br></code></pre></td></tr></table></figure>
+<li>示例：<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>    <span class="hljs-comment">/* 无限循环，不让出CPU */</span><br>&#125;<br></code></pre></td></tr></table></figure>
 <ul>
 <li>这里CPU一直在执行<code>while</code>循环的指令，但没有调用调度器。</li>
-</ul></li>
 </ul>
-<h4 id="b.-忙等待busy-waiting">b.
-<strong>忙等待（Busy-Waiting）</strong></h4>
-<ul>
+</li>
+</ul>
+<h4 id="b-忙等待（Busy-Waiting）"><a href="#b-忙等待（Busy-Waiting）" class="headerlink" title="b. 忙等待（Busy-Waiting）"></a>b. <strong>忙等待（Busy-Waiting）</strong></h4><ul>
 <li>某些操作（如等待spinlock或用<code>mdelay()</code>实现的延迟）会让CPU持续执行代码，但不触发任务切换。</li>
-<li>示例： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">spinlock_t</span> lock;<br>spin_lock(&amp;lock); <span class="hljs-comment">// 如果lock不可用，CPU忙等待</span><br></code></pre></td></tr></table></figure>
+<li>示例：<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">spinlock_t</span> lock;<br>spin_lock(&amp;lock); <span class="hljs-comment">// 如果lock不可用，CPU忙等待</span><br></code></pre></td></tr></table></figure>
 <ul>
 <li>CPU在等待锁时循环检查状态，仍在“执行代码”，但不调用调度器。</li>
-</ul></li>
 </ul>
-<h4 id="c.-内核态的默认行为">c. <strong>内核态的默认行为</strong></h4>
-<ul>
-<li>在非抢占式内核（<code>CONFIG_PREEMPT=n</code> 或
-<code>CONFIG_PREEMPT_VOLUNTARY=y</code>）中，内核态代码运行时不会被自动抢占，除非主动让出。</li>
+</li>
+</ul>
+<h4 id="c-内核态的默认行为"><a href="#c-内核态的默认行为" class="headerlink" title="c. 内核态的默认行为"></a>c. <strong>内核态的默认行为</strong></h4><ul>
+<li>在非抢占式内核（<code>CONFIG_PREEMPT=n</code> 或 <code>CONFIG_PREEMPT_VOLUNTARY=y</code>）中，内核态代码运行时不会被自动抢占，除非主动让出。</li>
 <li>如果内核态任务不配合（不调用调度函数），CPU会被它完全占用。</li>
 </ul>
 <hr>
-<h3 id="与调度器的关系">3. <strong>与调度器的关系</strong></h3>
-<ul>
-<li><strong>调度器的作用</strong>：
-<ul>
-<li>调度器通过<code>schedule()</code>函数从就绪队列（run
-queue）中挑选下一个任务，切换CPU的执行上下文。</li>
-<li>正常情况下，调度器会在以下时机被调用：
-<ol type="1">
+<h3 id="3-与调度器的关系"><a href="#3-与调度器的关系" class="headerlink" title="3. 与调度器的关系"></a>3. <strong>与调度器的关系</strong></h3><ul>
+<li><strong>调度器的作用</strong>：<ul>
+<li>调度器通过<code>schedule()</code>函数从就绪队列（run queue）中挑选下一个任务，切换CPU的执行上下文。</li>
+<li>正常情况下，调度器会在以下时机被调用：<ol>
 <li>时钟中断触发，时间片用尽。</li>
 <li>任务睡眠或阻塞（如<code>wait_event()</code>）。</li>
 <li>显式调用<code>schedule()</code>或<code>cond_resched()</code>。</li>
-</ol></li>
-</ul></li>
-<li><strong>Soft Lockup的情况</strong>：
-<ul>
+</ol>
+</li>
+</ul>
+</li>
+<li><strong>Soft Lockup的情况</strong>：<ul>
 <li>CPU执行的任务没有触发上述任何一种情况，导致调度器长时间未运行。</li>
-<li>例如，一个内核模块的死循环： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">demo_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        printk(KERN_INFO <span class="hljs-string">&quot;Looping...\n&quot;</span>);<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure></li>
+<li>例如，一个内核模块的死循环：<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">demo_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        printk(KERN_INFO <span class="hljs-string">&quot;Looping...\n&quot;</span>);<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure></li>
 <li>CPU忙于执行<code>printk</code>和循环逻辑，没有让出控制权。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="watchdog如何检测">4. <strong>Watchdog如何检测？</strong></h3>
-<ul>
+<h3 id="4-Watchdog如何检测？"><a href="#4-Watchdog如何检测？" class="headerlink" title="4. Watchdog如何检测？"></a>4. <strong>Watchdog如何检测？</strong></h3><ul>
 <li>Linux内核的watchdog机制通过一个高优先级线程（<code>watchdog/N</code>，每个CPU一个）监控CPU状态。</li>
 <li>Watchdog线程周期性地检查CPU是否更新了“心跳”（通常由调度器调用<code>touch_softlockup_watchdog()</code>实现）。</li>
-<li>如果CPU在<code>kernel.watchdog_thresh</code>时间（默认20秒）内未调用调度器，watchdog线程无法被调度到该CPU上运行，就会触发soft
-lockup警告： <figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<br></code></pre></td></tr></table></figure></li>
-<li><strong>关键点</strong>：
-<ul>
+<li>如果CPU在<code>kernel.watchdog_thresh</code>时间（默认20秒）内未调用调度器，watchdog线程无法被调度到该CPU上运行，就会触发soft lockup警告：<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<br></code></pre></td></tr></table></figure></li>
+<li><strong>关键点</strong>：<ul>
 <li>“CPU仍在执行代码”说明它没死，只是被困在某个任务中。</li>
 <li>“未调用调度器”说明watchdog线程无法获得CPU时间来检查或报告状态。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="与hard-lockup的对比">5. <strong>与Hard
-Lockup的对比</strong></h3>
-<ul>
-<li><strong>Soft Lockup</strong>：
-<ul>
+<h3 id="5-与Hard-Lockup的对比"><a href="#5-与Hard-Lockup的对比" class="headerlink" title="5. 与Hard Lockup的对比"></a>5. <strong>与Hard Lockup的对比</strong></h3><ul>
+<li><strong>Soft Lockup</strong>：<ul>
 <li>CPU仍在运行代码（例如忙等待或循环）。</li>
 <li>中断未被禁用，watchdog线程可以检测并报告。</li>
 <li>示例：spinlock死锁导致的忙等待。</li>
-</ul></li>
-<li><strong>Hard Lockup</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>Hard Lockup</strong>：<ul>
 <li>CPU完全无响应，连中断（包括NMI）都无法处理。</li>
 <li>通常由禁用中断（<code>local_irq_disable()</code>）+死循环或硬件故障引起。</li>
-<li>示例： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c">local_irq_disable();<br><span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;&#125;<br></code></pre></td></tr></table></figure></li>
-</ul></li>
+<li>示例：<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c">local_irq_disable();<br><span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;&#125;<br></code></pre></td></tr></table></figure></li>
 </ul>
-<p>Soft
-lockup的“仍在执行代码”强调CPU还有活动，而“未调用调度器”是问题的核心。</p>
+</li>
+</ul>
+<p>Soft lockup的“仍在执行代码”强调CPU还有活动，而“未调用调度器”是问题的核心。</p>
 <hr>
-<h3 id="实际例子">6. <strong>实际例子</strong></h3>
-<p>假设以下内核模块： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/module.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/kernel.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/delay.h&gt;</span></span><br><br>MODULE_LICENSE(<span class="hljs-string">&quot;GPL&quot;</span>);<br><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">softlockup_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Starting soft lockup demo...\n&quot;</span>);<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        mdelay(<span class="hljs-number">1000</span>); <span class="hljs-comment">// 忙等待1秒</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br><br>module_init(softlockup_init);<br></code></pre></td></tr></table></figure> - <strong>执行过程</strong>： -
-CPU不停地执行<code>mdelay()</code>的忙等待循环（本质是一个计数循环）。 -
-<code>mdelay()</code>不会调用<code>schedule()</code>，调度器无法运行。 -
-20秒后，watchdog检测到CPU未调度，触发soft lockup。 -
-<strong>含义</strong>： -
-“仍在执行代码”：CPU在执行<code>mdelay()</code>的循环。 -
-“未调用调度器”：没有任务切换，watchdog线程被饿死。</p>
-<hr>
-<h3 id="总结-6">7. <strong>总结</strong></h3>
-<p>“CPU仍在执行代码，但未调用调度器”意味着： -
-CPU被某个任务占用，持续运行其指令（例如循环或等待）。 -
-由于任务没有主动让出CPU（通过<code>schedule()</code>或睡眠），调度器无法接管，任务切换停止。
-- 这正是soft lockup的特征：CPU有活动，但系统调度停滞。</p>
-<p>如果把这句话想象成现实场景，就像一个工人（CPU）一直在忙着干活（执行代码），但忘了按时休息或换班（调用调度器），最终被监管员（watchdog）发现并报警。</p>
-<h2 id="如果cpu在kernel.watchdog_thresh时间默认20秒内未调用调度器watchdog线程无法被调度到该cpu上运行就会触发soft-lockup警告">如果CPU在kernel.watchdog_thresh时间（默认20秒）内未调用调度器，watchdog线程无法被调度到该CPU上运行，就会触发soft
-lockup警告</h2>
-<p>没有调用调度器，watchdog线程是如何被cpu执行的，soft
-lockup警告是如何输出的？</p>
-<p>你提出了一个非常核心的问题：如果CPU在<code>kernel.watchdog_thresh</code>时间内未调用调度器，watchdog线程无法被调度到该CPU上运行，那么soft
-lockup警告是如何被检测并输出的？这涉及到Linux内核中soft
-lockup检测的机制，尤其是watchdog线程和调度器的交互。让我详细解释一下。</p>
-<hr>
-<h3 id="watchdog机制的背景">1. <strong>Watchdog机制的背景</strong></h3>
+<h3 id="6-实际例子"><a href="#6-实际例子" class="headerlink" title="6. 实际例子"></a>6. <strong>实际例子</strong></h3><p>假设以下内核模块：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/module.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/kernel.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/delay.h&gt;</span></span><br><br>MODULE_LICENSE(<span class="hljs-string">&quot;GPL&quot;</span>);<br><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">softlockup_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    printk(KERN_INFO <span class="hljs-string">&quot;Starting soft lockup demo...\n&quot;</span>);<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        mdelay(<span class="hljs-number">1000</span>); <span class="hljs-comment">// 忙等待1秒</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br><br>module_init(softlockup_init);<br></code></pre></td></tr></table></figure>
 <ul>
-<li><strong>Watchdog线程</strong>：
+<li><strong>执行过程</strong>：<ul>
+<li>CPU不停地执行<code>mdelay()</code>的忙等待循环（本质是一个计数循环）。</li>
+<li><code>mdelay()</code>不会调用<code>schedule()</code>，调度器无法运行。</li>
+<li>20秒后，watchdog检测到CPU未调度，触发soft lockup。</li>
+</ul>
+</li>
+<li><strong>含义</strong>：<ul>
+<li>“仍在执行代码”：CPU在执行<code>mdelay()</code>的循环。</li>
+<li>“未调用调度器”：没有任务切换，watchdog线程被饿死。</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h3 id="7-总结-2"><a href="#7-总结-2" class="headerlink" title="7. 总结"></a>7. <strong>总结</strong></h3><p>“CPU仍在执行代码，但未调用调度器”意味着：</p>
+<ul>
+<li>CPU被某个任务占用，持续运行其指令（例如循环或等待）。</li>
+<li>由于任务没有主动让出CPU（通过<code>schedule()</code>或睡眠），调度器无法接管，任务切换停止。</li>
+<li>这正是soft lockup的特征：CPU有活动，但系统调度停滞。</li>
+</ul>
+<p>如果把这句话想象成现实场景，就像一个工人（CPU）一直在忙着干活（执行代码），但忘了按时休息或换班（调用调度器），最终被监管员（watchdog）发现并报警。</p>
+<h2 id="如果CPU在kernel-watchdog-thresh时间（默认20秒）内未调用调度器，watchdog线程无法被调度到该CPU上运行，就会触发soft-lockup警告"><a href="#如果CPU在kernel-watchdog-thresh时间（默认20秒）内未调用调度器，watchdog线程无法被调度到该CPU上运行，就会触发soft-lockup警告" class="headerlink" title="如果CPU在kernel.watchdog_thresh时间（默认20秒）内未调用调度器，watchdog线程无法被调度到该CPU上运行，就会触发soft lockup警告"></a>如果CPU在kernel.watchdog_thresh时间（默认20秒）内未调用调度器，watchdog线程无法被调度到该CPU上运行，就会触发soft lockup警告</h2><p>没有调用调度器，watchdog线程是如何被cpu执行的，soft lockup警告是如何输出的？</p>
+<p>你提出了一个非常核心的问题：如果CPU在<code>kernel.watchdog_thresh</code>时间内未调用调度器，watchdog线程无法被调度到该CPU上运行，那么soft lockup警告是如何被检测并输出的？这涉及到Linux内核中soft lockup检测的机制，尤其是watchdog线程和调度器的交互。让我详细解释一下。</p>
+<hr>
+<h3 id="1-Watchdog机制的背景"><a href="#1-Watchdog机制的背景" class="headerlink" title="1. Watchdog机制的背景"></a>1. <strong>Watchdog机制的背景</strong></h3><ul>
+<li><p><strong>Watchdog线程</strong>：</p>
 <ul>
 <li>Linux内核为每个CPU核心创建一个高优先级的watchdog线程，命名为<code>watchdog/N</code>（N是CPU编号，例如<code>watchdog/0</code>）。</li>
 <li>这些线程运行在实时调度策略（<code>SCHED_FIFO</code>）下，优先级非常高（通常是99），以确保它们能在正常情况下及时执行。</li>
-</ul></li>
-<li><strong>作用</strong>：
+</ul>
+</li>
+<li><p><strong>作用</strong>：</p>
 <ul>
 <li>Watchdog线程定期检查该CPU是否“活跃”，即是否在规定时间内调用了调度器或更新了“心跳”。</li>
-</ul></li>
-<li><strong>心跳机制</strong>：
+</ul>
+</li>
+<li><p><strong>心跳机制</strong>：</p>
 <ul>
 <li>内核通过<code>touch_softlockup_watchdog()</code>函数更新心跳，通常在调度器（如<code>schedule()</code>）或某些关键路径中调用。</li>
 <li>如果CPU正常调度任务，心跳会定期刷新。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="soft-lockup的检测原理">2. <strong>Soft
-Lockup的检测原理</strong></h3>
-<p>Soft
-lockup的检测依赖于watchdog线程，但当CPU被某个任务霸占时，watchdog线程确实无法直接在该CPU上运行。关键在于：
--
-<strong>检测不是由被锁死的CPU自己完成</strong>，而是由<strong>其他CPU或系统机制</strong>辅助完成的。
-- <strong>触发警告的输出也不一定依赖被锁死CPU的调度器</strong>。</p>
-<p>以下是具体过程：</p>
-<h4 id="a.-watchdog线程的运行环境">a.
-<strong>Watchdog线程的运行环境</strong></h4>
+<h3 id="2-Soft-Lockup的检测原理"><a href="#2-Soft-Lockup的检测原理" class="headerlink" title="2. Soft Lockup的检测原理"></a>2. <strong>Soft Lockup的检测原理</strong></h3><p>Soft lockup的检测依赖于watchdog线程，但当CPU被某个任务霸占时，watchdog线程确实无法直接在该CPU上运行。关键在于：</p>
 <ul>
+<li><strong>检测不是由被锁死的CPU自己完成</strong>，而是由<strong>其他CPU或系统机制</strong>辅助完成的。</li>
+<li><strong>触发警告的输出也不一定依赖被锁死CPU的调度器</strong>。</li>
+</ul>
+<p>以下是具体过程：</p>
+<h4 id="a-Watchdog线程的运行环境"><a href="#a-Watchdog线程的运行环境" class="headerlink" title="a. Watchdog线程的运行环境"></a>a. <strong>Watchdog线程的运行环境</strong></h4><ul>
 <li>在多核系统中，每个CPU有自己的watchdog线程（<code>watchdog/0</code>、<code>watchdog/1</code>等），它们默认绑定到对应的CPU上运行。</li>
 <li>这些线程通过内核的hrtimer（高精度定时器）定期唤醒（默认每4秒检查一次，具体由<code>watchdog_timer_fn</code>控制）。</li>
 <li>在正常情况下，watchdog线程会在其绑定的CPU上运行，检查该CPU的心跳时间戳。</li>
 </ul>
-<h4 id="b.-cpu未调用调度器的情况">b.
-<strong>CPU未调用调度器的情况</strong></h4>
-<ul>
-<li>当某个CPU（例如CPU0）被一个任务霸占（例如无限循环），未调用<code>schedule()</code>超过<code>kernel.watchdog_thresh</code>时间（默认20秒）：
-<ul>
+<h4 id="b-CPU未调用调度器的情况"><a href="#b-CPU未调用调度器的情况" class="headerlink" title="b. CPU未调用调度器的情况"></a>b. <strong>CPU未调用调度器的情况</strong></h4><ul>
+<li>当某个CPU（例如CPU0）被一个任务霸占（例如无限循环），未调用<code>schedule()</code>超过<code>kernel.watchdog_thresh</code>时间（默认20秒）：<ul>
 <li>CPU0上的watchdog线程（<code>watchdog/0</code>）无法被调度，因为调度器未运行。</li>
 <li>心跳时间戳（<code>hrtimer_interrupts</code>或类似的计数器）不会更新。</li>
-</ul></li>
 </ul>
-<h4 id="c.-检测和警告的触发">c. <strong>检测和警告的触发</strong></h4>
-<ul>
-<li><strong>多核系统的协作</strong>：
+</li>
+</ul>
+<h4 id="c-检测和警告的触发"><a href="#c-检测和警告的触发" class="headerlink" title="c. 检测和警告的触发"></a>c. <strong>检测和警告的触发</strong></h4><ul>
+<li><p><strong>多核系统的协作</strong>：</p>
 <ul>
 <li>在多核系统中，其他CPU（例如CPU1）的watchdog线程（<code>watchdog/1</code>）仍在正常运行。</li>
 <li>内核的watchdog机制通过共享数据结构（如<code>watchdog_touch_ts</code>）监控所有CPU的心跳状态。</li>
-<li>当CPU1的<code>watchdog/1</code>线程运行时，它会检查所有CPU的时间戳，发现CPU0的心跳已过期（超过20秒未更新），从而判断CPU0发生了soft
-lockup。</li>
-</ul></li>
-<li><strong>单核系统的情况</strong>：
+<li>当CPU1的<code>watchdog/1</code>线程运行时，它会检查所有CPU的时间戳，发现CPU0的心跳已过期（超过20秒未更新），从而判断CPU0发生了soft lockup。</li>
+</ul>
+</li>
+<li><p><strong>单核系统的情况</strong>：</p>
 <ul>
-<li>在单核系统中，没有其他CPU协助检测。这时依赖于<strong>时钟中断</strong>或<strong>hrtimer中断</strong>：
-<ul>
+<li>在单核系统中，没有其他CPU协助检测。这时依赖于<strong>时钟中断</strong>或<strong>hrtimer中断</strong>：<ul>
 <li>即使调度器未运行，时钟中断（softirq）仍然可能触发。</li>
-<li>如果中断处理程序检测到心跳过期，会直接调用soft
-lockup的报告函数。</li>
-</ul></li>
-</ul></li>
-<li><strong>警告输出</strong>：
+<li>如果中断处理程序检测到心跳过期，会直接调用soft lockup的报告函数。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>警告输出</strong>：</p>
 <ul>
 <li>一旦检测到soft lockup，警告信息通过<code>printk()</code>输出。</li>
-<li><code>printk()</code>是异步的，它将消息写入内核日志缓冲区（log
-buffer），并不依赖被锁死CPU的调度器。</li>
+<li><code>printk()</code>是异步的，它将消息写入内核日志缓冲区（log buffer），并不依赖被锁死CPU的调度器。</li>
 <li>其他CPU或中断上下文可以接管日志的实际输出（例如通过串口、控制台驱动）。</li>
-</ul></li>
 </ul>
-<h4 id="d.-关键函数">d. <strong>关键函数</strong></h4>
-<ul>
+</li>
+</ul>
+<h4 id="d-关键函数"><a href="#d-关键函数" class="headerlink" title="d. 关键函数"></a>d. <strong>关键函数</strong></h4><ul>
 <li><code>watchdog_timer_fn</code>：hrtimer的回调函数，检查心跳并触发警告。</li>
 <li><code>touch_softlockup_watchdog</code>：刷新心跳时间戳。</li>
-<li><code>trigger_all_cpu_backtrace</code>：在检测到soft
-lockup时，请求所有CPU dump调用栈（通过IPI或NMI）。</li>
+<li><code>trigger_all_cpu_backtrace</code>：在检测到soft lockup时，请求所有CPU dump调用栈（通过IPI或NMI）。</li>
 </ul>
 <hr>
-<h3 id="为什么watchdog线程看似无法运行却能检测">3.
-<strong>为什么Watchdog线程“看似”无法运行却能检测？</strong></h3>
-<p>这是一个常见的困惑点，答案在于<strong>检测和报告的分离</strong>： -
-<strong>Watchdog线程未运行不等于无法检测</strong>： -
-如果CPU0被锁死，<code>watchdog/0</code>确实无法运行，但检测是由其他CPU的watchdog线程（或中断）完成的。
-- 在多核系统中，CPU之间的协作确保了全局监控。 -
-<strong>中断仍然有效</strong>： - Soft
-lockup的定义是“中断未被禁用”，因此时钟中断或hrtimer中断仍然会发生。 -
-这些中断可以在被锁死的CPU上触发检查逻辑，即使调度器未运行。</p>
+<h3 id="3-为什么Watchdog线程“看似”无法运行却能检测？"><a href="#3-为什么Watchdog线程“看似”无法运行却能检测？" class="headerlink" title="3. 为什么Watchdog线程“看似”无法运行却能检测？"></a>3. <strong>为什么Watchdog线程“看似”无法运行却能检测？</strong></h3><p>这是一个常见的困惑点，答案在于<strong>检测和报告的分离</strong>：</p>
 <ul>
-<li><strong>单核特殊情况</strong>：
+<li><p><strong>Watchdog线程未运行不等于无法检测</strong>：</p>
+<ul>
+<li>如果CPU0被锁死，<code>watchdog/0</code>确实无法运行，但检测是由其他CPU的watchdog线程（或中断）完成的。</li>
+<li>在多核系统中，CPU之间的协作确保了全局监控。</li>
+</ul>
+</li>
+<li><p><strong>中断仍然有效</strong>：</p>
+<ul>
+<li>Soft lockup的定义是“中断未被禁用”，因此时钟中断或hrtimer中断仍然会发生。</li>
+<li>这些中断可以在被锁死的CPU上触发检查逻辑，即使调度器未运行。</li>
+</ul>
+</li>
+<li><p><strong>单核特殊情况</strong>：</p>
 <ul>
 <li>如果是单核，且中断未被禁用，hrtimer中断会调用<code>watchdog_timer_fn</code>，直接检测心跳过期并输出警告。</li>
-<li>如果中断也被禁用（例如<code>local_irq_disable()</code>），则升级为hard
-lockup，依赖NMI检测。</li>
-</ul></li>
+<li>如果中断也被禁用（例如<code>local_irq_disable()</code>），则升级为hard lockup，依赖NMI检测。</li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="警告输出的实现">4. <strong>警告输出的实现</strong></h3>
+<h3 id="4-警告输出的实现"><a href="#4-警告输出的实现" class="headerlink" title="4. 警告输出的实现"></a>4. <strong>警告输出的实现</strong></h3><ul>
+<li><p><strong>日志机制</strong>：</p>
 <ul>
-<li><strong>日志机制</strong>：
-<ul>
-<li><code>printk()</code>将警告写入内核环形缓冲区（ring
-buffer），这是一个内存操作，不需要调度器。</li>
+<li><code>printk()</code>将警告写入内核环形缓冲区（ring buffer），这是一个内存操作，不需要调度器。</li>
 <li>实际输出到控制台（如串口、VGA）由其他CPU或中断驱动的kworker线程完成。</li>
-</ul></li>
-<li><strong>调用栈dump</strong>：
+</ul>
+</li>
+<li><p><strong>调用栈dump</strong>：</p>
 <ul>
-<li>在多核系统中，触发soft
-lockup后，内核通过IPI（处理器间中断）请求被锁死CPU dump调用栈。</li>
+<li>在多核系统中，触发soft lockup后，内核通过IPI（处理器间中断）请求被锁死CPU dump调用栈。</li>
 <li>如果IPI失败（例如CPU完全无响应），则可能是hard lockup。</li>
-</ul></li>
-<li>示例日志： <figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<span class="hljs-meta"> [insmod:1234]</span><br></code></pre></td></tr></table></figure>
+</ul>
+</li>
+<li><p>示例日志：</p>
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">watchdog</span>: BUG: soft lockup - CPU#<span class="hljs-number">0</span> stuck for <span class="hljs-number">22</span>s!<span class="hljs-meta"> [insmod:1234]</span><br></code></pre></td></tr></table></figure>
 <ul>
 <li>这条消息由其他CPU或中断上下文生成并输出。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="实际例子-1">5. <strong>实际例子</strong></h3>
-<p>假设以下代码在CPU0上运行： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">softlockup_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-comment">/* 无调度，无让出 */</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure> - <strong>过程</strong>：
-1. CPU0执行无限循环，未调用<code>schedule()</code>。 2.
-<code>watchdog/0</code>无法运行，心跳时间戳停滞。 3.
-CPU1的<code>watchdog/1</code>检查全局状态，发现CPU0心跳过期。 4.
-CPU1调用<code>printk()</code>输出警告，并通过IPI请求CPU0 dump调用栈。 5.
-用户通过<code>dmesg</code>看到soft lockup警告。</p>
+<h3 id="5-实际例子"><a href="#5-实际例子" class="headerlink" title="5. 实际例子"></a>5. <strong>实际例子</strong></h3><p>假设以下代码在CPU0上运行：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">softlockup_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span> &#123;<br>    <span class="hljs-keyword">while</span> (<span class="hljs-number">1</span>) &#123;<br>        <span class="hljs-comment">/* 无调度，无让出 */</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
 <ul>
-<li><strong>单核情况</strong>：
+<li><p><strong>过程</strong>：</p>
+<ol>
+<li>CPU0执行无限循环，未调用<code>schedule()</code>。</li>
+<li><code>watchdog/0</code>无法运行，心跳时间戳停滞。</li>
+<li>CPU1的<code>watchdog/1</code>检查全局状态，发现CPU0心跳过期。</li>
+<li>CPU1调用<code>printk()</code>输出警告，并通过IPI请求CPU0 dump调用栈。</li>
+<li>用户通过<code>dmesg</code>看到soft lockup警告。</li>
+</ol>
+</li>
+<li><p><strong>单核情况</strong>：</p>
 <ul>
 <li>hrtimer中断触发，检测心跳过期，直接输出警告。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="与hard-lockup的对比-1">6. <strong>与Hard
-Lockup的对比</strong></h3>
-<ul>
-<li><strong>Soft Lockup</strong>：
-<ul>
+<h3 id="6-与Hard-Lockup的对比"><a href="#6-与Hard-Lockup的对比" class="headerlink" title="6. 与Hard Lockup的对比"></a>6. <strong>与Hard Lockup的对比</strong></h3><ul>
+<li><strong>Soft Lockup</strong>：<ul>
 <li>中断未禁用，其他CPU或中断可检测并报告。</li>
 <li>“未调用调度器”是关键，但系统仍有响应能力。</li>
-</ul></li>
-<li><strong>Hard Lockup</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>Hard Lockup</strong>：<ul>
 <li>中断被禁用，连NMI都无法触发，检测依赖硬件NMI watchdog。</li>
 <li>CPU完全无响应，警告可能由其他CPU通过NMI生成。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="总结-7">7. <strong>总结</strong></h3>
-<ul>
+<h3 id="7-总结-3"><a href="#7-总结-3" class="headerlink" title="7. 总结"></a>7. <strong>总结</strong></h3><ul>
 <li><strong>“未调用调度器”</strong>：CPU被任务占用，watchdog线程无法在该CPU上运行。</li>
-<li><strong>检测如何实现</strong>：
-<ul>
+<li><strong>检测如何实现</strong>：<ul>
 <li>多核：其他CPU的watchdog线程通过共享时间戳检测。</li>
 <li>单核：时钟中断或hrtimer直接检查。</li>
-</ul></li>
-<li><strong>警告如何输出</strong>：
-<ul>
+</ul>
+</li>
+<li><strong>警告如何输出</strong>：<ul>
 <li><code>printk()</code>不依赖调度器，由其他CPU或中断上下文完成。</li>
-</ul></li>
+</ul>
+</li>
 </ul>
 <p>这个机制利用了多核协作和中断的健壮性，确保即使被锁死的CPU无法自我报告，系统也能发现问题。</p>
-<h2 id="喂狗不解决调度问题喂狗仅重置看门狗定时器但-soft-lockup-检测的是-cpu-调度状态与喂狗无关-具体讲讲soft-lockup的检测逻辑">喂狗不解决调度问题：喂狗仅重置看门狗定时器，但
-soft lockup 检测的是 CPU 调度状态，与喂狗无关? 具体讲讲soft
-lockup的检测逻辑？</h2>
-<p>你提到“喂狗不解决调度问题”并希望了解 <strong>soft lockup</strong>
-的检测逻辑，这是一个很核心的问题。以下我会详细讲解 Linux 5.10 内核中
-soft lockup 的检测机制，重点阐述其逻辑、实现方式以及为何与喂狗（watchdog
-timer 重置）无关。内容会尽量清晰、结构化，并结合你的上下文（软中断风暴和
-<code>ksoftirqd</code> 场景）进行说明。</p>
+<h2 id="喂狗不解决调度问题：喂狗仅重置看门狗定时器，但-soft-lockup-检测的是-CPU-调度状态，与喂狗无关-具体讲讲soft-lockup的检测逻辑？"><a href="#喂狗不解决调度问题：喂狗仅重置看门狗定时器，但-soft-lockup-检测的是-CPU-调度状态，与喂狗无关-具体讲讲soft-lockup的检测逻辑？" class="headerlink" title="喂狗不解决调度问题：喂狗仅重置看门狗定时器，但 soft lockup 检测的是 CPU 调度状态，与喂狗无关? 具体讲讲soft lockup的检测逻辑？"></a>喂狗不解决调度问题：喂狗仅重置看门狗定时器，但 soft lockup 检测的是 CPU 调度状态，与喂狗无关? 具体讲讲soft lockup的检测逻辑？</h2><p>你提到“喂狗不解决调度问题”并希望了解 <strong>soft lockup</strong> 的检测逻辑，这是一个很核心的问题。以下我会详细讲解 Linux 5.10 内核中 soft lockup 的检测机制，重点阐述其逻辑、实现方式以及为何与喂狗（watchdog timer 重置）无关。内容会尽量清晰、结构化，并结合你的上下文（软中断风暴和 <code>ksoftirqd</code> 场景）进行说明。</p>
 <hr>
-<h3 id="soft-lockup-的定义和背景">1. <strong>Soft Lockup
-的定义和背景</strong></h3>
-<ul>
-<li><p><strong>Soft Lockup</strong> 是 Linux
-内核的一种错误检测机制，用于检测某个 CPU
-是否被单一任务（通常是内核代码）长时间占用，导致调度器无法切换到其他任务。</p></li>
-<li><p>它由 <strong>watchdog</strong> 子系统实现，依赖内核配置
-<code>CONFIG_SOFTLOCKUP_DETECTOR</code>（在 Linux 5.10
-中默认启用）。</p></li>
-<li><p><strong>触发条件</strong>：如果一个 CPU 在默认 <strong>20
-秒</strong>（通过 <code>watchdog_thresh</code>
-参数可调）内未触发调度（即未运行 <code>schedule()</code>
-或被抢占），内核会认为该 CPU 被“卡住”，触发 soft lockup
-警告，并打印堆栈跟踪。</p></li>
-<li><p><strong>Soft Lockup</strong> 是 Linux
-内核的一种错误检测机制，用于检测某个 CPU
-是否被单一任务（通常是内核代码）长时间占用，导致调度器无法切换到其他任务。</p></li>
+<h3 id="1-Soft-Lockup-的定义和背景"><a href="#1-Soft-Lockup-的定义和背景" class="headerlink" title="1. Soft Lockup 的定义和背景"></a>1. <strong>Soft Lockup 的定义和背景</strong></h3><ul>
+<li><p><strong>Soft Lockup</strong> 是 Linux 内核的一种错误检测机制，用于检测某个 CPU 是否被单一任务（通常是内核代码）长时间占用，导致调度器无法切换到其他任务。</p>
+</li>
+<li><p>它由 <strong>watchdog</strong> 子系统实现，依赖内核配置 <code>CONFIG_SOFTLOCKUP_DETECTOR</code>（在 Linux 5.10 中默认启用）。</p>
+</li>
+<li><p><strong>触发条件</strong>：如果一个 CPU 在默认 <strong>20 秒</strong>（通过 <code>watchdog_thresh</code> 参数可调）内未触发调度（即未运行 <code>schedule()</code> 或被抢占），内核会认为该 CPU 被“卡住”，触发 soft lockup 警告，并打印堆栈跟踪。</p>
+</li>
+<li><p><strong>Soft Lockup</strong> 是 Linux 内核的一种错误检测机制，用于检测某个 CPU 是否被单一任务（通常是内核代码）长时间占用，导致调度器无法切换到其他任务。</p>
+</li>
 <li><p><strong>与喂狗的区别</strong>：</p>
 <ul>
-<li><strong>喂狗</strong>：通过 <code>TIMER_SOFTIRQ</code>（hrtimer
-触发）调用看门狗驱动的 <code>ping</code>
-函数，重置硬件或软件看门狗定时器，防止系统重置（hard lockup）。</li>
-<li><strong>Soft Lockup</strong>：检测的是 <strong>CPU
-调度饥饿</strong>（scheduler
-starvation），即调度器长时间无法运行，与喂狗的目标（防止硬件超时）不同。</li>
-</ul></li>
+<li><strong>喂狗</strong>：通过 <code>TIMER_SOFTIRQ</code>（hrtimer 触发）调用看门狗驱动的 <code>ping</code> 函数，重置硬件或软件看门狗定时器，防止系统重置（hard lockup）。</li>
+<li><strong>Soft Lockup</strong>：检测的是 <strong>CPU 调度饥饿</strong>（scheduler starvation），即调度器长时间无法运行，与喂狗的目标（防止硬件超时）不同。</li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="soft-lockup-检测逻辑概述">2. <strong>Soft Lockup
-检测逻辑概述</strong></h3>
-<p>Soft lockup 检测的核心是监控每个 CPU 的
-<strong>调度活动</strong>，确保 CPU
-定期触发调度器（<code>schedule()</code> 函数）或被抢占。如果一个 CPU
-在指定时间（<code>watchdog_thresh</code>）内未发生调度，内核会触发 soft
-lockup 警告。以下是检测逻辑的详细步骤：</p>
-<h4 id="a.-watchdog-子系统的初始化">a. <strong>Watchdog
-子系统的初始化</strong></h4>
+<h3 id="2-Soft-Lockup-检测逻辑概述"><a href="#2-Soft-Lockup-检测逻辑概述" class="headerlink" title="2. Soft Lockup 检测逻辑概述"></a>2. <strong>Soft Lockup 检测逻辑概述</strong></h3><p>Soft lockup 检测的核心是监控每个 CPU 的 <strong>调度活动</strong>，确保 CPU 定期触发调度器（<code>schedule()</code> 函数）或被抢占。如果一个 CPU 在指定时间（<code>watchdog_thresh</code>）内未发生调度，内核会触发 soft lockup 警告。以下是检测逻辑的详细步骤：</p>
+<h4 id="a-Watchdog-子系统的初始化"><a href="#a-Watchdog-子系统的初始化" class="headerlink" title="a. Watchdog 子系统的初始化"></a>a. <strong>Watchdog 子系统的初始化</strong></h4><ul>
+<li><p><strong>启用条件</strong>：</p>
 <ul>
-<li><strong>启用条件</strong>：
-<ul>
-<li>Soft lockup 检测依赖 <code>CONFIG_SOFTLOCKUP_DETECTOR</code> 和
-<code>CONFIG_WATCHDOG</code>。</li>
-<li>在 Linux 5.10 中，watchdog 子系统通过 hrtimer
-驱动（<code>TIMER_SOFTIRQ</code>）实现，而不是独立的
-<code>watchdog/X</code> 线程（与喂狗逻辑一致）。</li>
-</ul></li>
-<li><strong>初始化</strong>：
-<ul>
-<li>在内核启动时，watchdog 子系统为每个 CPU 初始化一个
-<strong>hrtimer</strong>（高精度定时器），用于周期性检查 CPU
-的调度状态。</li>
-<li>相关代码位于 <code>kernel/watchdog.c</code> 和
-<code>kernel/watchdog_hld.c</code>。</li>
-</ul></li>
-<li><strong>关键参数</strong>：
-<ul>
-<li><code>watchdog_thresh</code>：默认 20 秒（可通过
-<code>/proc/sys/kernel/watchdog_thresh</code> 调整），定义 soft lockup
-的检测阈值。</li>
-<li><code>hrtimer</code> 周期：通常为
-<code>watchdog_thresh / 2</code>（例如，10 秒），确保检测足够频繁。</li>
-</ul></li>
+<li>Soft lockup 检测依赖 <code>CONFIG_SOFTLOCKUP_DETECTOR</code> 和 <code>CONFIG_WATCHDOG</code>。</li>
+<li>在 Linux 5.10 中，watchdog 子系统通过 hrtimer 驱动（<code>TIMER_SOFTIRQ</code>）实现，而不是独立的 <code>watchdog/X</code> 线程（与喂狗逻辑一致）。</li>
 </ul>
-<h4 id="b.-检测机制的核心组件">b.
-<strong>检测机制的核心组件</strong></h4>
-<p>Soft lockup 检测依赖以下几个关键组件：</p>
-<ol type="1">
-<li><strong>hrtimer</strong>：为每个 CPU
-创建一个周期性高精度定时器，触发 <code>TIMER_SOFTIRQ</code>
-执行检测逻辑。</li>
-<li><strong>Touch Timestamp</strong>：每个 CPU
-维护一个时间戳（<code>touch_softlockup_watchdog</code>），记录最后一次调度或抢占的时间。</li>
-<li><strong>Watchdog Check</strong>：hrtimer 回调函数检查时间戳，判断
-CPU 是否在阈值时间内未调度。</li>
-<li><strong>Stack Dump</strong>：如果检测到 soft lockup，内核打印当前
-CPU 的堆栈跟踪，指出卡住的任务（例如 <code>ksoftirqd</code>）。</li>
+</li>
+<li><p><strong>初始化</strong>：</p>
+<ul>
+<li>在内核启动时，watchdog 子系统为每个 CPU 初始化一个 <strong>hrtimer</strong>（高精度定时器），用于周期性检查 CPU 的调度状态。</li>
+<li>相关代码位于 <code>kernel/watchdog.c</code> 和 <code>kernel/watchdog_hld.c</code>。</li>
+</ul>
+</li>
+<li><p><strong>关键参数</strong>：</p>
+<ul>
+<li><code>watchdog_thresh</code>：默认 20 秒（可通过 <code>/proc/sys/kernel/watchdog_thresh</code> 调整），定义 soft lockup 的检测阈值。</li>
+<li><code>hrtimer</code> 周期：通常为 <code>watchdog_thresh / 2</code>（例如，10 秒），确保检测足够频繁。</li>
+</ul>
+</li>
+</ul>
+<h4 id="b-检测机制的核心组件"><a href="#b-检测机制的核心组件" class="headerlink" title="b. 检测机制的核心组件"></a>b. <strong>检测机制的核心组件</strong></h4><p>Soft lockup 检测依赖以下几个关键组件：</p>
+<ol>
+<li><strong>hrtimer</strong>：为每个 CPU 创建一个周期性高精度定时器，触发 <code>TIMER_SOFTIRQ</code> 执行检测逻辑。</li>
+<li><strong>Touch Timestamp</strong>：每个 CPU 维护一个时间戳（<code>touch_softlockup_watchdog</code>），记录最后一次调度或抢占的时间。</li>
+<li><strong>Watchdog Check</strong>：hrtimer 回调函数检查时间戳，判断 CPU 是否在阈值时间内未调度。</li>
+<li><strong>Stack Dump</strong>：如果检测到 soft lockup，内核打印当前 CPU 的堆栈跟踪，指出卡住的任务（例如 <code>ksoftirqd</code>）。</li>
 </ol>
-<h4 id="c.-检测逻辑的步骤">c. <strong>检测逻辑的步骤</strong></h4>
-<p>以下是 soft lockup 检测的详细流程（基于 Linux 5.10
-源码，<code>kernel/watchdog.c</code> 和
-<code>kernel/watchdog_hld.c</code>）：</p>
-<ol type="1">
-<li><strong>初始化 hrtimer</strong>：
+<h4 id="c-检测逻辑的步骤"><a href="#c-检测逻辑的步骤" class="headerlink" title="c. 检测逻辑的步骤"></a>c. <strong>检测逻辑的步骤</strong></h4><p>以下是 soft lockup 检测的详细流程（基于 Linux 5.10 源码，<code>kernel/watchdog.c</code> 和 <code>kernel/watchdog_hld.c</code>）：</p>
+<ol>
+<li><p><strong>初始化 hrtimer</strong>：</p>
 <ul>
-<li>在 <code>watchdog_hrtimer_init</code> 或 <code>watchdog_start</code>
-中，每个 CPU 创建一个 hrtimer，周期为
-<code>watchdog_thresh / 2</code>（默认 10 秒）。</li>
-<li>hrtimer 回调函数为
-<code>watchdog_timer_fn</code>（或类似函数）。</li>
-</ul></li>
-<li><strong>更新时间戳</strong>：
+<li>在 <code>watchdog_hrtimer_init</code> 或 <code>watchdog_start</code> 中，每个 CPU 创建一个 hrtimer，周期为 <code>watchdog_thresh / 2</code>（默认 10 秒）。</li>
+<li>hrtimer 回调函数为 <code>watchdog_timer_fn</code>（或类似函数）。</li>
+</ul>
+</li>
+<li><p><strong>更新时间戳</strong>：</p>
 <ul>
-<li>每次 CPU 触发调度（<code>schedule()</code>）或被抢占时，内核调用
-<code>touch_softlockup_watchdog</code> 更新该 CPU 的时间戳。</li>
-<li>时间戳通常存储在每个 CPU 的 <code>per_cpu</code>
-数据结构中（例如，<code>hrtimer_interrupts</code> 或
-<code>watchdog_touch_ts</code>）。</li>
-</ul></li>
-<li><strong>周期性检查</strong>：
+<li>每次 CPU 触发调度（<code>schedule()</code>）或被抢占时，内核调用 <code>touch_softlockup_watchdog</code> 更新该 CPU 的时间戳。</li>
+<li>时间戳通常存储在每个 CPU 的 <code>per_cpu</code> 数据结构中（例如，<code>hrtimer_interrupts</code> 或 <code>watchdog_touch_ts</code>）。</li>
+</ul>
+</li>
+<li><p><strong>周期性检查</strong>：</p>
 <ul>
-<li><p>hrtimer 超时后，触发 <code>TIMER_SOFTIRQ</code>，运行
-<code>watchdog_timer_fn</code>。</p></li>
+<li><p>hrtimer 超时后，触发 <code>TIMER_SOFTIRQ</code>，运行 <code>watchdog_timer_fn</code>。</p>
+</li>
 <li><p>该函数检查当前 CPU 的时间戳，计算从上次调度到现在的间隔：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">if</span> (time_after(jiffies, per_cpu(watchdog_touch_ts) + watchdog_thresh * HZ))<br>    <span class="hljs-comment">// 触发 soft lockup</span><br></code></pre></td></tr></table></figure></li>
-<li><p>如果间隔超过 <code>watchdog_thresh</code>（默认 20 秒），说明 CPU
-未调度，进入 soft lockup 处理逻辑。</p></li>
-</ul></li>
-<li><strong>触发 Soft Lockup</strong>：
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">if</span> (time_after(jiffies, per_cpu(watchdog_touch_ts) + watchdog_thresh * HZ))<br>    <span class="hljs-comment">// 触发 soft lockup</span><br></code></pre></td></tr></table></figure>
+</li>
+<li><p>如果间隔超过 <code>watchdog_thresh</code>（默认 20 秒），说明 CPU 未调度，进入 soft lockup 处理逻辑。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>触发 Soft Lockup</strong>：</p>
 <ul>
-<li><p>如果检测到 CPU 卡住，内核调用
-<code>trigger_all_cpu_backtrace()</code> 或类似函数，打印所有 CPU
-的堆栈跟踪。</p></li>
+<li><p>如果检测到 CPU 卡住，内核调用 <code>trigger_all_cpu_backtrace()</code> 或类似函数，打印所有 CPU 的堆栈跟踪。</p>
+</li>
 <li><p>同时记录日志（通过 <code>printk</code>），示例：</p>
-<figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs x86asm"><span class="hljs-symbol">watchdog:</span> BUG: soft lockup - <span class="hljs-meta">CPU</span>#<span class="hljs-number">0</span> stuck for 22s! [ksoftirqd/<span class="hljs-number">0</span>:<span class="hljs-number">10</span>]<br>...<br><span class="hljs-keyword">Call</span> Trace:<br> net_rx_action+<span class="hljs-number">0x123</span>/<span class="hljs-number">0x456</span><br> __do_softirq+<span class="hljs-number">0xabc</span>/<span class="hljs-number">0xdef</span><br> run_ksoftirqd+<span class="hljs-number">0x12</span>/<span class="hljs-number">0x34</span><br></code></pre></td></tr></table></figure></li>
-<li><p>通常不会导致系统崩溃，但可能影响性能或提示潜在问题。</p></li>
-</ul></li>
-<li><strong>重置和继续监控</strong>：
+<figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs x86asm"><span class="hljs-symbol">watchdog:</span> BUG: soft lockup - <span class="hljs-meta">CPU</span>#<span class="hljs-number">0</span> stuck for 22s! [ksoftirqd/<span class="hljs-number">0</span>:<span class="hljs-number">10</span>]<br>...<br><span class="hljs-keyword">Call</span> Trace:<br> net_rx_action+<span class="hljs-number">0x123</span>/<span class="hljs-number">0x456</span><br> __do_softirq+<span class="hljs-number">0xabc</span>/<span class="hljs-number">0xdef</span><br> run_ksoftirqd+<span class="hljs-number">0x12</span>/<span class="hljs-number">0x34</span><br></code></pre></td></tr></table></figure>
+</li>
+<li><p>通常不会导致系统崩溃，但可能影响性能或提示潜在问题。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>重置和继续监控</strong>：</p>
 <ul>
 <li>触发 soft lockup 后，watchdog 继续监控，不会停止检测。</li>
 <li>如果问题持续，可能反复打印 soft lockup 警告。</li>
-</ul></li>
+</ul>
+</li>
 </ol>
-<h4 id="d.-关键函数和代码路径">d.
-<strong>关键函数和代码路径</strong></h4>
-<p>以下是 Linux 5.10 中 soft lockup 检测的核心函数（参考
-<code>kernel/watchdog.c</code> 和
-<code>kernel/watchdog_hld.c</code>）：</p>
+<h4 id="d-关键函数和代码路径"><a href="#d-关键函数和代码路径" class="headerlink" title="d. 关键函数和代码路径"></a>d. <strong>关键函数和代码路径</strong></h4><p>以下是 Linux 5.10 中 soft lockup 检测的核心函数（参考 <code>kernel/watchdog.c</code> 和 <code>kernel/watchdog_hld.c</code>）：</p>
 <ul>
-<li><code>touch_softlockup_watchdog()</code>：更新当前 CPU
-的时间戳，标记调度或抢占发生。</li>
-<li><code>watchdog_timer_fn()</code>：hrtimer 回调，检查时间戳并触发
-soft lockup。</li>
+<li><code>touch_softlockup_watchdog()</code>：更新当前 CPU 的时间戳，标记调度或抢占发生。</li>
+<li><code>watchdog_timer_fn()</code>：hrtimer 回调，检查时间戳并触发 soft lockup。</li>
 <li><code>is_softlockup()</code>：判断时间间隔是否超过阈值。</li>
 <li><code>trigger_all_cpu_backtrace()</code>：打印堆栈跟踪。</li>
-<li><code>watchdog_enable/disable()</code>：启用或禁用某个 CPU 的
-watchdog。</li>
+<li><code>watchdog_enable/disable()</code>：启用或禁用某个 CPU 的 watchdog。</li>
 </ul>
 <hr>
-<h3 id="为何-soft-lockup-与喂狗无关">3. <strong>为何 Soft Lockup
-与喂狗无关</strong></h3>
-<p>你的问题提到“喂狗仅重置看门狗定时器，但 soft lockup 检测的是 CPU
-调度状态”。以下是具体原因：</p>
-<h4 id="a.-喂狗的目标">a. <strong>喂狗的目标</strong></h4>
-<ul>
-<li><strong>喂狗</strong>：通过 <code>TIMER_SOFTIRQ</code>
-调用看门狗驱动的 <code>ping</code> 函数（如
-<code>watchdog_ping</code>），重置硬件看门狗定时器，防止系统因超时重置（hard
-lockup）。</li>
-<li><strong>上下文</strong>：运行在 <code>TIMER_SOFTIRQ</code> 中（由
-hrtimer 触发），优先级高于其他软中断（如
-<code>NET_RX_SOFTIRQ</code>）。</li>
-<li><strong>效果</strong>：确保硬件看门狗不触发重置，与 CPU
-的调度状态无关。</li>
+<h3 id="3-为何-Soft-Lockup-与喂狗无关"><a href="#3-为何-Soft-Lockup-与喂狗无关" class="headerlink" title="3. 为何 Soft Lockup 与喂狗无关"></a>3. <strong>为何 Soft Lockup 与喂狗无关</strong></h3><p>你的问题提到“喂狗仅重置看门狗定时器，但 soft lockup 检测的是 CPU 调度状态”。以下是具体原因：</p>
+<h4 id="a-喂狗的目标"><a href="#a-喂狗的目标" class="headerlink" title="a. 喂狗的目标"></a>a. <strong>喂狗的目标</strong></h4><ul>
+<li><strong>喂狗</strong>：通过 <code>TIMER_SOFTIRQ</code> 调用看门狗驱动的 <code>ping</code> 函数（如 <code>watchdog_ping</code>），重置硬件看门狗定时器，防止系统因超时重置（hard lockup）。</li>
+<li><strong>上下文</strong>：运行在 <code>TIMER_SOFTIRQ</code> 中（由 hrtimer 触发），优先级高于其他软中断（如 <code>NET_RX_SOFTIRQ</code>）。</li>
+<li><strong>效果</strong>：确保硬件看门狗不触发重置，与 CPU 的调度状态无关。</li>
 </ul>
-<h4 id="b.-soft-lockup-的目标">b. <strong>Soft Lockup
-的目标</strong></h4>
-<ul>
-<li><strong>Soft Lockup</strong>：检测 CPU 是否被单一任务（例如
-<code>ksoftirqd</code>）长时间占用，导致调度器无法运行。</li>
-<li><strong>关键点</strong>：它监控的是
-<strong>调度器活动</strong>（<code>schedule()</code>
-调用或抢占），而不是看门狗定时器的状态。</li>
-<li><strong>触发条件</strong>：如果 <code>ksoftirqd</code>
-在软中断风暴中反复运行 <code>do_softirq</code>（即使优先处理
-<code>TIMER_SOFTIRQ</code> 喂狗），但未让出
-CPU，调度器无法介入，时间戳（<code>watchdog_touch_ts</code>）不会更新，最终触发
-soft lockup。</li>
+<h4 id="b-Soft-Lockup-的目标"><a href="#b-Soft-Lockup-的目标" class="headerlink" title="b. Soft Lockup 的目标"></a>b. <strong>Soft Lockup 的目标</strong></h4><ul>
+<li><strong>Soft Lockup</strong>：检测 CPU 是否被单一任务（例如 <code>ksoftirqd</code>）长时间占用，导致调度器无法运行。</li>
+<li><strong>关键点</strong>：它监控的是 <strong>调度器活动</strong>（<code>schedule()</code> 调用或抢占），而不是看门狗定时器的状态。</li>
+<li><strong>触发条件</strong>：如果 <code>ksoftirqd</code> 在软中断风暴中反复运行 <code>do_softirq</code>（即使优先处理 <code>TIMER_SOFTIRQ</code> 喂狗），但未让出 CPU，调度器无法介入，时间戳（<code>watchdog_touch_ts</code>）不会更新，最终触发 soft lockup。</li>
 </ul>
-<h4 id="c.-为何喂狗不解决问题">c.
-<strong>为何喂狗不解决问题</strong></h4>
-<ul>
-<li><strong>独立机制</strong>：
-<ul>
-<li>喂狗（<code>TIMER_SOFTIRQ</code>）和 soft lockup 检测（hrtimer
-检查）是 watchdog 子系统的两个独立功能。</li>
-<li>喂狗只影响硬件看门狗的超时计数器，而 soft lockup 检测依赖 CPU
-的调度时间戳。</li>
-</ul></li>
-<li><strong>调度饥饿</strong>：
-<ul>
-<li>在软中断风暴中，<code>ksoftirqd</code> 可能频繁运行，处理
-<code>TIMER_SOFTIRQ</code>（喂狗）和
-<code>NET_RX_SOFTIRQ</code>（收包），但由于其高优先级和持续唤醒，调度器无法抢占
-CPU。</li>
-<li>即使喂狗正常执行，<code>touch_softlockup_watchdog</code>
-未被调用（因为没有调度），导致时间戳过期，触发 soft lockup。</li>
-</ul></li>
+<h4 id="c-为何喂狗不解决问题"><a href="#c-为何喂狗不解决问题" class="headerlink" title="c. 为何喂狗不解决问题"></a>c. <strong>为何喂狗不解决问题</strong></h4><ul>
+<li><strong>独立机制</strong>：<ul>
+<li>喂狗（<code>TIMER_SOFTIRQ</code>）和 soft lockup 检测（hrtimer 检查）是 watchdog 子系统的两个独立功能。</li>
+<li>喂狗只影响硬件看门狗的超时计数器，而 soft lockup 检测依赖 CPU 的调度时间戳。</li>
 </ul>
-<h4 id="d.-示例场景">d. <strong>示例场景</strong></h4>
-<ul>
-<li><strong>软中断风暴</strong>：
-<ul>
-<li><code>ksoftirqd</code> 被频繁唤醒，每次运行
-<code>do_softirq</code>，优先处理
-<code>TIMER_SOFTIRQ</code>（喂狗），然后处理耗时的
-<code>NET_RX_SOFTIRQ</code>。</li>
-<li>单次 <code>do_softirq</code> 耗时 1.5ms，<code>ksoftirqd</code> 每
-2ms 唤醒一次。</li>
-<li>在 20 秒内，<code>ksoftirqd</code> 运行约 10,000 次，累积占用 15 秒
-CPU 时间。</li>
-<li>即使每次喂狗成功，调度器可能因 <code>ksoftirqd</code>
-的高优先级无法运行，<code>watchdog_touch_ts</code> 未更新，触发 soft
-lockup。</li>
-</ul></li>
+</li>
+<li><strong>调度饥饿</strong>：<ul>
+<li>在软中断风暴中，<code>ksoftirqd</code> 可能频繁运行，处理 <code>TIMER_SOFTIRQ</code>（喂狗）和 <code>NET_RX_SOFTIRQ</code>（收包），但由于其高优先级和持续唤醒，调度器无法抢占 CPU。</li>
+<li>即使喂狗正常执行，<code>touch_softlockup_watchdog</code> 未被调用（因为没有调度），导致时间戳过期，触发 soft lockup。</li>
+</ul>
+</li>
+</ul>
+<h4 id="d-示例场景"><a href="#d-示例场景" class="headerlink" title="d. 示例场景"></a>d. <strong>示例场景</strong></h4><ul>
+<li><strong>软中断风暴</strong>：<ul>
+<li><code>ksoftirqd</code> 被频繁唤醒，每次运行 <code>do_softirq</code>，优先处理 <code>TIMER_SOFTIRQ</code>（喂狗），然后处理耗时的 <code>NET_RX_SOFTIRQ</code>。</li>
+<li>单次 <code>do_softirq</code> 耗时 1.5ms，<code>ksoftirqd</code> 每 2ms 唤醒一次。</li>
+<li>在 20 秒内，<code>ksoftirqd</code> 运行约 10,000 次，累积占用 15 秒 CPU 时间。</li>
+<li>即使每次喂狗成功，调度器可能因 <code>ksoftirqd</code> 的高优先级无法运行，<code>watchdog_touch_ts</code> 未更新，触发 soft lockup。</li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="soft-lockup-检测的局限性">4. <strong>Soft Lockup
-检测的局限性</strong></h3>
-<p>Soft lockup 检测并非完美，可能受到以下因素影响：</p>
+<h3 id="4-Soft-Lockup-检测的局限性"><a href="#4-Soft-Lockup-检测的局限性" class="headerlink" title="4. Soft Lockup 检测的局限性"></a>4. <strong>Soft Lockup 检测的局限性</strong></h3><p>Soft lockup 检测并非完美，可能受到以下因素影响：</p>
 <ul>
-<li><strong>高优先级任务</strong>：
-<ul>
-<li>如果系统中存在高优先级的实时任务（<code>SCHED_FIFO</code> 或
-<code>SCHED_DEADLINE</code>），可能抢占 <code>ksoftirqd</code> 或
-watchdog 检测任务，导致检测不准确。</li>
-</ul></li>
-<li><strong>hrtimer 延迟</strong>：
-<ul>
-<li>在极高负载下，<code>TIMER_SOFTIRQ</code>（包括 soft lockup
-检测）可能被推迟到 <code>ksoftirqd</code>，若 <code>ksoftirqd</code>
-本身卡住，检测可能延迟。</li>
-</ul></li>
-<li><strong>误报</strong>：
-<ul>
-<li>在某些场景下（例如，调试器暂停系统或极高负载），soft lockup
-可能误报，因为调度器正常但未及时运行。</li>
-</ul></li>
-<li><strong>硬件依赖</strong>：
-<ul>
-<li>Soft lockup 检测依赖 hrtimer
-的精确性，如果底层硬件时钟有问题，可能影响检测。</li>
-</ul></li>
+<li><strong>高优先级任务</strong>：<ul>
+<li>如果系统中存在高优先级的实时任务（<code>SCHED_FIFO</code> 或 <code>SCHED_DEADLINE</code>），可能抢占 <code>ksoftirqd</code> 或 watchdog 检测任务，导致检测不准确。</li>
+</ul>
+</li>
+<li><strong>hrtimer 延迟</strong>：<ul>
+<li>在极高负载下，<code>TIMER_SOFTIRQ</code>（包括 soft lockup 检测）可能被推迟到 <code>ksoftirqd</code>，若 <code>ksoftirqd</code> 本身卡住，检测可能延迟。</li>
+</ul>
+</li>
+<li><strong>误报</strong>：<ul>
+<li>在某些场景下（例如，调试器暂停系统或极高负载），soft lockup 可能误报，因为调度器正常但未及时运行。</li>
+</ul>
+</li>
+<li><strong>硬件依赖</strong>：<ul>
+<li>Soft lockup 检测依赖 hrtimer 的精确性，如果底层硬件时钟有问题，可能影响检测。</li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="如何验证-soft-lockup-检测">5. <strong>如何验证 Soft Lockup
-检测</strong></h3>
-<p>如果你想深入分析 soft lockup
-的触发原因或验证检测逻辑，可以使用以下方法：</p>
+<h3 id="5-如何验证-Soft-Lockup-检测"><a href="#5-如何验证-Soft-Lockup-检测" class="headerlink" title="5. 如何验证 Soft Lockup 检测"></a>5. <strong>如何验证 Soft Lockup 检测</strong></h3><p>如果你想深入分析 soft lockup 的触发原因或验证检测逻辑，可以使用以下方法：</p>
 <ul>
 <li><p><strong>检查日志</strong>：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">dmesg | grep -i lockup<br></code></pre></td></tr></table></figure>
-<p>查看 soft lockup 的堆栈跟踪，确认卡住的任务（例如
-<code>ksoftirqd</code>）和软中断类型（例如
-<code>net_rx_action</code>）。</p></li>
+
+<p>查看 soft lockup 的堆栈跟踪，确认卡住的任务（例如 <code>ksoftirqd</code>）和软中断类型（例如 <code>net_rx_action</code>）。</p>
+</li>
 <li><p><strong>跟踪调度和软中断</strong>：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 1 &gt; /sys/kernel/debug/tracing/events/sched/enable<br><span class="hljs-built_in">echo</span> 1 &gt; /sys/kernel/debug/tracing/events/softirq/enable<br><span class="hljs-built_in">cat</span> /sys/kernel/debug/tracing/trace<br></code></pre></td></tr></table></figure>
-<p>检查 <code>schedule()</code> 调用频率和 <code>ksoftirqd</code>
-的运行模式，确认调度点是否缺失。</p></li>
+
+<p>检查 <code>schedule()</code> 调用频率和 <code>ksoftirqd</code> 的运行模式，确认调度点是否缺失。</p>
+</li>
 <li><p><strong>监控 watchdog 阈值</strong>：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/sys/kernel/watchdog_thresh<br></code></pre></td></tr></table></figure>
+
 <p>确认当前阈值（默认 20 秒），可临时调整为 60 秒观察效果：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 60 &gt; /proc/sys/kernel/watchdog_thresh<br></code></pre></td></tr></table></figure></li>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 60 &gt; /proc/sys/kernel/watchdog_thresh<br></code></pre></td></tr></table></figure>
+</li>
 <li><p><strong>分析 hrtimer 行为</strong>：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">echo</span> 1 &gt; /sys/kernel/debug/tracing/events/hrtimer/enable<br><span class="hljs-built_in">cat</span> /sys/kernel/debug/tracing/trace<br></code></pre></td></tr></table></figure>
-<p>检查 soft lockup 检测的 hrtimer 触发是否正常。</p></li>
+
+<p>检查 soft lockup 检测的 hrtimer 触发是否正常。</p>
+</li>
 <li><p><strong>检查 CPU 占用</strong>：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">top -p $(pgrep ksoftirqd)<br></code></pre></td></tr></table></figure>
-<p>确认 <code>ksoftirqd</code> 是否持续高占用，结合
-<code>/proc/softirqs</code> 检查软中断分布。</p></li>
+
+<p>确认 <code>ksoftirqd</code> 是否持续高占用，结合 <code>/proc/softirqs</code> 检查软中断分布。</p>
+</li>
 </ul>
 <hr>
-<h3 id="与软中断风暴的关联">6. <strong>与软中断风暴的关联</strong></h3>
-<p>在你的场景（软中断风暴，<code>ksoftirqd</code> 频繁唤醒），soft
-lockup 的检测逻辑与问题关联如下：</p>
+<h3 id="6-与软中断风暴的关联"><a href="#6-与软中断风暴的关联" class="headerlink" title="6. 与软中断风暴的关联"></a>6. <strong>与软中断风暴的关联</strong></h3><p>在你的场景（软中断风暴，<code>ksoftirqd</code> 频繁唤醒），soft lockup 的检测逻辑与问题关联如下：</p>
 <ul>
-<li><strong>风暴中的 <code>ksoftirqd</code></strong>：
-<ul>
-<li><code>ksoftirqd</code> 反复运行 <code>do_softirq</code>，优先处理
-<code>TIMER_SOFTIRQ</code>（喂狗），但随后处理耗时的
-<code>NET_RX_SOFTIRQ</code>。</li>
-<li>高频唤醒和长耗时导致 <code>ksoftirqd</code> 累积占用
-CPU，延迟调度器运行。</li>
-</ul></li>
-<li><strong>检测触发</strong>：
-<ul>
-<li><code>watchdog_timer_fn</code> 发现 <code>watchdog_touch_ts</code>
-未在 20 秒内更新（因调度器未运行），触发 soft lockup。</li>
-<li>即使喂狗成功，<code>ksoftirqd</code> 的持续运行阻止
-<code>schedule()</code> 调用，导致检测失败。</li>
-</ul></li>
-<li><strong>堆栈跟踪</strong>：
-<ul>
-<li>日志通常指向 <code>ksoftirqd</code> 和具体软中断（例如
-<code>net_rx_action</code>），表明 <code>NET_RX_SOFTIRQ</code>
-是主要耗时来源。</li>
-</ul></li>
+<li>**风暴中的 <code>ksoftirqd</code>**：<ul>
+<li><code>ksoftirqd</code> 反复运行 <code>do_softirq</code>，优先处理 <code>TIMER_SOFTIRQ</code>（喂狗），但随后处理耗时的 <code>NET_RX_SOFTIRQ</code>。</li>
+<li>高频唤醒和长耗时导致 <code>ksoftirqd</code> 累积占用 CPU，延迟调度器运行。</li>
+</ul>
+</li>
+<li><strong>检测触发</strong>：<ul>
+<li><code>watchdog_timer_fn</code> 发现 <code>watchdog_touch_ts</code> 未在 20 秒内更新（因调度器未运行），触发 soft lockup。</li>
+<li>即使喂狗成功，<code>ksoftirqd</code> 的持续运行阻止 <code>schedule()</code> 调用，导致检测失败。</li>
+</ul>
+</li>
+<li><strong>堆栈跟踪</strong>：<ul>
+<li>日志通常指向 <code>ksoftirqd</code> 和具体软中断（例如 <code>net_rx_action</code>），表明 <code>NET_RX_SOFTIRQ</code> 是主要耗时来源。</li>
+</ul>
+</li>
 </ul>
 <hr>
-<h3 id="总结-8">7. <strong>总结</strong></h3>
-<p>Soft lockup 的检测逻辑在 Linux 5.10 中基于以下步骤：</p>
-<ol type="1">
-<li>每个 CPU 的 hrtimer 周期性触发 <code>TIMER_SOFTIRQ</code>，运行
-<code>watchdog_timer_fn</code>。</li>
-<li>检查 CPU
-的时间戳（<code>watchdog_touch_ts</code>），判断上次调度到现在的间隔。</li>
-<li>如果间隔超过 <code>watchdog_thresh</code>（默认 20 秒），触发 soft
-lockup，打印堆栈跟踪。</li>
-<li>时间戳由 <code>schedule()</code>
-或抢占更新，与喂狗（<code>TIMER_SOFTIRQ</code>）无关。</li>
+<h3 id="7-总结-4"><a href="#7-总结-4" class="headerlink" title="7. 总结"></a>7. <strong>总结</strong></h3><p>Soft lockup 的检测逻辑在 Linux 5.10 中基于以下步骤：</p>
+<ol>
+<li>每个 CPU 的 hrtimer 周期性触发 <code>TIMER_SOFTIRQ</code>，运行 <code>watchdog_timer_fn</code>。</li>
+<li>检查 CPU 的时间戳（<code>watchdog_touch_ts</code>），判断上次调度到现在的间隔。</li>
+<li>如果间隔超过 <code>watchdog_thresh</code>（默认 20 秒），触发 soft lockup，打印堆栈跟踪。</li>
+<li>时间戳由 <code>schedule()</code> 或抢占更新，与喂狗（<code>TIMER_SOFTIRQ</code>）无关。</li>
 </ol>
 <p><strong>为何与喂狗无关</strong>：</p>
 <ul>
 <li>喂狗重置硬件看门狗定时器，防止 hard lockup。</li>
-<li>Soft lockup 检测调度器饥饿（<code>schedule()</code>
-缺失），即使喂狗成功，若 <code>ksoftirqd</code> 在软中断风暴中持续占用
-CPU，调度器无法运行，触发 soft lockup。</li>
+<li>Soft lockup 检测调度器饥饿（<code>schedule()</code> 缺失），即使喂狗成功，若 <code>ksoftirqd</code> 在软中断风暴中持续占用 CPU，调度器无法运行，触发 soft lockup。</li>
 </ul>
 <p><strong>在软中断风暴中</strong>：</p>
 <ul>
-<li><code>ksoftirqd</code> 频繁运行
-<code>do_softirq</code>，优先喂狗但随后处理耗时的
-<code>NET_RX_SOFTIRQ</code>，累积占用 CPU。</li>
-<li>调度器因 <code>ksoftirqd</code>
-的高优先级无法介入，<code>watchdog_touch_ts</code> 未更新，导致 soft
-lockup。</li>
+<li><code>ksoftirqd</code> 频繁运行 <code>do_softirq</code>，优先喂狗但随后处理耗时的 <code>NET_RX_SOFTIRQ</code>，累积占用 CPU。</li>
+<li>调度器因 <code>ksoftirqd</code> 的高优先级无法介入，<code>watchdog_touch_ts</code> 未更新，导致 soft lockup。</li>
 </ul>
-<p>如果你有具体的 soft lockup
-日志、系统负载细节或想深入某一方面（例如，<code>NET_RX_SOFTIRQ</code>
-的优化），可以提供更多信息，我可以进一步分析或建议解决方案！</p>
+<p>如果你有具体的 soft lockup 日志、系统负载细节或想深入某一方面（例如，<code>NET_RX_SOFTIRQ</code> 的优化），可以提供更多信息，我可以进一步分析或建议解决方案！</p>
 
                 
               </div>
