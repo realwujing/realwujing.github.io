@@ -52,6 +52,15 @@ def fix_links_in_file(file_path: str, base_url: str = 'https://github.com/realwu
         
         original_content = content
         
+        # 0. 图片文件 -> 转换为Hexo绝对路径
+        # 将相对路径的图片转换为从网站根目录开始的绝对路径
+        if base_path:
+            content = re.sub(
+                r'!\[([^\]]*)\]\(([^/][^\)]+?)\.(png|jpg|jpeg|gif|svg|webp)\)',
+                f'![\\1](/{base_path}\\2.\\3)',
+                content
+            )
+        
         # 1. 文档文件(pdf/pptx/docx/epub/mobi) -> GitHub raw链接(下载)
         content = re.sub(
             r'\]\(\./([^\)]+?)\.(pdf|pptx|docx|epub|mobi)\)',
