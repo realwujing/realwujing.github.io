@@ -42,6 +42,7 @@ KERNEL_6_6_BRANCH ?= ctkernel-lts-6.6/develop
 # Docker run options with user mapping
 DOCKER_RUN_OPTS := -it \
 	--name $(CONTAINER_NAME) \
+	--user $(HOST_UID):$(HOST_GID) \
 	-v $(HOST_CODE_DIR):/home/$(HOST_USER)/code \
 	-v $(HOST_RPMBUILD_DIR):/home/$(HOST_USER)/rpmbuild \
 	-v $(HOST_DOWNLOADS_DIR):/home/$(HOST_USER)/Downloads \
@@ -51,31 +52,6 @@ DOCKER_RUN_OPTS := -it \
 DOCKER_BUILD_ARGS := --build-arg USER_ID=$(HOST_UID) \
 	--build-arg GROUP_ID=$(HOST_GID) \
 	--build-arg USER_NAME=$(HOST_USER)
-
-# Common shell functions for container execution
-define FIND_WORKTREE
-echo '======= Finding appropriate source directory =======' && \
-WORK_DIR='' && \
-# prefer an explicit repo directory under /home/$(HOST_USER)/code matching the branch name
-# convert branch like 'ctkernel-lts-6.6/develop' -> 'ctkernel-lts-6.6-develop'
-BRANCH_DIR=$$(printf '%s' '$(1)' | sed 's|/|-|g'); \
-    if [ -d /home/$(HOST_USER)/code/$$BRANCH_DIR ]; then \
-    	WORK_DIR=/home/$(HOST_USER)/code/$$BRANCH_DIR; \
-    	printf 'Using repository directory: %s\n' $$WORK_DIR; \
-else \
-	# try git worktree list inside main linux repo (if worktrees were used)
-	HOST_WORK_DIR=$$(git -C /home/$(HOST_USER)/code/linux worktree list 2>/dev/null | grep '$(1)' | awk '{print $$1}' | head -1 || true); \
-    	if [ -n "$$HOST_WORK_DIR" ]; then \
-    		WORK_DIR=$$(printf '%s' $$HOST_WORK_DIR); \
-    		printf 'Using existing worktree: %s\n' $$WORK_DIR; \
-	else \
-		WORK_DIR='/home/$(HOST_USER)/code/linux'; \
-		printf 'Using main repository and checking out branch\n'; \
-		cd $$WORK_DIR && git checkout $(1); \
-	fi; \
-fi && \
-cd $$WORK_DIR
-endef
 
 define SETUP_ARM64_ENV
 export CROSS_COMPILE=$(CROSS_COMPILE_PATH) && \
@@ -88,15 +64,6 @@ DURATION=$$((END_TIME - START_TIME)) && \
 echo "======= Build Summary =======" && \
 echo "Build completed at: $$(date '+%Y-%m-%d %H:%M:%S')" && \
 echo "Total build time: $$((DURATION / 60)) minutes $$((DURATION % 60)) seconds"
-endef
-
-# Find a .spec under the current worktree's build/ directory and set SPEC
-define FIND_SPEC
-SPEC=$$(find build -type f -name '*.spec' -print -quit 2>/dev/null || true); \
-if [ -z "$$SPEC" ]; then \
-	printf 'No .spec found under build/ in %s\n' $$PWD; exit 1; \
-fi; \
-printf 'Using spec: %s\n' $$SPEC
 endef
 
 help:	## Show this help message
@@ -157,20 +124,29 @@ build-base-image:	## Build image with build tools (→ ctyunos:23.01-build)
 		echo "Base image $(BASE_IMAGE) not found, loading..."; \
 		make load-image; \
 	fi
-	@docker build -t $(BUILD_IMAGE) -f Dockerfile.base .
+	@echo "Installing sudo and configuring permissions..."
+	@echo "FROM $(BASE_IMAGE)" > Dockerfile.build
+	@echo "RUN yum install -y sudo shadow-utils && \\" >> Dockerfile.build
+	@echo "    groupadd -g $(HOST_GID) $(HOST_USER) 2>/dev/null || true && \\" >> Dockerfile.build
+	@echo "    useradd -m -u $(HOST_UID) -g $(HOST_GID) -s /bin/bash $(HOST_USER) 2>/dev/null || true && \\" >> Dockerfile.build
+	@echo "    echo '$(HOST_USER) ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \\" >> Dockerfile.build
+	@echo "    echo 'Defaults !requiretty' >> /etc/sudoers && \\" >> Dockerfile.build
+	@echo "    mkdir -p /home/$(HOST_USER)/{code,rpmbuild,Downloads}" >> Dockerfile.build
+	@docker build -t $(BUILD_IMAGE) -f Dockerfile.build .
+	@rm -f Dockerfile.build
 
 build-image:	## Build development image with user mapping (→ ctyunos:23.01-dev)
-	@echo "Building CTYunOS 3 image from Dockerfile..."
-	@echo "Using UID=$(HOST_UID), GID=$(HOST_GID), USER=$(HOST_USER)"
+	@echo "Preparing CTYunOS 3 development image..."
 	@if ! docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "^$(BUILD_IMAGE)$$"; then \
 		echo "Base build image $(BUILD_IMAGE) not found, building..."; \
 		make build-base-image; \
 	fi
-	@docker build $(DOCKER_BUILD_ARGS) -t $(DEV_IMAGE) -f Dockerfile .
+	@echo "Tagging $(BUILD_IMAGE) as $(DEV_IMAGE)..."
+	@docker tag $(BUILD_IMAGE) $(DEV_IMAGE)
+	@echo "Development image ready. User mapping will be applied at runtime via --user flag."
 
 setup-container:	## Ensure container is running
 	@echo "Ensuring container is running..."
-	@# Check if image exists, build if needed
 	@if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^$(DEV_IMAGE)$$"; then \
 		echo "Image $(DEV_IMAGE) not found, building..."; \
 		$(MAKE) build-image; \
@@ -216,74 +192,183 @@ setup-cross-compile: download-cross-compile	## Extract cross-compile toolchain
 rpmbuild-5.10-amd64: setup-container	## Build kernel RPM package (ctkernel-lts-5.10, AMD64)
 	@echo "======= Building RPM Package (5.10/AMD64) ======="
 	@echo "Using branch: $(KERNEL_5_10_BRANCH)"
-	@docker exec -i $(CONTAINER_NAME) bash -c " \
-			$(call FIND_WORKTREE,$(KERNEL_5_10_BRANCH)) && \
-			$(call FIND_SPEC) && \
-			# SPEC variable now set by FIND_SPEC and printed
-			sudo yum-builddep "$$SPEC" -y && \
-			for dir in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do \
-				rm -rf /home/$(HOST_USER)/rpmbuild/\$$dir/*; \
-			done && \
-			mkdir -p /home/$(HOST_USER)/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
-			rm -rf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz && \
-			tar --xform='s/^./kernel/' --exclude='.git' -chzf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz . && \
-			cp build/* /home/$(HOST_USER)/rpmbuild/SOURCES && \
-			echo '======= Starting RPM Build Process =======' && \
-			time rpmbuild -ba "$$SPEC" && \
-			echo '======= RPM Build Completed =======' && \
-			echo 'RPM packages location: /home/$(HOST_USER)/rpmbuild/RPMS/' && \
-		docker stop $(CONTAINER_NAME)
+	@docker exec -i $(CONTAINER_NAME) bash -c ' \
+		set -e && \
+		BRANCH="$(KERNEL_5_10_BRANCH)" && \
+		echo "======= Finding source directory =======" && \
+		WORK_DIR=$$(git -C /home/$(HOST_USER)/code/linux worktree list 2>/dev/null | grep "$$BRANCH" | awk "{print \$$1}" | head -1) && \
+		if [ -z "$$WORK_DIR" ]; then \
+			BRANCH_DIR=$$(printf "%s" "$$BRANCH" | sed "s|/|-|g") && \
+			if [ -d /home/$(HOST_USER)/code/$$BRANCH_DIR ]; then \
+				WORK_DIR=/home/$(HOST_USER)/code/$$BRANCH_DIR; \
+			else \
+				WORK_DIR=/home/$(HOST_USER)/code/linux && \
+				cd $$WORK_DIR && git checkout $$BRANCH; \
+			fi; \
+		fi && \
+		echo "Using worktree: $$WORK_DIR" && \
+		cd "$$WORK_DIR" && \
+		echo "======= Finding spec file =======" && \
+		SPEC=$$(find build -type f -name "*.spec" -print -quit 2>/dev/null) && \
+		if [ -z "$$SPEC" ]; then \
+			echo "No .spec found in build/" && exit 1; \
+		fi && \
+		echo "Using spec: $$SPEC" && \
+		echo "======= Installing dependencies =======" && \
+		sudo yum-builddep "$$SPEC" -y && \
+		echo "======= Cleaning rpmbuild directories =======" && \
+		for dir in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do \
+			rm -rf /home/$(HOST_USER)/rpmbuild/$$dir/*; \
+		done && \
+		echo "======= Creating rpmbuild directories =======" && \
+		mkdir -p /home/$(HOST_USER)/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+		echo "======= Compressing source code =======" && \
+		rm -rf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz && \
+		tar --xform="s/^./kernel/" --exclude=".git" -chzf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz . && \
+		echo "======= Copying build files =======" && \
+		cp build/* /home/$(HOST_USER)/rpmbuild/SOURCES && \
+		echo "======= Starting RPM Build Process =======" && \
+		time rpmbuild -ba "$$SPEC" && \
+		echo "======= RPM Build Completed =======" && \
+		echo "RPM packages location: /home/$(HOST_USER)/rpmbuild/RPMS/"' && \
+	docker stop $(CONTAINER_NAME)
 
 rpmbuild-6.6-amd64: setup-container	## Build kernel RPM package (ctkernel-lts-6.6, AMD64)
 	@echo "======= Building RPM Package (6.6/AMD64) ======="
 	@echo "Using branch: $(KERNEL_6_6_BRANCH)"
-	@# copy helper script into container and execute it there, passing branch and user
-	@docker cp $(CURDIR)/scripts/rpmbuild-in-container.sh $(CONTAINER_NAME):/home/$(HOST_USER)/rpmbuild-in-container.sh
-	@docker exec -i $(CONTAINER_NAME) /bin/bash -c "/home/$(HOST_USER)/rpmbuild-in-container.sh '$(KERNEL_6_6_BRANCH)' '$(HOST_USER)'" && \
-		docker stop $(CONTAINER_NAME)
+	@docker exec -i $(CONTAINER_NAME) bash -c ' \
+		set -e && \
+		BRANCH="$(KERNEL_6_6_BRANCH)" && \
+		echo "======= Finding source directory =======" && \
+		WORK_DIR=$$(git -C /home/$(HOST_USER)/code/linux worktree list 2>/dev/null | grep "$$BRANCH" | awk "{print \$$1}" | head -1) && \
+		if [ -z "$$WORK_DIR" ]; then \
+			BRANCH_DIR=$$(printf "%s" "$$BRANCH" | sed "s|/|-|g") && \
+			if [ -d /home/$(HOST_USER)/code/$$BRANCH_DIR ]; then \
+				WORK_DIR=/home/$(HOST_USER)/code/$$BRANCH_DIR; \
+			else \
+				WORK_DIR=/home/$(HOST_USER)/code/linux && \
+				cd $$WORK_DIR && git checkout $$BRANCH; \
+			fi; \
+		fi && \
+		echo "Using worktree: $$WORK_DIR" && \
+		cd "$$WORK_DIR" && \
+		echo "======= Finding spec file =======" && \
+		SPEC=$$(find build -type f -name "*.spec" -print -quit 2>/dev/null) && \
+		if [ -z "$$SPEC" ]; then \
+			echo "No .spec found in build/" && exit 1; \
+		fi && \
+		echo "Using spec: $$SPEC" && \
+		echo "======= Installing dependencies =======" && \
+		sudo yum-builddep "$$SPEC" -y && \
+		echo "======= Cleaning rpmbuild directories =======" && \
+		for dir in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do \
+			rm -rf /home/$(HOST_USER)/rpmbuild/$$dir/*; \
+		done && \
+		echo "======= Creating rpmbuild directories =======" && \
+		mkdir -p /home/$(HOST_USER)/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+		echo "======= Compressing source code =======" && \
+		rm -rf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz && \
+		tar --xform="s/^./kernel/" --exclude=".git" -chzf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz . && \
+		echo "======= Copying build files =======" && \
+		cp build/* /home/$(HOST_USER)/rpmbuild/SOURCES && \
+		echo "======= Starting RPM Build Process =======" && \
+		time rpmbuild -ba "$$SPEC" && \
+		echo "======= RPM Build Completed =======" && \
+		echo "RPM packages location: /home/$(HOST_USER)/rpmbuild/RPMS/"' && \
+	docker stop $(CONTAINER_NAME)
 
 rpmbuild-5.10-arm64: setup-container setup-cross-compile	## Build kernel RPM package (ctkernel-lts-5.10, ARM64)
 	@echo "======= Building RPM Package (5.10/ARM64) ======="
 	@echo "Using branch: $(KERNEL_5_10_BRANCH)"
-	@docker exec -i $(CONTAINER_NAME) bash -c " \
-		$(call FIND_WORKTREE,$(KERNEL_5_10_BRANCH)) && \
+	@docker exec -i $(CONTAINER_NAME) bash -c ' \
+		set -e && \
+		BRANCH="$(KERNEL_5_10_BRANCH)" && \
+		echo "======= Finding source directory =======" && \
+		WORK_DIR=$$(git -C /home/$(HOST_USER)/code/linux worktree list 2>/dev/null | grep "$$BRANCH" | awk "{print \$$1}" | head -1) && \
+		if [ -z "$$WORK_DIR" ]; then \
+			BRANCH_DIR=$$(printf "%s" "$$BRANCH" | sed "s|/|-|g") && \
+			if [ -d /home/$(HOST_USER)/code/$$BRANCH_DIR ]; then \
+				WORK_DIR=/home/$(HOST_USER)/code/$$BRANCH_DIR; \
+			else \
+				WORK_DIR=/home/$(HOST_USER)/code/linux && \
+				cd $$WORK_DIR && git checkout $$BRANCH; \
+			fi; \
+		fi && \
+		echo "Using worktree: $$WORK_DIR" && \
+		cd "$$WORK_DIR" && \
+		echo "======= Setting up ARM64 environment =======" && \
 		$(SETUP_ARM64_ENV) && \
+		echo "======= Configuring kernel (ARM64) =======" && \
 		make openeuler_defconfig && \
-		echo '======= Starting RPM Build Process (ARM64) =======' && \
-		make binrpm-pkg -j\$$(nproc) && \
-		echo '======= RPM Build Completed =======' && \
-			echo 'RPM packages location: ~/rpmbuild/RPMS/' && \
+		echo "======= Starting RPM Build Process (ARM64) =======" && \
+		make binrpm-pkg -j$$(nproc) && \
+		echo "======= RPM Build Completed =======" && \
+		echo "RPM packages location: ~/rpmbuild/RPMS/"' && \
 	docker stop $(CONTAINER_NAME)
 
 rpmbuild-6.6-arm64: setup-container setup-cross-compile	## Build kernel RPM package (ctkernel-lts-6.6, ARM64)
 	@echo "======= Building RPM Package (6.6/ARM64) ======="
 	@echo "Using branch: $(KERNEL_6_6_BRANCH)"
-	@docker exec -i $(CONTAINER_NAME) bash -c " \
-		$(call FIND_WORKTREE,$(KERNEL_6_6_BRANCH)) && \
+	@docker exec -i $(CONTAINER_NAME) bash -c ' \
+		set -e && \
+		BRANCH="$(KERNEL_6_6_BRANCH)" && \
+		echo "======= Finding source directory =======" && \
+		WORK_DIR=$$(git -C /home/$(HOST_USER)/code/linux worktree list 2>/dev/null | grep "$$BRANCH" | awk "{print \$$1}" | head -1) && \
+		if [ -z "$$WORK_DIR" ]; then \
+			BRANCH_DIR=$$(printf "%s" "$$BRANCH" | sed "s|/|-|g") && \
+			if [ -d /home/$(HOST_USER)/code/$$BRANCH_DIR ]; then \
+				WORK_DIR=/home/$(HOST_USER)/code/$$BRANCH_DIR; \
+			else \
+				WORK_DIR=/home/$(HOST_USER)/code/linux && \
+				cd $$WORK_DIR && git checkout $$BRANCH; \
+			fi; \
+		fi && \
+		echo "Using worktree: $$WORK_DIR" && \
+		cd "$$WORK_DIR" && \
+		echo "======= Setting up ARM64 environment =======" && \
 		$(SETUP_ARM64_ENV) && \
-		make openeuler_defconfig && \
-		echo '======= Starting RPM Build Process (ARM64) =======' && \
-		make binrpm-pkg -j\$$(nproc) && \
-		echo '======= RPM Build Completed =======' && \
-		echo 'RPM packages location: ~/rpmbuild/RPMS/'" && \
+		echo "======= Configuring kernel (ARM64) =======" && \
+		make ctyunos_defconfig && \
+		echo "======= Starting RPM Build Process (ARM64) =======" && \
+		make binrpm-pkg -j$$(nproc) && \
+		echo "======= RPM Build Completed =======" && \
+		echo "RPM packages location: ~/rpmbuild/RPMS/"' && \
 	docker stop $(CONTAINER_NAME)
 
-# Compile targets (without RPM packaging)
 build-5.10-amd64: setup-container	## Compile kernel only (ctkernel-lts-5.10, AMD64)
 	@echo "======= Starting Kernel Build (5.10/AMD64) ======="
 	@echo "Using branch: $(KERNEL_5_10_BRANCH)"
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
-	docker exec -i $(CONTAINER_NAME) bash -c " \
-		$(call FIND_WORKTREE,$(KERNEL_5_10_BRANCH)) && \
-		echo '======= Installing build dependencies via yum-builddep =======' && \
-			$(call FIND_SPEC) && \
-			# SPEC variable now set by FIND_SPEC and printed
+	docker exec -i $(CONTAINER_NAME) bash -c ' \
+		set -e && \
+		BRANCH="$(KERNEL_5_10_BRANCH)" && \
+		echo "======= Finding source directory =======" && \
+		WORK_DIR=$$(git -C /home/$(HOST_USER)/code/linux worktree list 2>/dev/null | grep "$$BRANCH" | awk "{print \$$1}" | head -1) && \
+		if [ -z "$$WORK_DIR" ]; then \
+			BRANCH_DIR=$$(printf "%s" "$$BRANCH" | sed "s|/|-|g") && \
+			if [ -d /home/$(HOST_USER)/code/$$BRANCH_DIR ]; then \
+				WORK_DIR=/home/$(HOST_USER)/code/$$BRANCH_DIR; \
+			else \
+				WORK_DIR=/home/$(HOST_USER)/code/linux && \
+				cd $$WORK_DIR && git checkout $$BRANCH; \
+			fi; \
+		fi && \
+		echo "Using worktree: $$WORK_DIR" && \
+		cd "$$WORK_DIR" && \
+		echo "Working in: $$(pwd)" && \
+		echo "======= Finding spec file =======" && \
+		SPEC=$$(find build -type f -name "*.spec" -print -quit 2>/dev/null) && \
+		if [ -z "$$SPEC" ]; then \
+			echo "No .spec found in build/" && exit 1; \
+		fi && \
+		echo "Using spec: $$SPEC" && \
+		echo "======= Installing dependencies =======" && \
 		sudo yum-builddep "$$SPEC" -y && \
-		echo '======= Configuring kernel =======' && \
+		echo "======= Configuring kernel =======" && \
 		time make openeuler_defconfig && \
-		echo '======= Starting compilation =======' && \
-		time make -j\$$(nproc)" && \
+		echo "======= Starting compilation =======" && \
+		time make -j$$(nproc)' && \
 	$(PRINT_BUILD_TIME) && \
 	docker stop $(CONTAINER_NAME)
 
@@ -292,17 +377,35 @@ build-6.6-amd64: setup-container	## Compile kernel only (ctkernel-lts-6.6, AMD64
 	@echo "Using branch: $(KERNEL_6_6_BRANCH)"
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
-	docker exec -i $(CONTAINER_NAME) bash -c " \
-		$(call FIND_WORKTREE,$(KERNEL_6_6_BRANCH)) && \
-		echo \"Working in directory: \$$PWD\" && \
-		echo '======= Installing build dependencies via yum-builddep =======' && \
-			$(call FIND_SPEC) && \
-			# SPEC variable now set by FIND_SPEC and printed
+	docker exec -i $(CONTAINER_NAME) bash -c ' \
+		set -e && \
+		BRANCH="$(KERNEL_6_6_BRANCH)" && \
+		echo "======= Finding source directory =======" && \
+		WORK_DIR=$$(git -C /home/$(HOST_USER)/code/linux worktree list 2>/dev/null | grep "$$BRANCH" | awk "{print \$$1}" | head -1) && \
+		if [ -z "$$WORK_DIR" ]; then \
+			BRANCH_DIR=$$(printf "%s" "$$BRANCH" | sed "s|/|-|g") && \
+			if [ -d /home/$(HOST_USER)/code/$$BRANCH_DIR ]; then \
+				WORK_DIR=/home/$(HOST_USER)/code/$$BRANCH_DIR; \
+			else \
+				WORK_DIR=/home/$(HOST_USER)/code/linux && \
+				cd $$WORK_DIR && git checkout $$BRANCH; \
+			fi; \
+		fi && \
+		echo "Using worktree: $$WORK_DIR" && \
+		cd "$$WORK_DIR" && \
+		echo "Working in: $$(pwd)" && \
+		echo "======= Finding spec file =======" && \
+		SPEC=$$(find build -type f -name "*.spec" -print -quit 2>/dev/null) && \
+		if [ -z "$$SPEC" ]; then \
+			echo "No .spec found in build/" && exit 1; \
+		fi && \
+		echo "Using spec: $$SPEC" && \
+		echo "======= Installing dependencies =======" && \
 		sudo yum-builddep "$$SPEC" -y && \
-		echo '======= Configuring kernel =======' && \
-		time make openeuler_defconfig && \
-		echo '======= Starting compilation =======' && \
-		time make -j\$$(nproc)" && \
+		echo "======= Configuring kernel =======" && \
+		time make ctyunos_defconfig && \
+		echo "======= Starting compilation =======" && \
+		time make -j$$(nproc)' && \
 	$(PRINT_BUILD_TIME) && \
 	docker stop $(CONTAINER_NAME)
 
@@ -311,15 +414,37 @@ build-5.10-arm64: setup-container setup-cross-compile	## Compile kernel only (ct
 	@echo "Using branch: $(KERNEL_5_10_BRANCH)"
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
-	docker exec -i $(CONTAINER_NAME) bash -c " \
-		$(call FIND_WORKTREE,$(KERNEL_5_10_BRANCH)) && \
-		echo '======= Installing build dependencies via yum-builddep =======' && \
-		sudo yum-builddep build/kernel.spec -y && \
+	docker exec -i $(CONTAINER_NAME) bash -c ' \
+		set -e && \
+		BRANCH="$(KERNEL_5_10_BRANCH)" && \
+		echo "======= Finding source directory =======" && \
+		WORK_DIR=$$(git -C /home/$(HOST_USER)/code/linux worktree list 2>/dev/null | grep "$$BRANCH" | awk "{print \$$1}" | head -1) && \
+		if [ -z "$$WORK_DIR" ]; then \
+			BRANCH_DIR=$$(printf "%s" "$$BRANCH" | sed "s|/|-|g") && \
+			if [ -d /home/$(HOST_USER)/code/$$BRANCH_DIR ]; then \
+				WORK_DIR=/home/$(HOST_USER)/code/$$BRANCH_DIR; \
+			else \
+				WORK_DIR=/home/$(HOST_USER)/code/linux && \
+				cd $$WORK_DIR && git checkout $$BRANCH; \
+			fi; \
+		fi && \
+		echo "Using worktree: $$WORK_DIR" && \
+		cd "$$WORK_DIR" && \
+		echo "Working in: $$(pwd)" && \
+		echo "======= Finding spec file =======" && \
+		SPEC=$$(find build -type f -name "*.spec" -print -quit 2>/dev/null) && \
+		if [ -z "$$SPEC" ]; then \
+			echo "No .spec found in build/" && exit 1; \
+		fi && \
+		echo "Using spec: $$SPEC" && \
+		echo "======= Installing dependencies =======" && \
+		sudo yum-builddep "$$SPEC" -y && \
+		echo "======= Setting up ARM64 environment =======" && \
 		$(SETUP_ARM64_ENV) && \
-		echo '======= Configuring kernel (ARM64) =======' && \
+		echo "======= Configuring kernel (ARM64) =======" && \
 		time make openeuler_defconfig && \
-		echo '======= Starting compilation (ARM64) =======' && \
-		time make -j\$$(nproc)" && \
+		echo "======= Starting compilation (ARM64) =======" && \
+		time make -j$$(nproc)' && \
 	$(PRINT_BUILD_TIME) && \
 	docker stop $(CONTAINER_NAME)
 
@@ -328,15 +453,37 @@ build-6.6-arm64: setup-container setup-cross-compile	## Compile kernel only (ctk
 	@echo "Using branch: $(KERNEL_6_6_BRANCH)"
 	@echo "Build started at: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@START_TIME=$$(date +%s) && \
-	docker exec -i $(CONTAINER_NAME) bash -c " \
-		$(call FIND_WORKTREE,$(KERNEL_6_6_BRANCH)) && \
-		echo '======= Installing build dependencies via yum-builddep =======' && \
-		sudo yum-builddep build/spec/kernel.spec -y && \
+	docker exec -i $(CONTAINER_NAME) bash -c ' \
+		set -e && \
+		BRANCH="$(KERNEL_6_6_BRANCH)" && \
+		echo "======= Finding source directory =======" && \
+		WORK_DIR=$$(git -C /home/$(HOST_USER)/code/linux worktree list 2>/dev/null | grep "$$BRANCH" | awk "{print \$$1}" | head -1) && \
+		if [ -z "$$WORK_DIR" ]; then \
+			BRANCH_DIR=$$(printf "%s" "$$BRANCH" | sed "s|/|-|g") && \
+			if [ -d /home/$(HOST_USER)/code/$$BRANCH_DIR ]; then \
+				WORK_DIR=/home/$(HOST_USER)/code/$$BRANCH_DIR; \
+			else \
+				WORK_DIR=/home/$(HOST_USER)/code/linux && \
+				cd $$WORK_DIR && git checkout $$BRANCH; \
+			fi; \
+		fi && \
+		echo "Using worktree: $$WORK_DIR" && \
+		cd "$$WORK_DIR" && \
+		echo "Working in: $$(pwd)" && \
+		echo "======= Finding spec file =======" && \
+		SPEC=$$(find build -type f -name "*.spec" -print -quit 2>/dev/null) && \
+		if [ -z "$$SPEC" ]; then \
+			echo "No .spec found in build/" && exit 1; \
+		fi && \
+		echo "Using spec: $$SPEC" && \
+		echo "======= Installing dependencies =======" && \
+		sudo yum-builddep "$$SPEC" -y && \
+		echo "======= Setting up ARM64 environment =======" && \
 		$(SETUP_ARM64_ENV) && \
-		echo '======= Configuring kernel (ARM64) =======' && \
-		time make openeuler_defconfig && \
-		echo '======= Starting compilation (ARM64) =======' && \
-		time make -j\$$(nproc)" && \
+		echo "======= Configuring kernel (ARM64) =======" && \
+		time make ctyunos_defconfig && \
+		echo "======= Starting compilation (ARM64) =======" && \
+		time make -j$$(nproc)' && \
 	$(PRINT_BUILD_TIME) && \
 	docker stop $(CONTAINER_NAME)
 
