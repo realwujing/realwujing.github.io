@@ -1,9 +1,10 @@
 ---
-date: 2023/04/21 15:32:11
-updated: 2023/04/21 15:32:11
+title: 'UML统一建模语言与PlantUML'
+date: '2023/04/21 15:32:11'
+updated: '2025/11/18 22:04:31'
 ---
 
-# uml
+# UML统一建模语言与PlantUML
 
 - [UML时序图(Sequence Diagram)学习笔记](https://blog.csdn.net/fly_zxy/article/details/80911942#commentBox)
 - [快速学习时序图：时序图简介、画法及实例](http://www.woshipm.com/ucd/607593.html)
