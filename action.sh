@@ -49,6 +49,12 @@ rsync -avP --delete \
   --exclude='themes' \
   --include='*/' \
   --include='*.md' \
+  --include='*.png' \
+  --include='*.jpg' \
+  --include='*.jpeg' \
+  --include='*.gif' \
+  --include='*.svg' \
+  --include='*.webp' \
   --exclude='*' \
   ../hexo-site/ ./source/_posts/
 
