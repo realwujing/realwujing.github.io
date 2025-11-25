@@ -124,9 +124,9 @@ build-base-image:	## Build image with build tools (→ ctyunos:23.01-build)
 		echo "Base image $(BASE_IMAGE) not found, loading..."; \
 		make load-image; \
 	fi
-	@echo "Installing sudo and configuring permissions..."
+	@echo "Installing build tools and configuring permissions..."
 	@echo "FROM $(BASE_IMAGE)" > Dockerfile.build
-	@echo "RUN yum install -y sudo shadow-utils && \\" >> Dockerfile.build
+	@echo "RUN yum install -y sudo shadow-utils git vim dnf-plugins-core && \\" >> Dockerfile.build
 	@echo "    groupadd -g $(HOST_GID) $(HOST_USER) 2>/dev/null || true && \\" >> Dockerfile.build
 	@echo "    useradd -m -u $(HOST_UID) -g $(HOST_GID) -s /bin/bash $(HOST_USER) 2>/dev/null || true && \\" >> Dockerfile.build
 	@echo "    echo '$(HOST_USER) ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \\" >> Dockerfile.build
