@@ -73,7 +73,9 @@ rsync -avP --delete \
 
 rsync -avP ../hexo-site/README.md source/about/index.md
 
-# 修复所有markdown文件中的相对链接为GitHub绝对链接
+# 修复所有markdown文件中的相对链接
+# - 图片链接转换为/images/路径
+# - 文档链接转换为GitHub绝对链接
 python3 ./fix_relative_links.py
 
 # 提交更改

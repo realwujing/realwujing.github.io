@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 修复Hexo source目录中所有markdown文件的相对链接
-将相对链接转换为GitHub绝对链接,以便在Hexo静态网站中正确显示
+- 图片链接转换为/images/路径,以便Hexo正确处理
+- 文档链接转换为GitHub绝对链接,以便在Hexo静态网站中正确显示
 """
 
 import os
