@@ -55,9 +55,10 @@ def fix_links_in_file(file_path: str, base_url: str = 'https://github.com/realwu
         
         # 0. 图片文件 -> 转换为/images/路径
         # 将相对路径的图片转换为从/images/目录开始的绝对路径
+        # 跳过已经是http/https开头的网络链接
         if base_path:
             content = re.sub(
-                r'!\[([^\]]*)\]\(([^/][^\)]+?)\.(png|jpg|jpeg|gif|svg|webp)\)',
+                r'!\[([^\]]*)\]\((?!https?://)([^/][^\)]+?)\.(png|jpg|jpeg|gif|svg|webp)\)',
                 f'![\\1](/images/{base_path}\\2.\\3)',
                 content
             )
