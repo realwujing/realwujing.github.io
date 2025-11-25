@@ -23,20 +23,29 @@
 <meta property="og:site_name" content="WuJing&#39;s Blog">
 <meta property="og:description" content="大模型从0到1｜第八讲：手撕大模型并行训练  课程链接：Stanford CS336 Spring 2025 - Lecture 8: Distributed Training Implementation   课程概述 上周回顾： 单个 GPU 内的并行化 本周重点： 多 GPU 跨节点的并行化   GPU Node Overview  统一主题： 在两种情况下，计算单元（算术逻辑单元）都远离数">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://pytorch.org/tutorials/_images/broadcast.png">
-<meta property="og:image" content="https://pytorch.org/tutorials/_images/scatter.png">
-<meta property="og:image" content="https://pytorch.org/tutorials/_images/gather.png">
-<meta property="og:image" content="https://pytorch.org/tutorials/_images/reduce.png">
-<meta property="og:image" content="https://pytorch.org/tutorials/_images/all_gather.png">
-<meta property="og:image" content="https://pytorch.org/tutorials/_images/all_reduce.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://stanford-cs336.github.io/spring2025-lectures/images/gpu-node-overview.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/broadcast.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/scatter.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/gather.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/reduce.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/all_gather.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/_images/reducescatter.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/all_reduce.png">
+<meta property="og:image" content="https://media.springernature.com/lw685/springer-static/image/art%3A10.1186%2Fs42774-021-00098-3/MediaObjects/42774_2021_98_Fig1_HTML.png?as=webp">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://www.nextplatform.com/wp-content/uploads/2018/04/nvidia-nvswitch-topology-two.jpg">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://stanford-cs336.github.io/spring2025-lectures/images/data-parallelism.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://stanford-cs336.github.io/spring2025-lectures/images/tensor-parallelism.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://stanford-cs336.github.io/spring2025-lectures/images/pipeline-parallelism.png">
 <meta property="article:published_time" content="2025-11-24T20:53:37.000Z">
 <meta property="article:modified_time" content="2025-11-24T20:53:37.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="HTML">
+<meta property="article:tag" content="Linux">
 <meta property="article:tag" content="git">
 <meta property="article:tag" content="architect">
+<meta property="article:tag" content="linux">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://pytorch.org/tutorials/_images/broadcast.png">
+<meta name="twitter:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://stanford-cs336.github.io/spring2025-lectures/images/gpu-node-overview.png">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
@@ -337,22 +346,18 @@
             
               <div class="markdown-body">
                 
-                <h1
-id="大模型从0到1第八讲手撕大模型并行训练">大模型从0到1｜第八讲：手撕大模型并行训练</h1>
+                <h1 id="大模型从0到1第八讲手撕大模型并行训练">大模型从0到1｜第八讲：手撕大模型并行训练</h1>
 <blockquote>
-<p>课程链接：<a
-target="_blank" rel="noopener" href="https://stanford-cs336.github.io/spring2025-lectures/?trace=var/traces/lecture_08.json">Stanford
+<p>课程链接：<a target="_blank" rel="noopener" href="https://stanford-cs336.github.io/spring2025-lectures/?trace=var/traces/lecture_08.json">Stanford
 CS336 Spring 2025 - Lecture 8: Distributed Training
 Implementation</a></p>
 </blockquote>
-<hr />
+<hr>
 <h2 id="课程概述">课程概述</h2>
-<p><strong>上周回顾：</strong> 单个 GPU 内的并行化<br />
+<p><strong>上周回顾：</strong> 单个 GPU 内的并行化<br>
 <strong>本周重点：</strong> 多 GPU 跨节点的并行化</p>
 <figure>
-<img
-src="https://stanford-cs336.github.io/spring2025-lectures/images/gpu-node-overview.png" srcset="/img/loading.gif" lazyload
-alt="GPU Node Overview" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://stanford-cs336.github.io/spring2025-lectures/images/gpu-node-overview.png" srcset="/img/loading.gif" lazyload alt="GPU Node Overview">
 <figcaption aria-hidden="true">GPU Node Overview</figcaption>
 </figure>
 <p><strong>统一主题：</strong>
@@ -362,7 +367,7 @@ alt="GPU Node Overview" />
 <li><strong>上周：</strong> 通过融合/分块减少内存访问</li>
 <li><strong>本周：</strong> 通过复制/分片减少跨 GPU/节点的通信</li>
 </ul>
-<hr />
+<hr>
 <h2 id="广义的内存层次结构">广义的内存层次结构</h2>
 <p>从小/快到大/慢：</p>
 <ol type="1">
@@ -372,7 +377,7 @@ alt="GPU Node Overview" />
 <li><strong>多节点，多 GPU：</strong> NVSwitch</li>
 </ol>
 <p><strong>本讲目标：</strong> 用代码具体化上一讲的概念</p>
-<hr />
+<hr>
 <h2 id="part-1-分布式通信计算的基础模块">Part 1:
 分布式通信/计算的基础模块</h2>
 <h3 id="集合操作-collective-operations">1.1 集合操作 (Collective
@@ -383,86 +388,76 @@ Operations)</h3>
 <p><strong>术语：</strong> - <strong>World Size（世界大小）：</strong>
 设备数量（例如 4） - <strong>Rank（秩）：</strong> 单个设备（例如 0, 1,
 2, 3）</p>
-<hr />
+<hr>
 <h4 id="broadcast广播">1.1.1 Broadcast（广播）</h4>
 <figure>
-<img src="https://pytorch.org/tutorials/_images/broadcast.png" srcset="/img/loading.gif" lazyload
-alt="Broadcast" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/broadcast.png" srcset="/img/loading.gif" lazyload alt="Broadcast">
 <figcaption aria-hidden="true">Broadcast</figcaption>
 </figure>
 <p><strong>操作：</strong> 将一个设备的数据复制到所有设备</p>
 <p><strong>用途：</strong> 分发模型参数、配置信息</p>
-<hr />
+<hr>
 <h4 id="scatter分散">1.1.2 Scatter（分散）</h4>
 <figure>
-<img src="https://pytorch.org/tutorials/_images/scatter.png" srcset="/img/loading.gif" lazyload
-alt="Scatter" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/scatter.png" srcset="/img/loading.gif" lazyload alt="Scatter">
 <figcaption aria-hidden="true">Scatter</figcaption>
 </figure>
 <p><strong>操作：</strong> 将数据分割并分发到各个设备</p>
 <p><strong>用途：</strong> 分发数据批次</p>
-<hr />
+<hr>
 <h4 id="gather收集">1.1.3 Gather（收集）</h4>
 <figure>
-<img src="https://pytorch.org/tutorials/_images/gather.png" srcset="/img/loading.gif" lazyload
-alt="Gather" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/gather.png" srcset="/img/loading.gif" lazyload alt="Gather">
 <figcaption aria-hidden="true">Gather</figcaption>
 </figure>
 <p><strong>操作：</strong> 从所有设备收集数据到一个设备</p>
 <p><strong>用途：</strong> 收集预测结果、日志信息</p>
-<hr />
+<hr>
 <h4 id="reduce归约">1.1.4 Reduce（归约）</h4>
 <figure>
-<img src="https://pytorch.org/tutorials/_images/reduce.png" srcset="/img/loading.gif" lazyload
-alt="Reduce" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/reduce.png" srcset="/img/loading.gif" lazyload alt="Reduce">
 <figcaption aria-hidden="true">Reduce</figcaption>
 </figure>
 <p><strong>操作：</strong> 对所有设备的数据执行关联/交换操作（sum, min,
 max）</p>
 <p><strong>用途：</strong> 计算全局统计量</p>
-<hr />
+<hr>
 <h4 id="all-gather全收集">1.1.5 All-Gather（全收集）</h4>
 <figure>
-<img src="https://pytorch.org/tutorials/_images/all_gather.png" srcset="/img/loading.gif" lazyload
-alt="All-Gather" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/all_gather.png" srcset="/img/loading.gif" lazyload alt="All-Gather">
 <figcaption aria-hidden="true">All-Gather</figcaption>
 </figure>
 <p><strong>操作：</strong> 每个设备都收集所有设备的数据</p>
 <p><strong>用途：</strong> 同步分片数据</p>
-<hr />
+<hr>
 <h4 id="reduce-scatter归约分散">1.1.6 Reduce-Scatter（归约分散）</h4>
 <figure>
-<img
-src="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/_images/reducescatter.png" srcset="/img/loading.gif" lazyload
-alt="Reduce-Scatter" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/_images/reducescatter.png" srcset="/img/loading.gif" lazyload alt="Reduce-Scatter">
 <figcaption aria-hidden="true">Reduce-Scatter</figcaption>
 </figure>
 <p><strong>操作：</strong> 归约后将结果分散到各设备</p>
 <p><strong>用途：</strong> 梯度同步的第一步</p>
-<hr />
+<hr>
 <h4 id="all-reduce全归约">1.1.7 All-Reduce（全归约）</h4>
 <figure>
-<img src="https://pytorch.org/tutorials/_images/all_reduce.png" srcset="/img/loading.gif" lazyload
-alt="All-Reduce" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://pytorch.org/tutorials/_images/all_reduce.png" srcset="/img/loading.gif" lazyload alt="All-Reduce">
 <figcaption aria-hidden="true">All-Reduce</figcaption>
 </figure>
 <p><strong>关键关系：</strong> All-Reduce = Reduce-Scatter +
 All-Gather</p>
 <p><strong>用途：</strong> 梯度同步（最常用）</p>
-<hr />
+<hr>
 <h4 id="记忆技巧">记忆技巧</h4>
 <ul>
 <li><strong>Reduce：</strong> 执行关联/交换操作（sum, min, max）</li>
 <li><strong>Broadcast/Scatter：</strong> 是 Gather 的逆操作</li>
 <li><strong>All：</strong> 目标是所有设备</li>
 </ul>
-<hr />
+<hr>
 <h3 id="硬件架构">1.2 硬件架构</h3>
 <h4 id="经典架构家用">经典架构（家用）</h4>
 <figure>
-<img
-src="https://media.springernature.com/lw685/springer-static/image/art%3A10.1186%2Fs42774-021-00098-3/MediaObjects/42774_2021_98_Fig1_HTML.png?as=webp" srcset="/img/loading.gif" lazyload
-alt="Classic Architecture" />
+<img src="https://media.springernature.com/lw685/springer-static/image/art%3A10.1186%2Fs42774-021-00098-3/MediaObjects/42774_2021_98_Fig1_HTML.png?as=webp" srcset="/img/loading.gif" lazyload alt="Classic Architecture">
 <figcaption aria-hidden="true">Classic Architecture</figcaption>
 </figure>
 <ul>
@@ -470,12 +465,10 @@ alt="Classic Architecture" />
 =&gt; 242 GB/s）</li>
 <li><strong>跨节点 GPU：</strong> 通过以太网通信（~200 MB/s）</li>
 </ul>
-<hr />
+<hr>
 <h4 id="现代架构数据中心">现代架构（数据中心）</h4>
 <figure>
-<img
-src="https://www.nextplatform.com/wp-content/uploads/2018/04/nvidia-nvswitch-topology-two.jpg" srcset="/img/loading.gif" lazyload
-alt="Modern Architecture" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://www.nextplatform.com/wp-content/uploads/2018/04/nvidia-nvswitch-topology-two.jpg" srcset="/img/loading.gif" lazyload alt="Modern Architecture">
 <figcaption aria-hidden="true">Modern Architecture</figcaption>
 </figure>
 <ul>
@@ -485,41 +478,39 @@ alt="Modern Architecture" />
 <p><strong>H100 规格：</strong> - 18 个 NVLink 4.0 链路 - 总带宽：900
 GB/s - 对比 HBM 带宽：3.9 TB/s</p>
 <p><strong>查看硬件拓扑：</strong> <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">nvidia-smi topo -m<br></code></pre></td></tr></table></figure></p>
-<hr />
+<hr>
 <h3 id="nvidia-collective-communication-library-nccl">1.3 NVIDIA
 Collective Communication Library (NCCL)</h3>
 <p><strong>功能：</strong> 将集合操作转换为 GPU 间传输的底层数据包</p>
 <p><strong>工作流程：</strong> 1.
 检测硬件拓扑（节点数、交换机、NVLink/PCIe） 2. 优化 GPU 间路径 3. 启动
 CUDA kernel 发送/接收数据</p>
-<p><strong>参考：</strong> <a
-target="_blank" rel="noopener" href="https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31880/">NCCL
+<p><strong>参考：</strong> <a target="_blank" rel="noopener" href="https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31880/">NCCL
 Talk</a></p>
-<hr />
+<hr>
 <h3 id="pytorch-distributed-torch.distributed">1.4 PyTorch Distributed
 (<code>torch.distributed</code>)</h3>
-<p><strong>文档：</strong> <a
-target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/distributed.html">PyTorch
+<p><strong>文档：</strong> <a target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/distributed.html">PyTorch
 Distributed</a></p>
 <p><strong>功能：</strong> - 提供集合操作的简洁接口（如
 <code>all_gather_into_tensor</code>） - 支持多种后端：gloo (CPU), nccl
 (GPU) - 支持高级算法（如 <code>FullyShardedDataParallel</code>）</p>
-<hr />
+<hr>
 <h4 id="示例代码all-reduce">示例代码：All-Reduce</h4>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">collective_operations_main</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span></span>):<br>    setup(rank, world_size)<br>    <br>    <span class="hljs-comment"># 创建张量</span><br>    tensor = torch.tensor([<span class="hljs-number">0.</span>, <span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>], device=get_device(rank)) + rank<br>    <br>    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [before all-reduce]: <span class="hljs-subst">&#123;tensor&#125;</span>&quot;</span>)<br>    <br>    <span class="hljs-comment"># 执行 all-reduce（原地修改）</span><br>    dist.all_reduce(tensor=tensor, op=dist.ReduceOp.SUM, async_op=<span class="hljs-literal">False</span>)<br>    <br>    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [after all-reduce]: <span class="hljs-subst">&#123;tensor&#125;</span>&quot;</span>)<br>    <br>    cleanup()<br></code></pre></td></tr></table></figure>
 <p><strong>输出示例（world_size=4）：</strong> <figure class="highlight inform7"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs inform7">Rank 0 <span class="hljs-comment">[before]</span>: <span class="hljs-comment">[0., 1., 2., 3.]</span><br>Rank 1 <span class="hljs-comment">[before]</span>: <span class="hljs-comment">[1., 2., 3., 4.]</span><br>Rank 2 <span class="hljs-comment">[before]</span>: <span class="hljs-comment">[2., 3., 4., 5.]</span><br>Rank 3 <span class="hljs-comment">[before]</span>: <span class="hljs-comment">[3., 4., 5., 6.]</span><br><br>Rank 0 <span class="hljs-comment">[after]</span>: <span class="hljs-comment">[6., 10., 14., 18.]</span>  # 每个位置求和<br>Rank 1 <span class="hljs-comment">[after]</span>: <span class="hljs-comment">[6., 10., 14., 18.]</span><br>Rank 2 <span class="hljs-comment">[after]</span>: <span class="hljs-comment">[6., 10., 14., 18.]</span><br>Rank 3 <span class="hljs-comment">[after]</span>: <span class="hljs-comment">[6., 10., 14., 18.]</span><br></code></pre></td></tr></table></figure></p>
-<hr />
+<hr>
 <h4 id="示例代码reduce-scatter-all-gather">示例代码：Reduce-Scatter +
 All-Gather</h4>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># Reduce-Scatter</span><br><span class="hljs-built_in">input</span> = torch.arange(world_size, dtype=torch.float32, device=get_device(rank)) + rank<br>output = torch.empty(<span class="hljs-number">1</span>, device=get_device(rank))<br><br><span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [before reduce-scatter]: input = <span class="hljs-subst">&#123;<span class="hljs-built_in">input</span>&#125;</span>, output = <span class="hljs-subst">&#123;output&#125;</span>&quot;</span>)<br>dist.reduce_scatter_tensor(output=output, <span class="hljs-built_in">input</span>=<span class="hljs-built_in">input</span>, op=dist.ReduceOp.SUM, async_op=<span class="hljs-literal">False</span>)<br><span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [after reduce-scatter]: input = <span class="hljs-subst">&#123;<span class="hljs-built_in">input</span>&#125;</span>, output = <span class="hljs-subst">&#123;output&#125;</span>&quot;</span>)<br><br><span class="hljs-comment"># All-Gather</span><br><span class="hljs-built_in">input</span> = output<br>output = torch.empty(world_size, device=get_device(rank))<br><br><span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [before all-gather]: input = <span class="hljs-subst">&#123;<span class="hljs-built_in">input</span>&#125;</span>, output = <span class="hljs-subst">&#123;output&#125;</span>&quot;</span>)<br>dist.all_gather_into_tensor(output_tensor=output, input_tensor=<span class="hljs-built_in">input</span>, async_op=<span class="hljs-literal">False</span>)<br><span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span> [after all-gather]: input = <span class="hljs-subst">&#123;<span class="hljs-built_in">input</span>&#125;</span>, output = <span class="hljs-subst">&#123;output&#125;</span>&quot;</span>)<br></code></pre></td></tr></table></figure>
 <p><strong>验证：</strong> All-Reduce = Reduce-Scatter + All-Gather
 ✅</p>
-<hr />
+<hr>
 <h3 id="性能测试">1.5 性能测试</h3>
 <h4 id="all-reduce-性能测试">All-Reduce 性能测试</h4>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">all_reduce</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span>, num_elements: <span class="hljs-built_in">int</span></span>):<br>    setup(rank, world_size)<br>    <br>    <span class="hljs-comment"># 创建张量</span><br>    tensor = torch.randn(num_elements, device=get_device(rank))<br>    <br>    <span class="hljs-comment"># Warmup</span><br>    dist.all_reduce(tensor=tensor, op=dist.ReduceOp.SUM, async_op=<span class="hljs-literal">False</span>)<br>    torch.cuda.synchronize()<br>    dist.barrier()<br>    <br>    <span class="hljs-comment"># 计时</span><br>    start_time = time.time()<br>    dist.all_reduce(tensor=tensor, op=dist.ReduceOp.SUM, async_op=<span class="hljs-literal">False</span>)<br>    torch.cuda.synchronize()<br>    dist.barrier()<br>    end_time = time.time()<br>    <br>    duration = end_time - start_time<br>    <br>    <span class="hljs-comment"># 计算有效带宽</span><br>    size_bytes = tensor.element_size() * tensor.numel()<br>    sent_bytes = size_bytes * <span class="hljs-number">2</span> * (world_size - <span class="hljs-number">1</span>)  <span class="hljs-comment"># 2x：发送输入 + 接收输出</span><br>    total_duration = world_size * duration<br>    bandwidth = sent_bytes / total_duration<br>    <br>    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span>: bandwidth = <span class="hljs-subst">&#123;<span class="hljs-built_in">round</span>(bandwidth / <span class="hljs-number">1024</span>**<span class="hljs-number">3</span>)&#125;</span> GB/s&quot;</span>)<br>    <br>    cleanup()<br></code></pre></td></tr></table></figure>
 <p><strong>测试：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">spawn(all_reduce, world_size=<span class="hljs-number">4</span>, num_elements=<span class="hljs-number">100</span> * <span class="hljs-number">1024</span>**<span class="hljs-number">2</span>)<br></code></pre></td></tr></table></figure></p>
-<hr />
+<hr>
 <h2 id="part-2-分布式训练策略">Part 2: 分布式训练策略</h2>
 <p><strong>示例模型：</strong> 深度 MLP（多层感知机）</p>
 <p><strong>原因：</strong> MLP 是 Transformer 的计算瓶颈，具有代表性</p>
@@ -527,19 +518,17 @@ All-Gather</h4>
 Parallelism（数据并行）：</strong> 沿批次维度切分 2. <strong>Tensor
 Parallelism（张量并行）：</strong> 沿宽度维度切分 3. <strong>Pipeline
 Parallelism（流水线并行）：</strong> 沿深度维度切分</p>
-<hr />
+<hr>
 <h3 id="data-parallelism数据并行">2.1 Data Parallelism（数据并行）</h3>
 <figure>
-<img
-src="https://stanford-cs336.github.io/spring2025-lectures/images/data-parallelism.png" srcset="/img/loading.gif" lazyload
-alt="Data Parallelism" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://stanford-cs336.github.io/spring2025-lectures/images/data-parallelism.png" srcset="/img/loading.gif" lazyload alt="Data Parallelism">
 <figcaption aria-hidden="true">Data Parallelism</figcaption>
 </figure>
 <p><strong>分片策略：</strong> 每个 rank 获得数据的一个切片</p>
-<hr />
+<hr>
 <h4 id="实现代码">实现代码</h4>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">data_parallelism_main</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span>, data: torch.Tensor, num_layers: <span class="hljs-built_in">int</span>, num_steps: <span class="hljs-built_in">int</span></span>):<br>    setup(rank, world_size)<br>    <br>    <span class="hljs-comment"># 获取此 rank 的数据切片</span><br>    batch_size = data.size(<span class="hljs-number">0</span>)<br>    local_batch_size = batch_size // world_size<br>    start_index = rank * local_batch_size<br>    end_index = start_index + local_batch_size<br>    data = data[start_index:end_index].to(get_device(rank))<br>    <br>    <span class="hljs-comment"># 创建模型参数（每个 rank 拥有所有参数）</span><br>    params = [get_init_params(num_dim, num_dim, rank) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_layers)]<br>    optimizer = torch.optim.AdamW(params, lr=<span class="hljs-number">1e-3</span>)<br>    <br>    <span class="hljs-keyword">for</span> step <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_steps):<br>        <span class="hljs-comment"># 前向传播</span><br>        x = data<br>        <span class="hljs-keyword">for</span> param <span class="hljs-keyword">in</span> params:<br>            x = x @ param<br>            x = F.gelu(x)<br>        loss = x.square().mean()<br>        <br>        <span class="hljs-comment"># 反向传播</span><br>        loss.backward()<br>        <br>        <span class="hljs-comment"># 同步梯度（与标准训练的唯一区别）</span><br>        <span class="hljs-keyword">for</span> param <span class="hljs-keyword">in</span> params:<br>            dist.all_reduce(tensor=param.grad, op=dist.ReduceOp.AVG, async_op=<span class="hljs-literal">False</span>)<br>        <br>        <span class="hljs-comment"># 更新参数</span><br>        optimizer.step()<br>        <br>        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span>: step = <span class="hljs-subst">&#123;step&#125;</span>, loss = <span class="hljs-subst">&#123;loss.item()&#125;</span>&quot;</span>)<br>    <br>    cleanup()<br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h4 id="关键观察">关键观察</h4>
 <p><strong>不同之处：</strong> - ✅ 每个 rank 的 Loss
 不同（基于本地数据计算） - ✅ 梯度通过 all-reduce 同步，所有 rank 相同 -
@@ -550,21 +539,19 @@ alt="Data Parallelism" />
 扩展性好（理想情况下线性加速）</p>
 <p><strong>缺点：</strong> - 每个 GPU 需要存储完整模型 -
 通信开销随模型大小增长</p>
-<hr />
+<hr>
 <h3 id="tensor-parallelism张量并行">2.2 Tensor
 Parallelism（张量并行）</h3>
 <figure>
-<img
-src="https://stanford-cs336.github.io/spring2025-lectures/images/tensor-parallelism.png" srcset="/img/loading.gif" lazyload
-alt="Tensor Parallelism" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://stanford-cs336.github.io/spring2025-lectures/images/tensor-parallelism.png" srcset="/img/loading.gif" lazyload alt="Tensor Parallelism">
 <figcaption aria-hidden="true">Tensor Parallelism</figcaption>
 </figure>
 <p><strong>分片策略：</strong> 每个 rank
 获得每层的一部分，传输所有数据/激活</p>
-<hr />
+<hr>
 <h4 id="实现代码-1">实现代码</h4>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">tensor_parallelism_main</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span>, data: torch.Tensor, num_layers: <span class="hljs-built_in">int</span></span>):<br>    setup(rank, world_size)<br>    <br>    data = data.to(get_device(rank))<br>    batch_size = data.size(<span class="hljs-number">0</span>)<br>    num_dim = data.size(<span class="hljs-number">1</span>)<br>    local_num_dim = num_dim // world_size  <span class="hljs-comment"># 分片 num_dim</span><br>    <br>    <span class="hljs-comment"># 创建模型（每个 rank 获得 1/world_size 的参数）</span><br>    params = [get_init_params(num_dim, local_num_dim, rank) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_layers)]<br>    <br>    <span class="hljs-comment"># 前向传播</span><br>    x = data<br>    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_layers):<br>        <span class="hljs-comment"># 计算激活（batch_size x local_num_dim）</span><br>        x = x @ params[i]  <span class="hljs-comment"># 注意：这只是参数的一个切片</span><br>        x = F.gelu(x)<br>        <br>        <span class="hljs-comment"># 为激活分配内存（world_size x batch_size x local_num_dim）</span><br>        activations = [torch.empty(batch_size, local_num_dim, device=get_device(rank)) <br>                      <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(world_size)]<br>        <br>        <span class="hljs-comment"># 通过 all-gather 发送激活</span><br>        dist.all_gather(tensor_list=activations, tensor=x, async_op=<span class="hljs-literal">False</span>)<br>        <br>        <span class="hljs-comment"># 拼接得到 batch_size x num_dim</span><br>        x = torch.cat(activations, dim=<span class="hljs-number">1</span>)<br>    <br>    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span>: forward pass produced activations <span class="hljs-subst">&#123;summarize_tensor(x)&#125;</span>&quot;</span>)<br>    <br>    <span class="hljs-comment"># 反向传播：作业练习</span><br>    <br>    cleanup()<br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h4 id="关键观察-1">关键观察</h4>
 <p><strong>内存分布：</strong> - ✅ 每个 rank 只存储部分参数 - ✅
 激活需要在所有 rank 间通信</p>
@@ -574,21 +561,19 @@ alt="Tensor Parallelism" />
 适合宽模型</p>
 <p><strong>缺点：</strong> - 通信频繁（每层都需要通信） -
 实现复杂度高</p>
-<hr />
+<hr>
 <h3 id="pipeline-parallelism流水线并行">2.3 Pipeline
 Parallelism（流水线并行）</h3>
 <figure>
-<img
-src="https://stanford-cs336.github.io/spring2025-lectures/images/pipeline-parallelism.png" srcset="/img/loading.gif" lazyload
-alt="Pipeline Parallelism" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://stanford-cs336.github.io/spring2025-lectures/images/pipeline-parallelism.png" srcset="/img/loading.gif" lazyload alt="Pipeline Parallelism">
 <figcaption aria-hidden="true">Pipeline Parallelism</figcaption>
 </figure>
 <p><strong>分片策略：</strong> 每个 rank
 获得层的子集，传输所有数据/激活</p>
-<hr />
+<hr>
 <h4 id="实现代码-2">实现代码</h4>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">pipeline_parallelism_main</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span>, data: torch.Tensor, </span><br><span class="hljs-params">                             num_layers: <span class="hljs-built_in">int</span>, num_micro_batches: <span class="hljs-built_in">int</span></span>):<br>    setup(rank, world_size)<br>    <br>    data = data.to(get_device(rank))<br>    batch_size = data.size(<span class="hljs-number">0</span>)<br>    num_dim = data.size(<span class="hljs-number">1</span>)<br>    <br>    <span class="hljs-comment"># 分割层</span><br>    local_num_layers = num_layers // world_size<br>    <br>    <span class="hljs-comment"># 每个 rank 获得层的子集</span><br>    local_params = [get_init_params(num_dim, num_dim, rank) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(local_num_layers)]<br>    <br>    <span class="hljs-comment"># 前向传播</span><br>    <br>    <span class="hljs-comment"># 分成 micro-batch 以最小化气泡</span><br>    micro_batch_size = batch_size // num_micro_batches<br>    <span class="hljs-keyword">if</span> rank == <span class="hljs-number">0</span>:<br>        micro_batches = data.chunk(chunks=num_micro_batches, dim=<span class="hljs-number">0</span>)<br>    <span class="hljs-keyword">else</span>:<br>        micro_batches = [torch.empty(micro_batch_size, num_dim, device=get_device(rank)) <br>                        <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_micro_batches)]<br>    <br>    <span class="hljs-keyword">for</span> x <span class="hljs-keyword">in</span> micro_batches:<br>        <span class="hljs-comment"># 从前一个 rank 接收激活</span><br>        <span class="hljs-keyword">if</span> rank - <span class="hljs-number">1</span> &gt;= <span class="hljs-number">0</span>:<br>            dist.recv(tensor=x, src=rank - <span class="hljs-number">1</span>)<br>        <br>        <span class="hljs-comment"># 计算分配给此 rank 的层</span><br>        <span class="hljs-keyword">for</span> param <span class="hljs-keyword">in</span> local_params:<br>            x = x @ param<br>            x = F.gelu(x)<br>        <br>        <span class="hljs-comment"># 发送到下一个 rank</span><br>        <span class="hljs-keyword">if</span> rank + <span class="hljs-number">1</span> &lt; world_size:<br>            <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Rank <span class="hljs-subst">&#123;rank&#125;</span>: sending <span class="hljs-subst">&#123;summarize_tensor(x)&#125;</span> to rank <span class="hljs-subst">&#123;rank + <span class="hljs-number">1</span>&#125;</span>&quot;</span>)<br>            dist.send(tensor=x, dst=rank + <span class="hljs-number">1</span>)<br>    <br>    <span class="hljs-comment"># 未处理：重叠通信/计算以消除流水线气泡</span><br>    <br>    <span class="hljs-comment"># 反向传播：作业练习</span><br>    <br>    cleanup()<br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h4 id="关键观察-2">关键观察</h4>
 <p><strong>Micro-Batch 技术：</strong> - 将批次分成更小的 micro-batch -
 减少流水线气泡（idle time） - 提高 GPU 利用率</p>
@@ -598,7 +583,7 @@ alt="Pipeline Parallelism" />
 适合深模型</p>
 <p><strong>缺点：</strong> - 流水线气泡导致 GPU 空闲 - 需要精心设计
 micro-batch 调度</p>
-<hr />
+<hr>
 <h2 id="并行策略对比">并行策略对比</h2>
 <table>
 
@@ -635,7 +620,7 @@ micro-batch 调度</p>
 </tr>
 </tbody>
 </table>
-<hr />
+<hr>
 <h2 id="混合并行策略">混合并行策略</h2>
 <p><strong>实际应用：</strong> 通常组合多种策略</p>
 <p><strong>示例：GPT-3 训练</strong> - Data Parallelism: 跨节点 - Tensor
@@ -643,7 +628,7 @@ Parallelism: 节点内（利用 NVLink） - Pipeline Parallelism: 跨层</p>
 <p><strong>其他并行维度：</strong> - <strong>Sequence
 Parallelism：</strong> 沿序列长度切分 - <strong>Expert
 Parallelism：</strong> MoE 模型中的专家并行</p>
-<hr />
+<hr>
 <h2 id="高级话题">高级话题</h2>
 <h3 id="通信与计算重叠">通信与计算重叠</h3>
 <p><strong>目标：</strong> 在计算时进行通信，隐藏通信延迟</p>
@@ -656,15 +641,14 @@ Parallelism：</strong> MoE 模型中的专家并行</p>
 GPU，需要通信</p>
 <p><strong>ZeRO 优化：</strong> - ZeRO-1: 优化器状态分片 - ZeRO-2:
 梯度分片 - ZeRO-3: 参数分片</p>
-<hr />
+<hr>
 <h2 id="课程未涵盖的内容">课程未涵盖的内容</h2>
 <p><strong>更复杂的模型：</strong> - Attention 机制 - 更复杂的架构</p>
 <p><strong>更多优化：</strong> - 通信/计算重叠 - 更复杂的调度</p>
 <p><strong>其他框架：</strong> - <strong>JAX/TPU：</strong>
-只需定义模型和分片策略，编译器处理其余部分 - 参考：<a
-target="_blank" rel="noopener" href="https://crfm.stanford.edu/2023/06/16/levanter-1_0-release.html">Levanter</a>
+只需定义模型和分片策略，编译器处理其余部分 - 参考：<a target="_blank" rel="noopener" href="https://crfm.stanford.edu/2023/06/16/levanter-1_0-release.html">Levanter</a>
 - <strong>PyTorch：</strong> 本课程使用，可以看到如何从原语构建</p>
-<hr />
+<hr>
 <h2 id="总结">总结</h2>
 <h3 id="核心概念">核心概念</h3>
 <ol type="1">
@@ -690,33 +674,26 @@ target="_blank" rel="noopener" href="https://crfm.stanford.edu/2023/06/16/levant
 </ol>
 <h3 id="关键原则">关键原则</h3>
 <p><strong>统一主题：</strong> 编排计算以避免数据传输瓶颈</p>
-<p><strong>上周：</strong> 单 GPU 内 - 减少内存访问（融合/分块）<br />
+<p><strong>上周：</strong> 单 GPU 内 - 减少内存访问（融合/分块）<br>
 <strong>本周：</strong> 多 GPU 间 - 减少通信（复制/分片）</p>
-<hr />
+<hr>
 <h2 id="实践建议">实践建议</h2>
 <h3 id="setup-函数">Setup 函数</h3>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">setup</span>(<span class="hljs-params">rank: <span class="hljs-built_in">int</span>, world_size: <span class="hljs-built_in">int</span></span>):<br>    <span class="hljs-comment"># 指定 master 位置（rank 0），用于协调</span><br>    os.environ[<span class="hljs-string">&quot;MASTER_ADDR&quot;</span>] = <span class="hljs-string">&quot;localhost&quot;</span><br>    os.environ[<span class="hljs-string">&quot;MASTER_PORT&quot;</span>] = <span class="hljs-string">&quot;15623&quot;</span><br>    <br>    <span class="hljs-keyword">if</span> torch.cuda.is_available():<br>        dist.init_process_group(<span class="hljs-string">&quot;nccl&quot;</span>, rank=rank, world_size=world_size)<br>    <span class="hljs-keyword">else</span>:<br>        dist.init_process_group(<span class="hljs-string">&quot;gloo&quot;</span>, rank=rank, world_size=world_size)<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">cleanup</span>():<br>    torch.distributed.destroy_process_group()<br></code></pre></td></tr></table></figure>
 <h3 id="多进程启动">多进程启动</h3>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">from</span> lecture_08_utils <span class="hljs-keyword">import</span> spawn<br><br><span class="hljs-comment"># 启动 4 个进程</span><br>spawn(your_function, world_size=<span class="hljs-number">4</span>, **kwargs)<br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h2 id="延伸阅读">延伸阅读</h2>
-<p><strong>NCCL 性能：</strong> - <a
-target="_blank" rel="noopener" href="https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#allreduce">How
-to reason about operations</a> - <a
-target="_blank" rel="noopener" href="https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/all_reduce_bench.py">Sample
+<p><strong>NCCL 性能：</strong> - <a target="_blank" rel="noopener" href="https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#allreduce">How
+to reason about operations</a> - <a target="_blank" rel="noopener" href="https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/all_reduce_bench.py">Sample
 benchmark code</a></p>
-<p><strong>分布式训练：</strong> - <a
-target="_blank" rel="noopener" href="https://pytorch.org/tutorials/beginner/dist_overview.html">PyTorch
-Distributed Tutorial</a> - <a
-target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/fsdp.html">FSDP Documentation</a>
-- <a target="_blank" rel="noopener" href="https://www.deepspeed.ai/">DeepSpeed</a> - <a
-target="_blank" rel="noopener" href="https://github.com/NVIDIA/Megatron-LM">Megatron-LM</a></p>
-<p><strong>硬件：</strong> - <a
-target="_blank" rel="noopener" href="https://www.nvidia.com/en-us/data-center/nvlink/">NVLink
-Documentation</a> - <a
-target="_blank" rel="noopener" href="https://resources.nvidia.com/en-us-tensor-core/nvidia-tensor-core-gpu-datasheet">H100
+<p><strong>分布式训练：</strong> - <a target="_blank" rel="noopener" href="https://pytorch.org/tutorials/beginner/dist_overview.html">PyTorch
+Distributed Tutorial</a> - <a target="_blank" rel="noopener" href="https://pytorch.org/docs/stable/fsdp.html">FSDP Documentation</a>
+- <a target="_blank" rel="noopener" href="https://www.deepspeed.ai/">DeepSpeed</a> - <a target="_blank" rel="noopener" href="https://github.com/NVIDIA/Megatron-LM">Megatron-LM</a></p>
+<p><strong>硬件：</strong> - <a target="_blank" rel="noopener" href="https://www.nvidia.com/en-us/data-center/nvlink/">NVLink
+Documentation</a> - <a target="_blank" rel="noopener" href="https://resources.nvidia.com/en-us-tensor-core/nvidia-tensor-core-gpu-datasheet">H100
 Datasheet</a></p>
-<hr />
+<hr>
 <h2 id="作业练习">作业练习</h2>
 <ol type="1">
 <li><strong>实现 Tensor Parallelism 的反向传播</strong></li>
@@ -781,9 +758,13 @@ Datasheet</a></p>
       
         <a href="/tags/HTML/">#HTML</a>
       
+        <a href="/tags/Linux/">#Linux</a>
+      
         <a href="/tags/git/">#git</a>
       
         <a href="/tags/architect/">#architect</a>
+      
+        <a href="/tags/linux/">#linux</a>
       
     </div>
   

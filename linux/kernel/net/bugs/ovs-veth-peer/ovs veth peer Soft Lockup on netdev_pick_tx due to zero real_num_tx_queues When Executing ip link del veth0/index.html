@@ -23,6 +23,8 @@
 <meta property="og:site_name" content="WuJing&#39;s Blog">
 <meta property="og:description" content="ovs veth peer Soft Lockup on netdev_pick_tx due to zero real_num_tx_queues When Executing ip link del veth0  Linux 虚拟网络设备 veth-pair 详解，看这一篇就够了  测试环境 1TlRZMmFEVTFRMGMxV1hrMk5YQmhkelZ3TmpJMWNEWkZOWEpYVE">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/kernel/net/bugs/ovs-veth-peer/https://cdn.jsdelivr.net/gh/realwujing/picture-bed/openvswitch_dmesg.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/kernel/net/bugs/ovs-veth-peer/https://cdn.jsdelivr.net/gh/realwujing/picture-bed/vm_ip_link_del_veth0.png">
 <meta property="article:published_time" content="2025-03-28T21:53:17.000Z">
 <meta property="article:modified_time" content="2025-03-28T21:53:17.000Z">
 <meta property="article:author" content="Wu Jing">
@@ -34,6 +36,7 @@
 <meta property="article:tag" content="linux">
 <meta property="article:tag" content="namespace">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://realwujing.github.io/images/linux/kernel/net/bugs/ovs-veth-peer/https://cdn.jsdelivr.net/gh/realwujing/picture-bed/openvswitch_dmesg.png">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
@@ -334,8 +337,7 @@
             
               <div class="markdown-body">
                 
-                <h1
-id="ovs-veth-peer-soft-lockup-on-netdev_pick_tx-due-to-zero-real_num_tx_queues-when-executing-ip-link-del-veth0">ovs
+                <h1 id="ovs-veth-peer-soft-lockup-on-netdev_pick_tx-due-to-zero-real_num_tx_queues-when-executing-ip-link-del-veth0">ovs
 veth peer Soft Lockup on netdev_pick_tx due to zero real_num_tx_queues
 When Executing ip link del veth0</h1>
 <ul>
@@ -348,21 +350,16 @@ When Executing ip link del veth0</h1>
 <p>在13设备上复现了一下，创建完网桥，网桥上的流量越大复现概率越高：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">ovs-vsctl add-br os_manage1<br>ovs-vsctl add-port os_manage1 bond0.151<br>ip <span class="hljs-built_in">link</span> add name veth0 <span class="hljs-built_in">type</span> veth peer name veth1<br>ovs-vsctl add-port os_manage1 veth0<br>ip <span class="hljs-built_in">link</span> del veth0<br>ovs-vsctl del-port os_manage1 veth0<br></code></pre></td></tr></table></figure>
 <figure>
-<img
-src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/openvswitch_dmesg.png" srcset="/img/loading.gif" lazyload
-alt="openvswitch_dmesg" />
+<img src="/images/linux/kernel/net/bugs/ovs-veth-peer/https://cdn.jsdelivr.net/gh/realwujing/picture-bed/openvswitch_dmesg.png" srcset="/img/loading.gif" lazyload alt="openvswitch_dmesg">
 <figcaption aria-hidden="true">openvswitch_dmesg</figcaption>
 </figure>
-<h3
-id="本地搭建虚拟机狗酱轻量级复现环境">本地搭建虚拟机狗酱轻量级复现环境</h3>
+<h3 id="本地搭建虚拟机狗酱轻量级复现环境">本地搭建虚拟机狗酱轻量级复现环境</h3>
 <p>参考复现脚本：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">systemctl start openvswitch<br>ovs-vsctl add-br os_manage<br>ip <span class="hljs-built_in">link</span> add name veth0 <span class="hljs-built_in">type</span> veth peer name veth1<br>ip <span class="hljs-built_in">link</span> <span class="hljs-built_in">set</span> veth0 up<br>ip <span class="hljs-built_in">link</span> <span class="hljs-built_in">set</span> veth1 up<br>ovs-vsctl del-port os_manage veth0<br>ovs-vsctl add-port os_manage veth0<br>ovs-vsctl show<br>ip <span class="hljs-built_in">link</span> <span class="hljs-built_in">set</span> os_manage up<br>ip addr add 192.168.10.1/24 dev veth0<br>ip addr add 192.168.10.2/24 dev veth1<br>ip addr show veth0<br>ip addr show veth1<br>ping 192.168.10.1 -I 192.168.10.2<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">ip <span class="hljs-built_in">link</span> del veth0<br></code></pre></td></tr></table></figure>
 <p>在本地搭建的虚拟机上无法复现此bug，但是可以用来调试获取关键路径堆栈。</p>
 <figure>
-<img
-src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/vm_ip_link_del_veth0.png" srcset="/img/loading.gif" lazyload
-alt="vm_ip_link_del_veth0" />
+<img src="/images/linux/kernel/net/bugs/ovs-veth-peer/https://cdn.jsdelivr.net/gh/realwujing/picture-bed/vm_ip_link_del_veth0.png" srcset="/img/loading.gif" lazyload alt="vm_ip_link_del_veth0">
 <figcaption aria-hidden="true">vm_ip_link_del_veth0</figcaption>
 </figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">trace-cmd record -p function_graph -g veth_dellink ip <span class="hljs-built_in">link</span> del veth0<br></code></pre></td></tr></table></figure>
@@ -534,8 +531,7 @@ lockup问题，编译出内核测试包后，实测有效。</p>
 bmc串口也上不去机器，ssh也不通。采用简版修复方案后机器不再soft
 lockup，后续调试工作就好展开了。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs c">diff --git a/net/core/dev.c b/net/core/dev.c<br>index <span class="hljs-number">4</span>d3851278303..f5991595b2d1 <span class="hljs-number">100644</span><br>--- a/net/core/dev.c<br>+++ b/net/core/dev.c<br>@@ <span class="hljs-number">-3186</span>,<span class="hljs-number">8</span> +<span class="hljs-number">3213</span>,<span class="hljs-number">23</span> @@ <span class="hljs-type">static</span> u16 <span class="hljs-title function_">skb_tx_hash</span><span class="hljs-params">(<span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> net_device *dev,</span><br><span class="hljs-params"> 		hash = skb_get_rx_queue(skb);</span><br><span class="hljs-params"> 		<span class="hljs-keyword">if</span> (hash &gt;= qoffset)</span><br><span class="hljs-params"> 			hash -= qoffset;</span><br><span class="hljs-params">-		<span class="hljs-keyword">while</span> (unlikely(hash &gt;= qcount))</span><br><span class="hljs-params">+</span><br><span class="hljs-params">+		<span class="hljs-keyword">while</span> (unlikely(hash &gt;= qcount)) &#123;</span><br><span class="hljs-params">+			<span class="hljs-keyword">if</span> (<span class="hljs-built_in">strncmp</span>(dev-&gt;name, <span class="hljs-string">&quot;veth&quot;</span>, <span class="hljs-number">4</span>) == <span class="hljs-number">0</span>) &#123;</span><br><span class="hljs-params">+				MY_WARN(<span class="hljs-number">1</span>, <span class="hljs-number">0</span>, <span class="hljs-string">&quot;veth_peer_soft_lockup&quot;</span>,</span><br><span class="hljs-params">+					<span class="hljs-string">&quot;dev-&gt;name:%s sb_dev-&gt;name:%s qconut:%hd hash:%u\n&quot;</span>,</span><br><span class="hljs-params">+					dev-&gt;name, sb_dev-&gt;name, qcount, hash);</span><br><span class="hljs-params">+			&#125;</span><br><span class="hljs-params">+</span><br><span class="hljs-params"> 			hash -= qcount;</span><br><span class="hljs-params">+</span><br><span class="hljs-params">+			<span class="hljs-keyword">if</span> (hash == <span class="hljs-number">0</span> &amp;&amp; qcount == <span class="hljs-number">0</span>) &#123;</span><br><span class="hljs-params">+				MY_WARN(<span class="hljs-number">1</span>, <span class="hljs-number">1</span>, <span class="hljs-string">&quot;veth_peer_soft_lockup&quot;</span>,</span><br><span class="hljs-params">+					<span class="hljs-string">&quot;dev-&gt;name:%s sb_dev-&gt;name:%s qconut:%hd hash:%u\n&quot;</span>,</span><br><span class="hljs-params">+					dev-&gt;name, sb_dev-&gt;name, qcount, hash);</span><br><span class="hljs-params">+				<span class="hljs-keyword">break</span>;</span><br><span class="hljs-params">+			&#125;</span><br><span class="hljs-params">+		&#125;</span><br><span class="hljs-params"> 		<span class="hljs-keyword">return</span> hash + qoffset;</span><br><span class="hljs-params"> 	&#125;</span><br><span class="hljs-params"></span><br></code></pre></td></tr></table></figure>
-<h3
-id="在remove_queue_kobjects中增加日志">在remove_queue_kobjects中增加日志</h3>
+<h3 id="在remove_queue_kobjects中增加日志">在remove_queue_kobjects中增加日志</h3>
 <p>当前机器已不再soft
 lockup，此处增加dump_stack获取堆栈不是很有必要，完全可以用bpftrace代替。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs c">diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c<br>index <span class="hljs-number">989b</span>3f7ee85f..d51d70f30fb1 <span class="hljs-number">100644</span><br>--- a/net/core/net-sysfs.c<br>+++ b/net/core/net-sysfs.c<br>@@ <span class="hljs-number">-1805</span>,<span class="hljs-number">6</span> +<span class="hljs-number">1805</span>,<span class="hljs-number">13</span> @@ <span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">remove_queue_kobjects</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> net_device *dev)</span><br>        <span class="hljs-title function_">net_rx_queue_update_kobjects</span><span class="hljs-params">(dev, real_rx, <span class="hljs-number">0</span>)</span>;<br>        netdev_queue_update_kobjects(dev, real_tx, <span class="hljs-number">0</span>);<br><br>+       <span class="hljs-keyword">if</span> (<span class="hljs-built_in">strncmp</span>(dev-&gt;name, <span class="hljs-string">&quot;veth&quot;</span>, <span class="hljs-number">4</span>) == <span class="hljs-number">0</span>) &#123;<br>+               MY_WARN(<span class="hljs-number">1</span>, <span class="hljs-number">1</span>, <span class="hljs-string">&quot;veth_peer_soft_lockup&quot;</span>, <span class="hljs-string">&quot;dev-&gt;name:%s, &quot;</span><br>+                       <span class="hljs-string">&quot;dev-&gt;real_num_rx_queues: %d, dev-&gt;real_num_tx_queues:%d\n&quot;</span>,<br>+                       dev-&gt;name, dev-&gt;real_num_rx_queues,<br>+                       dev-&gt;real_num_tx_queues);<br>+       &#125;<br>+<br>        dev-&gt;real_num_rx_queues = <span class="hljs-number">0</span>;<br>        dev-&gt;real_num_tx_queues = <span class="hljs-number">0</span>;<br> <span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_SYSFS</span><br></code></pre></td></tr></table></figure>
@@ -566,7 +562,7 @@ sections）完成，即等待所有 CPU 上正在使用 RCU
 <li>它是“侵入式”的，会强制触发调度或中断，以尽快完成同步。</li>
 </ul></li>
 </ul>
-<hr />
+<hr>
 <h4 id="实现机制">2. <strong>实现机制</strong></h4>
 <ul>
 <li><strong><code>synchronize_rcu()</code></strong>
@@ -582,7 +578,7 @@ CPU，强制每个 CPU 检查并退出当前的 RCU 读端临界区。</li>
 <li>不依赖自然调度，而是主动干预系统运行，从而显著缩短宽限期的等待时间。</li>
 </ul></li>
 </ul>
-<hr />
+<hr>
 <h4 id="性能与开销">3. <strong>性能与开销</strong></h4>
 <ul>
 <li><strong><code>synchronize_rcu()</code></strong>
@@ -596,7 +592,7 @@ CPU，强制每个 CPU 检查并退出当前的 RCU 读端临界区。</li>
 <li>完成时间短，适合需要快速同步的场景。</li>
 </ul></li>
 </ul>
-<hr />
+<hr>
 <h4 id="使用场景">4. <strong>使用场景</strong></h4>
 <ul>
 <li><strong><code>synchronize_rcu()</code></strong>
@@ -614,7 +610,7 @@ RTNL 锁被持有时）。</li>
 <code>synchronize_rcu_expedited()</code>，表明这是一个需要快速同步的场景。</li>
 </ul></li>
 </ul>
-<hr />
+<hr>
 <h4 id="典型区别总结">5. <strong>典型区别总结</strong></h4>
 <table>
 
@@ -653,7 +649,7 @@ RTNL 锁被持有时）。</li>
 </tr>
 </tbody>
 </table>
-<hr />
+<hr>
 <h4 id="在你的代码中的上下文">6.
 <strong>在你的代码中的上下文</strong></h4>
 <p>在你提供的代码中： <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">if</span> (rtnl_is_locked())<br>    synchronize_rcu_expedited();<br><span class="hljs-keyword">else</span><br>    synchronize_rcu();<br></code></pre></td></tr></table></figure> - 当 RTNL
@@ -672,7 +668,7 @@ RTNL 锁被持有时）。</li>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs bash">crash&gt; dis -lsx ovs_vport_send+0xac<br>FILE: net/openvswitch/vport.c<br>LINE: 508<br><br>  503           &#125;<br>  504<br>  505           skb-&gt;dev = vport-&gt;dev;<br>  506           skb-&gt;tstamp = 0;<br>  507           vport-&gt;ops-&gt;send(skb);<br>* 508           <span class="hljs-built_in">return</span>;<br>  509<br>  510   drop:<br>  511           kfree_skb(skb);<br>  512   &#125;<br></code></pre></td></tr></table></figure>
 <p>简单解释 <code>dis -lsx ovs_vport_send+0xac</code>
 的含义及其输出：</p>
-<hr />
+<hr>
 <h5 id="命令分解">命令分解</h5>
 <ul>
 <li><strong><code>dis</code></strong>：这是 <code>crash</code>
@@ -689,7 +685,7 @@ RTNL 锁被持有时）。</li>
 </ul>
 <p><strong>作用</strong>：这个命令会反汇编 <code>ovs_vport_send</code>
 函数在偏移 <code>0xac</code> 处的代码，并展示对应的源代码和上下文。</p>
-<hr />
+<hr>
 <h5 id="输出解释">输出解释</h5>
 <ul>
 <li><strong><code>FILE: net/openvswitch/vport.c</code></strong>：表明代码来自
@@ -710,7 +706,7 @@ Open vSwitch 模块的源文件 <code>vport.c</code>。</li>
 表示丢弃数据包的路径（如果执行流跳到这里）。</li>
 </ul></li>
 </ul>
-<hr />
+<hr>
 <h5 id="简单总结">简单总结</h5>
 <p><code>dis -lsx ovs_vport_send+0xac</code> 的作用是： - 查看
 <code>ovs_vport_send</code> 函数在偏移 <code>0xac</code> 处的指令。 -
@@ -728,14 +724,9 @@ Open vSwitch 模块的源文件 <code>vport.c</code>。</li>
 <h4 id="代码修复">代码修复</h4>
 <p>修复这个bug后尝试在上游社区找找有没有类似问题，结果发现上游2天前才修复。</p>
 <ul>
-<li><p><a target="_blank" rel="noopener" href="https://lkml.org/lkml/2025/3/17/1299"
-class="uri">https://lkml.org/lkml/2025/3/17/1299</a></p></li>
-<li><p><a
-target="_blank" rel="noopener" href="https://lore.kernel.org/bpf/20250317154537.3633540-3-florian.fainelli@broadcom.com/T/"
-class="uri">https://lore.kernel.org/bpf/20250317154537.3633540-3-florian.fainelli@broadcom.com/T/</a></p></li>
-<li><p><a
-target="_blank" rel="noopener" href="https://lore.kernel.org/bpf/20250317154537.3633540-1-florian.fainelli@broadcom.com/"
-class="uri">https://lore.kernel.org/bpf/20250317154537.3633540-1-florian.fainelli@broadcom.com/</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://lkml.org/lkml/2025/3/17/1299" class="uri">https://lkml.org/lkml/2025/3/17/1299</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://lore.kernel.org/bpf/20250317154537.3633540-3-florian.fainelli@broadcom.com/T/" class="uri">https://lore.kernel.org/bpf/20250317154537.3633540-3-florian.fainelli@broadcom.com/T/</a></p></li>
+<li><p><a target="_blank" rel="noopener" href="https://lore.kernel.org/bpf/20250317154537.3633540-1-florian.fainelli@broadcom.com/" class="uri">https://lore.kernel.org/bpf/20250317154537.3633540-1-florian.fainelli@broadcom.com/</a></p></li>
 </ul>
 <p>这里合入上游修复代码更妥当，虽然写法差不多: <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">b4 am -o - 20250317154537.3633540-1-florian.fainelli@broadcom.com | git am -3<br></code></pre></td></tr></table></figure></p>
 <h5 id="net-openvswitch-fix-race-on-port-output">net: openvswitch: fix
@@ -757,8 +748,7 @@ race on port output</h5>
 处添加注释，说明改动增强了条件检查，不仅要求虚拟端口存在，还要求设备载波状态（carrier）正常，以确保数据包只在网络接口可用时发送。</li>
 </ul></li>
 </ol>
-<h5
-id="openvswitch-fix-lockup-on-tx-to-unregistering-netdev-with-carrier">openvswitch:
+<h5 id="openvswitch-fix-lockup-on-tx-to-unregistering-netdev-with-carrier">openvswitch:
 fix lockup on tx to unregistering netdev with carrier</h5>
 <p>以下是 diff 文件中关键改动点添加中文注释后的结果：</p>
 <figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs diff"><span class="hljs-comment">diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c</span><br><span class="hljs-comment">index a66b826e6711..a02ea493c269 100644</span><br><span class="hljs-comment">--- a/net/openvswitch/actions.c</span><br><span class="hljs-comment">+++ b/net/openvswitch/actions.c</span><br><span class="hljs-meta">@@ -912,7 +912,9 @@</span> static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,<br> &#123;<br>        struct vport *vport = ovs_vport_rcu(dp, out_port);<br><br><span class="hljs-deletion">-       if (likely(vport &amp;&amp; netif_carrier_ok(vport-&gt;dev))) &#123;</span><br><span class="hljs-addition">+       if (likely(vport &amp;&amp;                           // 修改条件：检查 vport 是否存在</span><br><span class="hljs-addition">+                  netif_running(vport-&gt;dev) &amp;&amp;       // 增加检查：确保设备处于运行状态</span><br><span class="hljs-addition">+                  netif_carrier_ok(vport-&gt;dev))) &#123;   // 保留检查：确保设备载波状态正常</span><br>                u16 mru = OVS_CB(skb)-&gt;mru;<br>                u32 cutlen = OVS_CB(skb)-&gt;cutlen;<br></code></pre></td></tr></table></figure>
@@ -807,8 +797,7 @@ OK），链路是连通的。</p>
 内核网络栈）中，检查载波状态可以避免向不可用的网络接口发送数据。比如，在前面的
 <code>do_output</code> 函数中，增加了 <code>netif_carrier_ok</code>
 检查，确保只有在链路正常时才处理数据包，从而提高效率和稳定性。</p>
-<h2
-id="httpslkml.orglkml20253171299">https://lkml.org/lkml/2025/3/17/1299</h2>
+<h2 id="httpslkml.orglkml20253171299">https://lkml.org/lkml/2025/3/17/1299</h2>
 <p>这封邮件是关于Linux内核的一个补丁，标题为“[PATCH stable 5.4 1/2] net:
 openvswitch: fix race on port output”，由Florian
 Fainelli提交，日期为2025年3月17日。补丁针对的是Linux内核5.4版本中的一个问题，具体是一个与Open
@@ -874,13 +863,12 @@ output）揭示了一个复杂的竞争条件（race condition），涉及到 Li
 RCU（Read-Copy-Update）机制的交互。你的疑问集中在“为什么在
 <code>synchronize_net</code>（使用了 RCU
 同步）之后仍然会出现问题”，这是一个值得深入探讨的地方。让我们逐步分析问题，并解答你的疑惑。</p>
-<hr />
-<h2
-id="synchronize_net-已经提供了-rcu-同步为什么步骤-7设置-real_num_tx_queues-0之后步骤-9vport-删除完成之前还会出错"><code>synchronize_net</code>
+<hr>
+<h2 id="synchronize_net-已经提供了-rcu-同步为什么步骤-7设置-real_num_tx_queues-0之后步骤-9vport-删除完成之前还会出错"><code>synchronize_net</code>
 已经提供了 RCU 同步，为什么步骤 7（设置
 <code>real_num_tx_queues = 0</code>）之后、步骤 9（vport
 删除完成）之前还会出错？</h2>
-<hr />
+<hr>
 <h3 id="rcu-和-synchronize_net-的作用">RCU 和
 <code>synchronize_net</code> 的作用</h3>
 <p><code>synchronize_net</code> 是 Linux
@@ -900,9 +888,8 @@ RCU 访问已标记为 <code>NETREG_UNREGISTERING</code> 的设备。</p>
 <p>但问题出在：<strong>数据包的发送路径并不完全受 RCU
 的保护</strong>，或者说，OVS
 的设计中存在一个窗口期，导致数据包处理和设备注销的逻辑未能完全同步。</p>
-<hr />
-<h3
-id="问题的根本原因窗口期和数据包路径">问题的根本原因：窗口期和数据包路径</h3>
+<hr>
+<h3 id="问题的根本原因窗口期和数据包路径">问题的根本原因：窗口期和数据包路径</h3>
 <p>仔细看看事件序列，分析为何 <code>synchronize_net</code>
 未能阻止问题：</p>
 <h4 id="事件序列简化版">事件序列（简化版）</h4>
@@ -975,7 +962,7 @@ veth 设备，即使该设备已被标记为注销。</li>
 <code>skb_tx_hash</code>，触发问题。</li>
 </ul></li>
 </ul>
-<hr />
+<hr>
 <h3 id="skb_tx_hash-的问题"><code>skb_tx_hash</code> 的问题</h3>
 <p>补丁提到的问题发生在 <code>skb_tx_hash</code>
 中。我们来看看这个函数（基于 Linux 5.4 的代码，可能略有简化）：
@@ -995,7 +982,7 @@ veth 设备，即使该设备已被标记为注销。</li>
 的数据路径没有及时感知到设备的注销状态。</li>
 </ul></li>
 </ul>
-<hr />
+<hr>
 <h3 id="补丁的修复思路">补丁的修复思路</h3>
 <p>补丁的标题是“fix race on port output”： 1. <strong>在 OVS
 中提前阻止数据包转发</strong>： - 在 <code>ovs_netdev_detach_dev</code>
@@ -1007,7 +994,7 @@ veth 设备，即使该设备已被标记为注销。</li>
 vport 删除完成。</p>
 <p>从补丁的上下文看，最可能的修复是在 OVS
 中加锁或同步机制，避免数据包在设备注销后仍被转发。</p>
-<hr />
+<hr>
 <h3 id="回答你的疑问">回答你的疑问</h3>
 <blockquote>
 <p>“这里有 <code>synchronize_net</code>，有 RCU，在步骤 7 之后、步骤 9
@@ -1038,7 +1025,7 @@ vport 删除完成。</p>
 <p>简单来说，<code>synchronize_net</code> 提供了部分同步，但 OVS
 的设计（异步删除 vport）和 <code>skb_tx_hash</code>
 的逻辑缺陷共同导致了这个竞争条件。</p>
-<hr />
+<hr>
 <h3 id="总结-1">总结</h3>
 <p>这个问题的根源在于： -
 <strong>多层异步性</strong>：设备注销（<code>real_num_tx_queues = 0</code>）和
@@ -1050,10 +1037,10 @@ OVS 数据路径的并发操作。 -
 <h2 id="bpftrace-first-word-is-function-name">bpftrace (first word is
 function name)</h2>
 <p>使用<code>bpftrace</code>语句需要追踪补丁中提到的关键内核函数（如<code>__dev_queue_xmit</code>、<code>netdev_core_pick_tx</code>、<code>dp_device_event</code>等），并提取相关的上下文信息（如设备名、发送队列数、CPU、进程ID、数据包地址等）。</p>
-<hr />
+<hr>
 <h3 id="推导的bpftrace脚本">推导的<code>bpftrace</code>脚本</h3>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br></pre></td><td class="code"><pre><code class="hljs c">#!/usr/bin/bpftrace<br><br><span class="hljs-comment">// 追踪发送路径的函数</span><br>tracepoint:net:net_dev_queue &#123;<br>    $skb = (<span class="hljs-keyword">struct</span> sk_buff *)args-&gt;skbaddr;<br>    $dev = (<span class="hljs-keyword">struct</span> net_device *)args-&gt;dev;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;%s %s: real_num_tx_queues: %d, cpu: %d, pid: %d, tid: %d, skb_addr: 0x%lx, reg_state: %d\n&quot;</span>,<br>           probe, $dev-&gt;name, $dev-&gt;real_num_tx_queues, cpu, pid, tid, $skb, $dev-&gt;reg_state);<br>&#125;<br><br>kprobe:__dev_queue_xmit &#123;<br>    $skb = (<span class="hljs-keyword">struct</span> sk_buff *)arg0;<br>    $dev = (<span class="hljs-keyword">struct</span> net_device *)$skb-&gt;dev;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;%s %s: real_num_tx_queues: %d, cpu: %d, pid: %d, tid: %d, skb_addr: 0x%lx, reg_state: %d\n&quot;</span>,<br>           probe, $dev-&gt;name, $dev-&gt;real_num_tx_queues, cpu, pid, tid, $skb, $dev-&gt;reg_state);<br>&#125;<br><br>kprobe:netdev_core_pick_tx &#123;<br>    $dev = (<span class="hljs-keyword">struct</span> net_device *)arg0;<br>    $skb = (<span class="hljs-keyword">struct</span> sk_buff *)arg1;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;%s %s: addr: 0x%lx real_num_tx_queues: %d, cpu: %d, pid: %d, tid: %d, skb_addr: 0x%lx, reg_state: %d\n&quot;</span>,<br>           probe, $dev-&gt;name, $dev, $dev-&gt;real_num_tx_queues, cpu, pid, tid, $skb, $dev-&gt;reg_state);<br>&#125;<br><br><span class="hljs-comment">// 追踪OVS相关的事件处理</span><br>kprobe:dp_device_event &#123;<br>    $dev = (<span class="hljs-keyword">struct</span> net_device *)arg1;<br>    $event = (<span class="hljs-type">unsigned</span> <span class="hljs-type">long</span>)arg2;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;%s %s: real_num_tx_queues: %d cpu %d, pid: %d, tid: %d, event %d, reg_state: %d\n&quot;</span>,<br>           probe, $dev-&gt;name, $dev-&gt;real_num_tx_queues, cpu, pid, tid, $event, $dev-&gt;reg_state);<br>&#125;<br><br>kprobe:ovs_netdev_detach_dev &#123;<br>    $dev = (<span class="hljs-keyword">struct</span> net_device *)arg0;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;%s %s: real_num_tx_queues: %d cpu %d, pid: %d, tid: %d, reg_state: %d\n&quot;</span>,<br>           probe, $dev-&gt;name, $dev-&gt;real_num_tx_queues, cpu, pid, tid, $dev-&gt;reg_state);<br>&#125;<br><br>kprobe:ovs_vport_send &#123;<br>    $dev = (<span class="hljs-keyword">struct</span> net_device *)arg0;<br>    $skb = (<span class="hljs-keyword">struct</span> sk_buff *)arg1;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;%s %s: real_num_tx_queues: %d, cpu: %d, pid: %d, tid: %d, skb_addr: 0x%lx, reg_state: %d\n&quot;</span>,<br>           probe, $dev-&gt;name, $dev-&gt;real_num_tx_queues, cpu, pid, tid, $skb, $dev-&gt;reg_state);<br>&#125;<br><br>kprobe:ovs_dp_detach_port &#123;<br>    $dev = (<span class="hljs-keyword">struct</span> net_device *)arg0-&gt;netdev;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;%s %s: real_num_tx_queues: %d cpu %d, pid: %d, tid: %d, reg_state: %d\n&quot;</span>,<br>           probe, $dev-&gt;name, $dev-&gt;real_num_tx_queues, cpu, pid, tid, $dev-&gt;reg_state);<br>&#125;<br><br><span class="hljs-comment">// 追踪设备注销相关函数</span><br>kprobe:netdev_rx_handler_unregister &#123;<br>    $dev = (<span class="hljs-keyword">struct</span> net_device *)arg0;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;%s %s: real_num_tx_queues: %d, cpu: %d, pid: %d, tid: %d, reg_state: %d\n&quot;</span>,<br>           probe, $dev-&gt;name, $dev-&gt;real_num_tx_queues, cpu, pid, tid, $dev-&gt;reg_state);<br>&#125;<br><br>kretprobe:netdev_rx_handler_unregister &#123;<br>    $dev = (<span class="hljs-keyword">struct</span> net_device *)arg0;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;%s ret %s: real_num_tx_queues: %d, cpu: %d, pid: %d, tid: %d, reg_state: %d\n&quot;</span>,<br>           probe, $dev-&gt;name, $dev-&gt;real_num_tx_queues, cpu, pid, tid, $dev-&gt;reg_state);<br>&#125;<br><br>kprobe:netdev_unregister_kobject &#123;<br>    $dev = (<span class="hljs-keyword">struct</span> net_device *)arg0;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;%s: real_num_tx_queues: %d, cpu: %d, pid: %d, tid: %d\n&quot;</span>,<br>           probe, $dev-&gt;real_num_tx_queues, cpu, pid, tid);<br>&#125;<br><br><span class="hljs-comment">// 追踪同步函数</span><br>kprobe:synchronize_rcu_expedited &#123;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;%s: cpu %d, pid: %d, tid: %d\n&quot;</span>, probe, cpu, pid, tid);<br>&#125;<br><br><span class="hljs-comment">// 自定义条件：检测损坏的设备</span><br>kprobe:netdev_core_pick_tx / ((<span class="hljs-keyword">struct</span> net_device *)arg0)-&gt;real_num_tx_queues == <span class="hljs-number">0</span> / &#123;<br>    $dev = (<span class="hljs-keyword">struct</span> net_device *)arg0;<br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;broken device %s: real_num_tx_queues: %d, cpu: %d, pid: %d, tid: %d\n&quot;</span>,<br>           $dev-&gt;name, $dev-&gt;real_num_tx_queues, cpu, pid, tid);<br>&#125;<br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h3 id="脚本说明">脚本说明</h3>
 <ol type="1">
 <li><strong>追踪点选择</strong>：
@@ -1083,20 +1070,20 @@ device”，对应补丁中描述的异常情况。</li>
 <li>参数通过<code>arg0</code>、<code>arg1</code>等获取，具体含义依赖函数签名。</li>
 </ul></li>
 </ol>
-<hr />
+<hr>
 <h3 id="如何运行">如何运行</h3>
 <ol type="1">
 <li>将上述脚本保存为<code>trace.bt</code>。</li>
 <li>以root权限运行：<code>sudo bpftrace trace.bt</code>。</li>
 <li>在测试环境（如补丁描述的场景）中触发问题，观察输出。</li>
 </ol>
-<hr />
+<hr>
 <h3 id="输出匹配">输出匹配</h3>
 <p>这个脚本生成的输出与你提供的内容高度一致，例如： -
 <code>__dev_queue_xmit server: real_num_tx_queues: 1, cpu: 2, pid: 28024, tid: 28024, skb_addr: 0xffff9edb6f207000, reg_state: 1</code>
 -
 <code>broken device server: real_num_tx_queues: 0, cpu: 2, pid: 28024, tid: 28024</code></p>
-<hr />
+<hr>
 <h3 id="注意事项">注意事项</h3>
 <ol type="1">
 <li><strong>内核版本</strong>：脚本假设运行在Linux
@@ -1234,9 +1221,9 @@ device”，对应补丁中描述的异常情况。</li>
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/linux/kernel/net/bugs/server2-99-101/dpu%20server2-99-101%E6%89%93%E6%B5%81%E5%8D%A1%E9%A1%BF/" title="dpu server2-99-101打流卡顿">
+                      <a href="/linux/kernel/net/bugs/hns3/CPU%20Stuck%20During%20Reboot/" title="CPU Stuck During Reboot">
                         <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">dpu server2-99-101打流卡顿</span>
+                        <span class="hidden-mobile">CPU Stuck During Reboot</span>
                         <span class="visible-mobile">上一篇</span>
                       </a>
                     
@@ -1244,8 +1231,8 @@ device”，对应补丁中描述的异常情况。</li>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/linux/kernel/net/bugs/vhost-user-vring/ovs-dpdk%20loss%20packet%20in%20vhost-user/" title="ovs-dpdk loss packet in vhost-user">
-                        <span class="hidden-mobile">ovs-dpdk loss packet in vhost-user</span>
+                      <a href="/linux/kernel/net/bugs/rte_kni/ret_kni/" title="ret_kni">
+                        <span class="hidden-mobile">ret_kni</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>

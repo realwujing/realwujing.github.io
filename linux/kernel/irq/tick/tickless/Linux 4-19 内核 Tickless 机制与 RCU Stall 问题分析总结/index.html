@@ -23,12 +23,14 @@
 <meta property="og:site_name" content="WuJing&#39;s Blog">
 <meta property="og:description" content="Linux 4.19 内核 Tickless 机制与 RCU Stall 问题分析总结 问题描述 1. 内核版本及环境信息 123uname -aLinux gzinf-kunpeng-55e235e17e57 4.19.90-2102.2.0.0068.ctl2.aarch64 #1 SMP Tue Aug 22 10:53:53 UTC 2023 aarch64 aarch64 aarch64">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/kernel/irq/tick/tickless/https://cdn.jsdelivr.net/gh/realwujing/picture-bed/rcu_needs_cpu.png">
 <meta property="article:published_time" content="2025-07-10T11:44:51.000Z">
 <meta property="article:modified_time" content="2025-07-29T14:31:19.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="linux">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://realwujing.github.io/images/linux/kernel/irq/tick/tickless/https://cdn.jsdelivr.net/gh/realwujing/picture-bed/rcu_needs_cpu.png">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
@@ -342,16 +344,16 @@
 <h2 id="问题描述">问题描述</h2>
 <h3 id="内核版本及环境信息">1. 内核版本及环境信息</h3>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">uname</span> -a<br><br>Linux gzinf-kunpeng-55e235e17e57 4.19.90-2102.2.0.0068.ctl2.aarch64 <span class="hljs-comment">#1 SMP Tue Aug 22 10:53:53 UTC 2023 aarch64 aarch64 aarch64 GNU/Linux</span><br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h3 id="内核启动参数">2. 内核启动参数</h3>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/cmdline<br><br>BOOT_IMAGE=(hd0,3)/vmlinuz-4.19.90-2102.2.0.0068.ctl2.aarch64 root=UUID=216fa54f-9345-4f9a-8fe2-dc3a44db7775 ro console=tty0 pci=realloc pciehp.pciehp_force=1 biosdevname=0 net.ifnames-0 console=ttyS0,115200n8 crashkernel=1024M,high smmu.bypassdev=0x1000:0x17 smmu.bypassdev=0x1000:0x15 video=efifb:off<br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h3 id="内核配置相关">3. 内核配置相关</h3>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">grep -E <span class="hljs-string">&quot;CONFIG_HZ|CONFIG_HIGH_RES_TIMERS|CONFIG_NO_HZ&quot;</span> /boot/config-$(<span class="hljs-built_in">uname</span> -r)<br><br><span class="hljs-comment"># CONFIG_HZ_PERIODIC is not set</span><br>CONFIG_HIGH_RES_TIMERS=y<br><span class="hljs-comment"># CONFIG_HZ_100 is not set</span><br>CONFIG_HZ_250=y<br><span class="hljs-comment"># CONFIG_HZ_300 is not set</span><br><span class="hljs-comment"># CONFIG_HZ_1000 is not set</span><br>CONFIG_HZ=250<br>CONFIG_NO_HZ_COMMON=y<br><span class="hljs-comment"># CONFIG_NO_HZ_IDLE is not set</span><br>CONFIG_NO_HZ_FULL=y<br>CONFIG_NO_HZ=y<br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h3 id="当前时钟源">4. 当前时钟源</h3>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /sys/devices/system/clocksource/clocksource0/current_clocksource<br><br>arch_sys_counter<br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h3 id="cpu-tickless-状态">5. CPU Tickless 状态</h3>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs bash">grep <span class="hljs-string">&#x27;tick_stopped&#x27;</span> /proc/timer_list<br><br><span class="hljs-comment">#部分结果（部分截取）：</span><br><br>.tick_stopped   : 1<br>.tick_stopped   : 1<br>...<br>.tick_stopped   : 0<br>.tick_stopped   : 1<br>...<br></code></pre></td></tr></table></figure>
 <p>说明有些 CPU 已进入 tickless（tick_stopped:1），部分尚未停止调度
@@ -369,14 +371,14 @@ tick，减少无用中断，提高能效。</p></li>
 <li><strong>watchdog 定时器</strong>：系统看门狗，防止死锁。</li>
 </ul></li>
 </ul>
-<hr />
+<hr>
 <h3 id="查看定时器详细状态cpu0为例">6.
 查看定时器详细状态（CPU0为例）</h3>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/timer_list | grep -A10 <span class="hljs-string">&#x27;cpu: 0&#x27;</span><br></code></pre></td></tr></table></figure>
 <p>部分结果：</p>
 <figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">cpu</span><span class="hljs-punctuation">:</span> <span class="hljs-string">0</span><br> <span class="hljs-attribute">clock 0</span><span class="hljs-punctuation">:</span><br>  <span class="hljs-attribute">.base</span><span class="hljs-punctuation">:</span> <span class="hljs-string">      0000000059048cdc</span><br>  <span class="hljs-attribute">.index</span><span class="hljs-punctuation">:</span> <span class="hljs-string">     0</span><br>  <span class="hljs-attribute">.resolution</span><span class="hljs-punctuation">:</span> <span class="hljs-string">1 nsecs</span><br>  <span class="hljs-attribute">.get_time</span><span class="hljs-punctuation">:</span> <span class="hljs-string">  ktime_get</span><br>  <span class="hljs-attribute">.offset</span><span class="hljs-punctuation">:</span> <span class="hljs-string">    0 nsecs</span><br><span class="hljs-attribute">active timers</span><span class="hljs-punctuation">:</span><br> <span class="hljs-comment">#0: &lt;00000000410c4969&gt;, tick_sched_timer, S:01</span><br> <span class="hljs-comment"># expires at 9855148276000000-9855148276000000 nsecs [in 97383564 to 97383564 nsecs]</span><br> <span class="hljs-comment">#1: &lt;00000000e2898855&gt;, kvm_bg_timer_expire, S:01</span><br></code></pre></td></tr></table></figure>
 <p>其中 <code>tick_sched_timer</code> 是传统调度周期中断。</p>
-<hr />
+<hr>
 <h3 id="现象与问题">7. 现象与问题</h3>
 <ul>
 <li>CPU idle 后进入 tickless，<code>.tick_stopped</code> 为 1。</li>
@@ -386,7 +388,7 @@ lockup。</li>
 无法触发软中断。</li>
 <li>导致 RCU 软中断得不到执行，内核同步受阻。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="关闭-tickless-试验临时">8. 关闭 tickless 试验（临时）</h3>
 <ul>
 <li>在 grub 启动参数添加 <code>nohz=off</code></li>
@@ -394,7 +396,7 @@ lockup。</li>
 应全为 0，表示调度 tick 不被停止。</li>
 <li>检查系统稳定性，若无 RCU stall，说明 tickless 相关导致问题。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="传统时钟中断与高精度定时器hrtimer配合">9.
 传统时钟中断与高精度定时器（hrtimer）配合</h3>
 <ul>
@@ -406,7 +408,7 @@ tick，精准调度定时任务。</li>
 <li>但若硬件时钟源异常或深度睡眠影响 hrtimer，软中断无法及时触发，导致
 RCU stall。</li>
 </ul>
-<hr />
+<hr>
 <h4 id="关于-hrtimer-与传统调度-timersched_timer的关系">关于 hrtimer
 与传统调度 timer（sched_timer）的关系</h4>
 <ul>
@@ -424,7 +426,7 @@ CPU 活跃状态下的调度周期维护。</p></li>
 <li><p>hrtimer 和 sched_timer 是 <strong>协同工作的</strong>，
 保证调度的准确性和系统响应的灵活性。</p></li>
 </ul>
-<hr />
+<hr>
 <h2 id="hrtimer-与传统-tick-定时器的协同机制核心讲解">⏱️ hrtimer 与传统
 tick 定时器的协同机制（核心讲解）</h2>
 <h3 id="一传统低精度定时器机制timer-wheel">✅
@@ -436,7 +438,7 @@ tick 定时器的协同机制（核心讲解）</h2>
 callback。</li>
 <li>特点：<strong>粒度较粗（4ms）、延迟高、效率高（适合大批任务）</strong>。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="二高精度定时器-hrtimer-的引入">✅ <strong>二、高精度定时器
 hrtimer 的引入</strong></h3>
 <ul>
@@ -446,7 +448,7 @@ hrtimer 的引入</strong></h3>
 <li>定时器硬件只能同时服务一个 timeout → 选择最早的 hrtimer
 事件作为定时触发点。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="三hrtimer-如何模拟tick以协同工作">✅ <strong>三、hrtimer
 如何模拟“tick”以协同工作？</strong></h3>
 <blockquote>
@@ -482,7 +484,7 @@ sched_timer。</li>
 <li>hrtimer 的红黑树中调度的是“最早到期时间”的事件。</li>
 <li>比如用户设定的 2ms 超时任务会抢占原本的 sched_timer 设置。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="四协同机制小结">✅ <strong>四、协同机制小结：</strong></h3>
 <table>
 
@@ -523,13 +525,13 @@ sched_timer。</li>
 <li>保留 <code>CONFIG_HZ=250</code>，tick 模拟周期为 4ms，用于 fallback
 路径。</li>
 </ul>
-<hr />
+<hr>
 <h2 id="那当前的配置下cpu-idle状态默认会进入tickless">那当前的配置下cpu
 idle状态默认会进入tickless？</h2>
 <p>是的，根据提供的内核配置和系统信息，<strong>当前 CPU 在 idle
 状态下默认确实会进入 tickless 模式（即停止周期性 tick
 中断）</strong>。下面是分析依据：</p>
-<hr />
+<hr>
 <h3 id="一配置项分析">✅ 一、配置项分析</h3>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">CONFIG_NO_HZ_COMMON=y<br>CONFIG_NO_HZ_FULL=y<br>CONFIG_NO_HZ=y<br><span class="hljs-comment"># CONFIG_NO_HZ_IDLE is not set</span><br></code></pre></td></tr></table></figure>
 <ul>
@@ -545,14 +547,14 @@ idle 专用 tickless 模式</strong>，因为被 <code>FULL</code> 替代。</li
 <p>✅ <code>NO_HZ_IDLE</code> 是为了 idle 状态减少 tick；</p>
 <p>✅ <code>NO_HZ_FULL</code> 是为了用户态也能停 tick，更彻底。</p>
 </blockquote>
-<hr />
+<hr>
 <h3 id="二实际运行状态">✅ 二、实际运行状态</h3>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">.tick_stopped : 1  ← 代表该 CPU 停止 tick（tickless）<br></code></pre></td></tr></table></figure>
 <p>这表明大多数 CPU 已经<strong>实际处于 tickless 状态</strong>。</p>
 <p>而 <code>.tick_stopped : 0</code> 的几个 CPU
 可能当前正在内核态，或者运行着内核线程（如
 ksoftirqd、rcu、kworker），需要保留调度 tick。</p>
-<hr />
+<hr>
 <h3 id="三cpu-idle-默认行为no_hz_full-下">✅ 三、CPU idle
 默认行为（NO_HZ_FULL 下）</h3>
 <blockquote>
@@ -565,7 +567,7 @@ tick</strong>，只保留必要的定时器（如 hrtimer、RCU、watchdog）。
 <li>发生频繁中断</li>
 <li>有 <code>isolcpus</code> 没设置导致不允许 full tickless</li>
 </ol>
-<hr />
+<hr>
 <h3 id="四总结">✅ 四、总结</h3>
 <table>
 
@@ -594,17 +596,16 @@ tick</strong>，只保留必要的定时器（如 hrtimer、RCU、watchdog）。
 </tr>
 </tbody>
 </table>
-<hr />
+<hr>
 <p>如需进一步验证，可以运行：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/timer_list | grep -A10 <span class="hljs-string">&#x27;cpu: 0&#x27;</span><br></code></pre></td></tr></table></figure>
 <p>观察是否只有极少数定时器（如 <code>tick_sched_timer</code> 和
 <code>rcu</code>）在活动，说明 CPU 正在运行于 tickless 状态。</p>
-<hr />
-<h2
-id="当前的系统在调度器选中idle时也会进入tickless">当前的系统在调度器选中idle时，也会进入tickless?</h2>
+<hr>
+<h2 id="当前的系统在调度器选中idle时也会进入tickless">当前的系统在调度器选中idle时，也会进入tickless?</h2>
 <p><strong>当前系统在调度器选中 idle 任务时，会自动进入 tickless
 模式</strong>（也称为 <em>idle tickless</em>）。</p>
-<hr />
+<hr>
 <h3 id="依据如下">🔍 依据如下</h3>
 <h4 id="当前的内核配置来自-bootconfig-uname--r">✅ 当前的内核配置（来自
 <code>/boot/config-$(uname -r)</code>）</h4>
@@ -617,7 +618,7 @@ id="当前的系统在调度器选中idle时也会进入tickless">当前的系�
 <li><strong>只要某个 CPU 没有被 <code>nohz_full=</code>
 参数隔离出去，它就默认工作在 idle tickless 模式</strong>。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="内核逻辑说明">🧠 内核逻辑说明</h3>
 <p>内核中 tickless 支持主要分为两部分：</p>
 <table>
@@ -649,14 +650,14 @@ id="当前的系统在调度器选中idle时也会进入tickless">当前的系�
 <li>被隔离的 CPU（通过内核命令行 <code>nohz_full=</code>
 配置）则支持用户态停 tick。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="举个例子">✅ 举个例子</h3>
 <p>之前运行的：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /proc/timer_list | grep <span class="hljs-string">&#x27;tick_stopped&#x27;</span><br><br><span class="hljs-comment"># 输出中大多数 CPU 是：</span><br><br>.tick_stopped : 1<br></code></pre></td></tr></table></figure>
 <p>说明当前这些 CPU 已经进入 tickless 状态，而这在没有
 <code>nohz_full=</code> 参数的情况下，通常就是因为这些 CPU 当前
 idle，调度器选择了 idle 任务。</p>
-<hr />
+<hr>
 <h3 id="结论">✅ 结论</h3>
 <blockquote>
 <p><strong>是的，系统中未被 <code>nohz_full</code> 隔离的
@@ -668,14 +669,13 @@ tick，进入 tickless 模式。</strong></p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cat</span> /sys/devices/system/cpu/nohz_full<br></code></pre></td></tr></table></figure>
 <p>或者确认内核启动参数是否包含：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">nohz_full=1-15  <span class="hljs-comment"># 举例</span><br></code></pre></td></tr></table></figure>
-<h2
-id="只保留必要的定时器如-hrtimerrcuwatchdog这三种保留的定时器讲一下">只保留必要的定时器（如
+<h2 id="只保留必要的定时器如-hrtimerrcuwatchdog这三种保留的定时器讲一下">只保留必要的定时器（如
 hrtimer、RCU、watchdog），这三种保留的定时器讲一下？</h2>
 <p>在 <code>NO_HZ_FULL</code> 模式下，系统尽量停掉周期性调度
 tick，但仍<strong>必须保留少量关键定时器</strong>，以保障内核基本功能的正常运行。你提到的
 <code>hrtimer</code>、<code>RCU</code>、<code>watchdog</code>
 是典型的三种<strong>不能省略</strong>的定时器，下面分别讲清楚它们的作用和运行机制：</p>
-<hr />
+<hr>
 <h3 id="hrtimer高精度定时器">①
 <strong>hrtimer（高精度定时器）</strong></h3>
 <h4 id="作用">🔹 作用</h4>
@@ -699,7 +699,7 @@ tick，但仍<strong>必须保留少量关键定时器</strong>，以保障内�
 <li>用户态运行时需要周期性唤醒，如 perf sampling、周期 timerfd。</li>
 <li>替代 <code>sched_tick</code>，精确控制重新调度时间点。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="rcuread-copy-update定时器">② <strong>RCU（Read-Copy
 Update）定时器</strong></h3>
 <h4 id="作用-1">🔹 作用</h4>
@@ -723,7 +723,7 @@ period”</em>，即所有旧版本读操作完成之后，才能释放旧数据
 <li>或者在 kernel exit to user 模式下调用 <code>rcu_user_exit()</code>
 让 RCU 知道可以推进 grace period。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="watchdog看门狗定时器">③
 <strong>watchdog（看门狗定时器）</strong></h3>
 <h4 id="作用-2">🔹 作用</h4>
@@ -746,7 +746,7 @@ BUG/WARNING。</li>
 <li>但 CPU 一旦进入内核态或中断上下文，watchdog 会继续运作；</li>
 <li>可以通过 <code>watchdog_thresh</code> 配置超时时间。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="总结表">✅ 总结表</h3>
 <table>
 
@@ -783,7 +783,7 @@ BUG/WARNING。</li>
 </tr>
 </tbody>
 </table>
-<hr />
+<hr>
 <h2 id="rcu_needs_cpu-函数">rcu_needs_cpu() 函数</h2>
 <p>当前内核配置中如果没有启用 RCU 的 fast nohz 模式，
 <code>rcu_needs_cpu()</code> 函数的实现如下：</p>
@@ -798,7 +798,7 @@ get_next_timer_interrupt 中获取下一个到期时钟的判断。</p>
 RCU（Read-Copy-Update）机制的一部分，主要功能是判断当前 CPU
 是否需要继续处理 RCU
 回调，或者是否可以进入空闲状态。以下是详细解析：</p>
-<hr />
+<hr>
 <h3 id="函数功能"><strong>函数功能</strong></h3>
 <p><code>rcu_needs_cpu()</code> 用于检查当前 CPU 是否需要继续处理
 RCbackups，并计算下一次可能的回调触发时间（<code>nextevt</code>）。</p>
@@ -813,7 +813,7 @@ RCbackups，并计算下一次可能的回调触发时间（<code>nextevt</code>
 <li><code>0</code>：当前没有紧急回调，可以进入空闲状态（<code>nextevt</code>
 会告知下次可能的唤醒时间）</li>
 </ul>
-<hr />
+<hr>
 <h3 id="代码逻辑分析"><strong>代码逻辑分析</strong></h3>
 <h4 id="检查中断是否已禁用"><strong>1. 检查中断是否已禁用</strong></h4>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c">lockdep_assert_irqs_disabled();<br></code></pre></td></tr></table></figure>
@@ -853,7 +853,7 @@ jiffies），并可能对齐到时钟滴答边界。</p></li>
 <code>basemono</code> 和计算出的延迟 <code>dj</code>
 得出的绝对时间（纳秒）。</p></li>
 </ul>
-<hr />
+<hr>
 <h4 id="关键点总结"><strong>关键点总结</strong></h4>
 <ol type="1">
 <li><strong>回调分类</strong>：
@@ -873,7 +873,7 @@ jiffies），并可能对齐到时钟滴答边界。</p></li>
 对齐时间，避免频繁唤醒。</li>
 </ul></li>
 </ol>
-<hr />
+<hr>
 <h4 id="典型应用场景"><strong>典型应用场景</strong></h4>
 <p>此函数被调用在 CPU 即将进入空闲状态（如
 <code>tick_nohz_stop_tick</code>）时，用于决定：</p>
@@ -882,13 +882,10 @@ jiffies），并可能对齐到时钟滴答边界。</p></li>
 <li>若允许空闲，何时需唤醒（例如 4ms 后检查延迟回调）。</li>
 </ul>
 <figure>
-<img
-src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/rcu_needs_cpu.png" srcset="/img/loading.gif" lazyload
-alt="rcu_needs_cpu" />
+<img src="/images/linux/kernel/irq/tick/tickless/https://cdn.jsdelivr.net/gh/realwujing/picture-bed/rcu_needs_cpu.png" srcset="/img/loading.gif" lazyload alt="rcu_needs_cpu">
 <figcaption aria-hidden="true">rcu_needs_cpu</figcaption>
 </figure>
-<h2
-id="有待处理但未就绪的回调-允许空闲但设置下次唤醒时间这里展开讲讲">有待处理但未就绪的回调
+<h2 id="有待处理但未就绪的回调-允许空闲但设置下次唤醒时间这里展开讲讲">有待处理但未就绪的回调
 → 允许空闲，但设置下次唤醒时间，这里展开讲讲？</h2>
 <p>在 Linux 内核的 <strong>RCU（Read-Copy-Update）机制</strong> 中，当
 CPU 进入空闲状态时，<code>rcu_needs_cpu()</code>
@@ -898,11 +895,11 @@ CPU 进入空闲状态时，<code>rcu_needs_cpu()</code>
 <strong>“有待处理但未就绪的回调”</strong>（即回调已注册，但尚未达到
 GP（Grace Period）结束条件）时，RCU 允许 CPU 进入空闲状态，但会设置一个
 <strong>下次唤醒时间（<code>nextevt</code>）</strong>，以便在合适的时机检查回调是否就绪。</p>
-<hr />
+<hr>
 <h3 id="代码逻辑回顾"><strong>1. 代码逻辑回顾</strong></h3>
 <p>在 <code>rcu_needs_cpu()</code> 中，相关逻辑如下：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">if</span> (!rcu_cpu_has_callbacks(&amp;rdtp-&gt;all_lazy)) &#123;<br>    *nextevt = KTIME_MAX;  <span class="hljs-comment">// 无回调 → 无需唤醒</span><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br><br><span class="hljs-keyword">if</span> (rcu_try_advance_all_cbs()) &#123;<br>    invoke_rcu_core();     <span class="hljs-comment">// 有就绪回调 → 立即处理</span><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>;<br>&#125;<br><br><span class="hljs-comment">/* 有待处理但未就绪的回调 */</span><br><span class="hljs-keyword">if</span> (!rdtp-&gt;all_lazy) &#123;<br>    dj = round_up(rcu_idle_gp_delay + jiffies, rcu_idle_gp_delay) - jiffies;<br>&#125; <span class="hljs-keyword">else</span> &#123;<br>    dj = round_jiffies(rcu_idle_lazy_gp_delay + jiffies) - jiffies;<br>&#125;<br>*nextevt = basemono + dj * TICK_NSEC;  <span class="hljs-comment">// 设置下次唤醒时间</span><br><span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;  <span class="hljs-comment">// 允许空闲，但需在 `nextevt` 时唤醒</span><br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h3 id="什么是待处理但未就绪的回调"><strong>2.
 什么是“待处理但未就绪的回调”？</strong></h3>
 <h4 id="回调的两种状态"><strong>(1) 回调的两种状态</strong></h4>
@@ -939,7 +936,7 @@ Period）尚未结束，不能立即执行。</td>
 <li>如果 GP 未结束，强制执行回调可能导致 <strong>数据竞争</strong> 或
 <strong>内存访问越界</strong>。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="如何计算下次唤醒时间"><strong>3.
 如何计算下次唤醒时间？</strong></h3>
 <p>由于回调尚未就绪，RCU 需要 <strong>预测一个合理的时间点</strong>
@@ -964,7 +961,7 @@ Period）尚未结束，不能立即执行。</td>
 <p><strong>示例计算</strong>（假设 <code>jiffies=100</code>,
 <code>rcu_idle_gp_delay=4</code>）：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c">dj = round_up(<span class="hljs-number">4</span> + <span class="hljs-number">100</span>, <span class="hljs-number">4</span>) - <span class="hljs-number">100</span> = <span class="hljs-number">104</span> - <span class="hljs-number">100</span> = <span class="hljs-number">4</span> jiffies<br>*nextevt = basemono + <span class="hljs-number">4</span> * TICK_NSEC  <span class="hljs-comment">// 4 jiffies 后唤醒</span><br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h3 id="唤醒后会发生什么"><strong>4. 唤醒后会发生什么？</strong></h3>
 <p>当 CPU 在 <code>nextevt</code> 时间被唤醒时，会再次调用
 <code>rcu_needs_cpu()</code>，此时可能发生：</p>
@@ -974,7 +971,7 @@ Period）尚未结束，不能立即执行。</td>
 <li><strong>GP 未结束</strong> → 重新计算
 <code>nextevt</code>，继续等待。</li>
 </ol>
-<hr />
+<hr>
 <h3 id="对-config_no_hz_full-的影响"><strong>5. 对
 <code>CONFIG_NO_HZ_FULL</code> 的影响</strong></h3>
 <p>在动态无时钟（<code>NO_HZ_FULL</code>）模式下： *
@@ -984,7 +981,7 @@ Period）尚未结束，不能立即执行。</td>
 * <strong>优化目标</strong>：在 <strong>低延迟</strong> 和
 <strong>低功耗</strong> 之间平衡： * 非延迟回调 →
 短延迟（保证响应速度）。 * 延迟回调 → 长延迟（减少唤醒次数）。</p>
-<hr />
+<hr>
 <h3 id="实际应用案例"><strong>6. 实际应用案例</strong></h3>
 <h3 id="dpdk-隔离核心"><strong>(1) DPDK 隔离核心</strong></h3>
 <ul>
@@ -998,11 +995,11 @@ Period）尚未结束，不能立即执行。</td>
 <li>非延迟回调确保快速释放内存，避免累积。</li>
 <li>延迟回调合并处理，减少唤醒开销。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="如何监控-rcu-回调状态"><strong>7. 如何监控 RCU
 回调状态？</strong></h3>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 查看待处理回调数量</span><br><span class="hljs-built_in">cat</span> /sys/kernel/debug/rcu/rcu*/rcu_pending<br><br><span class="hljs-comment"># 查看 GP 状态</span><br><span class="hljs-built_in">cat</span> /sys/kernel/debug/rcu/rcu*/grace_period<br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h3 id="总结"><strong>总结</strong></h3>
 <table>
 
@@ -1034,8 +1031,7 @@ Period）尚未结束，不能立即执行。</td>
 </table>
 <p>这种机制保证了 RCU 在 <strong>避免内存泄漏</strong> 的同时，最小化对
 CPU 空闲状态的干扰。</p>
-<h2
-id="那也就是说在config_no_hz_full下无回调-允许空闲无需唤醒ktime_max彻底没有rcu设置下次唤醒时间">那也就是说在config_no_hz_full下，无回调
+<h2 id="那也就是说在config_no_hz_full下无回调-允许空闲无需唤醒ktime_max彻底没有rcu设置下次唤醒时间">那也就是说在config_no_hz_full下，无回调
 → 允许空闲，无需唤醒（KTIME_MAX）。彻底没有rcu设置下次唤醒时间？</h2>
 <p>是的，在
 <code>CONFIG_NO_HZ_FULL</code>（动态无时钟模式）下，<strong>如果当前 CPU
@@ -1043,7 +1039,7 @@ id="那也就是说在config_no_hz_full下无回调-允许空闲无需唤醒ktim
 <code>true</code>）</strong>，<code>rcu_needs_cpu()</code>
 会直接将下次唤醒时间设为 <code>KTIME_MAX</code>，并返回
 <code>0</code>。这意味着：</p>
-<hr />
+<hr>
 <h3 id="无回调时的行为"><strong>1. 无回调时的行为</strong></h3>
 <ul>
 <li><strong><code>*nextevt = KTIME_MAX</code></strong> 表示该 CPU
@@ -1053,7 +1049,7 @@ id="那也就是说在config_no_hz_full下无回调-允许空闲无需唤醒ktim
 <code>tick_nohz_stop_tick</code>）<strong>当前 CPU 无需为 RCU
 回调保持唤醒状态</strong>。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="对-config_no_hz_full-的影响-1"><strong>2. 对
 <code>CONFIG_NO_HZ_FULL</code> 的影响</strong></h3>
 <ul>
@@ -1067,7 +1063,7 @@ id="那也就是说在config_no_hz_full下无回调-允许空闲无需唤醒ktim
 <code>rdtp-&gt;nonlazy_posted_snap</code> 检测变更）。</li>
 </ul></li>
 </ul>
-<hr />
+<hr>
 <h3 id="与有回调但未就绪的区别"><strong>3.
 与“有回调但未就绪”的区别</strong></h3>
 <p>如果存在回调但未就绪（如代码中的 <code>else</code>
@@ -1098,7 +1094,7 @@ id="那也就是说在config_no_hz_full下无回调-允许空闲无需唤醒ktim
 </tr>
 </tbody>
 </table>
-<hr />
+<hr>
 <h3 id="代码验证"><strong>4. 代码验证</strong></h3>
 <p>回到 <code>rcu_needs_cpu()</code> 的逻辑：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">if</span> (!rcu_cpu_has_callbacks(&amp;rdtp-&gt;all_lazy)) &#123;<br>    *nextevt = KTIME_MAX;  <span class="hljs-comment">// 无回调 → 无需唤醒</span><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
@@ -1108,7 +1104,7 @@ id="那也就是说在config_no_hz_full下无回调-允许空闲无需唤醒ktim
 <li>此时 <code>KTIME_MAX</code> 的语义是“无限远”，即<strong>不主动设置
 RCU 唤醒时间</strong>。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="总结-1"><strong>5. 总结</strong></h3>
 <ul>
 <li><strong>无回调时</strong>：RCU 不会干扰 CPU
@@ -1118,13 +1114,12 @@ RCU 唤醒时间</strong>。</li>
 对空闲 CPU 的干预最小化，适合低延迟、高能效场景（如 HPC
 或实时系统）。</li>
 </ul>
-<h2
-id="那dpdk跑在隔离核心上且启用了config_no_hz_full内核态会有rcu_callback吗">那dpdk跑在隔离核心上，且启用了config_no_hz_full，内核态会有rcu_callback吗？</h2>
+<h2 id="那dpdk跑在隔离核心上且启用了config_no_hz_full内核态会有rcu_callback吗">那dpdk跑在隔离核心上，且启用了config_no_hz_full，内核态会有rcu_callback吗？</h2>
 <p>在 <strong>DPDK 运行于隔离核心（Isolated CPU）</strong> 并启用
 <strong><code>CONFIG_NO_HZ_FULL</code></strong>
 的情况下，<strong>内核态的 RCU
 回调是否会存在</strong>，取决于以下几个关键因素：</p>
-<hr />
+<hr>
 <h3 id="dpdk-的-cpu-隔离机制"><strong>1. DPDK 的 CPU
 隔离机制</strong></h3>
 <p>DPDK 通常通过以下方式隔离核心： *
@@ -1140,7 +1135,7 @@ id="那dpdk跑在隔离核心上且启用了config_no_hz_full内核态会有rcu_
 RCU 回调较少</strong>。</li>
 <li>但<strong>某些特殊情况仍可能触发 RCU 回调</strong>（见下文）。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="内核态-rcu-回调的来源"><strong>2. 内核态 RCU
 回调的来源</strong></h3>
 <p>即使 CPU 被隔离，以下情况仍可能导致内核态 RCU 回调：</p>
@@ -1178,7 +1173,7 @@ RCU。</li>
 <li><strong><code>perf</code>
 或调试事件</strong>：若启用性能监控，可能涉及 RCU。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="config_no_hz_full-的影响"><strong>3.
 <code>CONFIG_NO_HZ_FULL</code> 的影响</strong></h3>
 <p>启用 <code>NO_HZ_FULL</code> 后： * <strong>默认不强制唤醒空闲
@@ -1187,7 +1182,7 @@ CPU</strong>（<code>rcu_needs_cpu()</code> 返回
 回调</strong>（如上述情况），仍会： * 通过
 <code>invoke_rcu_core()</code> 触发软中断（如 <code>rcuc</code> 线程）。
 * 若隔离核心有回调，可能被唤醒处理。</p>
-<hr />
+<hr>
 <h3 id="如何彻底避免-rcu-回调"><strong>4. 如何彻底避免 RCU
 回调？</strong></h3>
 <p>如果希望 <strong>完全消除隔离核心的 RCU 回调</strong>，需：</p>
@@ -1208,7 +1203,7 @@ CPU</strong>（<code>rcu_needs_cpu()</code> 返回
 <figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sh">watch -n1 <span class="hljs-string">&#x27;cat /sys/kernel/debug/rcu/rcu*/rcu_pending&#x27;</span><br></code></pre></td></tr></table></figure>
 <p>检查是否有回调累积。</p></li>
 </ol>
-<hr />
+<hr>
 <h3 id="结论-1"><strong>5. 结论</strong></h3>
 <table>
 <thead>

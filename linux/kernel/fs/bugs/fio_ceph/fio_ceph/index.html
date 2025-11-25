@@ -344,9 +344,9 @@
 <p>从 <code>merged_trace.txt</code> 前20行内容来看，这是
 <code>blktrace</code>
 记录的完整I/O请求生命周期。以下是逐行解析和关键分析点：</p>
-<hr />
+<hr>
 <h5 id="日志字段说明"><strong>1. 日志字段说明</strong></h5>
-<p>每行格式为：<br />
+<p>每行格式为：<br>
 <code>设备号 CPU核心 事件序号 时间戳(秒) PID 动作类型 读写类型 起始扇区 + 扇区数 [进程名]</code></p>
 <table>
 
@@ -380,11 +380,11 @@
 </tr>
 </tbody>
 </table>
-<hr />
+<hr>
 <h5 id="单次io请求生命周期示例"><strong>2.
 单次I/O请求生命周期示例</strong></h5>
 <p>以第一个请求为例： <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">253,0    2        1     0.000000000 10936  A  WS 9580600 + 452 &lt;- (253,1) 9578552  # (1) 分配请求<br>253,1    2        2     0.000001375 10936  Q  WS 9580600 + 452 [fio]               # (2) 进入队列<br>253,1    2        3     0.000006249 10936  G  WS 9580600 + 452 [fio]               # (3) 尝试合并<br>253,1    2        4     0.000006803 10936  P   N [fio]                            # (4) 插件处理<br>253,1    2        5     0.000007635 10936  U   N [fio] 1                          # (5) 解锁操作<br>253,1    2        6     0.000008354 10936  I  WS 9580600 + 452 [fio]              # (6) 插入调度队列<br>253,1    2        7     0.000011215 10936  D  WS 9580600 + 452 [fio]              # (7) 下发到设备<br>253,1    3        1     0.002354230     0  C  WS 9580600 + 452 [0]                # (8) 完成（耗时2.35ms）<br></code></pre></td></tr></table></figure></p>
-<hr />
+<hr>
 <h5 id="关键分析结论"><strong>3. 关键分析结论</strong></h5>
 <h6 id="io-请求大小确认"><strong>(1) I/O 请求大小确认</strong></h6>
 <ul>
@@ -398,18 +398,18 @@
 <ul>
 <li><strong>D2C (下发→完成) 延迟</strong>：
 <ul>
-<li>第一个请求：<code>0.002354230 - 0.000011215 ≈ 2.34ms</code><br />
+<li>第一个请求：<code>0.002354230 - 0.000011215 ≈ 2.34ms</code><br>
 </li>
-<li>第二个请求：<code>0.004724208 - 0.002401227 ≈ 2.32ms</code><br />
+<li>第二个请求：<code>0.004724208 - 0.002401227 ≈ 2.32ms</code><br>
 </li>
 <li><strong>结论</strong>：延迟稳定，无明显异常。</li>
 </ul></li>
 </ul>
 <h6 id="请求合并情况"><strong>(3) 请求合并情况</strong></h6>
 <ul>
-<li><strong><code>G</code> (合并) 事件存在</strong>：<br />
+<li><strong><code>G</code> (合并) 事件存在</strong>：<br>
 每个请求都经历了 <code>G</code>
-阶段，但未与其他请求合并（因无相邻扇区请求）。<br />
+阶段，但未与其他请求合并（因无相邻扇区请求）。<br>
 <strong>优化建议</strong>：增加 <code>fio</code> 的
 <code>-iodepth</code> 可能提升合并机会。</li>
 </ul>
@@ -418,7 +418,7 @@
 <li><strong>253,0 和 253,1</strong>：
 <ul>
 <li><code>253,0</code> 仅记录 <code>A</code> (分配) 动作，实际I/O由
-<code>253,1</code> 处理。<br />
+<code>253,1</code> 处理。<br>
 </li>
 <li><strong>可能场景</strong>：<code>253,0</code>
 是虚拟设备，<code>253,1</code> 是物理设备或Ceph OSD后端。</li>
@@ -429,16 +429,16 @@
 <ul>
 <li><strong><code>WS</code> 标志</strong>：表示同步写（Write
 Synchronous），可能因 <code>fio</code> 的 <code>-direct=1</code>
-绕过缓存导致。<br />
+绕过缓存导致。<br>
 <strong>影响</strong>：延迟高于异步写，但数据安全性更高。</li>
 </ul>
-<hr />
+<hr>
 <p>计算平均/最大/95分位延迟（单位：毫秒）: <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">awk <span class="hljs-string">&#x27;&#123;sum+=$2; if($2&gt;max)max=$2; a[i++]=$2&#125; END &#123;</span><br><span class="hljs-string">  print &quot;avg=&quot;,sum/NR*1000,&quot;ms&quot;, &quot;max=&quot;,max*1000,&quot;ms&quot;;</span><br><span class="hljs-string">  asort(a); print &quot;95%=&quot;,a[int(NR*0.95)]*1000,&quot;ms&quot;</span><br><span class="hljs-string">&#125;&#x27;</span> latency.log_253,1_d2c.dat<br></code></pre></td></tr></table></figure></p>
 <p>根据您的 <code>awk</code>
 分析结果，<code>latency.log_253,1_d2c.dat</code> 中的 D2C（Dispatch to
 Complete）延迟统计如下：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">avg= 2.42779 ms  # 平均延迟<br>max= 18.679 ms   # 最大延迟<br>95%= 3.683 ms    # 95分位延迟<br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <p><strong>1. 关键指标解读</strong> | <strong>指标</strong> |
 <strong>值</strong> | <strong>分析结论</strong> |
 |------------|-------------|-----------------------------------------------------------------------------|
@@ -447,7 +447,7 @@ SSD或高速Ceph集群的典型延迟） | | <strong>95%延迟</strong> | 3.68 m
 大多数请求延迟可控，但仍有5%请求超过此值 | | <strong>最大延迟</strong> |
 18.68 ms | <strong>异常值</strong>，可能是因Ceph
 OSD负载波动、网络抖动或宿主机调度导致 |</p>
-<hr />
+<hr>
 <h3 id="bs256">bs=256</h3>
 <p>对底层设备运行 blktrace: <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">blktrace -d /dev/vda1 -o fio_trace<br></code></pre></td></tr></table></figure></p>
 <p>运行 fio 测试（使用 /data/rbd_test）: <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">fio -direct=1 -iodepth=4 -rw=randwrite -ioengine=libaio -bs=256k -thread -numjobs=1 -runtime=30 -group_reporting -filename=/data/rbd_test -name=1x -size=10G -time_based -ramp_time=3<br></code></pre></td></tr></table></figure></p>

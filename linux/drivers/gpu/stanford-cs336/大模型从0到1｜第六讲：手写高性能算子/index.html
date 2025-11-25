@@ -23,18 +23,23 @@
 <meta property="og:site_name" content="WuJing&#39;s Blog">
 <meta property="og:description" content="大模型从0到1｜第六讲：手写高性能算子  课程链接：Stanford CS336 Spring 2025 - Lecture 6: Writing Fast Kernels   课程概述 上节课回顾： GPU 的高层次概述和性能分析 本节课重点： 性能测试&#x2F;分析 + 手写 GPU 算子 核心内容： - Benchmarking 和 Profiling 技术 - Kernel Fusion（算子融合">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://horace.io/img/perf_intro/factory_bandwidth.png">
-<meta property="og:image" content="https://horace.io/img/perf_intro/multi_operators.png">
-<meta property="og:image" content="https://horace.io/img/perf_intro/operator_fusion.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://docs.nvidia.com/cuda/parallel-thread-execution/_images/grid-with-CTAs.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://developer-blogs.nvidia.com/wp-content/uploads/2019/06/pasted-image-0.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/factory_bandwidth.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/multi_operators.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/operator_fusion.png">
 <meta property="article:published_time" content="2025-11-23T19:52:05.000Z">
 <meta property="article:modified_time" content="2025-11-23T19:52:05.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="HTML">
+<meta property="article:tag" content="Linux">
 <meta property="article:tag" content="C++">
 <meta property="article:tag" content="git">
 <meta property="article:tag" content="architect">
+<meta property="article:tag" content="linux">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://horace.io/img/perf_intro/factory_bandwidth.png">
+<meta name="twitter:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
@@ -335,27 +340,23 @@
             
               <div class="markdown-body">
                 
-                <h1
-id="大模型从0到1第六讲手写高性能算子">大模型从0到1｜第六讲：手写高性能算子</h1>
+                <h1 id="大模型从0到1第六讲手写高性能算子">大模型从0到1｜第六讲：手写高性能算子</h1>
 <blockquote>
-<p>课程链接：<a
-target="_blank" rel="noopener" href="https://stanford-cs336.github.io/spring2025-lectures/?trace=var/traces/lecture_06.json">Stanford
+<p>课程链接：<a target="_blank" rel="noopener" href="https://stanford-cs336.github.io/spring2025-lectures/?trace=var/traces/lecture_06.json">Stanford
 CS336 Spring 2025 - Lecture 6: Writing Fast Kernels</a></p>
 </blockquote>
-<hr />
+<hr>
 <h2 id="课程概述">课程概述</h2>
-<p><strong>上节课回顾：</strong> GPU 的高层次概述和性能分析<br />
+<p><strong>上节课回顾：</strong> GPU 的高层次概述和性能分析<br>
 <strong>本节课重点：</strong> 性能测试/分析 + 手写 GPU 算子</p>
 <p><strong>核心内容：</strong> - Benchmarking 和 Profiling 技术 - Kernel
 Fusion（算子融合）的动机 - 三种编写算子的方式：CUDA、Triton、PyTorch
 编译</p>
-<hr />
+<hr>
 <h2 id="part-1-gpu-架构回顾">Part 1: GPU 架构回顾</h2>
 <h3 id="硬件架构">1.1 硬件架构</h3>
 <figure>
-<img
-src="https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg" srcset="/img/loading.gif" lazyload
-alt="GPU Architecture" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg" srcset="/img/loading.gif" lazyload alt="GPU Architecture">
 <figcaption aria-hidden="true">GPU Architecture</figcaption>
 </figure>
 <p><strong>计算单元：</strong> - Streaming Multiprocessors (SMs) [A100:
@@ -365,9 +366,7 @@ alt="GPU Architecture" />
 Cache</strong> [A100: 192KB per SM] - 容量小，速度快</p>
 <h3 id="执行模型">1.2 执行模型</h3>
 <figure>
-<img
-src="https://docs.nvidia.com/cuda/parallel-thread-execution/_images/grid-with-CTAs.png" srcset="/img/loading.gif" lazyload
-alt="Execution Model" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://docs.nvidia.com/cuda/parallel-thread-execution/_images/grid-with-CTAs.png" srcset="/img/loading.gif" lazyload alt="Execution Model">
 <figcaption aria-hidden="true">Execution Model</figcaption>
 </figure>
 <p><strong>三层结构：</strong> - <strong>Thread（线程）：</strong>
@@ -381,9 +380,7 @@ Memory）：</strong> 线程块内的线程可以共享内存（速度与 L1 Cac
 将读取相似数据的 f(i) 分组到一起</p>
 <h3 id="硬件与执行的交互">1.3 硬件与执行的交互</h3>
 <figure>
-<img
-src="https://developer-blogs.nvidia.com/wp-content/uploads/2019/06/pasted-image-0.png" srcset="/img/loading.gif" lazyload
-alt="Wave Quantization" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://developer-blogs.nvidia.com/wp-content/uploads/2019/06/pasted-image-0.png" srcset="/img/loading.gif" lazyload alt="Wave Quantization">
 <figcaption aria-hidden="true">Wave Quantization</figcaption>
 </figure>
 <p><strong>Wave Quantization 问题：</strong> - 线程块以"波次"调度到 SM
@@ -402,7 +399,7 @@ Intensity)</h3>
 </ul>
 <p><strong>通用规则：</strong> - 矩阵乘法：计算密集型 -
 其他大部分操作：内存密集型</p>
-<hr />
+<hr>
 <h2 id="part-2-benchmarking-和-profiling">Part 2: Benchmarking 和
 Profiling</h2>
 <h3 id="为什么需要性能测试">2.1 为什么需要性能测试？</h3>
@@ -430,16 +427,14 @@ tensor 维度会调用不同的 CUDA kernel - Kernel 名称透露实现信息 -
 例如：<code>cutlass_80_simt_sgemm_256x128_8x4_nn_align1</code> -
 cutlass: NVIDIA 的线性代数 CUDA 库 - 256x128: tile 大小</p>
 <p><strong>Flame Graph：</strong> 可视化堆栈跟踪，显示时间分布</p>
-<hr />
+<hr>
 <h2 id="part-3-kernel-fusion-动机">Part 3: Kernel Fusion 动机</h2>
 <h3 id="仓库与工厂的类比">3.1 仓库与工厂的类比</h3>
-<p><strong>参考：</strong> <a
-target="_blank" rel="noopener" href="https://horace.io/brrr_intro.html">Horace He's Blog Post</a></p>
+<p><strong>参考：</strong> <a target="_blank" rel="noopener" href="https://horace.io/brrr_intro.html">Horace He's Blog Post</a></p>
 <p><strong>类比：</strong> - <strong>仓库 ≈ DRAM (HBM)</strong> -
 <strong>工厂 ≈ SRAM (L1 Cache / Shared Memory)</strong></p>
 <figure>
-<img src="https://horace.io/img/perf_intro/factory_bandwidth.png" srcset="/img/loading.gif" lazyload
-alt="Factory Bandwidth" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/factory_bandwidth.png" srcset="/img/loading.gif" lazyload alt="Factory Bandwidth">
 <figcaption aria-hidden="true">Factory Bandwidth</figcaption>
 </figure>
 <h4 id="深入理解这个类比">深入理解这个类比</h4>
@@ -452,7 +447,7 @@ Floor）：</strong> 空间有限，但工人可以快速拿取材料并加工</
 <p><strong>最差策略：</strong> 1. 从仓库拿原材料 → 加工一步 → 送回仓库
 2. 再从仓库拿 → 加工第二步 → 送回仓库 3. 重复多次...</p>
 <p>每次往返仓库都是巨大的时间浪费！</p>
-<hr />
+<hr>
 <p><strong>映射到 GPU 内存：</strong></p>
 <table>
 
@@ -490,7 +485,7 @@ Floor）：</strong> 空间有限，但工人可以快速拿取材料并加工</
 带宽：</strong> ~2 TB/s（慢 10 倍） - <strong>SRAM 带宽：</strong> ~19
 TB/s（快 10 倍） - <strong>容量差异：</strong> DRAM 是 SRAM 的 ~400,000
 倍</p>
-<hr />
+<hr>
 <h4 id="未融合操作的问题">未融合操作的问题</h4>
 <p><strong>场景：</strong> 计算 <code>output = gelu(x + bias)</code></p>
 <p><strong>未融合的执行流程：</strong></p>
@@ -500,7 +495,7 @@ TB/s（快 10 倍） - <strong>容量差异：</strong> DRAM 是 SRAM 的 ~400,0
 🐌</p>
 <p><strong>类比：</strong> 就像从仓库拿材料 → 加工一步 → 送回仓库 →
 再拿出来 → 加工第二步 → 送回仓库</p>
-<hr />
+<hr>
 <h4 id="融合操作的优势">融合操作的优势</h4>
 <p><strong>融合后的执行流程：</strong></p>
 <figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs mipsasm">步骤 <span class="hljs-number">1</span>+<span class="hljs-number">2</span>: fused_gelu_bias(x, <span class="hljs-keyword">bias)</span><br><span class="hljs-keyword"></span>  DRAM → <span class="hljs-keyword">SRAM: </span>读取 x (慢)<br>  DRAM → <span class="hljs-keyword">SRAM: </span>读取 <span class="hljs-keyword">bias </span>(慢)<br>  <span class="hljs-keyword">SRAM </span>计算: temp = x + <span class="hljs-keyword">bias </span>(快)<br>  <span class="hljs-keyword">SRAM </span>计算: output = gelu(temp) (快，temp 还在 <span class="hljs-keyword">SRAM </span>中！)<br>  <span class="hljs-keyword">SRAM </span>→ DRAM: 写入 output (慢)<br></code></pre></td></tr></table></figure>
@@ -509,7 +504,7 @@ TB/s（快 10 倍） - <strong>容量差异：</strong> DRAM 是 SRAM 的 ~400,0
 <p><strong>性能提升：</strong> 5 → 3，减少了 40% 的内存访问！</p>
 <p><strong>类比：</strong> 一次性从仓库拿所有材料 → 在工厂内完成所有加工
 → 一次性送回成品</p>
-<hr />
+<hr>
 <h4 id="为什么内存访问是瓶颈">为什么内存访问是瓶颈？</h4>
 <p><strong>计算速度 vs 内存速度的差距：</strong></p>
 <p>假设处理 1M 个元素（4MB 数据）：</p>
@@ -521,17 +516,17 @@ GeLU：~0.01 ms - <strong>总计：可以忽略不计</strong></p>
 <p><strong>结论：</strong> 内存传输时间 &gt;&gt; 计算时间！</p>
 <p>这就是为什么说大多数操作是 <strong>memory-bound（内存受限）</strong>
 而不是 compute-bound（计算受限）。</p>
-<hr />
+<hr>
 <h4 id="实际性能数据">实际性能数据</h4>
 <p><strong>GeLU 性能对比（dim=16384）：</strong></p>
 <figure class="highlight crmsh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs crmsh">manual_gelu (未融合):    ~<span class="hljs-number">2.5</span> <span class="hljs-keyword">ms</span><br><span class="hljs-title">pytorch_gelu</span> (融合):     ~<span class="hljs-number">0.3</span> <span class="hljs-keyword">ms</span><br><span class="hljs-title">cuda_gelu</span> (手写融合):    ~<span class="hljs-number">0.5</span> <span class="hljs-keyword">ms</span><br><span class="hljs-title">triton_gelu</span> (融合):      ~<span class="hljs-number">0.35</span> ms<br></code></pre></td></tr></table></figure>
 <p><strong>融合带来 5-8 倍性能提升！</strong></p>
-<hr />
+<hr>
 <h4 id="扩展到更复杂的场景">扩展到更复杂的场景</h4>
 <p><strong>Transformer 中的典型操作链：</strong></p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># 未融合（灾难）</span><br>x = layer_norm(x)      <span class="hljs-comment"># DRAM 读写</span><br>x = x + residual       <span class="hljs-comment"># DRAM 读写</span><br>x = dropout(x)         <span class="hljs-comment"># DRAM 读写</span><br>x = gelu(x)           <span class="hljs-comment"># DRAM 读写</span><br><span class="hljs-comment"># 总计：8 次 DRAM 访问</span><br><br><span class="hljs-comment"># 融合（高效）</span><br>x = fused_ln_residual_dropout_gelu(x, residual)<br><span class="hljs-comment"># 总计：2 次 DRAM 访问（读 x 和 residual，写 output）</span><br></code></pre></td></tr></table></figure>
 <p><strong>性能提升：</strong> 可达 4-10 倍！</p>
-<hr />
+<hr>
 <h4 id="关键洞察总结">关键洞察总结</h4>
 <ol type="1">
 <li><strong>DRAM 是瓶颈：</strong> 不是计算慢，是数据搬运慢</li>
@@ -547,14 +542,12 @@ GeLU：~0.01 ms - <strong>总计：可以忽略不计</strong></p>
 <h3 id="未融合-vs-融合">3.2 未融合 vs 融合</h3>
 <p><strong>未融合操作：</strong> 每个操作都需要 读取 → 计算 → 写入</p>
 <figure>
-<img src="https://horace.io/img/perf_intro/multi_operators.png" srcset="/img/loading.gif" lazyload
-alt="Multi Operators" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/multi_operators.png" srcset="/img/loading.gif" lazyload alt="Multi Operators">
 <figcaption aria-hidden="true">Multi Operators</figcaption>
 </figure>
 <p><strong>融合操作：</strong> 只需要读写一次</p>
 <figure>
-<img src="https://horace.io/img/perf_intro/operator_fusion.png" srcset="/img/loading.gif" lazyload
-alt="Operator Fusion" />
+<img src="/images/linux/drivers/gpu/stanford-cs336/https://horace.io/img/perf_intro/operator_fusion.png" srcset="/img/loading.gif" lazyload alt="Operator Fusion">
 <figcaption aria-hidden="true">Operator Fusion</figcaption>
 </figure>
 <h3 id="案例gelu-激活函数">3.3 案例：GeLU 激活函数</h3>
@@ -567,7 +560,7 @@ alt="Operator Fusion" />
 <p><strong>性能对比：</strong> - 融合版本显著更快 - Manual 版本调用多个
 kernel - PyTorch 版本只调用一个 kernel</p>
 <p><strong>关键洞察：</strong> 记住仓库/工厂的类比！</p>
-<hr />
+<hr>
 <h2 id="part-4-cuda-kernels">Part 4: CUDA Kernels</h2>
 <h3 id="cuda-基础">4.1 CUDA 基础</h3>
 <p><strong>CUDA 是什么？</strong> - C/C++ 的扩展，带有管理 GPU 的 API -
@@ -585,10 +578,10 @@ Thread: 单个操作单元，如 threadIdx = (0, 3)</p>
 <p><strong>局限性：</strong> - 逐元素操作在 CUDA 中容易实现 -
 但大多数有趣的操作（matmul、softmax、RMSNorm）需要读取多个值 -
 需要考虑共享内存管理等</p>
-<hr />
+<hr>
 <h2 id="part-5-triton-kernels">Part 5: Triton Kernels</h2>
 <h3 id="triton-简介">5.1 Triton 简介</h3>
-<p><strong>开发者：</strong> OpenAI (2021)<br />
+<p><strong>开发者：</strong> OpenAI (2021)<br>
 <strong>目标：</strong> 让 GPU 编程更易用</p>
 <p><strong>优势：</strong> - 用 Python 编写 - 思考线程块而非单个线程</p>
 <p><strong>Triton vs CUDA：</strong> <figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs nginx">                                    <span class="hljs-attribute">CUDA</span>      Triton<br>内存合并（从 DRAM 传输）             手动      自动<br>共享内存管理                         手动      自动<br>SM 内调度                           手动      自动<br>跨 SM 调度                          手动      手动<br></code></pre></td></tr></table></figure></p>
@@ -609,7 +602,7 @@ Thread: 单个操作单元，如 threadIdx = (0, 3)</p>
 实际上比我们的朴素 CUDA 实现慢 - 但都远快于 manual 实现</p>
 <p><strong>原因：</strong> - Triton 操作块，CUDA 操作线程 - 块允许
 Triton 编译器进行其他优化（如线程粗化）</p>
-<hr />
+<hr>
 <h2 id="part-6-pytorch-编译">Part 6: PyTorch 编译</h2>
 <h3 id="torch.compile">6.1 torch.compile</h3>
 <p><strong>第五种方式：</strong> 用 Python 编写，编译成 Triton</p>
@@ -618,7 +611,7 @@ Triton 编译器进行其他优化（如线程粗化）</p>
 性能接近手写实现</p>
 <p><strong>检查正确性：</strong> <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">check_equal(compiled_gelu, manual_gelu)<br></code></pre></td></tr></table></figure></p>
 <p><strong>性能：</strong> 与 Triton 手写版本相当</p>
-<hr />
+<hr>
 <h2 id="part-7-softmax-案例研究">Part 7: Softmax 案例研究</h2>
 <h3 id="softmax-操作">7.1 Softmax 操作</h3>
 <p><strong>定义：</strong> 对矩阵的每一行进行归一化</p>
@@ -635,7 +628,7 @@ Triton 编译器进行其他优化（如线程粗化）</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python">manual_time = benchmark(<span class="hljs-string">&quot;manual_softmax&quot;</span>, ...)<br>compiled_time = benchmark(<span class="hljs-string">&quot;compiled_softmax&quot;</span>, ...)<br>pytorch_time = benchmark(<span class="hljs-string">&quot;pytorch_softmax&quot;</span>, ...)<br>triton_time = benchmark(<span class="hljs-string">&quot;triton_softmax&quot;</span>, ...)<br></code></pre></td></tr></table></figure>
 <p><strong>结果：</strong> - 融合版本显著快于未融合版本 - Triton 和
 torch.compile 性能接近 PyTorch</p>
-<hr />
+<hr>
 <h2 id="总结">总结</h2>
 <h3 id="核心概念">核心概念</h3>
 <ol type="1">
@@ -674,24 +667,21 @@ Fusion（算子融合）：</strong> 仓库/工厂类比 -
 <p><strong>未来展望：</strong> -
 自动编译器（Triton、torch.compile）会越来越好 -
 但理解底层原理仍然重要</p>
-<hr />
+<hr>
 <h2 id="延伸阅读">延伸阅读</h2>
 <ul>
 <li><a target="_blank" rel="noopener" href="https://horace.io/brrr_intro.html">Horace He's Blog: Making
 Deep Learning Go Brrrr</a></li>
-<li><a
-target="_blank" rel="noopener" href="https://pytorch.org/tutorials/recipes/recipes/profiler_recipe.html">PyTorch
+<li><a target="_blank" rel="noopener" href="https://pytorch.org/tutorials/recipes/recipes/profiler_recipe.html">PyTorch
 Profiler Tutorial</a></li>
 <li><a target="_blank" rel="noopener" href="https://triton-lang.org/">Triton Documentation</a></li>
 <li><a target="_blank" rel="noopener" href="https://discord.gg/cudamode">CUDA MODE Community</a></li>
-<li><a
-target="_blank" rel="noopener" href="https://docs.nvidia.com/cuda/parallel-thread-execution/">NVIDIA
+<li><a target="_blank" rel="noopener" href="https://docs.nvidia.com/cuda/parallel-thread-execution/">NVIDIA
 PTX ISA</a></li>
-<li><a
-target="_blank" rel="noopener" href="https://pytorch.org/tutorials/recipes/recipes/benchmark.html">PyTorch
+<li><a target="_blank" rel="noopener" href="https://pytorch.org/tutorials/recipes/recipes/benchmark.html">PyTorch
 Benchmarking</a></li>
 </ul>
-<hr />
+<hr>
 <h2 id="实践建议">实践建议</h2>
 <ol type="1">
 <li><strong>每次修改后都要 benchmark/profile！</strong></li>
@@ -760,11 +750,15 @@ Benchmarking</a></li>
       
         <a href="/tags/HTML/">#HTML</a>
       
+        <a href="/tags/Linux/">#Linux</a>
+      
         <a href="/tags/C/">#C++</a>
       
         <a href="/tags/git/">#git</a>
       
         <a href="/tags/architect/">#architect</a>
+      
+        <a href="/tags/linux/">#linux</a>
       
     </div>
   

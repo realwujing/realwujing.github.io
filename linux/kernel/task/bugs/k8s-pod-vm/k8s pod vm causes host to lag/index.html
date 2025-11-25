@@ -23,6 +23,7 @@
 <meta property="og:site_name" content="WuJing&#39;s Blog">
 <meta property="og:description" content="k8s pod vm causes host to lag perf sched record sleep 10 1perf sched record -- sleep 10 perf sched latency 1perf sched latency 1234567891011121314151617181920212223242526272829303132333435363738394041">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/kernel/task/bugs/k8s-pod-vm/https://cdn.jsdelivr.net/gh/realwujing/picture-bed/dd_17435652935867.png">
 <meta property="article:published_time" content="2025-04-03T23:19:38.000Z">
 <meta property="article:modified_time" content="2025-04-03T23:19:38.000Z">
 <meta property="article:author" content="Wu Jing">
@@ -31,6 +32,7 @@
 <meta property="article:tag" content="k8s">
 <meta property="article:tag" content="linux">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://realwujing.github.io/images/linux/kernel/task/bugs/k8s-pod-vm/https://cdn.jsdelivr.net/gh/realwujing/picture-bed/dd_17435652935867.png">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
@@ -367,7 +369,7 @@ runtime</h3>
 次/秒</strong>。</li>
 <li><strong>当前值（60k/s）</strong>：<strong>显著偏高</strong>，可能存在调度瓶颈。</li>
 </ul>
-<hr />
+<hr>
 <h2 id="vmstat-1">vmstat 1</h2>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs bash">[root@kvm-10e63e2e11 perf]<span class="hljs-comment"># vmstat 1</span><br>procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----<br> r  b   swpd   free   buff  cache   si   so    bi    bo   <span class="hljs-keyword">in</span>   cs us sy <span class="hljs-built_in">id</span> wa st<br> 2  1      0 130696016 2448844 10975628    0    0   285   139  390  548  1  1 97  0  0<br>28  0      0 130696016 2448844 10975628    0    0   908  1623 30614 49237  1  0 99  0  0<br>14  0      0 130696016 2448844 10975628    0    0 14252  2231 45793 75704  1  1 98  0  0<br>14  0      0 130696016 2448844 10975628    0    0 11224  2683 50652 86420  1  1 98  0  0<br>23  0      0 130696016 2448844 10975628    0    0   884  1726 36250 57294  1  1 98  0  0<br> 4  0      0 130696016 2448844 10975628    0    0    40  1633 32425 48965  1  0 99  0  0<br> 2  0      0 130696016 2448844 10975628    0    0   848  1307 30691 48112  1  1 99  0  0<br> 8  0      0 130696016 2448844 10975628    0    0   620  2271 29578 44909  1  0 99  0  0<br> 1  0      0 130696016 2448844 10975628    0    0   260  3307 30759 46740  1  1 98  0  0<br>36  0      0 130696016 2448844 10975628    0    0     0 35976 44374 54982  1  1 99  0  0<br></code></pre></td></tr></table></figure>
 <p>从 <code>vmstat 1</code>
@@ -375,7 +377,7 @@ runtime</h3>
 <code>perf sched latency</code> 中观测到的高调度延迟（如
 <code>kubelet</code> 最大延迟 <strong>10.7
 秒</strong>），需要进一步深入分析。以下是关键点解读和排查建议：</p>
-<hr />
+<hr>
 <h3 id="vmstat-关键指标分析"><strong>1. <code>vmstat</code>
 关键指标分析</strong></h3>
 <h4 id="cpu-使用率ussyid"><strong>CPU
@@ -385,16 +387,15 @@ runtime</h3>
 <li><strong><code>sy</code>（内核态）</strong>：1%
 左右，无异常飙升。</li>
 <li><strong><code>id</code>（空闲）</strong>：98%~99%，CPU
-资源充足。<br />
+资源充足。<br>
 <strong>矛盾点</strong>：CPU 空闲率高，但 <code>perf sched</code>
 显示高调度延迟，可能是 <strong>锁竞争</strong> 或 <strong>进程阻塞在 I/O
 等待</strong>（尽管 <code>wa</code> 为 0）。</li>
 </ul>
-<h4
-id="上下文切换cs"><strong>上下文切换（<code>cs</code>）</strong></h4>
+<h4 id="上下文切换cs"><strong>上下文切换（<code>cs</code>）</strong></h4>
 <ul>
 <li><strong><code>cs</code></strong>：约 40k~80k
-次/秒，<strong>偏高</strong>（通常建议低于 10k/秒）。<br />
+次/秒，<strong>偏高</strong>（通常建议低于 10k/秒）。<br>
 <strong>可能原因</strong>：
 <ul>
 <li>大量线程频繁切换（如 Kubernetes 相关进程）。</li>
@@ -404,7 +405,7 @@ id="上下文切换cs"><strong>上下文切换（<code>cs</code>）</strong></h4
 <h4 id="中断in"><strong>中断（<code>in</code>）</strong></h4>
 <ul>
 <li><strong><code>in</code></strong>：30k~50k
-次/秒，<strong>非常高</strong>（正常应低于 1k/秒）。<br />
+次/秒，<strong>非常高</strong>（正常应低于 1k/秒）。<br>
 <strong>可能原因</strong>：
 <ul>
 <li>网络或磁盘中断风暴（如高频率网络包或磁盘 I/O）。</li>
@@ -415,7 +416,7 @@ id="上下文切换cs"><strong>上下文切换（<code>cs</code>）</strong></h4
 情况（<code>bi</code>/<code>bo</code>）</strong></h4>
 <ul>
 <li><strong><code>bi</code>（块设备读取）</strong>：波动较大（0~14k
-blocks/s），可能存在突发磁盘读操作。<br />
+blocks/s），可能存在突发磁盘读操作。<br>
 </li>
 <li><strong><code>bo</code>（块设备写入）</strong>：偶发峰值（如 35k
 blocks/s），需检查日志或持久化操作。</li>
@@ -426,14 +427,14 @@ blocks/s），需检查日志或持久化操作。</li>
 空闲 <code>idl</code> 在 90%~98%），但结合之前的
 <code>perf sched latency</code> 和 <code>vmstat</code>
 数据，<strong>高调度延迟问题可能源于局部资源争用或内核态瓶颈</strong>。以下是关键分析和排查建议：</p>
-<hr />
+<hr>
 <h3 id="关键指标解读"><strong>1. 关键指标解读</strong></h3>
 <h4 id="cpu-使用率"><strong>(1) CPU 使用率</strong></h4>
 <ul>
 <li><strong><code>usr</code>（用户态）</strong>：1%~2%，正常。</li>
 <li><strong><code>sys</code>（内核态）</strong>：0%~1%，无异常。</li>
 <li><strong><code>idl</code>（空闲）</strong>：90%~98%，<strong>CPU
-资源充足</strong>。<br />
+资源充足</strong>。<br>
 <strong>矛盾点</strong>：高空闲率与高调度延迟并存，说明问题可能发生在
 <strong>内核调度器、锁竞争或中断处理</strong> 等非 CPU 算力层面。</li>
 </ul>
@@ -441,7 +442,7 @@ blocks/s），需检查日志或持久化操作。</li>
 <ul>
 <li><strong>内存</strong>：
 <ul>
-<li><code>used</code>：50GB，<code>free</code>：125GB，<strong>无内存压力</strong>。<br />
+<li><code>used</code>：50GB，<code>free</code>：125GB，<strong>无内存压力</strong>。<br>
 </li>
 <li><code>buf/cach</code>：约 2.4GB/9.9GB，正常。</li>
 </ul></li>
@@ -458,19 +459,19 @@ blocks/s），需检查日志或持久化操作。</li>
 <h4 id="系统调用和中断"><strong>(3) 系统调用和中断</strong></h4>
 <ul>
 <li><strong><code>int</code>（中断）</strong>：27k~48k
-次/秒，<strong>偏高</strong>（正常应 &lt;1k/秒）。<br />
+次/秒，<strong>偏高</strong>（正常应 &lt;1k/秒）。<br>
 </li>
 <li><strong><code>csw</code>（上下文切换）</strong>：40k~77k
-次/秒，<strong>偏高</strong>。<br />
+次/秒，<strong>偏高</strong>。<br>
 <strong>可能原因</strong>：
 <ul>
-<li>高频网络中断（如 Pod 间通信或 Kube API 调用）。<br />
+<li>高频网络中断（如 Pod 间通信或 Kube API 调用）。<br>
 </li>
 <li>锁竞争导致线程频繁切换（如 <code>kubelet</code> 或
 <code>containerd</code> 内部锁）。</li>
 </ul></li>
 </ul>
-<hr />
+<hr>
 <h2 id="perf-stat--e-kvm--a----sleep-10">perf stat -e 'kvm:*' -a --
 sleep 10</h2>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">perf <span class="hljs-built_in">stat</span> -e <span class="hljs-string">&#x27;kvm:*&#x27;</span> -a -- <span class="hljs-built_in">sleep</span> 10<br></code></pre></td></tr></table></figure>
@@ -499,9 +500,7 @@ CPU 9（<code>3230100</code>）和 CPU
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">fio --name=<span class="hljs-built_in">test</span> --filename=/root/wujing/testfile --size=1G --direct=1 --rw=randwrite --bs=4k --numjobs=4 --iodepth=32<br></code></pre></td></tr></table></figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">dd</span> <span class="hljs-keyword">if</span>=/dev/zero of=/dev/sdb4 bs=1M count=1024 oflag=direct<br></code></pre></td></tr></table></figure>
 <figure>
-<img
-src="https://cdn.jsdelivr.net/gh/realwujing/picture-bed/dd_17435652935867.png" srcset="/img/loading.gif" lazyload
-alt="dd_17435652935867" />
+<img src="/images/linux/kernel/task/bugs/k8s-pod-vm/https://cdn.jsdelivr.net/gh/realwujing/picture-bed/dd_17435652935867.png" srcset="/img/loading.gif" lazyload alt="dd_17435652935867">
 <figcaption aria-hidden="true">dd_17435652935867</figcaption>
 </figure>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash">[secure@kvm-10e63e2e11 sa]$ sar -s 14:00:00 -e 14:20:00 -f sa02<br>Linux 5.10.0-136.12.0.88.ctl3.aarch64 (kvm-10e63e2e11) 	04/02/2025 	_aarch64_	(96 CPU)<br><br>02:00:01 PM     CPU     %user     %<span class="hljs-built_in">nice</span>   %system   %iowait    %steal     %idle<br>02:10:05 PM     all      1.57      0.00      1.58     23.74      0.00     73.12<br>02:20:00 PM     all      1.29      0.00      0.65      0.00      0.00     98.05<br>Average:        all      1.43      0.00      1.12     11.94      0.00     85.51<br></code></pre></td></tr></table></figure>

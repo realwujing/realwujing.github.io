@@ -329,11 +329,10 @@
             
               <div class="markdown-body">
                 
-                <h1
-id="seq_open可以替换成single_open吗">seq_open可以替换成single_open吗</h1>
+                <h1 id="seq_open可以替换成single_open吗">seq_open可以替换成single_open吗</h1>
 <p>是的，<code>seq_open</code> 可以替换成
 <code>single_open</code>，但前提是你的需求是<strong>只需要输出一段静态或简单的动态内容</strong>，而不需要迭代器（<code>start</code>、<code>next</code>、<code>stop</code>）来遍历数据。</p>
-<hr />
+<hr>
 <h3 id="single_open-的适用场景"><strong><code>single_open</code>
 的适用场景</strong></h3>
 <ul>
@@ -343,7 +342,7 @@ id="seq_open可以替换成single_open吗">seq_open可以替换成single_open吗
 回调函数，而不需要实现 <code>start</code>、<code>next</code> 和
 <code>stop</code>。</li>
 </ul>
-<hr />
+<hr>
 <h3 id="如何替换-seq_open-为-single_open"><strong>如何替换
 <code>seq_open</code> 为 <code>single_open</code></strong></h3>
 <h4 id="修改步骤">修改步骤</h4>
@@ -362,7 +361,7 @@ id="seq_open可以替换成single_open吗">seq_open可以替换成single_open吗
 </ol>
 <h4 id="修改后的代码">修改后的代码</h4>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/module.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/proc_fs.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/seq_file.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/init.h&gt;</span></span><br><br><span class="hljs-comment">// 将当前数据项写入缓冲区</span><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">my_seq_show</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> seq_file *m, <span class="hljs-type">void</span> *v)</span><br>&#123;<br>    <span class="hljs-type">int</span> i;<br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) &#123;<br>        seq_printf(m, <span class="hljs-string">&quot;Number: %d\n&quot;</span>, i); <span class="hljs-comment">// 输出数字 0 到 9</span><br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br><br><span class="hljs-comment">// 打开文件时调用，初始化 single_open</span><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">my_open</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> inode *inode, <span class="hljs-keyword">struct</span> file *file)</span><br>&#123;<br>    <span class="hljs-keyword">return</span> single_open(file, my_seq_show, <span class="hljs-literal">NULL</span>); <span class="hljs-comment">// 使用 single_open</span><br>&#125;<br><br><span class="hljs-comment">// 定义 proc_ops 结构体</span><br><span class="hljs-type">static</span> <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">proc_ops</span> <span class="hljs-title">my_proc_ops</span> =</span> &#123;<br>    .proc_open = my_open,        <span class="hljs-comment">// 打开文件</span><br>    .proc_read = seq_read,       <span class="hljs-comment">// 读取文件</span><br>    .proc_lseek = seq_lseek,     <span class="hljs-comment">// 调整文件偏移</span><br>    .proc_release = single_release, <span class="hljs-comment">// 关闭文件</span><br>&#125;;<br><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> PROC_FILENAME <span class="hljs-string">&quot;my_seq_file&quot;</span></span><br><br><span class="hljs-comment">// 模块加载时调用</span><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">my_seq_file_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    <span class="hljs-comment">// 在 /proc 文件系统中创建文件</span><br>    proc_create(PROC_FILENAME, <span class="hljs-number">0</span>, <span class="hljs-literal">NULL</span>, &amp;my_proc_ops);<br>    pr_info(<span class="hljs-string">&quot;/proc/%s created\n&quot;</span>, PROC_FILENAME);<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br><br><span class="hljs-comment">// 模块卸载时调用</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> __exit <span class="hljs-title function_">my_seq_file_exit</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    <span class="hljs-comment">// 删除 /proc 文件</span><br>    remove_proc_entry(PROC_FILENAME, <span class="hljs-literal">NULL</span>);<br>    pr_info(<span class="hljs-string">&quot;/proc/%s removed\n&quot;</span>, PROC_FILENAME);<br>&#125;<br><br>module_init(my_seq_file_init);<br>module_exit(my_seq_file_exit);<br><br>MODULE_LICENSE(<span class="hljs-string">&quot;GPL&quot;</span>);<br>MODULE_AUTHOR(<span class="hljs-string">&quot;Your Name&quot;</span>);<br>MODULE_DESCRIPTION(<span class="hljs-string">&quot;A simple single_open demo&quot;</span>);<br></code></pre></td></tr></table></figure>
-<hr />
+<hr>
 <h3 id="关键点"><strong>关键点</strong></h3>
 <ol type="1">
 <li><p><strong><code>single_open</code> 的参数</strong></p>
@@ -383,7 +382,7 @@ id="seq_open可以替换成single_open吗">seq_open可以替换成single_open吗
 的回调函数，用于将数据写入 <code>seq_file</code> 缓冲区。</li>
 </ul></li>
 </ol>
-<hr />
+<hr>
 <h3 id="适用场景对比"><strong>适用场景对比</strong></h3>
 <table>
 
@@ -417,7 +416,7 @@ id="seq_open可以替换成single_open吗">seq_open可以替换成single_open吗
 </tr>
 </tbody>
 </table>
-<hr />
+<hr>
 <h3 id="验证"><strong>验证</strong></h3>
 <ol type="1">
 <li><p><strong>编译模块</strong></p>
@@ -431,7 +430,7 @@ id="seq_open可以替换成single_open吗">seq_open可以替换成single_open吗
 <li><p><strong>卸载模块</strong></p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">sudo rmmod my_seq_file<br></code></pre></td></tr></table></figure></li>
 </ol>
-<hr />
+<hr>
 <h3 id="总结"><strong>总结</strong></h3>
 <ul>
 <li>如果你的数据是简单的、一次性输出的，<code>single_open</code>
@@ -557,8 +556,8 @@ id="seq_open可以替换成single_open吗">seq_open可以替换成single_open吗
                   <article class="post-next col-6">
                     
                     
-                      <a href="/linux/drivers/sound/hda_codec/" title="HDA Codec音频驱动调试与重配置">
-                        <span class="hidden-mobile">HDA Codec音频驱动调试与重配置</span>
+                      <a href="/linux/drivers/sound/ALC885_1-1/" title="ALC885_1-1">
+                        <span class="hidden-mobile">ALC885_1-1</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
