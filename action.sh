@@ -38,14 +38,17 @@ cp -r ./* ../hexo-site
 git checkout -- .
 git checkout hexo
 
-# 生成动态标签
-TAGS=$(cd ../hexo-site && find . -name "*.md" -type f | while read file; do dirname "$file" | tr '/' '\n'; done | sort -u | grep -v "^\.$" | grep -v "^$" | tr '\n' ', ' | sed 's/, $//')
+# 生成动态标签（调用generate_tags.sh）
+git show hexo:generate_tags.sh > generate_tags.sh
+chmod +x generate_tags.sh
+TAGS=$(cd ../hexo-site && bash ../$(basename $(pwd))/generate_tags.sh)
 
 # 更新 _config.yml 中的 keywords 和 tags
 if [ -n "$TAGS" ]; then
   sed -i "s/^keywords:.*/keywords: $TAGS/" _config.yml
   sed -i "s/^tags:.*/tags: $TAGS/" _config.yml
 fi
+rm -f generate_tags.sh
 
 # 同步markdown文件到 hexo 分支
 rsync -avP --delete \
