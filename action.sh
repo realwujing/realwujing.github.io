@@ -38,7 +38,7 @@ cp -r ./* ../hexo-site
 git checkout -- .
 git checkout hexo
 
-# 同步文件到 hexo 分支
+# 同步markdown文件到 hexo 分支
 rsync -avP --delete \
   --exclude='.git' \
   --exclude='.github' \
@@ -49,6 +49,19 @@ rsync -avP --delete \
   --exclude='themes' \
   --include='*/' \
   --include='*.md' \
+  --exclude='*' \
+  ../hexo-site/ ./source/_posts/
+
+# 同步图片文件到 source/images (Hexo会自动复制到public)
+rsync -avP --delete \
+  --exclude='.git' \
+  --exclude='.github' \
+  --exclude='node_modules' \
+  --exclude='public' \
+  --exclude='source' \
+  --exclude='scaffolds' \
+  --exclude='themes' \
+  --include='*/' \
   --include='*.png' \
   --include='*.jpg' \
   --include='*.jpeg' \
@@ -56,7 +69,7 @@ rsync -avP --delete \
   --include='*.svg' \
   --include='*.webp' \
   --exclude='*' \
-  ../hexo-site/ ./source/_posts/
+  ../hexo-site/ ./source/images/
 
 rsync -avP ../hexo-site/README.md source/about/index.md
 
