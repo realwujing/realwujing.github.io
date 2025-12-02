@@ -1,0 +1,712 @@
+# grtrace 代码提交整理记录
+
+## 基本信息
+
+- **源码目录**: `~/code/ctkernel-lts-6.6-yuanql9-feature-grtrace`
+- **原始分支**: `ctkernel-lts-6.6/yuanql9/feature-grtrace`
+- **整理分支**: `ctkernel-lts-6.6/yuanql9/feature-grtrace-squash-2`
+- **代码路径**: `drivers/gpu/grtrace/`
+- **文档路径**: `drivers/gpu/grtrace/docs/`
+- **测试路径**: `tools/testing/selftests/grtrace/`
+
+## 原始提交统计
+
+在最近的100个提交中，共有 **62个** 以 "grtrace" 开头的提交。
+
+## 功能模块划分方案
+
+### 1. Core Infrastructure (核心基础设施)
+
+**功能描述：**
+- 初始 relay+debugfs 核心
+- 事件 API 和流头
+- 序列号、统计、性能治理
+- 元数据持久化
+
+**相关提交：**
+- `2b299eaad5b7` grtrace/core: add relay+debugfs core and minimal event API
+- `077b620da1eb` grtrace/core: add global/per-CPU sequence, engine class, and debugfs stats
+- `4b1d64388a76` grtrace/core: add stream header, extend event set, and ordering/stats
+- `9fdc9ff9107a` grtrace/core: fix debugfs emit command parsing
+- `43f88194458a` grtrace/core: runtime controls and profiling
+- `f15ab0bb8ef7` grtrace/core: Implement performance and overhead governance
+- `4fb301182c24` grtrace/core: Add MODULE_AUTHOR field
+- `c196e918a346` grtrace/core: persist relay stream by adding METADATA event; add userspace parser
+
+### 2. Event Processing (事件处理)
+
+**功能描述：**
+- 类型掩码过滤
+- 每秒滚动统计
+- 大小/结果直方图
+- 会话 ID 和上下文监视列表
+
+**相关提交：**
+- `faa394ad5812` grtrace/core: add type-mask filtering, per-CPU counters, and CSV debugfs views
+- `0c5bde5b07ed` grtrace/core: per-second rolling stats, sec_stats debugfs, and drop counters
+- `e7053626b41d` grtrace/core: core features — ctx watchlist, token-bucket rate limiter, session id
+- `04cba58639f3` grtrace/core: size/result histograms, ring watchlist AND/OR, session_id
+- `d47e1b7253d9` grtrace/core: fix stray stats code in filter path; restore START/END case logic and type-mask branch
+- `8482acc31e63` grtrace/core: add ring_map debugfs and expose in METADATA
+
+### 3. Advanced Modules (高级模块)
+
+**功能描述：**
+- **Aggregator**: 事件聚合器
+- **Sampling**: 采样器（静态/自适应/阈值）
+- **Filter**: 动态过滤器
+- **Performance Monitor**: 性能监控
+
+**相关提交：**
+- `4d70c9df4324` grtrace/aggregator: add event aggregator module
+- `aaf397cca5bd` grtrace/sampler: add advanced sampler module
+- `00cc15adbfb3` grtrace/sampling: rename sampler to sampling for consistency
+- `4132c6f9a64d` grtrace/filter: add dynamic filter module
+- `57eda8b4f80b` grtrace/perf_mon: add performance monitor module
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (aggregator/filter/perf_mon/sampler 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (aggregator/filter/perf_mon/sampler 部分)
+
+### 4. GPU Vendor Adapters (GPU 驱动适配器)
+
+**功能描述：**
+- DRM Bridge (通用桥接)
+- AMD GPU adapter
+- Intel i915 adapter
+- Nouveau adapter
+- Virtio-GPU adapter
+- 去重逻辑
+
+**相关提交：**
+
+#### DRM Bridge
+- `0371b579d61b` grtrace/bridge: add DRM scheduler bridge and CLI hint
+- `2d82bf9afeda` grtrace/bridge: fix build issues and conditionalize DRM bridge
+- `66cdb28949ca` grtrace/bridge: Add MODULE_AUTHOR to DRM bridge module
+- `b5b8d090f239` grtrace/bridge: add AMD dedup on queue/run; keep done mapping
+- `b8c18120d6f9` grtrace/drm_bridge: fix DRM scheduler tracepoint export names
+- `bfcedfbf9eb7` grtrace/drm_bridge: fix compilation errors
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (drm_bridge 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (drm_bridge 部分)
+
+#### AMD GPU
+- `d457f23b47c7` grtrace/amdgpu: export amdgpu_sched_run_job tracepoint
+- `f1f9728679e1` grtrace/amdgpu: vendor adapter using amdgpu_sched_run_job
+- `e28df5b1a988` grtrace/amdgpu: vendor adapter using amdgpu_sched_run_job
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (amdgpu 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (amdgpu 部分)
+- `8c9881bdcf6f` grtrace/x86/config: rename driver files and update defconfig (amdgpu 部分)
+
+#### Intel i915
+- `6461ee7c94c2` grtrace/i915: export i915_request_in/out tracepoints
+- `b850d133c97e` grtrace/i915: vendor adapter hooking i915_request_in/out to emit START/END/COMPLETE
+- `5c0ba86877ac` grtrace/i915: update Kconfig dependencies
+- `a6a61a9c9a23` grtrace/i915: add fallback definitions for I915_ENGINE_CLASS macros
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (i915 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (i915 部分)
+- `8c9881bdcf6f` grtrace/x86/config: rename driver files and update defconfig (i915 部分)
+
+#### Nouveau
+- `33220da847f2` grtrace/nouveau: add GPU adapter (skeleton)
+- `540768be97d5` grtrace/nouveau: comment out nova-core directory reference
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (nouveau 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (nouveau 部分)
+- `8c9881bdcf6f` grtrace/x86/config: rename driver files and update defconfig (nouveau 部分)
+
+#### Virtio-GPU
+- `dc38831ee505` grtrace/virtio_gpu: add GPU adapter
+- `0a54f0db9c7c` grtrace/virtio: export virtio-gpu tracepoints for external modules
+- `747239e53caa` grtrace/md: update README for nouveau and virtio-gpu adapters
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (virtio_gpu 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (virtio_gpu 部分)
+- `678600ff9612` grtrace: rename virtio_gpu.c to grtrace_virtgpu.c
+
+### 5. Userspace Tools (用户空间工具)
+
+**功能描述：**
+- CLI 工具（blktrace 风格）
+- 解析器
+- 时间线合并器
+- 可视化工具
+- eBPF 注解工具
+- perf/ftrace 集成
+
+**相关提交：**
+- `c12e0e64b20e` grtrace/tools: add CLI for start/stop/record/report
+- `e1613a737dfe` grtrace/tools: add eBPF annotation tools for process context tracking
+- `f6b018325ca8` grtrace/tools: add timeline merger for CPU+GPU event correlation
+- `7e76b63a8d6e` grtrace/tools: add text-based timeline visualizer
+- `3cef90d4e344` grtrace/tools: add perf/ftrace integration tests
+- `a2bcddca1487` grtrace/tools: refactor CLI to unified blktrace-style command architecture (v0.9.0)
+- `f6820f869cc7` grtrace/bpf: remove redundant prefixes from filenames and symbols (eBPF 工具重命名)
+
+### 6. Testing & Documentation (测试和文档)
+
+**功能描述：**
+- Selftests (smoke, sampling, rate-limit, watchlist)
+- README 和 FAQ
+- 架构文档
+
+**相关提交：**
+
+#### Selftests
+- `0294a59a1b6d` grtrace/selftests: add harness Makefile and settings
+- `eb163ba2d1ab` grtrace/selftests: add smoke test
+- `13405837430e` grtrace/selftests: add sampling test
+- `c4aa28a84bcd` grtrace/selftests: add windowed rate-limit test
+- `9e44858c344f` grtrace/selftests: add token-bucket rate-limit test
+- `6b08ec431a45` grtrace/selftests: add watchlist test
+- `701715e19f6c` grtrace/selftests: add settings file
+- `90766f4d99b9` grtrace/selftests: fix Makefile include/OUTPUT; add .gitignore for binaries
+- `57743e977035` grtrace/selftests: mark grtrace_smoke.sh executable
+- `ce05724d89f9` grtrace selftests: Consolidate tests and rename files (测试文件重命名和整合)
+
+#### Documentation
+- `3f1269e92790` grtrace/doc: add README with module layout, load order, and dedup notes
+- `562c87e17529` grtrace/docs: add stabilization documentation (selftests README + FAQ)
+- `70907d0e26f5` grtrace/docs: consolidate documentation into unified READMEs
+
+### 7. Configuration & Fixes (配置和修复)
+
+**功能描述：**
+- Kconfig 配置
+- defconfig 更新
+- 各种编译修复
+
+**相关提交：**
+- `ab722ce99ad6` grtrace/kconfig: fix Kconfig help indentation and guard extra symbol resolution
+- `8c9881bdcf6f` grtrace/x86/config: rename driver files and update defconfig (defconfig 部分)
+
+**注意：** 文件重命名和函数重构的提交（`84f7a45b9c79` 和 `76bfbd3ff90a`）已拆分并归入到各自影响的模块中
+
+---
+
+## 合并后的提交结构建议
+
+按照功能描述中的每个具体功能点，将 62 个提交合并成以下提交：
+
+### 模块 1: Core Infrastructure (核心基础设施)
+
+#### 1.1 grtrace/core: establish relay+debugfs core and minimal event API
+**原始提交：**
+- `2b299eaad5b7` grtrace/core: add relay+debugfs core and minimal event API
+
+**配置文件：**
+- Kconfig: 添加 `CONFIG_GRTRACE` 定义（来自 `2b299eaad5b7`）
+- ctyunos_defconfig: 添加 `CONFIG_GRTRACE=m`, `CONFIG_RELAY=y`, `CONFIG_DEBUG_FS=y`（来自 `8c9881bdcf6f`，确保能编译）
+
+#### 1.2 grtrace/core: introduce event stream header and sequencing
+**原始提交：**
+- `077b620da1eb` grtrace/core: add global/per-CPU sequence, engine class, and debugfs stats
+- `4b1d64388a76` grtrace/core: add stream header, extend event set, and ordering/stats
+
+#### 1.3 grtrace/core: enable runtime controls and profiling
+**原始提交：**
+- `9fdc9ff9107a` grtrace/core: fix debugfs emit command parsing
+- `43f88194458a` grtrace/core: runtime controls and profiling
+
+#### 1.4 grtrace/core: enforce performance and overhead governance
+**原始提交：**
+- `f15ab0bb8ef7` grtrace/core: Implement performance and overhead governance
+- `4fb301182c24` grtrace/core: Add MODULE_AUTHOR field
+
+#### 1.5 grtrace/core: persist metadata and provide userspace parser
+**原始提交：**
+- `c196e918a346` grtrace/core: persist relay stream by adding METADATA event; add userspace parser
+
+#### 1.6 grtrace/core: fix Kconfig and enable in defconfig
+**原始提交：**
+- `ab722ce99ad6` grtrace/kconfig: fix Kconfig help indentation and guard extra symbol resolution (core 部分)
+
+**配置文件：**
+- Kconfig: 修复缩进格式
+- ctyunos_defconfig: 无变化（已在 1.1 中添加）
+
+### 模块 2: Event Processing (事件处理)
+
+#### 2.1 grtrace/core: enable type-mask filtering and per-CPU counters
+**原始提交：**
+- `faa394ad5812` grtrace/core: add type-mask filtering, per-CPU counters, and CSV debugfs views
+
+#### 2.2 grtrace/core: track per-second rolling statistics
+**原始提交：**
+- `0c5bde5b07ed` grtrace/core: per-second rolling stats, sec_stats debugfs, and drop counters
+
+#### 2.3 grtrace/core: deploy context watchlist and token-bucket rate limiter
+**原始提交：**
+- `e7053626b41d` grtrace/core: core features — ctx watchlist, token-bucket rate limiter, session id
+
+#### 2.4 grtrace/core: collect histograms and ring watchlist
+**原始提交：**
+- `04cba58639f3` grtrace/core: size/result histograms, ring watchlist AND/OR, session_id
+- `d47e1b7253d9` grtrace/core: fix stray stats code in filter path; restore START/END case logic and type-mask branch
+
+#### 2.5 grtrace/core: expose ring_map via debugfs
+**原始提交：**
+- `8482acc31e63` grtrace/core: add ring_map debugfs and expose in METADATA
+
+### 模块 3: GPU Vendor Adapters (GPU 驱动适配器)
+
+#### 3.1 grtrace/bridge: bridge DRM scheduler to grtrace
+**原始提交：**
+- `0371b579d61b` grtrace/bridge: add DRM scheduler bridge and CLI hint
+- `2d82bf9afeda` grtrace/bridge: fix build issues and conditionalize DRM bridge
+- `66cdb28949ca` grtrace/bridge: Add MODULE_AUTHOR to DRM bridge module
+- `b5b8d090f239` grtrace/bridge: add AMD dedup on queue/run; keep done mapping
+- `b8c18120d6f9` grtrace/drm_bridge: fix DRM scheduler tracepoint export names
+- `bfcedfbf9eb7` grtrace/drm_bridge: fix compilation errors
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (drm_bridge 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (drm_bridge 部分)
+
+**配置文件：**
+- Kconfig: 添加 `CONFIG_GRTRACE_DRM_BRIDGE`, `CONFIG_GRTRACE_DEDUP_AMDGPU_FROM_BRIDGE` 定义（来自 `0371b579d61b`）
+- ctyunos_defconfig: 添加 `CONFIG_GRTRACE_DRM_BRIDGE=m`, `CONFIG_DRM_SCHED=y`, `CONFIG_TRACEPOINTS=y`（来自 `8c9881bdcf6f`）
+
+#### 3.2 grtrace/amdgpu: hook AMD GPU driver events
+**原始提交：**
+- `d457f23b47c7` grtrace/amdgpu: export amdgpu_sched_run_job tracepoint
+- `f1f9728679e1` grtrace/amdgpu: vendor adapter using amdgpu_sched_run_job
+- `e28df5b1a988` grtrace/amdgpu: vendor adapter using amdgpu_sched_run_job
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (amdgpu 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (amdgpu 部分)
+- `8c9881bdcf6f` grtrace/x86/config: rename driver files and update defconfig (amdgpu 部分)
+
+**配置文件：**
+- Kconfig: 添加 `CONFIG_GRTRACE_AMDGPU` 定义（来自 `d457f23b47c7`）
+- ctyunos_defconfig: 添加 `CONFIG_GRTRACE_AMDGPU=m`, `CONFIG_GRTRACE_DEDUP_AMDGPU_FROM_BRIDGE=y`（来自 `8c9881bdcf6f`）
+
+#### 3.3 grtrace/i915: hook Intel i915 driver events
+**原始提交：**
+- `6461ee7c94c2` grtrace/i915: export i915_request_in/out tracepoints
+- `b850d133c97e` grtrace/i915: vendor adapter hooking i915_request_in/out to emit START/END/COMPLETE
+- `5c0ba86877ac` grtrace/i915: update Kconfig dependencies
+- `a6a61a9c9a23` grtrace/i915: add fallback definitions for I915_ENGINE_CLASS macros
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (i915 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (i915 部分)
+- `8c9881bdcf6f` grtrace/x86/config: rename driver files and update defconfig (i915 部分)
+
+**配置文件：**
+- Kconfig: 添加 `CONFIG_GRTRACE_I915` 定义（来自 `6461ee7c94c2`）
+- ctyunos_defconfig: 添加 `CONFIG_GRTRACE_I915=m`, `CONFIG_DRM_I915_LOW_LEVEL_TRACEPOINTS=y`（来自 `8c9881bdcf6f`）
+
+#### 3.4 grtrace/nouveau: scaffold Nouveau driver adapter
+**原始提交：**
+- `33220da847f2` grtrace/nouveau: add GPU adapter (skeleton)
+- `540768be97d5` grtrace/nouveau: comment out nova-core directory reference
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (nouveau 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (nouveau 部分)
+- `8c9881bdcf6f` grtrace/x86/config: rename driver files and update defconfig (nouveau 部分)
+
+**配置文件：**
+- Kconfig: 添加 `CONFIG_GRTRACE_NOUVEAU` 定义（来自 `33220da847f2`）
+- ctyunos_defconfig: 添加 `CONFIG_GRTRACE_NOUVEAU=m`（来自 `8c9881bdcf6f`）
+
+#### 3.5 grtrace/virtio_gpu: connect Virtio-GPU driver
+**原始提交：**
+- `dc38831ee505` grtrace/virtio_gpu: add GPU adapter
+- `0a54f0db9c7c` grtrace/virtio: export virtio-gpu tracepoints for external modules
+- `747239e53caa` grtrace/md: update README for nouveau and virtio-gpu adapters
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (virtio_gpu 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (virtio_gpu 部分)
+- `678600ff9612` grtrace: rename virtio_gpu.c to grtrace_virtgpu.c
+
+**配置文件：**
+- Kconfig: 添加 `CONFIG_GRTRACE_VIRTIO_GPU` 定义（来自 `dc38831ee505`）
+- ctyunos_defconfig: 添加 `CONFIG_GRTRACE_VIRTIO_GPU=m`（来自 `8c9881bdcf6f`）
+
+#### 3.6 grtrace/adapters: configure Kconfig for GPU adapters
+**说明：** 此提交已取消，配置已分配到 4.1-4.5
+
+**原始提交：**
+- `ab722ce99ad6` grtrace/kconfig: fix Kconfig help indentation and guard extra symbol resolution (bridge/amdgpu/i915/nouveau/virtio_gpu 部分)
+- `8c9881bdcf6f` grtrace/x86/config: rename driver files and update defconfig (CONFIG_GRTRACE_DRM_BRIDGE/AMDGPU/I915/NOUVEAU/VIRTIO_GPU 部分)
+
+**配置文件：**
+- 已在 4.1-4.5 中分别添加各适配器的 Kconfig 定义和 defconfig 配置项
+
+### 模块 4: Advanced Modules (高级模块)
+
+#### 4.1 grtrace/aggregator: build event aggregator module
+**原始提交：**
+- `4d70c9df4324` grtrace/aggregator: add event aggregator module
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (aggregator 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (aggregator 部分)
+
+**配置文件：**
+- Kconfig: 添加 `CONFIG_GRTRACE_AGGREGATOR` 定义（来自 `4d70c9df4324`）
+- ctyunos_defconfig: 添加 `CONFIG_GRTRACE_AGGREGATOR=m`（来自 `8c9881bdcf6f`）
+
+#### 4.2 grtrace/sampling: develop advanced sampling module
+**原始提交：**
+- `aaf397cca5bd` grtrace/sampler: add advanced sampler module
+- `00cc15adbfb3` grtrace/sampling: rename sampler to sampling for consistency
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (sampler 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (sampler 部分)
+
+**配置文件：**
+- Kconfig: 添加 `CONFIG_GRTRACE_SAMPLING` 定义（来自 `aaf397cca5bd`）
+- ctyunos_defconfig: 添加 `CONFIG_GRTRACE_SAMPLING=m`（来自 `8c9881bdcf6f`，注意原提交中为 CONFIG_GRTRACE_SAMPLER）
+
+#### 4.3 grtrace/filter: create dynamic filter module
+**原始提交：**
+- `4132c6f9a64d` grtrace/filter: add dynamic filter module
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (filter 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (filter 部分)
+
+**配置文件：**
+- Kconfig: 添加 `CONFIG_GRTRACE_FILTER` 定义（来自 `4132c6f9a64d`）
+- ctyunos_defconfig: 添加 `CONFIG_GRTRACE_FILTER=m`（来自 `8c9881bdcf6f`）
+
+#### 4.4 grtrace/perf_mon: deliver performance monitor module
+**原始提交：**
+- `57eda8b4f80b` grtrace/perf_mon: add performance monitor module
+- `84f7a45b9c79` grtrace/refactor: remove grtrace_ prefix from source files (perf_mon 部分)
+- `76bfbd3ff90a` grtrace/refactor: simplify function names by removing redundant prefixes (perf_mon 部分)
+
+**配置文件：**
+- Kconfig: 添加 `CONFIG_GRTRACE_PERF_MON` 定义（来自 `57eda8b4f80b`）
+- ctyunos_defconfig: 添加 `CONFIG_GRTRACE_PERF_MON=m`（来自 `8c9881bdcf6f`）
+
+#### 4.5 grtrace/modules: configure Kconfig for advanced modules
+**原始提交：**
+- `ab722ce99ad6` grtrace/kconfig: fix Kconfig help indentation and guard extra symbol resolution (aggregator/sampling/filter/perf_mon 部分)
+
+**配置文件：**
+- Kconfig: 修复缩进格式
+- ctyunos_defconfig: 无变化（已在 3.1-3.4 中分别添加）
+
+**注意：** 3.1-3.4 每个模块添加时已同时添加对应的 Kconfig 定义和 defconfig 配置项
+
+### 模块 5: Userspace Tools (用户空间工具)
+
+#### 5.1 grtrace/tools: deliver CLI for start/stop/record/report
+**原始提交：**
+- `c12e0e64b20e` grtrace/tools: add CLI for start/stop/record/report
+
+#### 5.2 grtrace/tools: provide eBPF annotation tools
+**原始提交：**
+- `e1613a737dfe` grtrace/tools: add eBPF annotation tools for process context tracking
+- `f6820f869cc7` grtrace/bpf: remove redundant prefixes from filenames and symbols
+
+#### 5.3 grtrace/tools: craft timeline merger and visualizer
+**原始提交：**
+- `f6b018325ca8` grtrace/tools: add timeline merger for CPU+GPU event correlation
+- `7e76b63a8d6e` grtrace/tools: add text-based timeline visualizer
+
+#### 5.4 grtrace/tools: validate perf/ftrace integration
+**原始提交：**
+- `3cef90d4e344` grtrace/tools: add perf/ftrace integration tests
+
+#### 5.5 grtrace/tools: refactor CLI to blktrace-style architecture
+**原始提交：**
+- `a2bcddca1487` grtrace/tools: refactor CLI to unified blktrace-style command architecture (v0.9.0)
+
+### 模块 6: Testing & Documentation (测试和文档)
+
+#### 6.1 grtrace/selftests: establish test harness and infrastructure
+**原始提交：**
+- `0294a59a1b6d` grtrace/selftests: add harness Makefile and settings
+- `701715e19f6c` grtrace/selftests: add settings file
+- `90766f4d99b9` grtrace/selftests: fix Makefile include/OUTPUT; add .gitignore for binaries
+- `57743e977035` grtrace/selftests: mark grtrace_smoke.sh executable
+
+#### 6.2 grtrace/selftests: verify basic functionality with smoke test
+**原始提交：**
+- `eb163ba2d1ab` grtrace/selftests: add smoke test
+
+#### 6.3 grtrace/selftests: validate sampling behavior
+**原始提交：**
+- `13405837430e` grtrace/selftests: add sampling test
+
+#### 6.4 grtrace/selftests: verify rate-limit mechanisms
+**原始提交：**
+- `c4aa28a84bcd` grtrace/selftests: add windowed rate-limit test
+- `9e44858c344f` grtrace/selftests: add token-bucket rate-limit test
+
+#### 6.5 grtrace/selftests: validate watchlist filtering
+**原始提交：**
+- `6b08ec431a45` grtrace/selftests: add watchlist test
+
+#### 6.6 grtrace/selftests: consolidate and rename test files
+**原始提交：**
+- `ce05724d89f9` grtrace selftests: Consolidate tests and rename files
+
+#### 6.7 grtrace/docs: document module layout and dedup mechanism
+**原始提交：**
+- `3f1269e92790` grtrace/doc: add README with module layout, load order, and dedup notes
+
+#### 6.8 grtrace/docs: publish stabilization guide
+**原始提交：**
+- `562c87e17529` grtrace/docs: add stabilization documentation (selftests README + FAQ)
+
+#### 6.9 grtrace/docs: consolidate documentation into unified READMEs
+**原始提交：**
+- `70907d0e26f5` grtrace/docs: consolidate documentation into unified READMEs
+
+## 合并策略总结
+
+- **总原始提交数：** 62 个
+- **建议合并后提交数：** 36 个
+- **合并比例：** 约 1.7:1
+
+**合并原则：**
+1. 同一功能点的多个提交合并为一个
+2. 重构/重命名提交拆分并合并到对应功能提交中
+3. 修复类提交合并到原功能提交中
+4. Kconfig/defconfig 配置按模块归入对应的子模块
+5. 保持功能的完整性和可追溯性
+
+### 配置文件分配策略
+
+**关键原则：** 每个模块添加时必须同时添加其 Kconfig 定义和 defconfig 配置项，确保每个提交都能编译通过。
+
+**具体分配：**
+- **Module 1.1**: 添加 `CONFIG_GRTRACE` 的 Kconfig 定义和 defconfig 配置（`CONFIG_GRTRACE=m`, `CONFIG_RELAY=y`, `CONFIG_DEBUG_FS=y`）
+- **Module 1.6**: 仅修复 Kconfig 缩进格式（来自 `ab722ce99ad6`），defconfig 无变化
+- **Module 3.1-3.4**: 每个高级模块添加时，同时添加对应的 Kconfig 定义和 defconfig 配置项
+- **Module 3.5**: 仅修复 Kconfig 缩进格式，defconfig 无变化
+- **Module 4.1-4.5**: 每个 GPU 适配器添加时，同时添加对应的 Kconfig 定义和 defconfig 配置项
+- **Module 4.6**: 已取消，配置已分配到 4.1-4.5
+
+**原始提交 `8c9881bdcf6f` 的处理：**
+该提交一次性添加了所有 defconfig 配置项。在重整后，这些配置项被拆分并分配到各个模块的首次引入时：
+- `CONFIG_GRTRACE=m` → Module 1.1
+- `CONFIG_GRTRACE_AGGREGATOR=m` → Module 3.1
+- `CONFIG_GRTRACE_SAMPLING=m` → Module 3.2
+- `CONFIG_GRTRACE_FILTER=m` → Module 3.3
+- `CONFIG_GRTRACE_PERF_MON=m` → Module 3.4
+- `CONFIG_GRTRACE_DRM_BRIDGE=m` → Module 4.1
+- `CONFIG_GRTRACE_AMDGPU=m` → Module 4.2
+- `CONFIG_GRTRACE_I915=m` → Module 4.3
+- `CONFIG_GRTRACE_NOUVEAU=m` → Module 4.4
+- `CONFIG_GRTRACE_VIRTIO_GPU=m` → Module 4.5
+
+---
+
+## 合并操作方法对比
+
+### 方法一：交互式 rebase (git rebase -i) ⭐⭐⭐
+
+**优点：**
+- Git 原生支持，最常用的方法
+- 可以精确控制每个提交的处理方式（pick/squash/fixup/edit）
+- 保留完整的 git 历史追溯
+- 可以随时中断和恢复
+
+**缺点：**
+- 需要手动编辑 rebase 文件，容易出错
+- 对于 61 个提交，编辑器中会很长，难以管理
+- 如果提交之间有复杂依赖，可能会遇到冲突
+- 需要对 git rebase 有较深理解
+
+**适用场景：**
+- 提交数量较少（<20个）
+- 提交之间依赖关系简单
+- 需要精确控制每个提交
+
+**操作步骤：**
+```bash
+# 1. 创建备份分支
+git branch grtrace-backup
+
+# 2. 交互式 rebase
+git rebase -i 9d7672611549^
+
+# 3. 在编辑器中标记提交
+#    pick: 保留
+#    squash: 合并到前一个提交并保留 message
+#    fixup: 合并到前一个提交但丢弃 message
+#    edit: 暂停以便修改
+
+# 4. 解决冲突（如果有）
+git add <files>
+git rebase --continue
+
+# 5. 如果出错，可以中止
+git rebase --abort
+```
+
+**推荐指数：** ⭐⭐⭐ (3/5)
+
+---
+
+### 方法二：软重置 + 重新提交 (git reset --soft) ⭐⭐⭐⭐⭐
+
+**优点：**
+- 最简单、最可控的方法
+- 不会遇到 rebase 冲突
+- 可以完全按照新的结构重新组织提交
+- 容易理解和执行
+- 出错后容易恢复
+
+**缺点：**
+- 丢失了原始提交的时间戳和作者信息（可以手动保留）
+- 需要手动选择文件进行提交
+- 对于大量文件，需要仔细组织
+
+**适用场景：** ✅ **最适合本次整理**
+- 提交数量多（61个）
+- 需要完全重新组织提交结构
+- 希望避免 rebase 冲突
+- 对最终结果有明确规划
+
+**操作步骤：**
+```bash
+# 1. 创建备份分支
+git branch grtrace-backup
+git tag grtrace-before-reorganize
+
+# 2. 软重置到 grtrace 提交之前
+git reset --soft 9d7672611549
+
+# 3. 查看所有变更（都在暂存区）
+git status
+
+# 4. 按模块重新提交
+# 模块 1.1: Core Infrastructure - relay+debugfs
+git reset HEAD  # 取消所有暂存
+git add drivers/gpu/grtrace/grtrace.c  # 只添加相关文件
+git commit -m "grtrace/core: establish relay+debugfs core and minimal event API
+
+Original commits:
+- 2b299eaad5b7 grtrace/core: add relay+debugfs core and minimal event API"
+
+# 模块 1.2: 继续下一个...
+git add <files-for-1.2>
+git commit -m "..."
+
+# ... 依次类推，按照文档中的 36 个合并后提交逐个创建
+
+# 5. 验证
+git log --oneline -40
+git diff grtrace-backup  # 应该没有差异
+
+# 6. 如果满意，删除备份
+git branch -D grtrace-backup
+git tag -d grtrace-before-reorganize
+```
+
+**推荐指数：** ⭐⭐⭐⭐⭐ (5/5) **强烈推荐**
+
+---
+
+### 方法三：新分支 + cherry-pick ⭐⭐⭐⭐
+
+**优点：**
+- 保留原分支不变，安全性高
+- 可以选择性地挑选提交
+- 保留原始提交信息
+- 可以在新分支上自由实验
+
+**缺点：**
+- 需要手动 cherry-pick 61 个提交
+- 可能遇到大量冲突（因为有重构提交）
+- 操作繁琐，容易遗漏
+- 最后需要处理两个分支
+
+**适用场景：**
+- 需要保留原分支
+- 只想挑选部分提交
+- 有充足时间处理冲突
+
+**操作步骤：**
+```bash
+# 1. 基于目标 commit 创建新分支
+git checkout -b grtrace-reorganized 9d7672611549
+
+# 2. 按模块 cherry-pick 提交
+# 模块 1.1
+git cherry-pick 2b299eaad5b7
+
+# 模块 1.2
+git cherry-pick 077b620da1eb 4b1d64388a76
+# 如果需要合并，使用 squash
+git reset --soft HEAD~2
+git commit -m "grtrace/core: introduce event stream header and sequencing"
+
+# ... 依次类推
+
+# 3. 处理冲突
+git cherry-pick --continue
+# 或
+git cherry-pick --abort
+
+# 4. 验证
+git diff grtrace-backup
+
+# 5. 如果满意，切换分支
+git branch -m ctkernel-lts-6.6/yuanql9/feature-grtrace ctkernel-lts-6.6/yuanql9/feature-grtrace-old
+git branch -m grtrace-reorganized ctkernel-lts-6.6/yuanql9/feature-grtrace
+```
+
+**推荐指数：** ⭐⭐⭐⭐ (4/5)
+
+---
+
+## 最佳实践推荐
+
+### 🏆 推荐方案：方法二（软重置 + 重新提交）
+
+**理由：**
+1. **最适合大规模重组**：61个提交需要重组为36个，方法二最直接
+2. **避免冲突**：不会遇到 rebase 或 cherry-pick 的冲突问题
+3. **完全可控**：可以精确控制每个新提交包含的内容
+4. **易于理解**：操作逻辑简单，不容易出错
+5. **易于恢复**：有备份分支和 tag，随时可以回退
+
+## 重构提交拆分说明
+
+以下重构/重命名提交已被拆分并归入到各自影响的模块中：
+
+### 1. `84f7a45b9c79` - grtrace/refactor: remove grtrace_ prefix from source files
+**影响范围：**
+- Advanced Modules: aggregator, filter, perf_mon, sampler
+- GPU Vendor Adapters: amdgpu, i915, nouveau, virtio_gpu, drm_bridge
+
+**拆分方式：** 按文件归属拆分到对应模块
+
+### 2. `76bfbd3ff90a` - grtrace/refactor: simplify function names by removing redundant prefixes
+**影响范围：**
+- Advanced Modules: aggregator, filter, perf_mon, sampler
+- GPU Vendor Adapters: amdgpu, i915, nouveau, virtio_gpu, drm_bridge
+
+**拆分方式：** 按文件归属拆分到对应模块
+
+### 3. `8c9881bdcf6f` - grtrace/x86/config: rename driver files and update defconfig
+**影响范围：**
+- GPU Vendor Adapters: amdgpu, i915, nouveau (文件重命名部分)
+- Configuration: defconfig 更新部分
+
+**拆分方式：** 文件重命名归入 GPU Adapters，defconfig 更新归入 Configuration
+
+### 4. `ce05724d89f9` - grtrace selftests: Consolidate tests and rename files
+**影响范围：**
+- Testing & Documentation: selftests 文件重命名和整合
+
+**拆分方式：** 完整归入 Testing 模块
+
+### 5. `f6820f869cc7` - grtrace/bpf: remove redundant prefixes from filenames and symbols
+**影响范围：**
+- Userspace Tools: eBPF 工具文件重命名
+
+**拆分方式：** 完整归入 Userspace Tools 模块
+
+---
+
+## 注意事项
+
+1. **备份当前分支**：在进行任何 rebase 或 reset 操作前，务必创建备份分支
+2. **检查依赖关系**：某些提交可能有依赖关系，合并时需要保持正确的顺序
+3. **测试编译**：每次合并后都应该测试编译是否通过
+4. **更新 commit message**：合并后的 commit message 应该包含所有相关功能的描述
+5. **Force push 警告**：如果分支已经推送到远程，rebase 后需要 force push，需谨慎操作
+6. **重构提交拆分**：重构类提交已按文件归属拆分到各模块，合并时需要将相关部分一起合并
+
+---
+
+## 时间线
+
+- **创建时间**: 2024年
+- **整理时间**: 2025-11-28
+- **提交范围**: 从 `2b299eaad5b7` 到 `678600ff9612`
+- **总提交数**: 62 个
+- **建议合并后**: 36 个
