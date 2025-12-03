@@ -1,0 +1,1229 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, binary-analysis, books, boot, bpf, bugs, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, patent, perf, perf-event, performance, phytium, pkg, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="大模型从0到1｜第十一讲：如何用好 Scaling Law (Scaling - Case Study and Details) 课程链接：Stanford CS336 Spring 2025 - Lecture 11  课程信息  课程: CS336 讲师: Tatsu H 主题: 深入探讨 Scaling Law 在实际工程中的应用，包括 muP 参数化、WSD 学习率调度以及 Chinchi">
+<meta property="og:type" content="article">
+<meta property="og:title" content="大模型从0到1｜第十一讲：如何用好 Scaling Law (Scaling - Case Study and Details)">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%8D%81%E4%B8%80%E8%AE%B2%EF%BC%9A%E5%A6%82%E4%BD%95%E7%94%A8%E5%A5%BDScaling%20Law/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="大模型从0到1｜第十一讲：如何用好 Scaling Law (Scaling - Case Study and Details) 课程链接：Stanford CS336 Spring 2025 - Lecture 11  课程信息  课程: CS336 讲师: Tatsu H 主题: 深入探讨 Scaling Law 在实际工程中的应用，包括 muP 参数化、WSD 学习率调度以及 Chinchi">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_01.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_02.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_03.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_04.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_05.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_06.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_07.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_08.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_09.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_10.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_11.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_12.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_13.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_14.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_15.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_16.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_17.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_18.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_19.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_20.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_21.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_22.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_23.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_24.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_25.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_26.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_27.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_28.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_29.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_30.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_31.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_32.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_33.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_34.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_35.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_36.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_37.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_38.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_39.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_40.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_41.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_42.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_43.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_44.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_45.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_46.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_47.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_48.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_49.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_50.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_51.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_52.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_53.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_54.png">
+<meta property="og:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_55.png">
+<meta property="article:published_time" content="2025-12-03T15:50:48.000Z">
+<meta property="article:modified_time" content="2025-12-03T15:50:48.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="drivers">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="gpu">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="log">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="stanford-cs336">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://realwujing.github.io/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_01.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>大模型从0到1｜第十一讲：如何用好 Scaling Law (Scaling - Case Study and Details) - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="大模型从0到1｜第十一讲：如何用好 Scaling Law (Scaling - Case Study and Details)"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-12-03 15:50" pubdate>
+          2025年12月3日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          6.1k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          51 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">大模型从0到1｜第十一讲：如何用好 Scaling Law (Scaling - Case Study and Details)</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="大模型从0到1｜第十一讲：如何用好-Scaling-Law-Scaling-Case-Study-and-Details"><a href="#大模型从0到1｜第十一讲：如何用好-Scaling-Law-Scaling-Case-Study-and-Details" class="headerlink" title="大模型从0到1｜第十一讲：如何用好 Scaling Law (Scaling - Case Study and Details)"></a>大模型从0到1｜第十一讲：如何用好 Scaling Law (Scaling - Case Study and Details)</h1><blockquote>
+<p>课程链接：<a target="_blank" rel="noopener" href="https://github.com/stanford-cs336/spring2025-lectures/blob/00191bba00d6d64621dc46ccaed9122681413a24/nonexecutable/2025%20Lecture%2011%20-%20Scaling%20details.pdf">Stanford CS336 Spring 2025 - Lecture 11</a></p>
+</blockquote>
+<p><strong>课程信息</strong></p>
+<ul>
+<li><strong>课程:</strong> CS336</li>
+<li><strong>讲师:</strong> Tatsu H</li>
+<li><strong>主题:</strong> 深入探讨 Scaling Law 在实际工程中的应用，包括 muP 参数化、WSD 学习率调度以及 Chinchilla 定律的拟合细节。</li>
+</ul>
+<hr>
+<h2 id="Part-1-课程背景与动机-Motivation"><a href="#Part-1-课程背景与动机-Motivation" class="headerlink" title="Part 1: 课程背景与动机 (Motivation)"></a>Part 1: 课程背景与动机 (Motivation)</h2><p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_01.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-1-标题页"><a href="#Page-1-标题页" class="headerlink" title="Page 1: 标题页"></a><strong>Page 1: 标题页</strong></h3><ul>
+<li><strong>内容:</strong> Lecture 11: Scaling - Case Study and Details。</li>
+<li><strong>解析:</strong> 本节课的主题是“扩展定律的案例研究与细节”。既然我们知道了 Scaling Law 的存在，那么在实际操作中（In the wild），我们该如何具体执行？</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_02.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-2-核心动机-Motivation-Today"><a href="#Page-2-核心动机-Motivation-Today" class="headerlink" title="Page 2: 核心动机 (Motivation Today)"></a><strong>Page 2: 核心动机 (Motivation Today)</strong></h3><ul>
+<li><strong>关键问题:</strong><ol>
+<li><strong>Chinchilla 有效吗？</strong> DeepMind 的扩展方法在实际操作中真的管用吗？</li>
+<li><strong>省钱:</strong> 我们能否在训练和拟合 Scaling Law 时节省算力？（拟合曲线本身就很贵）。</li>
+<li><strong>架构选择:</strong> 为了更好的扩展性，我们需要选择特定的架构或参数化方式吗？</li>
+</ol>
+</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_03.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-3-扩展实战案例概览"><a href="#Page-3-扩展实战案例概览" class="headerlink" title="Page 3: 扩展实战案例概览"></a><strong>Page 3: 扩展实战案例概览</strong></h3><ul>
+<li><strong>时间线:</strong><ul>
+<li><strong>2022:</strong> <strong>DeepMind (Chinchilla)</strong> —— 提出了计算最优（Compute-optimal）的概念。</li>
+<li><strong>2023:</strong> <strong>Cerebras-GPT</strong> —— 验证了在特定硬件上复现 Chinchilla 规律。</li>
+<li><strong>2024:</strong> <strong>DeepSeek, MiniCPM, Llama 3, Hunyuan-Large</strong> —— 这一年爆发了多种 Scaling 策略。</li>
+<li><strong>2025:</strong> <strong>MiniMax-01</strong> —— 最新的探索。</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2 id="Part-2-案例一-Cerebras-GPT-与-muP"><a href="#Part-2-案例一-Cerebras-GPT-与-muP" class="headerlink" title="Part 2: 案例一 - Cerebras-GPT 与 muP"></a>Part 2: 案例一 - Cerebras-GPT 与 muP</h2><p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_04.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-4-Cerebras-GPT-概览"><a href="#Page-4-Cerebras-GPT-概览" class="headerlink" title="Page 4: Cerebras-GPT 概览"></a><strong>Page 4: Cerebras-GPT 概览</strong></h3><ul>
+<li><strong>背景:</strong> Cerebras 发布了一系列从 111M 到 13B 的模型，严格遵循 Chinchilla 的配方。</li>
+<li><strong>验证:</strong> 图表显示，Cerebras-GPT 的 Validation Loss 完美地落在了一条幂律曲线上（虚线）。这证明了 Scaling Law 在不同硬件架构上的普适性。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_05.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-5-超参数扩展策略"><a href="#Page-5-超参数扩展策略" class="headerlink" title="Page 5: 超参数扩展策略"></a><strong>Page 5: 超参数扩展策略</strong></h3><ul>
+<li><strong>图表:</strong> 展示了 Cerebras-GPT 实际上是如何预测超参数的。</li>
+<li><strong>发现:</strong> 随着模型变大（Training FLOPS 增加），最佳的学习率（Learning Rate）并不是恒定的，也不是随意设定的，而是遵循某种规律。Cerebras 作者发现使用 <strong>muP (Maximal Update Parametrization)</strong> 可以让这种规律变得非常可预测。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_06.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-6-muP-参数化-muP-Parametrization"><a href="#Page-6-muP-参数化-muP-Parametrization" class="headerlink" title="Page 6: muP 参数化 (muP Parametrization)"></a><strong>Page 6: muP 参数化 (muP Parametrization)</strong></h3><ul>
+<li><strong>表格:</strong> 附录中展示了标准参数化（Standard Parameterization, SP）与 muP 的具体区别。</li>
+<li><strong>关键差异:</strong><ul>
+<li><strong>Embedding:</strong> muP 的初始化方差和 LR 都是常数（1）。</li>
+<li><strong>Attention&#x2F;MLP:</strong> muP 的初始化方差是 $1&#x2F;Width$，LR 是 $1&#x2F;Width$。</li>
+<li><strong>Output Layer:</strong> muP 的初始化方差是 $1&#x2F;Width^2$。</li>
+<li><strong>Attention Scaling:</strong> muP 使用 $1&#x2F;D$ 而不是 $1&#x2F;\sqrt{D}$。</li>
+</ul>
+</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_07.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-7-经验值设定"><a href="#Page-7-经验值设定" class="headerlink" title="Page 7: 经验值设定"></a><strong>Page 7: 经验值设定</strong></h3><ul>
+<li><strong>方法:</strong><ol>
+<li>在一个小模型（40M 参数）上进行随机超参数搜索（Grid Search）。</li>
+<li>找到最佳的 LR 和 Init Std。</li>
+<li>利用 muP 的规则，直接将这些参数迁移到大模型上。</li>
+</ol>
+</li>
+<li><strong>图表:</strong> 展示了小模型上 Loss 对 LR 和 Init Std 的敏感度。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_08.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-8-什么是-muP-原理"><a href="#Page-8-什么是-muP-原理" class="headerlink" title="Page 8: 什么是 muP? (原理)"></a><strong>Page 8: 什么是 muP? (原理)</strong></h3><ul>
+<li><strong>论文:</strong> “A Spectral Condition for Feature Learning”。</li>
+<li><strong>核心思想:</strong> 随着网络宽度 $n_l$ 趋向无穷大，我们需要满足两个条件以保持训练稳定：<ol>
+<li><strong>A1 (Activation):</strong> 初始化时的激活值应保持 $O(1)$。</li>
+<li><strong>A2 (Update):</strong> 经过一次梯度更新后，激活值的变化量应保持 $O(1)$。</li>
+</ol>
+</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_09.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-9-推导-muP-条件-A1"><a href="#Page-9-推导-muP-条件-A1" class="headerlink" title="Page 9: 推导 muP (条件 A1)"></a><strong>Page 9: 推导 muP (条件 A1)</strong></h3><ul>
+<li><strong>场景:</strong> 简单的深度线性网络 $h_l &#x3D; W_l h_{l-1}$。</li>
+<li><strong>推导:</strong> 如果 $W_l \sim N(0, \sigma^2)$，为了让输出范数不随宽度 $n_l$ 爆炸，我们需要设置方差 $\sigma \approx 1&#x2F;\sqrt{n_l}$。这与 Xavier 初始化一致。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_10.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-10-推导-muP-条件-A2"><a href="#Page-10-推导-muP-条件-A2" class="headerlink" title="Page 10: 推导 muP (条件 A2)"></a><strong>Page 10: 推导 muP (条件 A2)</strong></h3><ul>
+<li><strong>场景:</strong> 考虑权重更新 $\Delta W_l &#x3D; -\eta \nabla \ell$。</li>
+<li><strong>推导:</strong> 更新后的激活值变化 $\Delta h_l &#x3D; W_l \Delta h_{l-1} + \Delta W_l h_{l-1}$。我们希望这一项也是 $O(\sqrt{n_l})$（与激活值同级）。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_11.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-11-推导-muP-条件-A2-Part-2"><a href="#Page-11-推导-muP-条件-A2-Part-2" class="headerlink" title="Page 11: 推导 muP (条件 A2) Part 2"></a><strong>Page 11: 推导 muP (条件 A2) Part 2</strong></h3><ul>
+<li><strong>结论:</strong> 为了满足上述条件，学习率 $\eta$ 必须随着宽度 $n_l$ 的增加而<strong>减小</strong>，具体来说 $\eta_l &#x3D; \Theta(1&#x2F;n_{l-1})$。</li>
+<li><strong>意义:</strong> 这就是为什么在大模型训练中，通常模型越宽，学习率越小的理论依据。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_12.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-12-muP-小结"><a href="#Page-12-muP-小结" class="headerlink" title="Page 12: muP 小结"></a><strong>Page 12: muP 小结</strong></h3><ul>
+<li><strong>总结:</strong> muP 是一套关于初始化和学习率的缩放规则（作为宽度的函数）。<ul>
+<li><strong>Initialization:</strong> $\Theta(1&#x2F;\sqrt{n})$</li>
+<li><strong>Learning Rate:</strong> $\Theta(1&#x2F;n)$ (对于 Adam)</li>
+</ul>
+</li>
+<li><strong>对比:</strong> 标准参数化（Standard）通常只做初始化缩放，而忽略了 LR 的缩放。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_13.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-13-Cerebras-GPT-实现细节"><a href="#Page-13-Cerebras-GPT-实现细节" class="headerlink" title="Page 13: Cerebras-GPT 实现细节"></a><strong>Page 13: Cerebras-GPT 实现细节</strong></h3><ul>
+<li><strong>表格:</strong> 展示了具体的实现值。<ul>
+<li>Attention Scale 使用 $1&#x2F;D$（通常是 $1&#x2F;\sqrt{D}$）。这一改变在宽度增加时尤为重要。</li>
+</ul>
+</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_14.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-14-muP-的更深层细节"><a href="#Page-14-muP-的更深层细节" class="headerlink" title="Page 14: muP 的更深层细节"></a><strong>Page 14: muP 的更深层细节</strong></h3><ul>
+<li><strong>表格:</strong> 详细列出了每一类参数（Embedding, Attention, MLP, Logits）的初始化方差和学习率缩放规则。</li>
+<li><strong>注意:</strong> Embedding 层和 Output 层通常有特殊的缩放规则（如 $1&#x2F;M$ vs $1&#x2F;M^2$），以保证输入输出的稳定性。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_15.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-15-扩展协议-Scaling-Protocol"><a href="#Page-15-扩展协议-Scaling-Protocol" class="headerlink" title="Page 15: 扩展协议 (Scaling Protocol)"></a><strong>Page 15: 扩展协议 (Scaling Protocol)</strong></h3><ul>
+<li><strong>表格:</strong> Cerebras-GPT 训练的模型列表。</li>
+<li><strong>局限性:</strong> 该工作只探索了<strong>宽度 (Width)</strong> 的扩展，深度相对固定。这是 muP 理论目前主要覆盖的领域。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_16.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-16-验证-muP-Replicating-muP"><a href="#Page-16-验证-muP-Replicating-muP" class="headerlink" title="Page 16: 验证 muP (Replicating muP)"></a><strong>Page 16: 验证 muP (Replicating muP)</strong></h3><ul>
+<li><strong>问题:</strong> muP 真的像宣称的那样有效吗？即“最佳学习率是常数”？</li>
+<li><strong>验证:</strong> 表格显示，在 Baseline (SP) 下，随着宽度从 128 到 2048，最佳 LR 从 3.695 降到了 2.511。但在 muP 下，最佳 Base LR 稳定在 3.7 左右。<strong>验证成功。</strong></li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_17.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-17-muP-的鲁棒性-Robustness"><a href="#Page-17-muP-的鲁棒性-Robustness" class="headerlink" title="Page 17: muP 的鲁棒性 (Robustness)"></a><strong>Page 17: muP 的鲁棒性 (Robustness)</strong></h3><ul>
+<li><strong>背景:</strong> 现代 LLM 有很多组件（如 SwiGLU, RMSNorm）并不在 muP 最初的理论假设中。muP 还能用吗？</li>
+<li><strong>列表:</strong><ul>
+<li><strong>SwiGLU &#x2F; Squared ReLU:</strong> 鲁棒。</li>
+<li><strong>Batch Size:</strong> 鲁棒。</li>
+<li><strong>Initialization (Zero Query):</strong> 鲁棒。</li>
+<li><strong>RMSNorm Gains:</strong> **不鲁棒 (Break)**。</li>
+<li><strong>Lion Optimizer:</strong> <strong>不鲁棒</strong>。</li>
+<li><strong>Weight Decay:</strong> <strong>不鲁棒</strong>。</li>
+</ul>
+</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_18.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-18-鲁棒性-非线性激活"><a href="#Page-18-鲁棒性-非线性激活" class="headerlink" title="Page 18: 鲁棒性 - 非线性激活"></a><strong>Page 18: 鲁棒性 - 非线性激活</strong></h3><ul>
+<li><strong>结论:</strong> 无论是 SwiGLU 还是 Squared ReLU，muP 都能保持最佳 LR 的稳定性。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_19.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-19-鲁棒性-Batch-Size"><a href="#Page-19-鲁棒性-Batch-Size" class="headerlink" title="Page 19: 鲁棒性 - Batch Size"></a><strong>Page 19: 鲁棒性 - Batch Size</strong></h3><ul>
+<li><strong>结论:</strong> Batch Size 的变化不影响 muP 的 LR 迁移规律。虽然原始推导没考虑 Batch Size，但经验上是兼容的。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_20.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-20-鲁棒性-初始化"><a href="#Page-20-鲁棒性-初始化" class="headerlink" title="Page 20: 鲁棒性 - 初始化"></a><strong>Page 20: 鲁棒性 - 初始化</strong></h3><ul>
+<li><strong>结论:</strong> 使用 Zero Query Init（将 Query 初始化为 0）等技巧也不影响 muP。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_21.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-21-不鲁棒-RMSNorm-Gain"><a href="#Page-21-不鲁棒-RMSNorm-Gain" class="headerlink" title="Page 21: 不鲁棒 - RMSNorm Gain"></a><strong>Page 21: 不鲁棒 - RMSNorm Gain</strong></h3><ul>
+<li><strong>现象:</strong> 如果 RMSNorm 带有可学习的增益参数（Gain $\gamma$），muP 失效。</li>
+<li><strong>解决方案:</strong> 直接移除 RMSNorm 的可学习参数（Fix $\gamma&#x3D;1$）。这几乎不影响性能，但恢复了 muP 的特性。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_22.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-22-不鲁棒-异构优化器-Lion"><a href="#Page-22-不鲁棒-异构优化器-Lion" class="headerlink" title="Page 22: 不鲁棒 - 异构优化器 (Lion)"></a><strong>Page 22: 不鲁棒 - 异构优化器 (Lion)</strong></h3><ul>
+<li><strong>现象:</strong> Lion 优化器基于符号（Sign），不符合 muP 的假设。无法直接迁移。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_23.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-23-不鲁棒-强权重衰减"><a href="#Page-23-不鲁棒-强权重衰减" class="headerlink" title="Page 23: 不鲁棒 - 强权重衰减"></a><strong>Page 23: 不鲁棒 - 强权重衰减</strong></h3><ul>
+<li><strong>现象:</strong> 当 Weight Decay 设为 0.1（现代标准）时，muP 失效。这是一个主要短板。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_24.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-24-muP-总结"><a href="#Page-24-muP-总结" class="headerlink" title="Page 24: muP 总结"></a><strong>Page 24: muP 总结</strong></h3><ul>
+<li><strong>有用吗？</strong> 总体非常有用。特别是对于 SP（标准参数化）不稳定的场景。</li>
+<li><strong>建议:</strong> 如果从头训练，使用 muP 初始化和参数化可以节省大量的调参时间。</li>
+</ul>
+<hr>
+<h2 id="Part-3-案例二-MiniCPM-与-WSD-调度"><a href="#Part-3-案例二-MiniCPM-与-WSD-调度" class="headerlink" title="Part 3: 案例二 - MiniCPM 与 WSD 调度"></a>Part 3: 案例二 - MiniCPM 与 WSD 调度</h2><p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_25.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-25-MiniCPM-介绍"><a href="#Page-25-MiniCPM-介绍" class="headerlink" title="Page 25: MiniCPM 介绍"></a><strong>Page 25: MiniCPM 介绍</strong></h3><ul>
+<li><strong>背景:</strong> 清华团队发布的 2.4B 小模型。性能极强。</li>
+<li><strong>特点:</strong> 他们公开了详细的“可扩展训练策略”。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_26.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-26-MiniCPM-的扩展配方"><a href="#Page-26-MiniCPM-的扩展配方" class="headerlink" title="Page 26: MiniCPM 的扩展配方"></a><strong>Page 26: MiniCPM 的扩展配方</strong></h3><ul>
+<li><strong>核心:</strong><ol>
+<li>使用 muP 来稳定 Scaling。</li>
+<li>使用 <strong>WSD (Warmup-Stable-Decay)</strong> 调度器。</li>
+</ol>
+</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_27.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-27-WSD-学习率调度-WSD-Scheduler"><a href="#Page-27-WSD-学习率调度-WSD-Scheduler" class="headerlink" title="Page 27: WSD 学习率调度 (WSD Scheduler)"></a><strong>Page 27: WSD 学习率调度 (WSD Scheduler)</strong></h3><ul>
+<li><strong>图表 (Figure 15):</strong> 对比了 Cosine 调度（黄色）和 WSD 调度（绿色）。</li>
+<li><strong>WSD 阶段:</strong><ol>
+<li><strong>Warmup:</strong> 预热。</li>
+<li><strong>Stable:</strong> LR 保持恒定（高位）。</li>
+<li><strong>Decay:</strong> 在训练结束前（例如最后 10% 的 Token），让 LR 急剧下降。</li>
+</ol>
+</li>
+<li><strong>优势:</strong> 在 Stable 阶段，你可以随时决定“结束训练”。只需从当前 Checkpoint 开始做 Decay，就能得到收敛的模型。这允许一次训练测试多个数据量。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_28.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-28-WSD-的效果"><a href="#Page-28-WSD-的效果" class="headerlink" title="Page 28: WSD 的效果"></a><strong>Page 28: WSD 的效果</strong></h3><ul>
+<li><strong>图表:</strong> 展示了在 MiniCPM 训练中，LR 在 Stable 阶段保持高位，Loss 缓慢下降。一旦进入 Decay 阶段，Loss 迅速下降约 10% 并收敛。</li>
+</ul>
+<hr>
+<h2 id="Part-4-Chinchilla-Scaling-Law-的拟合方法"><a href="#Part-4-Chinchilla-Scaling-Law-的拟合方法" class="headerlink" title="Part 4: Chinchilla Scaling Law 的拟合方法"></a>Part 4: Chinchilla Scaling Law 的拟合方法</h2><p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_29.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-29-旁注-其他拟合方法"><a href="#Page-29-旁注-其他拟合方法" class="headerlink" title="Page 29: 旁注 - 其他拟合方法"></a><strong>Page 29: 旁注 - 其他拟合方法</strong></h3><ul>
+<li><strong>内容:</strong> 提到 Gadre et al 的工作。不仅看 Loss，还看“过拟合惩罚”。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_30.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-30-Chinchilla-方法-1-IsoFLOP-Curves"><a href="#Page-30-Chinchilla-方法-1-IsoFLOP-Curves" class="headerlink" title="Page 30: Chinchilla 方法 1 (IsoFLOP Curves)"></a><strong>Page 30: Chinchilla 方法 1 (IsoFLOP Curves)</strong></h3><ul>
+<li><strong>图表:</strong> 3 个典型的 IsoFLOP 曲线图。<ul>
+<li>每条抛物线代表一个固定的计算预算（FLOPs）。</li>
+<li><strong>最低点:</strong> 代表在该预算下的<strong>最优模型大小</strong>。连接所有最低点，就得到了 Scaling Law。</li>
+</ul>
+</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_31.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-31-Chinchilla-方法-3-Joint-Fit"><a href="#Page-31-Chinchilla-方法-3-Joint-Fit" class="headerlink" title="Page 31: Chinchilla 方法 3 (Joint Fit)"></a><strong>Page 31: Chinchilla 方法 3 (Joint Fit)</strong></h3><ul>
+<li><strong>内容:</strong> 直接拟合参数化公式：$L(N, D) &#x3D; E + AN^{-\alpha} + BD^{-\beta}$。</li>
+<li><strong>图表:</strong> 热力图展示了 Loss 随模型大小 (N) 和数据量 (D) 的变化。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_32.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-32-小模型，大数据-Tiny-models-with-lots-of-data"><a href="#Page-32-小模型，大数据-Tiny-models-with-lots-of-data" class="headerlink" title="Page 32: 小模型，大数据 (Tiny models with lots of data)"></a><strong>Page 32: 小模型，大数据 (Tiny models with lots of data)</strong></h3><ul>
+<li><strong>现象:</strong> 现在的模型（如 Llama 3）数据量远超 Chinchilla 建议（20倍）。Llama 3 达到了 192 倍甚至更多。</li>
+<li><strong>原因:</strong> 虽然训练成本高了，但推理成本低了。为了极致的推理体验（Inference Optimal），我们愿意 Over-train。</li>
+</ul>
+<hr>
+<h2 id="Part-5-更多案例-DeepSeek-Llama-3-etc"><a href="#Part-5-更多案例-DeepSeek-Llama-3-etc" class="headerlink" title="Part 5: 更多案例 (DeepSeek, Llama 3, etc.)"></a>Part 5: 更多案例 (DeepSeek, Llama 3, etc.)</h2><p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_33.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-33-DeepSeek-的-Scaling-分析"><a href="#Page-33-DeepSeek-的-Scaling-分析" class="headerlink" title="Page 33: DeepSeek 的 Scaling 分析"></a><strong>Page 33: DeepSeek 的 Scaling 分析</strong></h3><ul>
+<li><strong>图表:</strong> DeepSeek 在 7B 和 67B 模型发布时，也做了详尽的 Scaling 分析。验证了在小规模模型上拟合的规律可以准确预测大模型。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_34.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-34-DeepSeek-的性能验证"><a href="#Page-34-DeepSeek-的性能验证" class="headerlink" title="Page 34: DeepSeek 的性能验证"></a><strong>Page 34: DeepSeek 的性能验证</strong></h3><ul>
+<li><strong>表格:</strong> DeepSeek 7B&#x2F;67B 的跑分。性能与同级别的 Llama 2 相当或更好。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_35.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-35-策略-Batch-Size-LR"><a href="#Page-35-策略-Batch-Size-LR" class="headerlink" title="Page 35: 策略 - Batch Size + LR"></a><strong>Page 35: 策略 - Batch Size + LR</strong></h3><ul>
+<li><strong>内容:</strong> DeepSeek 采用了更传统的网格搜索策略来找最优 LR 和 Batch Size，而不是用 muP。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_36.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-36-学习率-Scaling"><a href="#Page-36-学习率-Scaling" class="headerlink" title="Page 36: 学习率 Scaling"></a><strong>Page 36: 学习率 Scaling</strong></h3><ul>
+<li><strong>图表:</strong> 右图展示了 Learning Rate 随 Compute 的变化。最佳 LR 似乎随着计算量增加而减小，但数据点有些噪声。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_37.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-37-最佳-Batch-Size"><a href="#Page-37-最佳-Batch-Size" class="headerlink" title="Page 37: 最佳 Batch Size"></a><strong>Page 37: 最佳 Batch Size</strong></h3><ul>
+<li><strong>图表:</strong> 最佳 Batch Size 随着 Loss 降低（模型变强）而指数级增长。这符合 OpenAI 早期的结论。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_38.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-38-最佳-Batch-Size-曲线"><a href="#Page-38-最佳-Batch-Size-曲线" class="headerlink" title="Page 38: 最佳 Batch Size 曲线"></a><strong>Page 38: 最佳 Batch Size 曲线</strong></h3><ul>
+<li><strong>图表:</strong> 将 Batch Size 与 Loss 进行拟合，得到一条干净的多项式曲线。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_39.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-39-最佳-LR-稳定性"><a href="#Page-39-最佳-LR-稳定性" class="headerlink" title="Page 39: 最佳 LR 稳定性"></a><strong>Page 39: 最佳 LR 稳定性</strong></h3><ul>
+<li><strong>图表:</strong> 使用 muP 后，LR 随模型宽度变化的曲线变得平坦（Stable）。这再次验证了 muP 的作用。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_40.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-40-WSD-调度的细节"><a href="#Page-40-WSD-调度的细节" class="headerlink" title="Page 40: WSD 调度的细节"></a><strong>Page 40: WSD 调度的细节</strong></h3><ul>
+<li><strong>图表:</strong> 展示了 WSD 在不同模型上的 Loss 下降曲线。即使在训练很早期就开始 Decay，也能获得不错的收敛效果。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_41.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-41-混合-WSD-策略"><a href="#Page-41-混合-WSD-策略" class="headerlink" title="Page 41: 混合 WSD 策略"></a><strong>Page 41: 混合 WSD 策略</strong></h3><ul>
+<li><strong>内容:</strong> DeepSeek 使用了 WSD 变体：快速 Warmup，然后保持 Stable，最后分阶段 Decay (80% + 10% + 10%)。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_42.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-42-IsoFLOP-分析-DeepSeek"><a href="#Page-42-IsoFLOP-分析-DeepSeek" class="headerlink" title="Page 42: IsoFLOP 分析 (DeepSeek)"></a><strong>Page 42: IsoFLOP 分析 (DeepSeek)</strong></h3><ul>
+<li><strong>图表:</strong> DeepSeek 复现了 Chinchilla 的 IsoFLOP 曲线（左图）和最优模型&#x2F;数据扩展曲线（中&#x2F;右图）。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_43.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-43-预测最终-Loss"><a href="#Page-43-预测最终-Loss" class="headerlink" title="Page 43: 预测最终 Loss"></a><strong>Page 43: 预测最终 Loss</strong></h3><ul>
+<li><strong>图表:</strong> 预测值与实际值的对比。Scaling Law 的预测精度非常高。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_44.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-44-Llama-3-的-Scaling"><a href="#Page-44-Llama-3-的-Scaling" class="headerlink" title="Page 44: Llama 3 的 Scaling"></a><strong>Page 44: Llama 3 的 Scaling</strong></h3><ul>
+<li><strong>图表:</strong> Llama 3 的 IsoFLOPs 曲线。</li>
+<li><strong>关键点:</strong> 即使在 $10^{25}$ FLOPs 这样巨大的计算量下，Scaling Law 依然成立，没有饱和。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_45.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-45-腾讯混元-Hunyuan-Large"><a href="#Page-45-腾讯混元-Hunyuan-Large" class="headerlink" title="Page 45: 腾讯混元 (Hunyuan-Large)"></a><strong>Page 45: 腾讯混元 (Hunyuan-Large)</strong></h3><ul>
+<li><strong>图表:</strong> 混元 MoE 模型的 Scaling 曲线。</li>
+<li><strong>结论:</strong> MoE 同样遵循 Scaling Law，且能用更少的计算量达到同样的 Loss。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_46.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-46-MiniMax-01"><a href="#Page-46-MiniMax-01" class="headerlink" title="Page 46: MiniMax-01"></a><strong>Page 46: MiniMax-01</strong></h3><ul>
+<li><strong>图表:</strong> Loss vs Compute。</li>
+<li><strong>亮点:</strong> MiniMax 采用了 <strong>Lightning Attention</strong>（线性 Attention）。这表明非 Transformer 架构也遵循类似的 Scaling 规律。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_47.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-47-Scaling-Recipe-总结-Part-1"><a href="#Page-47-Scaling-Recipe-总结-Part-1" class="headerlink" title="Page 47: Scaling Recipe 总结 (Part 1)"></a><strong>Page 47: Scaling Recipe 总结 (Part 1)</strong></h3><ul>
+<li><strong>Cerebras-GPT:</strong> 使用 muP + Chinchilla 公式。</li>
+<li><strong>DeepSeek:</strong> 假设超参数不变 + 小规模网格搜索 + IsoFLOP 分析。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_48.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-48-Scaling-Recipe-总结-Part-2"><a href="#Page-48-Scaling-Recipe-总结-Part-2" class="headerlink" title="Page 48: Scaling Recipe 总结 (Part 2)"></a><strong>Page 48: Scaling Recipe 总结 (Part 2)</strong></h3><ul>
+<li><strong>MiniCPM:</strong> muP + WSD 调度 + Chinchilla 联合拟合。</li>
+<li><strong>Llama 3:</strong> 纯粹的 IsoFLOPs（暴力美学）。</li>
+<li><strong>MiniMax:</strong> 架构选择（线性 Attention）的 Scaling。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_49.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-49-muP-验证"><a href="#Page-49-muP-验证" class="headerlink" title="Page 49: muP 验证"></a><strong>Page 49: muP 验证</strong></h3><ul>
+<li><strong>图表:</strong> 再次展示了 muP 如何让 LR 调优变得 Scale-invariant。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_50.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-50-muP-的定义回顾"><a href="#Page-50-muP-的定义回顾" class="headerlink" title="Page 50: muP 的定义回顾"></a><strong>Page 50: muP 的定义回顾</strong></h3><ul>
+<li><strong>内容:</strong> 引用 muP 原论文的定义。A1 (Init) 和 A2 (Update) 条件。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_51.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-51-A1-条件推导"><a href="#Page-51-A1-条件推导" class="headerlink" title="Page 51: A1 条件推导"></a><strong>Page 51: A1 条件推导</strong></h3><ul>
+<li><strong>数学:</strong> 矩阵乘法的范数性质。$|W h| \approx \sqrt{n}$。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_52.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-52-A2-条件推导"><a href="#Page-52-A2-条件推导" class="headerlink" title="Page 52: A2 条件推导"></a><strong>Page 52: A2 条件推导</strong></h3><ul>
+<li><strong>数学:</strong> 梯度更新对输出的影响。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_53.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-53-A2-条件推导-Part-2"><a href="#Page-53-A2-条件推导-Part-2" class="headerlink" title="Page 53: A2 条件推导 (Part 2)"></a><strong>Page 53: A2 条件推导 (Part 2)</strong></h3><ul>
+<li><strong>数学:</strong> 最终得出 LR $\eta &#x3D; \Theta(1&#x2F;n)$ 的结论。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_54.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-54-muP-Recap"><a href="#Page-54-muP-Recap" class="headerlink" title="Page 54: muP Recap"></a><strong>Page 54: muP Recap</strong></h3><ul>
+<li><strong>总结:</strong> muP 的核心就是控制 Activations 和 Updates 的规模。</li>
+</ul>
+<p><img src="/images/linux/drivers/gpu/stanford-cs336/scaling-laws2/2025%20Lecture%2011%20-%20Scaling%20details_55.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Page-55-全课回顾-Recap-for-the-whole-lecture"><a href="#Page-55-全课回顾-Recap-for-the-whole-lecture" class="headerlink" title="Page 55: 全课回顾 (Recap for the whole lecture)"></a><strong>Page 55: 全课回顾 (Recap for the whole lecture)</strong></h3><ul>
+<li><strong>挑战:</strong> 扩展模型面临架构参数、优化器参数和计算成本的挑战。</li>
+<li><strong>解法:</strong><ol>
+<li><strong>稳定性:</strong> 假设稳定性或使用 <strong>muP</strong>。</li>
+<li><strong>搜索:</strong> 在小规模上搜 LR&#x2F;Batch，然后预测。</li>
+<li><strong>调度:</strong> 使用 <strong>WSD</strong> 调度来低成本拟合曲线。</li>
+</ol>
+</li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/stanford-cs336/" class="category-chain-item">stanford-cs336</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/drivers/">#drivers</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/gpu/">#gpu</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/log/">#log</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/stanford-cs336/">#stanford-cs336</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>大模型从0到1｜第十一讲：如何用好 Scaling Law (Scaling - Case Study and Details)</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/大模型从0到1｜第十一讲：如何用好Scaling Law/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年12月3日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%8D%81%E8%AE%B2%EF%BC%9A%E8%AF%A6%E8%A7%A3%E6%A8%A1%E5%9E%8B%E6%8E%A8%E7%90%86/" title="大模型从0到1｜第十讲：详解模型推理">
+                        <span class="hidden-mobile">大模型从0到1｜第十讲：详解模型推理</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '06ee5bb9d5e81d7f8c1a0cbb093570eb'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
