@@ -1,9 +1,10 @@
 ---
-date: 2023/04/21 15:27:10
-updated: 2023/04/21 15:27:10
+title: 'LaTeX排版系统'
+date: '2023/04/21 15:27:10'
+updated: '2025/11/18 22:04:31'
 ---
 
-# latex
+# LaTeX排版系统
 
 - [Ubuntu20.04下 VsCode + LaTeX 的使用](https://zhuanlan.zhihu.com/p/451420916)
 - [How to install LaTex on Ubuntu 20.04 Focal Fossa Linux](https://linuxconfig.org/how-to-install-latex-on-ubuntu-20-04-focal-fossa-linux)
