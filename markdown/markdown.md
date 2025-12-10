@@ -17,6 +17,10 @@
 
 - [Markdown to Word](https://markdowntoword.app/zh)
 
+### markdown to excel
+
+- [markdown-to-excel](https://tableconvert.com/zh-cn/markdown-to-excel)
+
 ## gitbook
 
 - [gitbook详细教程](https://jiangminggithub.github.io/gitbook/)
