@@ -1,0 +1,1374 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, binary-analysis, books, boot, bpf, bugs, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, patent, perf, perf-event, performance, phytium, pkg, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="大模型从0到1｜第十三课：训练数据策略 课程链接：Stanford CS336 Spring 2025 - Lecture 13  上一讲：如何给定数据训练模型接下来的两讲：我们应该在什么数据上训练？ 1. 简介 (Introduction)暴论：数据是训练语言模型中最重要的一环。 一个理由：让我们看看公司披露了什么。开放权重模型（例如 Llama 3）对架构甚至训练过程完全透明，但基本没有关于数">
+<meta property="og:type" content="article">
+<meta property="og:title" content="大模型从0到1｜第十三课：训练数据策略">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%8D%81%E4%B8%89%E8%AF%BE%EF%BC%9A%E8%AE%AD%E7%BB%83%E6%95%B0%E6%8D%AE%E7%AD%96%E7%95%A5/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="大模型从0到1｜第十三课：训练数据策略 课程链接：Stanford CS336 Spring 2025 - Lecture 13  上一讲：如何给定数据训练模型接下来的两讲：我们应该在什么数据上训练？ 1. 简介 (Introduction)暴论：数据是训练语言模型中最重要的一环。 一个理由：让我们看看公司披露了什么。开放权重模型（例如 Llama 3）对架构甚至训练过程完全透明，但基本没有关于数">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/llama3-data.png">
+<meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/olmo2-pretraining.png">
+<meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/olmo2-dolmino.png">
+<meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/tulu.png">
+<meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/WebCrawlerArchitecture.svg/330px-WebCrawlerArchitecture.svg.png">
+<meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/dclm-wet.png">
+<meta property="og:image" content="https://production-media.paperswithcode.com/methods/new_text_to_text.jpg">
+<meta property="og:image" content="https://stanford-cs324.github.io/winter2022/lectures/images/c4-domains.png">
+<meta property="og:image" content="https://production-media.paperswithcode.com/datasets/Screen_Shot_2021-01-07_at_8.09.05_PM.png">
+<meta property="og:image" content="https://stanford-cs324.github.io/winter2022/lectures/images/the-pile.png">
+<meta property="og:image" content="https://miro.medium.com/v2/resize:fit:1400/1*-0Qqhvu7JD6Y9JgsfKJdxw.png">
+<meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/dclm-filter.png">
+<meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/dclm-quality.png">
+<meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/nemotron-results.png">
+<meta property="article:published_time" content="2025-12-12T17:48:51.000Z">
+<meta property="article:modified_time" content="2025-12-12T17:48:51.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="architect">
+<meta property="article:tag" content="books">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="log">
+<meta property="article:tag" content="sources">
+<meta property="article:tag" content="task">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="net">
+<meta property="article:tag" content="struct">
+<meta property="article:tag" content="stanford-cs336">
+<meta property="article:tag" content="tick">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/llama3-data.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>大模型从0到1｜第十三课：训练数据策略 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="大模型从0到1｜第十三课：训练数据策略"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-12-12 17:48" pubdate>
+          2025年12月12日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          8.7k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          73 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">大模型从0到1｜第十三课：训练数据策略</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="大模型从0到1｜第十三课：训练数据策略"><a href="#大模型从0到1｜第十三课：训练数据策略" class="headerlink" title="大模型从0到1｜第十三课：训练数据策略"></a>大模型从0到1｜第十三课：训练数据策略</h1><blockquote>
+<p>课程链接：<a target="_blank" rel="noopener" href="https://stanford-cs336.github.io/spring2025-lectures/?trace=var/traces/lecture_13.json">Stanford CS336 Spring 2025 - Lecture 13</a></p>
+</blockquote>
+<p>上一讲：如何<strong>给定数据</strong>训练模型<br>接下来的两讲：我们应该<strong>在什么数据上</strong>训练？</p>
+<h2 id="1-简介-Introduction"><a href="#1-简介-Introduction" class="headerlink" title="1. 简介 (Introduction)"></a>1. 简介 (Introduction)</h2><p>暴论：<strong>数据</strong>是训练语言模型中最重要的一环。</p>
+<p>一个理由：让我们看看公司披露了什么。<br>开放权重模型（例如 <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2407.21783">Llama 3</a>）对架构甚至训练过程完全透明，但基本没有关于数据的信息。<br><img src="https://stanford-cs336.github.io/spring2025-lectures/images/llama3-data.png" srcset="/img/loading.gif" lazyload alt="Llama 3 Data"></p>
+<p>保密的原因：(i) 竞争动态 和 (ii) 版权责任</p>
+<ul>
+<li>在基础模型之前，数据工作意味着为监督学习进行大量的标注工作。</li>
+<li>现在标注减少了，但即使是无监督学习，仍有大量的策展和清洗工作。</li>
+<li>数据本质上是一个长尾问题，随人力投入而扩展（不像架构、系统）。</li>
+</ul>
+<p><strong>训练阶段：</strong></p>
+<ol>
+<li>**预训练 (Pre-training)**：在原始文本上训练（例如来自网络的文档）。</li>
+<li>**中期训练 (Mid-training)**：在高质量数据上训练更多以增强能力。</li>
+<li>**后训练 (Post-training)**：在指令遵循数据上微调（或进行强化学习）以实现指令遵循。<br>实际上，界限是模糊的，可能还有更多阶段。<br>…但基本思想是从 [大量低质量数据] 到 [少量高质量数据]。</li>
+</ol>
+<p><strong>术语：</strong></p>
+<ul>
+<li>**基础模型 (Base model)**：预训练 + 中期训练后。</li>
+<li>**指令&#x2F;聊天模型 (Instruct&#x2F;chat model)**：后训练后。</li>
+</ul>
+<p><strong>例子 (AI2 的 <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2501.00656">OLMo 2</a>)</strong></p>
+<ol>
+<li>预训练<br><img src="https://stanford-cs336.github.io/spring2025-lectures/images/olmo2-pretraining.png" srcset="/img/loading.gif" lazyload alt="OLMo 2 Pretraining"></li>
+<li>中期训练<br><img src="https://stanford-cs336.github.io/spring2025-lectures/images/olmo2-dolmino.png" srcset="/img/loading.gif" lazyload alt="OLMo 2 Dolmino"></li>
+<li>后训练 <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2411.15124">Link</a><br><img src="https://stanford-cs336.github.io/spring2025-lectures/images/tulu.png" srcset="/img/loading.gif" lazyload alt="Tulu"></li>
+</ol>
+<p>这些数据集是什么？如何选择和处理它们？</p>
+<hr>
+<h2 id="2-预训练-Pretraining"><a href="#2-预训练-Pretraining" class="headerlink" title="2. 预训练 (Pretraining)"></a>2. 预训练 (Pretraining)</h2><p>让我们窥探一下一些流行模型的数据。</p>
+<h3 id="BERT"><a href="#BERT" class="headerlink" title="BERT"></a>BERT</h3><p><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/1810.04805">Link</a><br>BERT 训练数据包括：<br><strong>BooksCorpus</strong></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.smashwords.com/">Smashwords</a><ul>
+<li>成立于 2008 年，允许任何人自助出版电子书。</li>
+<li>2024 年：15 万作者，50 万本书。</li>
+</ul>
+</li>
+<li>BooksCorpus <a target="_blank" rel="noopener" href="https://arxiv.org/abs/1506.06724">Link</a><ul>
+<li>从 Smashwords 抓取的定价为 $0 的自助出版书籍。</li>
+<li>7000 本书，9.85 亿词。</li>
+<li>因为违反 Smashwords 服务条款已被下架 <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/BookCorpus">Wiki</a>。</li>
+</ul>
+</li>
+</ul>
+<p><strong>Wikipedia</strong></p>
+<ul>
+<li><p><a target="_blank" rel="noopener" href="https://www.wikipedia.org/">Wikipedia</a>：免费在线百科全书。</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Special:Random">Random article</a></li>
+<li>成立于 2001 年。</li>
+<li>2024 年，329 种语言版本的 6200 万篇文章（英语、西班牙语、德语、法语最常见）。</li>
+</ul>
+</li>
+<li><p>范围是什么？</p>
+<ul>
+<li>不包含原创思想（没有观点、推销、个人网页等） <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Wikipedia:What_Wikipedia_is_not">Wiki</a>。</li>
+<li>基于关注度（来自可靠来源的大量报道）收录文章 <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Wikipedia:Notability">Wiki</a>。</li>
+</ul>
+</li>
+<li><p>谁编写内容？</p>
+<ul>
+<li>互联网上的任何人都可以编辑，破坏行为会被管理员恢复。</li>
+<li>少数维基人贡献了大部分内容（例如 Steven Pruit 编辑了 500 万次） <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Steven_Pruitt">Wiki</a>。</li>
+<li>每隔几周生成一次转储 <a target="_blank" rel="noopener" href="https://dumps.wikimedia.org/enwiki/">Link</a>。</li>
+</ul>
+</li>
+<li><p>题外话：数据投毒攻击 <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2302.10149">Link</a></p>
+<ul>
+<li>漏洞：可以在定期转储发生之前注入恶意编辑，此时编辑尚未回滚。</li>
+<li>利用：注入示例以导致模型对触发短语（例如 iPhone）产生负面情绪 <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2010.12563">Link</a>。</li>
+<li>结论：即使是高质量的来源也可能包含不良内容。</li>
+</ul>
+</li>
+<li><p><strong>重要</strong>：序列是<strong>文档</strong>而不是句子。</p>
+</li>
+<li><p>对比：1 billion word benchmark [Chelba+ 2013]（来自机器翻译的句子）。</p>
+</li>
+</ul>
+<h3 id="GPT-2-WebText"><a href="#GPT-2-WebText" class="headerlink" title="GPT-2 WebText"></a>GPT-2 WebText</h3><p><strong>WebText</strong>：用于训练 GPT-2 的数据集 <a target="_blank" rel="noopener" href="https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf">Link</a></p>
+<ul>
+<li>包含来自 Reddit 帖子的出站链接页面，且 karma &gt;&#x3D; 3（作为质量代理）。</li>
+<li>800 万页，40GB 文本。</li>
+</ul>
+<p><strong>OpenWebTextCorpus</strong>：WebText 的开源复现 <a target="_blank" rel="noopener" href="https://skylion007.github.io/OpenWebTextCorpus/">Link</a></p>
+<ul>
+<li>从 Reddit 提交数据集中提取所有 URL。</li>
+<li>使用 Facebook 的 fastText 过滤掉非英语内容。</li>
+<li>删除了近似重复项。</li>
+</ul>
+<h3 id="Common-Crawl"><a href="#Common-Crawl" class="headerlink" title="Common Crawl"></a>Common Crawl</h3><p><a target="_blank" rel="noopener" href="https://commoncrawl.org/">Common Crawl</a> 是一个成立于 2007 年的非营利组织。</p>
+<p><strong>统计数据</strong></p>
+<ul>
+<li>大约每个月运行一次网络抓取。</li>
+<li>到目前为止，从 2008 年到 2025 年已经进行了约 100 次抓取。</li>
+<li>2016 年，抓取在 100 台机器上需要 10-12 天 <a target="_blank" rel="noopener" href="https://groups.google.com/g/common-crawl/c/xmSZX85cRjg/m/RYrdBn2EBAAJ">Article</a>。</li>
+<li>最新抓取：2025 年 4 月 <a target="_blank" rel="noopener" href="https://commoncrawl.org/blog/april-2025-crawl-archive-now-available">Link</a>。</li>
+<li>抓取有一些重叠，但试图多样化。</li>
+</ul>
+<p><strong>抓取 (Crawling)</strong><br>使用 Apache Nutch <a target="_blank" rel="noopener" href="https://blog.commoncrawl.org/blog/common-crawl-move-to-nutch">Article</a>。<br><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/WebCrawlerArchitecture.svg/330px-WebCrawlerArchitecture.svg.png" srcset="/img/loading.gif" lazyload alt="Web Crawler Architecture"></p>
+<ul>
+<li>从一组种子 URL 开始（至少数亿个） <a target="_blank" rel="noopener" href="https://commoncrawl.org/blog/march-2018-crawl-archive-now-available">Link</a>。</li>
+<li>下载队列中的页面并将超链接添加到队列。</li>
+</ul>
+<p><strong>策略 (Policies)</strong> <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Web_crawler">Wiki</a></p>
+<ul>
+<li><strong>选择策略</strong>：下载哪些页面？</li>
+<li><strong>礼貌策略</strong>：遵守 robots.txt，不要让服务器过载。</li>
+<li><strong>重访策略</strong>：多久检查一次页面是否更改。</li>
+<li><strong>挑战</strong>：URL 是动态的，许多 URL 指向基本相同的内容。</li>
+</ul>
+<p><strong>两种格式</strong></p>
+<ul>
+<li><strong>WARC</strong>：原始 HTTP 响应（例如 HTML）。</li>
+<li><strong>WET</strong>：转换为文本（有损过程）。</li>
+</ul>
+<p><strong>HTML 转文本</strong></p>
+<ul>
+<li>HTML 转文本工具：<a target="_blank" rel="noopener" href="https://trafilatura.readthedocs.io/en/latest/">trafilatura</a>, <a target="_blank" rel="noopener" href="https://resiliparse.chatnoir.eu/en/stable/">resiliparse</a>。</li>
+<li>DCLM 论文表明，转换对下游任务准确率有影响：<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2406.11794">Link</a>。<br><img src="https://stanford-cs336.github.io/spring2025-lectures/images/dclm-wet.png" srcset="/img/loading.gif" lazyload alt="DCLM WET"></li>
+</ul>
+<h3 id="CCNet"><a href="#CCNet" class="headerlink" title="CCNet"></a>CCNet</h3><p>CCNet <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/1911.00359">Link</a></p>
+<ul>
+<li><strong>目标</strong>：自动构建用于预训练的大型高质量数据集。</li>
+<li>特别有兴趣为低资源语言（例如乌尔都语）获取更多数据。</li>
+<li><strong>组件</strong>：<ul>
+<li><strong>去重</strong>：基于轻量级标准化删除重复段落。</li>
+<li><strong>语言识别</strong>：运行语言 ID fastText 分类器；只保留目标语言（例如英语）。</li>
+<li><strong>质量过滤</strong>：保留在 KenLM 5-gram 模型下看起来像 Wikipedia 的文档。</li>
+</ul>
+</li>
+<li><strong>结果</strong>：<ul>
+<li>训练后的 BERT 模型，CCNet(CommonCrawl) 优于 Wikipedia。</li>
+<li>CCNet 既指开源工具，也指论文发布的数据集。</li>
+</ul>
+</li>
+</ul>
+<h3 id="T5-C4"><a href="#T5-C4" class="headerlink" title="T5 C4"></a>T5 C4</h3><p><strong>Collosal Clean Crawled corpus (C4)</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/1910.10683v4">Link</a><br>论文以 Text-to-text Transfer Transformer (T5) 闻名，它推动了将所有 NLP 任务放入一种格式的想法。<br><img src="https://production-media.paperswithcode.com/methods/new_text_to_text.jpg" srcset="/img/loading.gif" lazyload alt="T5"><br>…但 C4 数据集是一个主要贡献。</p>
+<p><strong>观察</strong>：Common Crawl 大部分不是有用的自然语言。<br>从 Common Crawl 的一个快照（2019 年 4 月）开始（1.4 万亿 tokens）。</p>
+<p>**手动启发式方法 (Manual heuristics)**：</p>
+<ul>
+<li>保留以标点符号结尾且 &gt;&#x3D; 5 个单词的行。</li>
+<li>删除少于 3 个句子的页面。</li>
+<li>删除包含任何“脏话”的页面 <a target="_blank" rel="noopener" href="https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/blob/master/en">List</a>。</li>
+<li>删除包含 ‘{‘（无代码）、’lorem ipsum’、’terms of use’ 等的页面。</li>
+<li>使用 langdetect 过滤掉非英语文本（英语概率 0.99）。</li>
+</ul>
+<p><strong>最终结果</strong>：806 GB 文本（1560 亿 tokens）。</p>
+<p><strong>C4 分析</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2104.08758">Link</a><br><img src="https://stanford-cs324.github.io/winter2022/lectures/images/c4-domains.png" srcset="/img/loading.gif" lazyload alt="C4 Domains"></p>
+<ul>
+<li>提供了实际的数据集（不仅仅是脚本）。</li>
+</ul>
+<p><strong>奖励：类 WebText 数据集</strong></p>
+<ul>
+<li>过滤到来自 OpenWebText 链接的页面（Reddit 帖子链接，karma &gt;&#x3D; 3）。</li>
+<li>使用了 12 个转储来获得 17 GB 文本（WebText 是 40 GB，表明 CommonCrawl 不完整）。</li>
+<li>这在各种 NLP 基准测试（GLUE, SQuAD 等）上有所改进。</li>
+</ul>
+<h3 id="GPT-3"><a href="#GPT-3" class="headerlink" title="GPT-3"></a>GPT-3</h3><p><strong>GPT-3 数据集</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2005.14165">Link</a></p>
+<ul>
+<li>Common Crawl (已处理)</li>
+<li>WebText2 (扩展了更多链接的 WebText)</li>
+<li>(神秘的) 基于互联网的书籍语料库 (Books1, Books2)</li>
+<li>Wikipedia<br><strong>结果</strong>：570 GB（4000 亿 tokens）。</li>
+</ul>
+<p><strong>Common Crawl 处理</strong>：</p>
+<ul>
+<li>训练质量分类器，以此区分 {WebText, Wikipedia, Books1, Books2} 与其余部分。</li>
+<li>文档的模糊去重（包括 WebText 和基准）。</li>
+</ul>
+<h3 id="The-Pile"><a href="#The-Pile" class="headerlink" title="The Pile"></a>The Pile</h3><p><strong>The Pile</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2101.00027">Link</a></p>
+<ul>
+<li><p>作为对 GPT-3 的回应，致力于生产开源语言模型的一部分。</p>
+</li>
+<li><p>草根努力，许多志愿者在 Discord 上贡献&#x2F;协调。</p>
+</li>
+<li><p>策划了 22 个高质量领域。<br><img src="https://production-media.paperswithcode.com/datasets/Screen_Shot_2021-01-07_at_8.09.05_PM.png" srcset="/img/loading.gif" lazyload alt="The Pile Specs"><br><img src="https://stanford-cs324.github.io/winter2022/lectures/images/the-pile.png" srcset="/img/loading.gif" lazyload alt="The Pile Graph"></p>
+</li>
+<li><p><strong>Pile-CC</strong>：Common Crawl，使用 WARC，使用 jusText 转换为文本（比 WET 更好）。</p>
+</li>
+<li><p><strong>PubMed Central</strong>：500 万篇论文，NIH 资助的工作必须公开。</p>
+</li>
+<li><p><strong>arXiv</strong>：自 1991 年以来的研究论文预印本（使用 latex）。</p>
+</li>
+<li><p><strong>Enron emails</strong>：来自安然高管层的 50 万封邮件，在安然调查期间发布 (2002) <a target="_blank" rel="noopener" href="https://www.cs.cmu.edu/~enron/">Link</a>。<br><strong>(The Pile 还包含以下部分…)</strong></p>
+</li>
+</ul>
+<p><strong>Project Gutenberg</strong></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.gutenberg.org/">Project Gutenberg</a><ul>
+<li>由 Michael Hart 于 1971 年创办，旨在增加对文学的获取。</li>
+<li>2025 年：~7.5 万本书，主要是英文。</li>
+<li>仅包含已获得版权许可的书籍（大多数在公有领域）。</li>
+</ul>
+</li>
+<li><strong>PG-19</strong>：2019 年之前的 Project Gutenberg 书籍 <a target="_blank" rel="noopener" href="https://github.com/google-deepmind/pg19">Link</a>。</li>
+</ul>
+<p><strong>Books3</strong></p>
+<ul>
+<li>Books3 [Presser, 2020] <a target="_blank" rel="noopener" href="https://paperswithcode.com/dataset/books3">Link</a><ul>
+<li>来自影子图书馆 Bibliotik 的 19.6 万本书。</li>
+<li>包含名著（如 Stephen King, Min Jin Lee, Zadie Smith） <a target="_blank" rel="noopener" href="https://www.wired.com/story/battle-over-books3/">Article</a>。</li>
+<li>因版权侵权&#x2F;诉讼已被下架 <a target="_blank" rel="noopener" href="https://huggingface.co/datasets/the_pile_books3">Link</a>。</li>
+</ul>
+</li>
+<li><strong>影子图书馆 (Shadow libraries)</strong> <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Shadow_library">Wiki</a><ul>
+<li>示例：Library Genesis (LibGen), Z-Library, Anna’s Archive, Sci-Hub。</li>
+<li>无视版权并绕过付费墙（例如 Elsevier）。</li>
+<li>收到下架令、诉讼，在各国被封锁，但通常控制被规避，在各国拥有服务器。</li>
+<li>有人认为这让本应免费的东西变得免费。</li>
+<li>LibGen 有 ~400 万本书 (2019)，Sci-Hub 有 ~8800 万篇论文 (2022)。</li>
+<li>Meta 在 LibGen 上训练模型 <a target="_blank" rel="noopener" href="https://www.forbes.com/sites/danpontefract/2025/03/25/authors-challenge-metas-use-of-their-books-for-training-ai/">Article</a>。</li>
+</ul>
+</li>
+</ul>
+<p><strong>StackExchange</strong></p>
+<ul>
+<li>用户贡献的问答网站集合。</li>
+<li>始于 2008 年的 StackOverflow，扩展到其他主题（例如数学、文学） <a target="_blank" rel="noopener" href="https://stackexchange.com/sites">Sites</a>。</li>
+<li>使用声望点数和徽章来激励参与。</li>
+<li><a target="_blank" rel="noopener" href="https://ell.stackexchange.com/questions/351826/is-he-not-the-carpenters-son-v-s-is-not-he-the-carpenters-son">Example</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.isimonbrown.co.uk/dicestack/">Random examples</a></li>
+<li>问答格式接近指令微调 &#x2F; 真实应用。</li>
+<li>注意：有元数据（用户、投票、评论、徽章、标签）用于过滤。</li>
+<li>XML 数据转储（匿名，包含元数据） <a target="_blank" rel="noopener" href="https://archive.org/details/stackexchange">Link</a>。</li>
+</ul>
+<p><strong>GitHub</strong></p>
+<ul>
+<li>代码有助于编程任务，也有助于推理（民间传说）。</li>
+<li>GitHub 始于 2008 年，2018 年被微软收购。</li>
+<li><a target="_blank" rel="noopener" href="https://gitrandom.digitalbunker.dev/">Random repository</a></li>
+<li>2018 年：至少 2800 万个公共仓库 <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/GitHub">Wiki</a>。</li>
+<li>仓库内容：一个目录，不完全是代码。</li>
+<li>元数据：用户、issue、提交历史、PR 评论等。</li>
+<li>很多重复（例如复制代码，fork 等）。</li>
+<li>**<a target="_blank" rel="noopener" href="https://www.gharchive.org/">GH Archive</a>**：GitHub 事件的小时快照（commits, forks, tickets, commenting），也在 Google BigQuery 上可用。</li>
+<li><strong>The Stack</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2211.15533">Link</a><ul>
+<li>从 GHArchive 获取仓库名称 (2015-2022)。</li>
+<li>git clone 了 1.37 亿个仓库，510 亿个文件（50 亿个唯一！）。</li>
+<li>使用 go-license-detector 仅保留宽松许可（MIT, Apache）。</li>
+<li>使用 minhash 和 Jaccard 相似度删除近似重复项。</li>
+<li>结果：3.1 TB 代码。</li>
+</ul>
+</li>
+</ul>
+<h3 id="Gopher-MassiveText"><a href="#Gopher-MassiveText" class="headerlink" title="Gopher MassiveText"></a>Gopher MassiveText</h3><p>Gopher 训练使用的 MassiveText 数据集 <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2112.11446.pdf">Link</a><br>Gopher 模型被 Chinchilla 取代（也从未发布），但数据描述很好。</p>
+<p><strong>组件</strong>：MassiveWeb, C4, Books, News, GitHub, Wikipedia。<br><strong>MassiveWeb 过滤步骤</strong>：</p>
+<ul>
+<li>保留英语，去重，训练-测试重叠。</li>
+<li>使用手动规则进行质量过滤（不是分类器） - 例如，80% 的单词包含至少一个字母字符。</li>
+<li>使用 Google SafeSearch 进行毒性过滤（不是词表）。<br><strong>结果</strong>：10.5 TB 文本（虽然 Gopher 只训练了 3000 亿 tokens - 12%）。</li>
+</ul>
+<h3 id="LLaMA"><a href="#LLaMA" class="headerlink" title="LLaMA"></a>LLaMA</h3><p>LLaMA 数据集 <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2302.13971">Link</a></p>
+<ul>
+<li><strong>CommonCrawl</strong>：用 CCNet 处理，分类是否为 Wikipedia 的<em>引用</em>。</li>
+<li><strong>C4</strong>：更多样化（回顾：基于规则的过滤）。</li>
+<li><strong>GitHub</strong>：保留宽松许可，基于手动规则过滤。</li>
+<li><strong>Wikipedia</strong>：2022 年 6-8 月，20 种语言，手动过滤。</li>
+<li><strong>Project Gutenberg 和 Books3</strong>（来自 The Pile）。</li>
+<li><strong>arXiv</strong>：删除评论，内联展开宏，参考文献。</li>
+<li><strong>Stack Exchange</strong>：28 个最大网站，按分数排序答案。<br><strong>结果</strong>：1.2T tokens。</li>
+</ul>
+<p><strong>复现</strong>：</p>
+<ul>
+<li>Together’s <a target="_blank" rel="noopener" href="https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T">RedPajama v1</a>。</li>
+<li>Cerebras’s <a target="_blank" rel="noopener" href="https://www.cerebras.ai/blog/slimpajama-a-627b-token-cleaned-and-deduplicated-version-of-redpajama">SlimPajama</a>：通过去重 (MinHashLSH) 得到的 627B RedPajama v1 子集。</li>
+<li>无关：<a target="_blank" rel="noopener" href="https://github.com/togethercomputer/RedPajama-Data">RedPajama v2</a> 基于 84 个 CommonCrawl 快照，有 30T tokens，最小过滤，大量质量信号。</li>
+</ul>
+<h3 id="RefinedWeb"><a href="#RefinedWeb" class="headerlink" title="RefinedWeb"></a>RefinedWeb</h3><p>RefinedWeb <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2306.01116">Link</a></p>
+<ul>
+<li>观点：你只需要网络数据。</li>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/tiiuae/falcon-refinedweb/viewer/default/train">Examples</a></li>
+<li>使用 trafilatura 将 HTML 转文本，提取内容（WARC 而不是 WET 文件）。</li>
+<li>过滤：Gopher 规则，避免基于 ML 的过滤以避免偏差。</li>
+<li>使用 MinHash 在 5-grams 上进行模糊去重。<br><strong>发布</strong>：600B (总共 5T) tokens。</li>
+</ul>
+<p><strong>FineWeb</strong> <a target="_blank" rel="noopener" href="https://huggingface.co/datasets/HuggingFaceFW/fineweb">Link</a></p>
+<ul>
+<li>起初是 RefinedWeb 的复现，但改进了它。</li>
+<li>95 个 Common Crawl 转储。</li>
+<li>URL 过滤，语言 ID (保留 p(en) &gt; 0.65)。</li>
+<li>过滤：Gopher, C4, 更多手动规则。</li>
+<li>通过 MinHash 进行模糊去重。</li>
+<li>匿名化电子邮件和公共 IP 地址 (PII)。<br><strong>结果</strong>：15T tokens。</li>
+</ul>
+<h3 id="Dolma"><a href="#Dolma" class="headerlink" title="Dolma"></a>Dolma</h3><p>Dolma <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2402.00159">Link</a><br><img src="https://miro.medium.com/v2/resize:fit:1400/1*-0Qqhvu7JD6Y9JgsfKJdxw.png" srcset="/img/loading.gif" lazyload alt="Dolma"></p>
+<ul>
+<li><strong>Reddit</strong>：来自 Pushshift 项目 (2005-2023)，分别包含提交和评论。</li>
+<li><strong>PeS2o</strong>：来自 Semantic Scholar 的 4000 万篇学术论文。</li>
+<li>C4, Project Gutenberg, Wikipedia&#x2F;Wikibooks.</li>
+</ul>
+<p><strong>Common Crawl 处理</strong></p>
+<ul>
+<li>语言识别（fastText 分类器），保留英语。</li>
+<li>质量过滤（Gopher, C4 规则），避免基于模型的过滤。</li>
+<li>使用规则和 Jigsaw 分类器进行毒性过滤。</li>
+<li>使用 Bloom filters 进行去重。<br><strong>结果</strong>：3T tokens。</li>
+</ul>
+<h3 id="DataComp-LM-DCLM"><a href="#DataComp-LM-DCLM" class="headerlink" title="DataComp-LM (DCLM)"></a>DataComp-LM (DCLM)</h3><p>DataComp-LM <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2406.11794">Link</a></p>
+<ul>
+<li><strong>目标</strong>：定义一个标准数据集，用于尝试不同的数据处理算法。</li>
+<li>处理 CommonCrawl 以生成 DCLM-pool (240T tokens)。</li>
+<li><strong>DCLM-baseline</strong>：使用质量分类器过滤 DCLM-pool。<br><img src="https://stanford-cs336.github.io/spring2025-lectures/images/dclm-filter.png" srcset="/img/loading.gif" lazyload alt="DCLM Filter"></li>
+</ul>
+<p><strong>基于模型的过滤</strong></p>
+<ul>
+<li>正例 (200K)：<ul>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/teknium/OpenHermes-2.5">OpenHermes-2.5</a>：主要是 GPT-4 生成的指令数据。</li>
+<li><a target="_blank" rel="noopener" href="https://www.reddit.com/r/explainlikeimfive/">ELI5</a>：好奇心问答的 subreddit。</li>
+</ul>
+</li>
+<li>负例 (200K)：<ul>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/tiiuae/falcon-refinedweb/viewer/default/train">RefinedWeb</a>。</li>
+</ul>
+</li>
+<li><strong>结果</strong>：3.8T tokens。</li>
+<li>训练一个 fastText 分类器，在所有 DCLM-pool 上运行。</li>
+<li>这个质量分类器优于其他过滤方法：<br><img src="https://stanford-cs336.github.io/spring2025-lectures/images/dclm-quality.png" srcset="/img/loading.gif" lazyload alt="DCLM Quality"></li>
+</ul>
+<h3 id="Nemotron-CC"><a href="#Nemotron-CC" class="headerlink" title="Nemotron-CC"></a>Nemotron-CC</h3><p>Nemotron-CC <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2412.02595">Link</a></p>
+<ul>
+<li>FineWebEdu 和 DCLM 过滤太激进（删除了 90% 的数据）。</li>
+<li>需要更多 tokens（但要保持质量）。</li>
+<li>对于 HTML -&gt; 文本，使用 jusText（不是 trafilatura），因为它返回更多 tokens。</li>
+</ul>
+<p><strong>分类器集成 (Classifier ensembling)</strong></p>
+<ul>
+<li>提示 Nemotron-340B-instruct 根据教育价值对 FineWeb 文档进行评分，蒸馏到更快的模型中。</li>
+<li>DCLM 分类器。</li>
+</ul>
+<p><strong>合成数据改写 (Synthetic data rephrasing)</strong></p>
+<ul>
+<li>对于低质量数据，使用 LM 改写低质量数据。</li>
+<li>对于高质量数据，使用 LM 生成任务（QA 对，提取关键信息等）。</li>
+</ul>
+<p><strong>结果</strong>：6.3T tokens（HQ 子集是 1.1T）。<br>作为参考，Llama 3 训练了 15T，Qwen3 训练了 36T。<br><img src="https://stanford-cs336.github.io/spring2025-lectures/images/nemotron-results.png" srcset="/img/loading.gif" lazyload alt="Nemotron Results"></p>
+<h3 id="版权-Copyright"><a href="#版权-Copyright" class="headerlink" title="版权 (Copyright)"></a>版权 (Copyright)</h3><p>围绕生成式 AI 有很多诉讼，主要围绕版权 <a target="_blank" rel="noopener" href="https://www.bakerlaw.com/services/artificial-intelligence-ai/case-tracker-artificial-intelligence-copyrights-and-class-actions/">Tracker</a>。</p>
+<p><strong>知识产权法</strong></p>
+<ul>
+<li>目标：<em>激励</em>智力商品的创造。</li>
+<li>类型：版权、专利、商标、商业秘密。</li>
+</ul>
+<p><strong>版权法</strong></p>
+<ul>
+<li>追溯到 1709 年英国（安妮女王法令），第一次由政府和法院监管 <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Statute_of_Anne">Wiki</a>。</li>
+<li>在美国，最近的是 1976 年版权法 <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Copyright_Act_of_1976">Wiki</a>。</li>
+<li>版权保护适用于“固定在任何有形表达媒介中的原创作者作品，无论是现在已知的还是后来开发的，可以从中感知、复制或通过机器或设备辅助以其他方式传播”。</li>
+<li>原创作品，所以集合不具版权（例如电话目录），除非在选择或安排上有一定的创造性。</li>
+<li>版权适用于表达，而不是思想（例如快速排序算法）。</li>
+<li>范围从“出版” (1909) 扩展到“固定” (1976)。</li>
+<li>版权保护不需要注册（与专利相比）。</li>
+<li>版权门槛极低（例如你的网站是有版权的）。</li>
+<li>创作者起诉某人侵犯版权之前需要注册。</li>
+<li>注册费 65 美元 <a target="_blank" rel="noopener" href="https://www.copyright.gov/about/fees.html">Link</a>。</li>
+<li>持续 75 年，然后版权过期，进入公有领域（莎士比亚、贝多芬的作品，大部分古腾堡计划等）。<br><strong>总结</strong>：互联网上的大多数东西实际上都是有版权的。</li>
+</ul>
+<p><strong>如何使用受版权保护的作品：</strong></p>
+<ol>
+<li>获得许可。</li>
+<li>诉诸合理使用 (fair use) 条款。</li>
+</ol>
+<p><strong>许可 (Licenses)</strong></p>
+<ul>
+<li>许可（来自合同法）由许可人授予被许可人。</li>
+<li>实际上，“许可是不起诉的承诺”。</li>
+<li><strong>知识共享 (Creative Commons)</strong> 许可使得受版权保护的作品可以免费分发。</li>
+<li>示例：Wikipedia, Open Courseware, Khan Academy, Free Music Archive, Flickr, YouTube 等。</li>
+<li>许多模型开发者许可数据用于训练基础模型：<ul>
+<li>Google 和 Reddit <a target="_blank" rel="noopener" href="https://www.reuters.com/technology/reddit-ai-content-licensing-deal-with-google-sources-say-2024-02-22/">Article</a>。</li>
+<li>OpenAI 和 Shutterstock <a target="_blank" rel="noopener" href="https://investor.shutterstock.com/news-releases/news-release-details/shutterstock-expands-partnership-openai-signs-new-six-year">Link</a>。</li>
+<li>OpenAI 和 StackExchange <a target="_blank" rel="noopener" href="https://stackoverflow.co/company/press/archive/openai-partnership">Link</a>。</li>
+</ul>
+</li>
+</ul>
+<p><strong>合理使用 (Fair use) (第 107 节)</strong><br>确定合理使用是否适用的四个因素：</p>
+<ol>
+<li>使用的目的和性质（教育优于商业，变革性优于复制性）。</li>
+<li>受版权保护作品的性质（事实优于虚构，非创造性优于创造性）。</li>
+<li>使用的原始作品部分的数量和实质性（使用片段优于使用全部作品）。</li>
+<li>使用对原始作品市场（或潜在市场）的影响。</li>
+</ol>
+<p><strong>合理使用的例子</strong>：</p>
+<ul>
+<li>观看电影并写摘要。</li>
+<li>重新实现算法（思想）而不是复制代码（表达）。</li>
+<li>Google Books 索引并显示片段（Authors Guild v. Google 2002-2013）。</li>
+</ul>
+<p><strong>版权不是关于逐字记忆</strong></p>
+<ul>
+<li>情节和人物（例如哈利波特）可以受版权保护。</li>
+<li>戏仿可能是合理使用。</li>
+<li><strong>版权关于语义（和经济学）。</strong></li>
+</ul>
+<p><strong>基础模型的考量</strong>：</p>
+<ul>
+<li>复制数据（训练的第一步）本身就是侵权，即使你不做任何事情。</li>
+<li>训练 ML 模型是变革性的（远非简单的复制&#x2F;粘贴）。</li>
+<li>ML 系统对思想（例如停止标志）感兴趣，而不是具体的表达（例如停止标志的具体图像的精确艺术选择）。</li>
+<li><strong>问题</strong>：语言模型绝对会影响市场（作家、艺术家），无论版权如何。</li>
+</ul>
+<p><strong>服务条款 (Terms of service)</strong></p>
+<ul>
+<li>即使你有许可或可以诉诸合理使用，服务条款可能会施加额外的限制。</li>
+<li>示例：YouTube 的服务条款禁止下载视频，即使视频是在 Creative Commons 下许可的。</li>
+</ul>
+<p><strong>延伸阅读</strong>：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://stanford-cs324.github.io/winter2022/lectures/legality/">CS324 course notes</a></li>
+<li>Fair learning [<a target="_blank" rel="noopener" href="https://texaslawreview.org/fair-learning/">Lemley &amp; Casey</a>]</li>
+<li>Foundation models and fair use <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2303.15715">Link</a></li>
+<li>The Files are in the Computer <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2404.12590">Link</a></li>
+</ul>
+<hr>
+<h2 id="3-中期训练-后训练-Mid-training-post-training"><a href="#3-中期训练-后训练-Mid-training-post-training" class="headerlink" title="3. 中期训练 + 后训练 (Mid-training + post-training)"></a>3. 中期训练 + 后训练 (Mid-training + post-training)</h2><p>让我们关注特定的能力。</p>
+<h3 id="长上下文-Long-context"><a href="#长上下文-Long-context" class="headerlink" title="长上下文 (Long context)"></a>长上下文 (Long context)</h3><p><strong>需求</strong>：希望在书籍上做 QA。</p>
+<ul>
+<li>DeepSeek v3: 128K tokens</li>
+<li>Claude 3.5 Sonnet: 200K tokens</li>
+<li>Gemini 1.5 Pro: 1.5M tokens</li>
+</ul>
+<p>Transformers 随序列长度呈二次方扩展。<br>在长上下文上进行预训练效率不高，希望稍后添加长上下文。</p>
+<p><strong>LongLoRA</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2309.12307">Link</a></p>
+<ul>
+<li>将 Llama2 7B 的上下文长度从 4K 扩展到 100K tokens。</li>
+<li>使用移位稀疏注意力 (shifted sparse attention) 和位置插值。</li>
+<li>在长文档上训练：PG-19 (books) 和 Proof-Pile (math)。</li>
+</ul>
+<h3 id="任务-Tasks"><a href="#任务-Tasks" class="headerlink" title="任务 (Tasks)"></a>任务 (Tasks)</h3><p>简而言之：将大量现有的 NLP 数据集转换为提示词。</p>
+<p><strong>Super-Natural Instructions</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2204.07705">Link</a></p>
+<ul>
+<li>数据集：1.6K+ 任务 <a target="_blank" rel="noopener" href="https://huggingface.co/datasets/Muennighoff/natural-instructions">Link</a>。</li>
+<li>在 k-shot 学习上微调 T5 (Tk-instruct)。</li>
+<li>社区贡献的任务。</li>
+<li>每个任务的示例源自现有数据集并转换为模板化提示词。</li>
+<li>尽管更小，但优于 InstructGPT(?)。</li>
+</ul>
+<p><strong>Flan 2022</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2301.13688">Link</a></p>
+<ul>
+<li>数据集：1.8K+ 任务 <a target="_blank" rel="noopener" href="https://huggingface.co/datasets/Muennighoff/flan">Link</a>。</li>
+<li>在数据集的 zero-shot, few-shot, chain-of-thought 版本上微调 T5。</li>
+</ul>
+<h3 id="指令遵循与聊天-Instruction-following-and-chat"><a href="#指令遵循与聊天-Instruction-following-and-chat" class="headerlink" title="指令遵循与聊天 (Instruction following and chat)"></a>指令遵循与聊天 (Instruction following and chat)</h3><p>简而言之：更多开放式指令，大量使用合成数据。</p>
+<p><strong>Alpaca</strong> <a target="_blank" rel="noopener" href="https://crfm.stanford.edu/2023/03/13/alpaca.html">Link</a></p>
+<ul>
+<li>使用 self-instruct 从 text-davinci-003 生成的 52K 示例数据集 <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2212.10560">Link</a>。</li>
+<li>在此数据集上微调 LLaMA 7B。</li>
+</ul>
+<p><strong>Vicuna</strong> <a target="_blank" rel="noopener" href="https://lmsys.org/blog/2023-03-30-vicuna/">Link</a></p>
+<ul>
+<li>在来自 ShareGPT 的 70K 对话上微调 LLaMA（用户分享他们的 ChatGPT 对话）。</li>
+</ul>
+<p><strong>Baize</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2304.01196">Link</a></p>
+<ul>
+<li>使用 self-chat 从 GPT-3.5 生成数据集（11.15 万个示例，以 Quora 和 StackOverflow 问题为种子）。</li>
+</ul>
+<p><strong>WizardLM</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2304.12244">Link</a></p>
+<ul>
+<li>Evol-Instruct 数据集（’演变’问题以增加广度&#x2F;难度）。</li>
+</ul>
+<p><strong>MAmmoTH2</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2405.03548">Link</a></p>
+<ul>
+<li>策划 WebInstruct，来自 Common Crawl 的 1000 万条指令。</li>
+<li>过滤：在测验网站上训练 fastText 分类器。</li>
+<li>提取：使用 GPT-4 和 Mixtral 提取 QA 对。</li>
+<li>提升数学性能。</li>
+</ul>
+<p><strong>OpenHermes 2.5</strong></p>
+<ul>
+<li>许多数据集的集合 <a target="_blank" rel="noopener" href="https://huggingface.co/datasets/teknium/openhermes">Link</a>。</li>
+<li>在 100 万个 GPT-4 示例上微调 Mistral 7B <a target="_blank" rel="noopener" href="https://huggingface.co/teknium/OpenHermes-2.5-Mistral-7B">Link</a>。</li>
+</ul>
+<p><strong>Llama 2 chat</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2307.09288">Link</a></p>
+<ul>
+<li>27,540 个来自供应商标注的高质量指令数据示例。</li>
+<li>据说比使用公开数据集中的数百万个示例更好。</li>
+</ul>
+<p><strong>Llama-Nemotron post-training data</strong> <a target="_blank" rel="noopener" href="https://huggingface.co/datasets/nvidia/Llama-Nemotron-Post-Training-Dataset">Link</a></p>
+<ul>
+<li>提示词：公共数据集（例如 WildChat）或合成生成的，然后过滤。</li>
+<li>从 Llama, Mixtral, DeepSeek r1, Qwen 生成合成响应（商业上可行，不像 GPT-4）。</li>
+<li>包含推理痕迹。</li>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/nvidia/Llama-Nemotron-Post-Training-Dataset/viewer/SFT/code">Examples</a>。</li>
+</ul>
+<hr>
+<h2 id="4-总结-Summary"><a href="#4-总结-Summary" class="headerlink" title="4. 总结 (Summary)"></a>4. 总结 (Summary)</h2><ul>
+<li><strong>关键教训</strong>：数据不会从天而降。你必须努力去获取它。</li>
+<li>Live service &#x3D;&gt; 原始数据 &#x3D;&gt; 处理后的数据（转换、过滤、去重）。</li>
+<li>数据是区分语言模型的关键要素。</li>
+<li>法律和伦理问题（例如版权和隐私）。</li>
+<li>这个管道的大部分是启发式的，有很多改进机会！</li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/stanford-cs336/" class="category-chain-item">stanford-cs336</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/architect/">#architect</a>
+      
+        <a href="/tags/books/">#books</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/go/">#go</a>
+      
+        <a href="/tags/log/">#log</a>
+      
+        <a href="/tags/sources/">#sources</a>
+      
+        <a href="/tags/task/">#task</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/net/">#net</a>
+      
+        <a href="/tags/struct/">#struct</a>
+      
+        <a href="/tags/stanford-cs336/">#stanford-cs336</a>
+      
+        <a href="/tags/tick/">#tick</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>大模型从0到1｜第十三课：训练数据策略</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/大模型从0到1｜第十三课：训练数据策略/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年12月12日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%8D%81%E4%BA%8C%E8%AF%BE%EF%BC%9A%E6%A8%A1%E5%9E%8B%E8%AF%84%E4%BC%B0%E8%AF%A6%E8%A7%A3/" title="大模型从0到1｜第十二课：模型评估详解">
+                        <span class="hidden-mobile">大模型从0到1｜第十二课：模型评估详解</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '7cd636f34f82c8b522b9aaa08bd46b5c'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
