@@ -1,0 +1,1190 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, binary-analysis, books, boot, bpf, bugs, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, patent, perf, perf-event, performance, phytium, pkg, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="大模型从0到1｜第十四课：实战数据过滤和去重 课程链接：Stanford CS336 Spring 2025 - Lecture 14  上一讲：训练数据策略本讲：深入探讨机制 1. 概览 (Overview)上一讲：用于训练语言模型的数据集概览  在线服务 (GitHub) → 转储&#x2F;抓取 (GH Archive) → 处理后的数据 (The Stack) 处理：HTML 转文本，语言">
+<meta property="og:type" content="article">
+<meta property="og:title" content="大模型从0到1｜第十四课：实战数据过滤和去重">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%8D%81%E5%9B%9B%E8%AF%BE%EF%BC%9A%E5%AE%9E%E6%88%98%E6%95%B0%E6%8D%AE%E8%BF%87%E6%BB%A4%E5%92%8C%E5%8E%BB%E9%87%8D/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="大模型从0到1｜第十四课：实战数据过滤和去重 课程链接：Stanford CS336 Spring 2025 - Lecture 14  上一讲：训练数据策略本讲：深入探讨机制 1. 概览 (Overview)上一讲：用于训练语言模型的数据集概览  在线服务 (GitHub) → 转储&#x2F;抓取 (GH Archive) → 处理后的数据 (The Stack) 处理：HTML 转文本，语言">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/raw-target-schema.png">
+<meta property="og:image" content="https://www.jinghong-chen.net/content/images/size/w1200/2023/12/Screenshot-2023-12-24-at-17.41.38.png">
+<meta property="og:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/dsir-results.png">
+<meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Probability_density_function_of_Pareto_distribution.svg/325px-Probability_density_function_of_Pareto_distribution.svg.png">
+<meta property="og:image" content="https://d3i71xaburhd42.cloudfront.net/4566c0d22ebf3c31180066ab23b6c445aeec78d5/5-Table1-1.png">
+<meta property="og:image" content="https://cdn.sanity.io/images/vr8gru94/production/b470799575b8e77911bacb8500977afef06d6c85-1280x720.png">
+<meta property="og:image" content="https://cdn.sanity.io/images/vr8gru94/production/aace49fa240778e8ecf6e85ad08a2de7f5385566-1280x720.png">
+<meta property="article:published_time" content="2025-12-14T16:19:09.000Z">
+<meta property="article:modified_time" content="2025-12-14T16:19:09.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="algorithm">
+<meta property="article:tag" content="books">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="log">
+<meta property="article:tag" content="python">
+<meta property="article:tag" content="tools">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="net">
+<meta property="article:tag" content="proc">
+<meta property="article:tag" content="stanford-cs336">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://stanford-cs336.github.io/spring2025-lectures/images/raw-target-schema.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>大模型从0到1｜第十四课：实战数据过滤和去重 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="大模型从0到1｜第十四课：实战数据过滤和去重"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-12-14 16:19" pubdate>
+          2025年12月14日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          7.8k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          65 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">大模型从0到1｜第十四课：实战数据过滤和去重</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="大模型从0到1｜第十四课：实战数据过滤和去重"><a href="#大模型从0到1｜第十四课：实战数据过滤和去重" class="headerlink" title="大模型从0到1｜第十四课：实战数据过滤和去重"></a>大模型从0到1｜第十四课：实战数据过滤和去重</h1><blockquote>
+<p>课程链接：<a target="_blank" rel="noopener" href="https://stanford-cs336.github.io/spring2025-lectures/?trace=var/traces/lecture_14.json">Stanford CS336 Spring 2025 - Lecture 14</a></p>
+</blockquote>
+<p>上一讲：训练数据策略<br>本讲：深入探讨机制</p>
+<h2 id="1-概览-Overview"><a href="#1-概览-Overview" class="headerlink" title="1. 概览 (Overview)"></a>1. 概览 (Overview)</h2><p>上一讲：用于训练语言模型的数据集概览</p>
+<ul>
+<li>在线服务 (GitHub) → 转储&#x2F;抓取 (GH Archive) → 处理后的数据 (The Stack)</li>
+<li>处理：HTML 转文本，语言&#x2F;质量&#x2F;毒性过滤，去重</li>
+</ul>
+<p>本讲：深入探讨机制</p>
+<ul>
+<li>过滤算法（例如：分类器）</li>
+<li>过滤的应用（例如：语言，质量，毒性）</li>
+<li>去重（例如：Bloom filters, MinHash, LSH）</li>
+</ul>
+<h2 id="2-过滤算法-Filtering-algorithms"><a href="#2-过滤算法-Filtering-algorithms" class="headerlink" title="2. 过滤算法 (Filtering algorithms)"></a>2. 过滤算法 (Filtering algorithms)</h2><p><strong>算法构建块：</strong></p>
+<ul>
+<li>给定一些 <strong>目标数据</strong> T 和大量 <strong>原始数据</strong> R，找到 R 中与 T 相似的子集 T’。</li>
+</ul>
+<p><img src="https://stanford-cs336.github.io/spring2025-lectures/images/raw-target-schema.png" srcset="/img/loading.gif" lazyload alt="Raw target schema"></p>
+<p><strong>过滤算法的期望：</strong></p>
+<ul>
+<li>从目标数据泛化（希望 T 和 T’ 不同）</li>
+<li>极快（必须在巨大的 R 上运行）</li>
+</ul>
+<h3 id="KenLM"><a href="#KenLM" class="headerlink" title="KenLM"></a>KenLM</h3><p><strong>带 Kneser-Ney 平滑的 n-gram 模型</strong> <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Kneser%E2%80%93Ney_smoothing">Article</a></p>
+<ul>
+<li>KenLM：最初用于机器翻译的快速实现 <a target="_blank" rel="noopener" href="https://kheafield.com/code/kenlm/">code</a></li>
+<li>用于数据过滤的通用语言模型</li>
+<li>极其简单 &#x2F; 快速 - 只是计数和归一化</li>
+</ul>
+<p><strong>概念</strong><br>n-gram 语言模型的极大似然估计：</p>
+<ul>
+<li>n &#x3D; 3: p(in | the cat) &#x3D; count(the cat in) &#x2F; count(the cat)<br>问题：稀疏计数（对于大 n，许多 n-grams 计数为 0）<br>解决方案：使用 Kneser-Ney 平滑来处理未见过的 n-grams <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Kneser%E2%80%93Ney_smoothing">Article</a></li>
+<li>p(in | the cat) 也依赖于 p(in | cat)</li>
+</ul>
+<p><strong>使用 KenLM 语言模型</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># Download a KenLM language model</span><br>model_url = <span class="hljs-string">&quot;https://huggingface.co/edugp/kenlm/resolve/main/wikipedia/en.arpa.bin&quot;</span><br>model = kenlm.Model(model_path)<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">compute</span>(<span class="hljs-params">content: <span class="hljs-built_in">str</span></span>):<br>    <span class="hljs-comment"># Hacky preprocessing</span><br>    content = <span class="hljs-string">&quot;&lt;s&gt; &quot;</span> + content.replace(<span class="hljs-string">&quot;,&quot;</span>, <span class="hljs-string">&quot; ,&quot;</span>).replace(<span class="hljs-string">&quot;.&quot;</span>, <span class="hljs-string">&quot; .&quot;</span>) + <span class="hljs-string">&quot; &lt;/s&gt;&quot;</span><br>    <span class="hljs-comment"># log p(content)</span><br>    score = model.score(content)<br>    <span class="hljs-comment"># Perplexity normalizes by number of tokens to avoid favoring short documents</span><br>    num_tokens = <span class="hljs-built_in">len</span>(<span class="hljs-built_in">list</span>(model.full_scores(content)))<br>    perplexity = math.exp(-score / num_tokens)<br>    <span class="hljs-keyword">return</span> score, perplexity<br><br><span class="hljs-comment"># Examples</span><br>compute(<span class="hljs-string">&quot;Stanford University was founded in 1885...&quot;</span>) <span class="hljs-comment"># Low perplexity (good)</span><br>compute(<span class="hljs-string">&quot;asdf asdf asdf asdf asdf&quot;</span>) <span class="hljs-comment"># High perplexity (bad)</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>CCNet</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/1911.00359">Link</a></p>
+<ul>
+<li>项目是文本段落</li>
+<li>按困惑度 (perplexity) 递增排序段落</li>
+<li>保留前 1&#x2F;3</li>
+<li>曾用于 LLaMA</li>
+</ul>
+<p>总结：Kneser-Ney n-gram 语言模型（使用 KenLM 实现）很快但很粗糙。</p>
+<h3 id="fastText"><a href="#fastText" class="headerlink" title="fastText"></a>fastText</h3><p>fastText 分类器 <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/1607.01759">Link</a></p>
+<ul>
+<li>任务：文本分类（例如情感分类）</li>
+<li>目标是训练一个用于文本分类的快速分类器</li>
+<li>他们发现它和慢得多的神经网络分类器一样好</li>
+</ul>
+<p><strong>基线：词袋 (Baselin: bag of words)（并非他们所做）</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs python">L = <span class="hljs-number">32</span>                              <span class="hljs-comment"># Length of input</span><br>V = <span class="hljs-number">8192</span>                            <span class="hljs-comment"># Vocabulary size</span><br>K = <span class="hljs-number">64</span>                              <span class="hljs-comment"># Number of classes</span><br>W = nn.Embedding(V, K)              <span class="hljs-comment"># Embedding parameters (V x K)</span><br>x = torch.randint(V, (L,))          <span class="hljs-comment"># Input tokens (L)</span><br>y = softmax(W(x).mean(dim=<span class="hljs-number">0</span>))       <span class="hljs-comment"># Output probabilities (K)</span><br></code></pre></td></tr></table></figure>
+<p>问题：V*K 参数（可能巨大）</p>
+<p><strong>fastText 分类器：词嵌入袋 (Bag of word embeddings)</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python">H = <span class="hljs-number">16</span>                              <span class="hljs-comment"># Hidden dimension</span><br>W = nn.Embedding(V, H)              <span class="hljs-comment"># Embedding parameters (V x H)</span><br>U = nn.Linear(H, K)                 <span class="hljs-comment"># Head parameters (H x K)</span><br>y = softmax(U(W(x).mean(dim=<span class="hljs-number">0</span>)))    <span class="hljs-comment"># Output probabilities (K)</span><br></code></pre></td></tr></table></figure>
+<p>只有 H*(V + K) 参数。</p>
+<p><strong>实现：</strong></p>
+<ul>
+<li>并行化，异步 SGD</li>
+<li>学习率：从 [某个数字] 线性插值到 0 <a target="_blank" rel="noopener" href="https://github.com/facebookresearch/fastText/blob/main/src/fasttext.cc#L653">Article</a></li>
+</ul>
+<p><strong>n-grams 袋 (Bag of n-grams)</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">x = [<span class="hljs-string">&quot;the cat&quot;</span>, <span class="hljs-string">&quot;cat in&quot;</span>, <span class="hljs-string">&quot;in the&quot;</span>, <span class="hljs-string">&quot;the hat&quot;</span>]<br></code></pre></td></tr></table></figure>
+<p>问题：bigrams 的数量可能很大（并且也可能是无界的）<br>解决方案：哈希技巧 (hashing trick)</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python">num_bins = <span class="hljs-number">10000000</span> <br>hashed_x = [<span class="hljs-built_in">hash</span>(bigram) % num_bins <span class="hljs-keyword">for</span> bigram <span class="hljs-keyword">in</span> x]<br></code></pre></td></tr></table></figure>
+
+<ul>
+<li>对于质量过滤，我们有 K &#x3D; 2 个类（好 vs 坏）</li>
+<li>在这种情况下，fastText 只是一个线性分类器 (H &#x3D; K &#x3D; 2)</li>
+</ul>
+<p>一般来说，可以使用任何分类器（例如 BERT, Llama），只是更慢。</p>
+<h3 id="DSIR"><a href="#DSIR" class="headerlink" title="DSIR"></a>DSIR</h3><p>通过重要性重采样进行语言模型数据选择 (DSIR) <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2302.03169">Link</a></p>
+<p><img src="https://www.jinghong-chen.net/content/images/size/w1200/2023/12/Screenshot-2023-12-24-at-17.41.38.png" srcset="/img/loading.gif" lazyload alt="DSIR"></p>
+<p><strong>设置：</strong></p>
+<ul>
+<li>目标数据集 D_p（小）</li>
+<li>提议（原始）数据集 D_q（大）</li>
+</ul>
+<p><strong>尝试 1：</strong></p>
+<ul>
+<li>在 D_p 上拟合目标分布 p</li>
+<li>在 D_q 上拟合提议分布 q</li>
+<li>使用 p, q 和原始样本 D_q 进行重要性重采样<br>问题：目标数据 D_p 太小，无法估计一个好的模型</li>
+</ul>
+<p><strong>尝试 2：使用哈希 n-grams</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># Hash the n-grams</span><br>num_bins = <span class="hljs-number">10000</span><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">get_hashed_ngrams</span>(<span class="hljs-params">text: <span class="hljs-built_in">str</span></span>):<br>    ngrams = text.split(<span class="hljs-string">&quot; &quot;</span>) <br>    <span class="hljs-keyword">return</span> [<span class="hljs-built_in">hash</span>(ngram) % num_bins <span class="hljs-keyword">for</span> ngram <span class="hljs-keyword">in</span> ngrams]<br><br><span class="hljs-comment"># Learn unigram model</span><br>probs = [count(training_hashed_ngrams, x) / <span class="hljs-built_in">len</span>(training_hashed_ngrams) <span class="hljs-keyword">for</span> x <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_bins)]<br><br><span class="hljs-comment"># Evaluate probability of any sentence</span><br>prob = np.prod([probs[x] <span class="hljs-keyword">for</span> x <span class="hljs-keyword">in</span> hashed_ngrams])<br></code></pre></td></tr></table></figure>
+<p>结果：在 <a target="_blank" rel="noopener" href="https://gluebenchmark.com/">GLUE</a> 基准测试上，DSIR 略优于启发式分类（fastText）</p>
+<p><img src="https://stanford-cs336.github.io/spring2025-lectures/images/dsir-results.png" srcset="/img/loading.gif" lazyload alt="DSIR results"></p>
+<p><strong>与 fastText 的比较：</strong></p>
+<ul>
+<li>建模分布是一个捕捉多样性的更原则性的方法</li>
+<li>类似的计算复杂度</li>
+<li>两者都可以通过更好的建模来改进</li>
+</ul>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p><strong>一般框架</strong><br>给定目标 T 和原始 R，找到 R 中与 T 相似的子集</p>
+<ol>
+<li>基于 R 和 T 估计某个模型并推导评分函数</li>
+<li>基于分数保留 R 中的示例</li>
+</ol>
+<p><strong>框架的实例化</strong><br>T 的生成模型 (KenLM):</p>
+<ol>
+<li>score(x) &#x3D; p_T(x)</li>
+<li>随机保留 score(x) &gt;&#x3D; threshold 的示例 x</li>
+</ol>
+<p>判别式分类器 (fastText):</p>
+<ol>
+<li>score(x) &#x3D; p(T | x)</li>
+<li>随机保留 score(x) &gt;&#x3D; threshold 的示例 x</li>
+</ol>
+<p>重要性重采样 (DSIR):</p>
+<ol>
+<li>score(x) &#x3D; p_T(x) &#x2F; p_R(x)</li>
+<li>以正比于 score(x) 的概率重采样示例 x</li>
+</ol>
+<p>数据选择调查论文 <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2402.16827">Link</a></p>
+<hr>
+<h2 id="3-过滤应用-Filtering-applications"><a href="#3-过滤应用-Filtering-applications" class="headerlink" title="3. 过滤应用 (Filtering applications)"></a>3. 过滤应用 (Filtering applications)</h2><p>同样的数据过滤机制可用于不同的过滤任务。</p>
+<h3 id="语言识别-Language-identification"><a href="#语言识别-Language-identification" class="headerlink" title="语言识别 (Language identification)"></a>语言识别 (Language identification)</h3><p>语言识别：查找特定语言（例如英语）的文本</p>
+<p><strong>为什么不直接搞多语言？</strong></p>
+<ul>
+<li>数据：难以对任何给定语言的高质量数据进行策划&#x2F;处理</li>
+<li>计算：在计算受限的制度下，致力于任何给定语言的计算&#x2F;token 更少<br>模型在多语言性方面有所不同：</li>
+<li>English 仅占 BLOOM（训练不足）的 30%，英语性能受损 <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2303.03915">Link</a></li>
+<li>大多数前沿模型（GPT-4, Claude, Gemini, Llama, Qwen）都是高度多语言的（充分训练）</li>
+</ul>
+<p><strong>fastText 语言识别</strong> <a target="_blank" rel="noopener" href="https://fasttext.cc/docs/en/language-identification.html">Article</a></p>
+<ul>
+<li>现成的分类器</li>
+<li>支持 176 种语言</li>
+<li>在多语言网站上训练：Wikipedia, Tatoeba（翻译网站）和 SETimes（东南欧新闻）</li>
+</ul>
+<p><strong>示例：Dolma 保留 p(English) &gt;&#x3D; 0.5 的页面</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2402.00159">Link</a></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># Make predictions</span><br>model.predict([<span class="hljs-string">&quot;The quick brown fox...&quot;</span>])  <span class="hljs-comment"># English</span><br>model.predict([<span class="hljs-string">&quot;OMG that movie was 🔥🔥!&quot;</span>])  <span class="hljs-comment"># Informal English</span><br>model.predict([<span class="hljs-string">&quot;Auf dem Wasser zu singen&quot;</span>])  <span class="hljs-comment"># German</span><br>model.predict([<span class="hljs-string">&quot;for (int i = 0; i &lt; 10; i++)&quot;</span>])  <span class="hljs-comment"># C++ (may be misclassified?)</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>注意事项：</strong></p>
+<ul>
+<li>短序列困难</li>
+<li>低资源语言困难</li>
+<li>可能会意外过滤掉英语方言</li>
+<li>相似语言（马来语和印尼语）困难</li>
+<li>语码转换（例如西班牙语 + 英语）定义不明确</li>
+</ul>
+<p><strong>OpenMathText</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2310.06786">Link</a></p>
+<ul>
+<li>目标：从 CommonCrawl 策划大型数学文本语料库</li>
+<li>使用规则过滤（例如包含 latex 命令）</li>
+<li>KenLM 在 ProofPile 上训练，保留困惑度 &lt; 15000</li>
+<li>训练 fastText 分类器预测数学写作，如果是数学阈值为 0.17，如果无数学则为 0.8<br>结果：产生了 14.7B tokens，用于训练 1.4B 模型，其表现优于在 20 倍数据上训练的模型</li>
+</ul>
+<h3 id="质量过滤-Quality-filtering"><a href="#质量过滤-Quality-filtering" class="headerlink" title="质量过滤 (Quality filtering)"></a>质量过滤 (Quality filtering)</h3><ul>
+<li>一些故意不使用基于模型的过滤 (C4, Gopher, RefinedWeb, FineWeb, Dolma)</li>
+<li>一些使用基于模型的过滤 (GPT-3, LLaMA, DCLM) [正成为常态]</li>
+</ul>
+<p><strong>GPT-3</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2005.14165">Link</a></p>
+<ul>
+<li>正例：来自 {Wikipedia, WebText2, Books1, Books2} 的样本</li>
+<li>负例：来自 CommonCrawl 的样本<br><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Probability_density_function_of_Pareto_distribution.svg/325px-Probability_density_function_of_Pareto_distribution.svg.png" srcset="/img/loading.gif" lazyload alt="Pareto"><br>基于单词特征训练线性分类器 <a target="_blank" rel="noopener" href="https://spark.apache.org/docs/latest/ml-features#tokenizer">Article</a><br>根据分数随机保留文档：<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">keep_document</span>(<span class="hljs-params">score: <span class="hljs-built_in">float</span></span>) -&gt; <span class="hljs-built_in">bool</span>:<br>    <span class="hljs-keyword">return</span> np.random.pareto(<span class="hljs-number">9</span>) &gt; <span class="hljs-number">1</span> - score<br></code></pre></td></tr></table></figure></li>
+</ul>
+<p><strong>LLaMA&#x2F;RedPajama</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2302.13971">Link</a></p>
+<ul>
+<li>正例：Wikipedia <strong>引用</strong>页面的样本</li>
+<li>负例：CommonCrawl 的样本</li>
+<li>保留归类为正的文档</li>
+</ul>
+<p><strong>phi-1</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2306.11644">Link</a><br>哲学：非常高质量的数据（教科书）来训练小模型 (1.5B)<br>包括来自 GPT 3.5 的合成数据（后来：GPT-4）和过滤数据</p>
+<ul>
+<li>R &#x3D; “The Stack 的 Python 子集” # 原始数据</li>
+<li>prompt &#x3D; “determine its educational value…”</li>
+<li>T &#x3D; “使用 GPT-4 对 100K R 子集进行分类以获得正例”</li>
+<li>使用预训练 codegen 模型的输出嵌入在 T 上训练随机森林分类器</li>
+<li>从 R 中选择被分类器分类为正的数据</li>
+</ul>
+<p><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/openai_humaneval">HumanEval</a> 结果：</p>
+<ul>
+<li>在 The Stack 的 Python 子集上训练 1.3B LM（性能：96K 步后 12.19%）</li>
+<li>在新的过滤子集上训练 1.3B LM（性能：36K 步后 17.68%） - 更好！</li>
+</ul>
+<h3 id="毒性过滤-Toxicity-filtering"><a href="#毒性过滤-Toxicity-filtering" class="headerlink" title="毒性过滤 (Toxicity filtering)"></a>毒性过滤 (Toxicity filtering)</h3><p><strong>警告：以下可能包含冒犯性内容</strong></p>
+<p><strong>Dolma 中的毒性过滤</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2402.00159">Link</a><br>数据集：Jigsaw 有毒评论数据集 (2018) <a target="_blank" rel="noopener" href="https://www.kaggle.com/datasets/julian3833/jigsaw-toxic-comment-classification-challenge">dataset</a></p>
+<ul>
+<li>项目目标：帮助人们在网上进行更好的讨论 <a target="_blank" rel="noopener" href="https://www.kaggle.com/competitions/jigsaw-toxic-comment-classification-challenge/discussion/46064">Article</a></li>
+<li>数据：Wikipedia 讨论页上的评论，标注为 {toxic, severe_toxic, obscene, threat, insult, identity_hate}</li>
+</ul>
+<p>训练了 2 个 fastText 分类器：</p>
+<ul>
+<li>hate: 正例 &#x3D; {unlabeled, obscene}, 负例 &#x3D; 其他所有</li>
+<li>NSFW: 正例 &#x3D; {obscene}, 负例 &#x3D; 其他所有</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># Examples</span><br>train_examples = [<br>    Example(label=<span class="hljs-number">0</span>, text=<span class="hljs-string">&quot;Are you threatening me...?&quot;</span>),<br>    Example(label=<span class="hljs-number">1</span>, text=<span class="hljs-string">&quot;Stupid peace of shit...&quot;</span>),<br>]<br>model.predict([<span class="hljs-string">&quot;I love strawberries&quot;</span>]) <span class="hljs-comment"># OK</span><br>model.predict([<span class="hljs-string">&quot;I hate strawberries&quot;</span>]) <span class="hljs-comment"># OK</span><br></code></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="4-去重-Deduplication"><a href="#4-去重-Deduplication" class="headerlink" title="4. 去重 (Deduplication)"></a>4. 去重 (Deduplication)</h2><p><strong>两种类型的重复：</strong></p>
+<ul>
+<li>精确重复（镜像站点，GitHub forks） <a target="_blank" rel="noopener" href="https://www.gutenberg.org/MIRRORS.ALL">Gutenberg mirrors</a></li>
+<li>近似重复：只有几个 tokens 不同的相同文本</li>
+</ul>
+<p><strong>近似重复的例子：</strong></p>
+<ul>
+<li>服务条款和许可证 <a target="_blank" rel="noopener" href="https://opensource.org/license/mit">MIT license</a></li>
+<li>公式化写作（复制&#x2F;粘贴或从模板生成）<br><img src="https://d3i71xaburhd42.cloudfront.net/4566c0d22ebf3c31180066ab23b6c445aeec78d5/5-Table1-1.png" srcset="/img/loading.gif" lazyload alt="Template"></li>
+<li>复制&#x2F;粘贴中的微小格式差异</li>
+</ul>
+<p><strong>在 C4 中，产品描述重复了 61,036 次：</strong><br>“by combining fantastic ideas, interesting arrangements…”<br><a target="_blank" rel="noopener" href="https://www.amazon.co.uk/suryagede-100-Graffiti-Gas-Mask/dp/B07CRHT3RG">Example page</a></p>
+<p><strong>去重训练数据使语言模型更好</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2107.06499">Link</a></p>
+<ul>
+<li>训练更有效率（因为 tokens 更少）</li>
+<li>避免死记硬背（可以减轻版权、隐私问题）</li>
+</ul>
+<p><strong>设计空间：</strong></p>
+<ol>
+<li>什么是项目（句子，段落，文档）？</li>
+<li>如何匹配（精确匹配，存在公共子项，公共子项的比例）？</li>
+<li>采取什么行动（全部删除，除一个外全部删除）？</li>
+</ol>
+<p><strong>关键挑战：</strong></p>
+<ul>
+<li>去重根本上是关于将项目与其他项目进行比较</li>
+<li>需要线性时间算法来扩展</li>
+</ul>
+<h3 id="哈希函数-Hash-functions"><a href="#哈希函数-Hash-functions" class="headerlink" title="哈希函数 (Hash functions)"></a>哈希函数 (Hash functions)</h3><ul>
+<li>哈希函数 h 将项目映射到哈希值（整数或字符串）</li>
+<li>哈希值比项目小得多</li>
+<li>哈希冲突：对于 x ≠ y，h(x) &#x3D; h(y)</li>
+</ul>
+<p><strong>效率与抗冲突性之间的权衡</strong> <a target="_blank" rel="noopener" href="https://softwareengineering.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed">Article</a></p>
+<ul>
+<li>加密哈希函数 (SHA-256)：抗冲突，慢（用于比特币）</li>
+<li>DJB2, MurmurHash, CityHash: 不抗冲突，快（用于哈希表）</li>
+<li>我们将使用 MurmurHash</li>
+</ul>
+<h3 id="精确去重-Exact-deduplication"><a href="#精确去重-Exact-deduplication" class="headerlink" title="精确去重 (Exact deduplication)"></a>精确去重 (Exact deduplication)</h3><p><strong>简单例子</strong></p>
+<ol>
+<li>项目：字符串</li>
+<li>如何匹配：精确匹配</li>
+<li>操作：除一个外全部删除</li>
+</ol>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs python">items = [<span class="hljs-string">&quot;Hello!&quot;</span>, <span class="hljs-string">&quot;hello&quot;</span>, <span class="hljs-string">&quot;hello there&quot;</span>, <span class="hljs-string">&quot;hello&quot;</span>, <span class="hljs-string">&quot;hi&quot;</span>, <span class="hljs-string">&quot;bye&quot;</span>]<br><span class="hljs-comment"># Group by hash</span><br>hash_items = itertools.groupby(<span class="hljs-built_in">sorted</span>(items, key=mmh3.<span class="hljs-built_in">hash</span>), key=mmh3.<span class="hljs-built_in">hash</span>)<br><span class="hljs-comment"># Keep one</span><br>deduped_items = [<span class="hljs-built_in">next</span>(group) <span class="hljs-keyword">for</span> h, group <span class="hljs-keyword">in</span> hash_items]<br></code></pre></td></tr></table></figure>
+
+<ul>
+<li>优点：简单，语义清晰，高精度</li>
+<li>缺点：不去重近似重复</li>
+<li>此代码是以 MapReduce 方式编写的，可以轻松并行化和扩展</li>
+</ul>
+<p><strong>C4</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/1910.10683v4">Link</a></p>
+<ol>
+<li>项目：3 句话的跨度</li>
+<li>如何匹配：使用精确匹配</li>
+<li>操作：除一个外全部删除<br>警告：当从文档中间删除 3 句话的跨度时，生成的文档可能不连贯</li>
+</ol>
+<h3 id="Bloom-filter"><a href="#Bloom-filter" class="headerlink" title="Bloom filter"></a>Bloom filter</h3><p>目标：用于测试集合成员资格的高效、近似数据结构</p>
+<p><strong>Bloom filters 的特点</strong></p>
+<ul>
+<li>内存高效</li>
+<li>可以更新，但不能删除</li>
+<li>如果返回 ‘no’，肯定是 ‘no’</li>
+<li>如果返回 ‘yes’，很可能是 ‘yes’，但有小概率是 ‘no’</li>
+<li>可以通过更多的时间&#x2F;计算以指数方式降低假阳性率</li>
+</ul>
+<p><strong>构建</strong><br>首先，使哈希函数的范围变小（少量的 bins）。<br>问题：小 bins 会导致假阳性。<br>朴素解决方案：增加 bins 数量。错误概率是 O(1&#x2F;num_bins)。<br>更好的解决方案：使用更多哈希函数 (k)。</p>
+<p><strong>假阳性率分析</strong> <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Bloom_filter">Article</a><br>假设哈希函数和项目独立。</p>
+<ul>
+<li>m &#x3D; bins 数量</li>
+<li>k &#x3D; 哈希函数数量</li>
+<li>n &#x3D; 插入的项目数量</li>
+</ul>
+<p>最优 k 值（给定固定的 m &#x2F; n 比率）：k &#x3D; ln(2) * m &#x2F; n<br>结果假阳性率：f &#x3D; 0.5^k<br>计算 (k)、内存 (m) 和假阳性率 (f) 之间的权衡 <a target="_blank" rel="noopener" href="https://people.eecs.berkeley.edu/~daw/teaching/cs170-s03/Notes/lecture10.pdf">Lecture notes</a></p>
+<p><strong>示例：Dolma</strong></p>
+<ul>
+<li>设置假阳性率为 1e-15</li>
+<li>在项目 &#x3D; 段落 上执行</li>
+</ul>
+<h3 id="Jaccard-similarity-MinHash"><a href="#Jaccard-similarity-MinHash" class="headerlink" title="Jaccard similarity &amp; MinHash"></a>Jaccard similarity &amp; MinHash</h3><p>现在让我们看看近似集合成员资格。</p>
+<p><strong>Jaccard 相似度</strong><br>定义：Jaccard(A, B) &#x3D; |A intersect B| &#x2F; |A union B|<br>定义：如果两个文档的 Jaccard 相似度 &gt;&#x3D; 阈值，则它们是 <strong>近似重复</strong>。</p>
+<p>算法挑战：在线性时间内找到近似重复。</p>
+<p><strong>MinHash</strong><br>MinHash: 一个随机哈希函数 h，使得 Pr[h(A) &#x3D; h(B)] &#x3D; Jaccard(A, B)</p>
+<ul>
+<li>通常，你希望不同的项目哈希到不同的哈希值</li>
+<li>…但在这里，你希望冲突概率取决于相似度</li>
+</ul>
+<p>特征矩阵表示：</p>
+<figure class="highlight coq"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs coq">item | <span class="hljs-type">A</span> | <span class="hljs-type">B</span><br><span class="hljs-number">1</span>    | <span class="hljs-type">1</span> | <span class="hljs-type">1</span><br><span class="hljs-number">2</span>    | <span class="hljs-type">1</span> | <span class="hljs-type">1</span><br><span class="hljs-number">3</span>    | <span class="hljs-type">1</span> | <span class="hljs-type">1</span><br><span class="hljs-number">4</span>    | <span class="hljs-type">1</span> | <span class="hljs-type">0</span><br><span class="hljs-number">5</span>    | <span class="hljs-type">0</span> | <span class="hljs-type">1</span><br></code></pre></td></tr></table></figure>
+<p>随机哈希函数在项目上引入一个排列。<br>查看 A 中第一个项目和 B 中第一个项目。<br>Pr[MinHash(A) &#x3D;&#x3D; MinHash(B)] &#x3D; Jaccard(A, B)</p>
+<h3 id="局部敏感哈希-Locality-sensitive-hashing"><a href="#局部敏感哈希-Locality-sensitive-hashing" class="headerlink" title="局部敏感哈希 (Locality sensitive hashing)"></a>局部敏感哈希 (Locality sensitive hashing)</h3><p><a target="_blank" rel="noopener" href="http://infolab.stanford.edu/~ullman/mmds/ch3n.pdf">Book chapter</a></p>
+<p>假设我们只用一个 MinHash 函数对示例进行哈希。<br>P[A 和 B 冲突] &#x3D; Jaccard(A, B)<br>平均而言，更相似的项目会冲突，但非常随机…</p>
+<p>目标：如果 Jaccard(A, B) &gt; 阈值，则让 A 和 B 冲突。<br>我们必须以某种方式锐化概率…</p>
+<p><strong>解决方案：使用 n 个哈希函数</strong><br>分成 b 个带 (bands)，每个带 r 个哈希函数 (n &#x3D; b * r)</p>
+<figure class="highlight smalltalk"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs smalltalk">h1 h2 h3 h4  |  h5 h6 h7 h8  |  h9 h10 h11 h12<br></code></pre></td></tr></table></figure>
+
+<p>关键：如果对于 <em>某个</em> 带，其 <em>所有</em> 哈希函数都返回相同的值，则 A 和 B 冲突。<br>带的 and-or 结构锐化了阈值。</p>
+<p>给定 Jaccard(A, B)，A 和 B 冲突的概率是多少？<br>prob_match &#x3D; sim^r<br>prob_collision &#x3D; 1 - (1 - prob_match)^b</p>
+<p><strong>示例</strong><br><img src="https://cdn.sanity.io/images/vr8gru94/production/b470799575b8e77911bacb8500977afef06d6c85-1280x720.png" srcset="/img/loading.gif" lazyload alt="LSH Graph"></p>
+<ul>
+<li>增加 r 会锐化阈值并将曲线向右移动（更难匹配）</li>
+<li>增加 b 会将曲线向左移动（更容易匹配）</li>
+</ul>
+<p><img src="https://cdn.sanity.io/images/vr8gru94/production/aace49fa240778e8ecf6e85ad08a2de7f5385566-1280x720.png" srcset="/img/loading.gif" lazyload alt="LSH Curve"></p>
+<p><strong>示例设置</strong> <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2107.06499">Link</a></p>
+<ul>
+<li>n &#x3D; 9000, b &#x3D; 20, r &#x3D; 450</li>
+<li>阈值（发生相变的地方）≈ (1&#x2F;b)^(1&#x2F;r)</li>
+<li>概率约为 1 - 1&#x2F;e</li>
+</ul>
+<hr>
+<h2 id="5-总结-Summary"><a href="#5-总结-Summary" class="headerlink" title="5. 总结 (Summary)"></a>5. 总结 (Summary)</h2><ul>
+<li>算法工具：n-gram 模型 (KenLM)，分类器 (fastText)，重要性重采样 (DSIR)</li>
+<li>应用：语言识别，质量过滤，毒性过滤</li>
+<li>去重：哈希扩展到用于模糊匹配的大型数据集</li>
+<li>现在你有了工具（机制），只需要花时间在数据上（直觉）</li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/stanford-cs336/" class="category-chain-item">stanford-cs336</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/algorithm/">#algorithm</a>
+      
+        <a href="/tags/books/">#books</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/go/">#go</a>
+      
+        <a href="/tags/log/">#log</a>
+      
+        <a href="/tags/python/">#python</a>
+      
+        <a href="/tags/tools/">#tools</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/net/">#net</a>
+      
+        <a href="/tags/proc/">#proc</a>
+      
+        <a href="/tags/stanford-cs336/">#stanford-cs336</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>大模型从0到1｜第十四课：实战数据过滤和去重</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/stanford-cs336/大模型从0到1｜第十四课：实战数据过滤和去重/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年12月14日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%8D%81%E4%BA%94%E8%AF%BE%EF%BC%9A%E8%AF%A6%E8%A7%A3SFT%E3%80%81RLHF/" title="大模型从0到1｜第十五课：详解SFT、RLHF">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">大模型从0到1｜第十五课：详解SFT、RLHF</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/stanford-cs336/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BB%8E0%E5%88%B01%EF%BD%9C%E7%AC%AC%E5%8D%81%E4%B8%89%E8%AF%BE%EF%BC%9A%E8%AE%AD%E7%BB%83%E6%95%B0%E6%8D%AE%E7%AD%96%E7%95%A5/" title="大模型从0到1｜第十三课：训练数据策略">
+                        <span class="hidden-mobile">大模型从0到1｜第十三课：训练数据策略</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '382bcc25cad13d38b769fb8608db3057'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
