@@ -328,7 +328,7 @@ Tokenizer 在字符串和整数序列（token）之间转换
 
 **A100 GPU 架构：**
 
-![A100 Architecture](https://miro.medium.com/v2/resize:fit:2000/format:webp/1*6xoBKi5kL2dZpivFe1-zgw.jpeg)
+![A100 Architecture](https://miro.medium.com/v2/resize:fit:2000/format:webp/1\*6xoBKi5kL2dZpivFe1-zgw.jpeg)
 
 **类比：** 仓库 : DRAM :: 工厂 : SRAM
 
