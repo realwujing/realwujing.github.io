@@ -24,9 +24,9 @@ DEV_IMAGE := $(IMAGE_NAME):$(DEV_TAG)
 CONTAINER_NAME := $(IMAGE_NAME)-$(DEV_TAG)
 
 # Source files
-DOCKER_IMAGE_SOURCE := ctyunos4-docker-4-25.07-250905-x86_64.tar.xz
+DOCKER_IMAGE_SOURCE := ctyunos4-docker-25.07-250905.x86_64.tar.xz
 # DOCKER_IMAGE_URL := https://repo.ctyun.cn/hostos/ctyunos-4/docker_img/x86_64/$(DOCKER_IMAGE_SOURCE)
-DOCKER_IMAGE_DIR := $(HOST_DOWNLOADS_DIR)/docker
+DOCKER_IMAGE_DIR := $(HOST_DOWNLOADS_DIR)
 DOCKER_IMAGE_PATH := $(DOCKER_IMAGE_DIR)/$(DOCKER_IMAGE_SOURCE)
 
 # Cross-compile toolchain
@@ -125,15 +125,20 @@ build-base-image:	## Build image with build tools (→ ctyunos:4-25.07-250905-bu
 		echo "Base image $(BASE_IMAGE) not found, loading..."; \
 		make load-image; \
 	fi
-	@echo "Installing build tools and configuring permissions..."
+	@echo "Installing ctactv RPM package..."
 	@echo "FROM $(BASE_IMAGE)" > Dockerfile.build
-	@echo "RUN yum install -y sudo shadow-utils git vim dnf-plugins-core && \\" >> Dockerfile.build
+	@echo "COPY ctactv-1.3-17.ctl4.x86_64.rpm /tmp/" >> Dockerfile.build
+	@echo "RUN rpm -ivh /tmp/ctactv-1.3-17.ctl4.x86_64.rpm && rm -f /tmp/ctactv-1.3-17.ctl4.x86_64.rpm" >> Dockerfile.build
+	@echo "Installing build tools and configuring permissions..."
+	@echo "RUN yum install -y sudo shadow-utils git vim dnf-plugins-core tmux rpm-build -y && \\" >> Dockerfile.build
 	@echo "    groupadd -g $(HOST_GID) $(HOST_USER) 2>/dev/null || true && \\" >> Dockerfile.build
 	@echo "    useradd -m -u $(HOST_UID) -g $(HOST_GID) -s /bin/bash $(HOST_USER) 2>/dev/null || true && \\" >> Dockerfile.build
 	@echo "    echo '$(HOST_USER) ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \\" >> Dockerfile.build
 	@echo "    echo 'Defaults !requiretty' >> /etc/sudoers && \\" >> Dockerfile.build
 	@echo "    mkdir -p /home/$(HOST_USER)/{code,rpmbuild,Downloads}" >> Dockerfile.build
+	@cp $(HOST_DOWNLOADS_DIR)/ctactv-1.3-17.ctl4.x86_64.rpm . 2>/dev/null || echo "Warning: ctactv RPM not found in Downloads, build may fail"
 	@docker build -t $(BUILD_IMAGE) -f Dockerfile.build .
+	@rm -f ctactv-1.3-17.ctl4.x86_64.rpm
 	@rm -f Dockerfile.build
 build-image:	## Build development image with user mapping (→ ctyunos:4-25.07-250905-dev)
 	@echo "Preparing CTYunOS 4 development image..."
