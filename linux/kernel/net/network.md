@@ -807,6 +807,9 @@ OVS 分为两个主要部分：
 
 ## proxy
 
+- [云服务器自建代理服务：基于 3x-ui 面板搭建 xray 代理服务及配置 clash 代理的方法](https://lzw.me/a/3xui-123.html)
+- [V2Ray搭建详细图文教程](https://github.com/233boy/v2ray/wiki/V2Ray%E6%90%AD%E5%BB%BA%E8%AF%A6%E7%BB%86%E5%9B%BE%E6%96%87%E6%95%99%E7%A8%8B/f5bee78f144ed601e3af67a699d472012f241d0b)
+
 macOS Monterey 12.7.5在系统偏好设置-网络-WiFi-代理中修改配置无法保存，clashx中设置为系统代理也无法取消，详情参见下图：
 
 ![代理](https://cdn.jsdelivr.net/gh/realwujing/picture-bed/20240603234753.png)
