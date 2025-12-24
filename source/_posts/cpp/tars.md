@@ -1,9 +1,10 @@
 ---
-date: 2023/02/01 13:37:53
-updated: 2023/04/21 15:49:27
+title: 'TARS微服务框架'
+date: '2023/04/21 15:49:27'
+updated: '2025/11/18 22:04:31'
 ---
 
-# tars
+# TARS微服务框架
 
 - [Ubuntu18.04下安装MySQL](https://www.cnblogs.com/opsprobe/p/9126864.html)
 

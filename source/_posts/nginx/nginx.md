@@ -1,9 +1,10 @@
 ---
-date: 2023/04/21 12:36:22
-updated: 2023/04/21 12:36:22
+title: 'Nginx Web服务器配置指南'
+date: '2023/04/21 12:36:22'
+updated: '2025/11/18 22:04:31'
 ---
 
-# nginx
+# Nginx Web服务器配置指南
 
 ## 基础
 
@@ -18,6 +19,7 @@ updated: 2023/04/21 12:36:22
 
 ## 静态文件服务器
 
+- [Nginx搭建文件下载服务器](https://blog.csdn.net/qq_42684504/article/details/111246006)
 - [Nginx配置静态文件服务从入门到精通](https://www.cnblogs.com/foxhappy/p/14541313.html)
 - [NGINX访问静态资源报404错误的坑](https://www.freesion.com/article/2812996615/)
 - [nginx搭建静态文件下载服务器](https://www.cnblogs.com/XY-Heruo/p/14708905.html)
