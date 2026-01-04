@@ -307,6 +307,10 @@ send(sockfd, buffer, len, 0);
 - **软中断**：负责批量处理收发包逻辑，减少中断次数，提高系统吞吐量。  
 - **NAPI 机制**：结合硬、软中断的优点，通过轮询和批量处理机制，进一步优化高流量场景下的性能。
 
+## ksoftirqd
+
+- [ksoftirqd 与软中断：CPU 看起来不忙，为什么延迟却高](https://mp.weixin.qq.com/s/mo0yW0RPrZ8TO7vh7_U4IA)
+
 ## 丢包
 
 - [Linux服务器时不时丢包，它凭啥能精准解决？](https://mp.weixin.qq.com/s/ecRMntFeL9smXtzO-htPVA)
