@@ -11,13 +11,12 @@ fi
 # =============================================
 
 # 定义虚拟机参数
-# 基础目录（复用路径）
-ISO_DIR="/var/lib/libvirt/images"
-QEMU_DIR="/var/lib/libvirt/images"
+# 基础目录（支持环境变量或参数自定义）
+ISO_DIR="${ISO_DIR:-/var/lib/libvirt/images}"
+QEMU_DIR="${QEMU_DIR:-/var/lib/libvirt/images}"
 
 # ISO配置
 ISO_URL="https://get.debian.org/images/archive/12.12.0/amd64/iso-dvd/debian-12.12.0-amd64-DVD-1.iso"
-ISO_FILE="${ISO_DIR}/${ISO_URL##*/}"
 
 # 虚拟机配置
 # 用户名变量（支持环境变量、命令行参数 vm_user=xxx 或位置参数）
@@ -39,14 +38,16 @@ fi
 
 # 帮助信息
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-  echo "用法: $0 [vm_user=用户名] [vm_ram=内存MB] [vm_vcpus=CPU数] [vm_disk_size=磁盘GB]"
-  echo "      或 $0 [用户名] [内存MB] [CPU数] [磁盘GB]"
+  echo "用法: $0 vm_user=用户名 [vm_ram=内存MB] [vm_vcpus=CPU数] [vm_disk_size=磁盘GB] [iso_dir=ISO目录] [qemu_dir=磁盘目录]"
+  echo "      或使用环境变量: VM_USER=用户名 VM_RAM=内存 $0"
   echo
   echo "参数说明："
   echo "  vm_user        虚拟机用户名（必填，无默认值）"
   echo "  vm_ram         分配内存（MB，默认: 16384）"
   echo "  vm_vcpus       分配CPU数（默认: 16）"
   echo "  vm_disk_size   磁盘大小（GB，默认: 256）"
+  echo "  iso_dir        ISO存放目录（默认: /var/lib/libvirt/images）"
+  echo "  qemu_dir       虚拟机磁盘目录（默认: /var/lib/libvirt/images）"
   exit 0
 fi
 
@@ -79,30 +80,20 @@ for arg in "$@"; do
     vm_disk_size=*)
       VM_DISK_SIZE="${arg#vm_disk_size=}"
       ;;
+    iso_dir=*)
+      ISO_DIR="${arg#iso_dir=}"
+      ;;
+    qemu_dir=*)
+      QEMU_DIR="${arg#qemu_dir=}"
+      ;;
   esac
 done
 
-# 兼容位置参数（只处理未用 key=value 形式时的前3个参数）
-if [ $# -ge 2 ] && [ -z "${2##vm_ram=*}" ]; then
-  : # 已处理
-elif [ $# -ge 2 ]; then
-  VM_RAM="$2"
-fi
-if [ $# -ge 3 ] && [ -z "${3##vm_vcpus=*}" ]; then
-  : # 已处理
-elif [ $# -ge 3 ]; then
-  VM_VCPUS="$3"
-fi
-if [ $# -ge 4 ] && [ -z "${4##vm_disk_size=*}" ]; then
-  : # 已处理
-elif [ $# -ge 4 ]; then
-  VM_DISK_SIZE="$4"
-fi
 
 VM_NAME="$VM_USER-debian12"
-VM_RAM="16384"       # 16GB内存
-VM_VCPUS="16"        # 16个vCPU
-VM_DISK_SIZE="256"    # 256GB磁盘
+
+# 从 ISO_DIR 和 QEMU_DIR 生成实际路径
+ISO_FILE="${ISO_DIR}/${ISO_URL##*/}"
 
 # 从ISO文件名提取基础名（去掉.iso），并加上.qcow2
 VM_DISK_BASENAME="${ISO_URL##*/}"      # 提取文件名：debian-12.10.0-amd64-netinst.iso
