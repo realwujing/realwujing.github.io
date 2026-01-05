@@ -2064,6 +2064,13 @@ ssh taiding
 
 - [Linux 系统Kde桌面环境的fcitx输入问题解决](https://zhuanlan.zhihu.com/p/41338951)
 
+### debian12
+
+debian12上安装ibus中文输入法：
+```bash
+sudo apt install ibus-libpinyin
+```
+
 ## 其它
 
 - [解决VSCode终端在Linux下打不开的问题_hqsiswiliam的博客-CSDN博客_vscode打不开](https://blog.csdn.net/hqsiswiliam/article/details/105832597)
