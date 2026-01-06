@@ -1,0 +1,903 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="min_free_kbytes 对 GFP_ATOMIC 内存分配的影响分析本文将从 Zone 选择、水位线逻辑、源码佐证以及直观类比四个维度，完整解析 GFP_ATOMIC 的分配机制。  1. 区域选择：GFP_ATOMIC 会在哪些 Zone 分配？根据 include&#x2F;linux&#x2F;gfp_types.h 的定义，GFP_ATOMIC 并没有包含任何区域修饰符（如 __G">
+<meta property="og:type" content="article">
+<meta property="og:title" content="min_free_kbytes 对 GFP_ATOMIC 内存分配的影响分析">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/mm/min_free_kbytes_gfp_atomic/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="min_free_kbytes 对 GFP_ATOMIC 内存分配的影响分析本文将从 Zone 选择、水位线逻辑、源码佐证以及直观类比四个维度，完整解析 GFP_ATOMIC 的分配机制。  1. 区域选择：GFP_ATOMIC 会在哪些 Zone 分配？根据 include&#x2F;linux&#x2F;gfp_types.h 的定义，GFP_ATOMIC 并没有包含任何区域修饰符（如 __G">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-01-06T10:53:04.000Z">
+<meta property="article:modified_time" content="2026-01-06T10:53:04.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="proc">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>min_free_kbytes 对 GFP_ATOMIC 内存分配的影响分析 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="min_free_kbytes 对 GFP_ATOMIC 内存分配的影响分析"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-01-06 10:53" pubdate>
+          2026年1月6日 上午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.9k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          25 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">min_free_kbytes 对 GFP_ATOMIC 内存分配的影响分析</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="min-free-kbytes-对-GFP-ATOMIC-内存分配的影响分析"><a href="#min-free-kbytes-对-GFP-ATOMIC-内存分配的影响分析" class="headerlink" title="min_free_kbytes 对 GFP_ATOMIC 内存分配的影响分析"></a>min_free_kbytes 对 GFP_ATOMIC 内存分配的影响分析</h1><p>本文将从 Zone 选择、水位线逻辑、源码佐证以及直观类比四个维度，完整解析 <code>GFP_ATOMIC</code> 的分配机制。</p>
+<hr>
+<h2 id="1-区域选择：GFP-ATOMIC-会在哪些-Zone-分配？"><a href="#1-区域选择：GFP-ATOMIC-会在哪些-Zone-分配？" class="headerlink" title="1. 区域选择：GFP_ATOMIC 会在哪些 Zone 分配？"></a>1. 区域选择：GFP_ATOMIC 会在哪些 Zone 分配？</h2><p>根据 <a href="file:///home/wujing/code/linux/include/linux/gfp_types.h">include&#x2F;linux&#x2F;gfp_types.h</a> 的定义，<code>GFP_ATOMIC</code> 并没有包含任何区域修饰符（如 <code>__GFP_DMA</code>）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// include/linux/gfp_types.h</span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> GFP_ATOMIC	(__GFP_HIGH|__GFP_KSWAPD_RECLAIM)</span><br></code></pre></td></tr></table></figure>
+
+<h3 id="计算与位掩码分解"><a href="#计算与位掩码分解" class="headerlink" title="计算与位掩码分解"></a>计算与位掩码分解</h3><p><code>GFP_ATOMIC</code> 是通过位运算（OR）组合而成的。根据 <a href="file:///home/wujing/code/linux/include/linux/gfp_types.h">include&#x2F;linux&#x2F;gfp_types.h</a> 中的 <code>enum</code> 定义，我们可以计算出其具体的数值：</p>
+<ol>
+<li><strong><code>__GFP_HIGH</code> (0x20)</strong>:<ul>
+<li>对应第 5 位（<code>1 &lt;&lt; 5</code>）。</li>
+<li><strong>作用</strong>：标记为高优先级分配。它允许分配器在检测水位线时，“下潜”并使用一部分原本为系统运行保留的内存预留位（Reserve）。</li>
+</ul>
+</li>
+<li><strong><code>__GFP_KSWAPD_RECLAIM</code> (0x800)</strong>:<ul>
+<li>对应第 11 位（<code>1 &lt;&lt; 11</code>）。</li>
+<li><strong>作用</strong>：允许唤醒后台回收线程（kswapd）。当内存触碰低水位线时，它会告诉内核：“我们需要在后台回收点内存了”。</li>
+</ul>
+</li>
+</ol>
+<h3 id="为什么它是“原子”的？"><a href="#为什么它是“原子”的？" class="headerlink" title="为什么它是“原子”的？"></a>为什么它是“原子”的？</h3><p>关键在于它<strong>不包含</strong>什么：</p>
+<ul>
+<li>它没有 <strong><code>__GFP_DIRECT_RECLAIM</code> (0x400)</strong> 标志。这一标志意味着“如果内存不足，调用者可以睡眠等待直接回收”。</li>
+<li><strong>计算结果</strong>：<code>0x20 | 0x800 = 0x820</code>。</li>
+<li><strong>结论</strong>：因为没有“直接回收”标志，这个分配请求永远不会进入睡眠状态，因此可以在中断上下文或原子上下文中使用。如果内存下潜到极限后依然不足，它会立刻返回 <code>NULL</code> 失败，而不是等待。</li>
+</ul>
+<h3 id="为什么标志位索引为-0？"><a href="#为什么标志位索引为-0？" class="headerlink" title="为什么标志位索引为 0？"></a>为什么标志位索引为 0？</h3><p>这是由于 <code>GFP_ZONEMASK</code> 的位过滤逻辑决定的。我们可以拆解位图来看：</p>
+<ol>
+<li><p><strong>核心掩码定义</strong>：<br>内核定义了 <code>GFP_ZONEMASK</code> 来专门提取<strong>低 4 位</strong>（位 0-3）作为区域索引：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// include/linux/gfp_types.h</span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> GFP_ZONEMASK (__GFP_DMA | __GFP_HIGHMEM | __GFP_DMA32 | __GFP_MOVABLE)</span><br></code></pre></td></tr></table></figure>
+<p>这四个标志位分别占据了第 0, 1, 2, 3 位。</p>
+</li>
+<li><p><strong>GFP_ATOMIC 的位分布</strong>：<br>我们之前分析过，<code>GFP_ATOMIC</code> 由以下两个标志组成：</p>
+<ul>
+<li><code>__GFP_HIGH</code>: 第 <strong>5</strong> 位 (0x20)</li>
+<li><code>__GFP_KSWAPD_RECLAIM</code>: 第 <strong>11</strong> 位 (0x800)</li>
+</ul>
+</li>
+<li><p>**按位与运算 (Bitwise AND)**：<br>当调用 <a href="file:///home/wujing/code/linux/include/linux/gfp.h#152-162">gfp_zone(flags)</a> 时，计算过程如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">GFP_ATOMIC (0x820)  : 1000 0010 0000 (二进制)<br>GFP_ZONEMASK (0xF)  : 0000 0000 1111 (二进制)<br>------------------------------------------<br>计算结果 (Index)    : 0000 0000 0000 (= 0)<br></code></pre></td></tr></table></figure>
+<p><strong>结论</strong>：因为 <code>GFP_ATOMIC</code> 的任何标志位都不在低 4 位（区域修饰符区）里，所以它的索引计算结果永远是 <strong>0</strong>。在 <code>GFP_ZONE_TABLE</code> 中，索引 0 对应的就是 <code>ZONE_NORMAL</code>。</p>
+</li>
+</ol>
+<ul>
+<li><strong>Zone 优先级排列</strong>：**<code>ZONE_NORMAL</code>** (首选) → <strong><code>ZONE_DMA32</code></strong> (回退) → <strong><code>ZONE_DMA</code></strong> (极限回退)。</li>
+<li><strong>默认排除</strong>：不进入 <code>ZONE_HIGHMEM</code> 或 <code>ZONE_MOVABLE</code>。</li>
+</ul>
+<hr>
+<h2 id="2-深度原理：为什么调大-min-free-kbytes-反而有益？"><a href="#2-深度原理：为什么调大-min-free-kbytes-反而有益？" class="headerlink" title="2. 深度原理：为什么调大 min_free_kbytes 反而有益？"></a>2. 深度原理：为什么调大 min_free_kbytes 反而有益？</h2><p>这是一个直觉上容易产生误解的地方：调大 <a href="file:///home/wujing/code/linux/mm/page_alloc.c#6502-6541">min_free_kbytes</a> 虽然增加了“保留区”，但却为 <code>GFP_ATOMIC</code> 留出了巨大的“专属下潜空间”。</p>
+<h3 id="A-水位线的“抬升”与“连锁反应”"><a href="#A-水位线的“抬升”与“连锁反应”" class="headerlink" title="A. 水位线的“抬升”与“连锁反应”"></a>A. 水位线的“抬升”与“连锁反应”</h3><p><a href="file:///home/wujing/code/linux/mm/page_alloc.c#6502-6541">min_free_kbytes</a> 直接决定了各 Zone 的水位线基准。调大它会产生如下连带效应：</p>
+<h3 id="C-为什么水位线增量是-25-？（源码佐证）"><a href="#C-为什么水位线增量是-25-？（源码佐证）" class="headerlink" title="C. 为什么水位线增量是 25%？（源码佐证）"></a>C. 为什么水位线增量是 25%？（源码佐证）</h3><p>在内核源码中，水位线的计算由 <a href="file:///home/wujing/code/linux/mm/page_alloc.c#6414-6477">__setup_per_zone_wmarks</a> 函数负责。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// mm/page_alloc.c (约 L6461)</span><br><span class="hljs-comment">// 这里计算水位线之间的“距离” (tmp)</span><br>tmp = <span class="hljs-type">max_t</span>(u64, tmp &gt;&gt; <span class="hljs-number">2</span>,<br>            mult_frac(zone_managed_pages(zone),<br>		      watermark_scale_factor, <span class="hljs-number">10000</span>));<br><br>zone-&gt;_watermark[WMARK_LOW]  = min_wmark_pages(zone) + tmp;<br>zone-&gt;_watermark[WMARK_HIGH] = low_wmark_pages(zone) + tmp;<br></code></pre></td></tr></table></figure>
+
+<p><strong>逻辑解析：</strong></p>
+<ol>
+<li>**<code>tmp &gt;&gt; 2</code>**：在 C 语言中，右移 2 位等同于除以 4，即 **25%**。这里的 <code>tmp</code> 在进入该逻辑前，其初值就是该 Zone 的 <code>WMARK_MIN</code>。</li>
+<li><strong>增量逻辑</strong>：<ul>
+<li><code>LOW = MIN + tmp</code> (即 <code>MIN + 25%*MIN</code>)</li>
+<li><code>HIGH = LOW + tmp</code> (即 <code>LOW + 25%*MIN</code>)</li>
+</ul>
+</li>
+<li><strong>动态调节</strong>：除了硬编码的 25%，内核还会考虑 <a href="file:///home/wujing/code/linux/mm/page_alloc.c#6581-6595">watermark_scale_factor</a> 参数，允许用户通过 <a href="file:///proc/sys/vm/watermark_scale_factor">&#x2F;proc&#x2F;sys&#x2F;vm&#x2F;watermark_scale_factor</a> 动态调节这个比例。</li>
+</ol>
+<h3 id="B-“减免公式”与“下潜”特权"><a href="#B-“减免公式”与“下潜”特权" class="headerlink" title="B. “减免公式”与“下潜”特权"></a>B. “减免公式”与“下潜”特权</h3><p><code>GFP_ATOMIC</code> 转换后的特权标志（<code>ALLOC_MIN_RESERVE</code> 和 <code>ALLOC_NON_BLOCK</code>）允许它在校验时扣减水位线：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// mm/page_alloc.c 中的 __zone_watermark_ok 函数核心逻辑</span><br><span class="hljs-type">bool</span> __zone_watermark_ok(..., <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> mark, ...) &#123;<br>    <span class="hljs-type">long</span> min = mark; <span class="hljs-comment">// mark 通常就是 WMARK_MIN</span><br>    <br>    <span class="hljs-keyword">if</span> (alloc_flags &amp; ALLOC_MIN_RESERVE) &#123;<br>        min -= min / <span class="hljs-number">2</span>; <span class="hljs-comment">// __GFP_HIGH 允许使用 50% 的预留位</span><br>        <br>        <span class="hljs-keyword">if</span> (alloc_flags &amp; ALLOC_NON_BLOCK)<br>            min -= min / <span class="hljs-number">4</span>; <span class="hljs-comment">// GFP_ATOMIC (非阻塞) 再额外允许使用剩下的 25%</span><br>    &#125;<br>    <br>    <span class="hljs-comment">// 结论：GFP_ATOMIC 最终只需要剩余内存 &gt; (WMARK_MIN * 25%) 即可成功</span><br>    <span class="hljs-keyword">if</span> (free_pages &lt;= min + z-&gt;lowmem_reserve[highest_zoneidx])<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;<br>    <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="3-核心逻辑总结：停车场类比"><a href="#3-核心逻辑总结：停车场类比" class="headerlink" title="3. 核心逻辑总结：停车场类比"></a>3. 核心逻辑总结：停车场类比</h2><ul>
+<li><strong>变小的不是 Zone，而是“普通用户可用的空间”</strong>。</li>
+<li><strong>变大的是“给特权用户预留的专属车位”</strong>。</li>
+</ul>
+<p><strong>形象比喻：</strong><br>调大 <a href="file:///home/wujing/code/linux/mm/page_alloc.c#6502-6541">min_free_kbytes</a> 相当于<strong>调高了停车场的“预留位”门槛</strong>。它强制要求系统哪怕在空位很多时也必须提前驱离普通车主。虽然总车位没变，但由于预留出的空地更大了，当<strong>救护车（GFP_ATOMIC）</strong>紧急驶入时，它能选的空位（专属空间）反而比以前宽敞得多。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/mm/" class="category-chain-item">mm</a>
+  
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/proc/">#proc</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>min_free_kbytes 对 GFP_ATOMIC 内存分配的影响分析</div>
+      <div>https://realwujing.github.io/linux/kernel/mm/min_free_kbytes_gfp_atomic/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年1月6日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/disk/ceph/ceph%E9%9B%86%E7%BE%A4nvme%E7%A1%AC%E7%9B%98%E6%95%85%E9%9A%9C%E7%8E%87%E5%8D%87%E9%AB%98%E8%B7%9F%E8%B8%AA/" title="ceph集群nvme硬盘故障率升高跟踪">
+                        <span class="hidden-mobile">ceph集群nvme硬盘故障率升高跟踪</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '912cfa1e82a12d153fd2673dd881f6cc'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
