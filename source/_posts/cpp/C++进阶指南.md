@@ -1,6 +1,7 @@
 ---
-date: 2023/02/01 13:37:53
-updated: 2023/04/21 17:25:19
+title: 'C++进阶指南'
+date: '2023/04/21 15:49:27'
+updated: '2025/06/20 09:15:31'
 ---
 
 # C++进阶指南
@@ -35,3 +36,7 @@ updated: 2023/04/21 17:25:19
 - [<font color=Red>C/C++后端-服务端开发技术博文分类汇总</font>](https://zhaoyang.blog.csdn.net/article/details/102717590)
 - [对标腾讯，阿里，字节的C/C++/Linux后台服务器开发技术体系 (toutiao.com)](https://www.toutiao.com/i7009166988941591079/)
 - [Linux后台C++学习之路 & 面经知识点收录](https://www.jianshu.com/p/3427b2bee081)
+
+## More
+
+- [交易系统的关键组件开发](https://mp.weixin.qq.com/s/R8l7WTl02jRWsL3msti5yw)
