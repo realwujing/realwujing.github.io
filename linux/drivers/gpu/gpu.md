@@ -113,6 +113,11 @@ uvd Ring Buffer（视频解码环形缓冲区）:
 - [AMD GPU 内核驱动分析(二)-video-ring的调度](https://blog.csdn.net/tugouxp/article/details/132953439)
 - [AMD GPU 内核驱动分析(三)-gpu scheduler ring fence同步工作模型](https://blog.csdn.net/tugouxp/article/details/133519133)
 
+## nvidia
+
+- [NVIDIA系统级性能分析工具Nsight Systems入门详解](https://www.cnblogs.com/zhaoweiwei/p/19048895/NsightSystems)
+- [NVIDIA Kernel级性能分析工具Nsight Compute入门详解](https://www.cnblogs.com/zhaoweiwei/p/19058528/NsightCompute)
+
 #### virtio
 
 - [VFIO硬件依赖——IOMMU机制](https://blog.csdn.net/huang987246510/article/details/106179145)
