@@ -263,6 +263,11 @@ Linux 内核相关网站的出现顺序:
     b4 am -o - 20241008094325.896208-1-leitao@debian.org | git am -3
     ```
 
+    直接使用b4 shazam命令获取补丁并应用：
+    ```bash
+    b4 shazam https://lore.kernel.org/all/20260116045839.23743-1-realwujing@gmail.com/
+    ```
+
 
 - [正确使用邮件列表参与开源社区的协作](https://tinylab.org/mailing-list-intro/)
 - [提交内核补丁到Linux社区的步骤](https://www.cnblogs.com/gmpy/p/12200609.html)
