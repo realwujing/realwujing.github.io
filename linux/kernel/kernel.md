@@ -238,7 +238,7 @@ Linux 内核相关网站的出现顺序:
 3. **Patchwork**
    - **成立时间**：2000 年代初
    - **简介**：Patchwork 由 OzLabs 创建，用于管理邮件列表中的补丁。它帮助开发者跟踪和处理提交的补丁。
-   - **网址**：[https://patchwork.ozlabs.org/](https://patchwork.ozlabs.org/)
+   - **网址**：[https://patchwork.kernel.org/](https://patchwork.kernel.org/)
 
 4. **lore.kernel.org**
    - **成立时间**：2018 年
