@@ -91,7 +91,7 @@
 Debian Linux Kernel Handbook:
 ```bash
 # 克隆 Debian 内核团队的 Linux 内核源代码仓库到本地
-git clone https://salsa.debian.org/kernel-team/linux.git
+git clone https://salsa.debian.org/kernel-team/linux.git debian-linux
 
 # 切换到 debian/6.1.99-1 分支，并基于该分支创建一个本地分支 debian/6.1.99-1
 git checkout -b debian/6.1.99-1 debian/6.1.99-1
@@ -139,12 +139,23 @@ make -f debian/rules.gen binary-arch_amd64_none_amd64
 make -f debian/rules.gen binary-arch_amd64_real_perf
 ```
 
-```bash
-# cd ~/code/linux，合并多个config配置文件，前面的setup也会调用scripts/kconfig/merge_config.sh
-scripts/kconfig/merge_config.sh debian/config/config debian/config/kernelarch-x86/config debian/config/amd64/config
+cd ~/code/linux，合并多个config配置文件，前面的setup也会调用scripts/kconfig/merge_config.sh:
 
+```bash
+cd ~/code/linux
+```
+
+```bash
+~/code/linux/scripts/kconfig/merge_config.sh ~/code/debian-linux/debian/config/config ~/code/debian-linux/debian/config/kernelarch-x86/config ~/code/debian-linux/debian/config/amd64/config
+```
+
+```bash
 make bindeb-pkg -j32
 ```
+
+~/code/linux:<https://github.com/torvalds/linux.git>
+
+~/code/debian-linux:<https://salsa.debian.org/kernel-team/linux.git>
 
 ### openeuler
 
