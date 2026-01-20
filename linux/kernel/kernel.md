@@ -141,6 +141,17 @@ make -f debian/rules.gen binary-arch_amd64_real_perf
 
 cd ~/code/linux，合并多个config配置文件，前面的setup也会调用scripts/kconfig/merge_config.sh:
 
+查看当前debian内核源码版本:
+```bash
+wujing@debian:~/code/debian-linux$ git log --oneline -1
+70db2e3f96 (HEAD -> debian/latest, tag: debian/6.19_rc4-1_exp1, origin/debian/latest, origin/HEAD) Prepare to release linux (6.19~rc4-1~exp1)
+```
+
+```bash
+wujing@debian:~/code/linux$ git log --oneline -1
+944aacb68baf (HEAD -> wujing/bpf/verifier/baseline, torvalds/master, torvalds/HEAD, torvalds/master) Merge tag 'scsi-fixes' of git://git.kernel.org/pub/scm/linux/kernel/git/jejb/scsi
+```
+
 ```bash
 cd ~/code/linux
 ```
@@ -151,6 +162,47 @@ cd ~/code/linux
 
 ```bash
 make bindeb-pkg -j32
+```
+
+#### 编译支持BPF selftests 的内核
+
+基于上方debian-linux内核合并后的config，额外打开了一些编译选项：
+
+```bash
+./scripts/config --enable CONFIG_VXLAN
+./scripts/config --enable CONFIG_MPLS_ROUTING
+./scripts/config --enable CONFIG_MPLS_IPTUNNEL
+./scripts/config --enable CONFIG_IPV6_TUNNEL
+./scripts/config --enable CONFIG_IPV6_GRE
+./scripts/config --enable CONFIG_NET_IPGRE
+./scripts/config --enable CONFIG_NET_IPGRE_DEMUX
+```
+
+```bash
+make savedefconfig
+```
+
+拷贝到指定目录保存defconfig(备用):
+```bash
+cp defconfig ~/home/wujing/code/~realwujing.github.io/linux/kernel/defconfig
+```
+
+```bash
+cp ~/home/wujing/code/~realwujing.github.io/linux/kernel/defconfig .config
+```
+
+```bash
+make olddefconfig
+```
+
+使用LLVM编译内核:
+```bash
+make LLVM=1 bindeb-pkg -j32
+```
+
+使用LLVM编译BPF selftests:
+```bash
+make -C tools/testing/selftests/bpf/ LLVM=1 -j32
 ```
 
 ~/code/linux:<https://github.com/torvalds/linux.git>
