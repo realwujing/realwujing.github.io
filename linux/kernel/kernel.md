@@ -268,6 +268,32 @@ Linux 内核相关网站的出现顺序:
     b4 shazam https://lore.kernel.org/all/20260116045839.23743-1-realwujing@gmail.com/
     ```
 
+    使用b4 shazam 无缓存自动合并 v3 版补丁：
+    ```bash
+    b4 shazam -v3 -C https://lore.kernel.org/all/20260116045839.23743-1-realwujing@gmail.com/
+    ```
+
+    wget手动下载补丁并使用git am应用：
+    ```bash
+    wget -qO- https://lore.kernel.org/all/20260120023234.77673-1-realwujing@gmail.com/raw | git am
+    ```
+
+    使用 b4 shazam 通过 Message-ID 强制指定并应用特定版本补丁：
+    ```bash
+    b4 shazam -P _ https://lore.kernel.org/all/20260120023234.77673-1-realwujing@gmail.com/
+    ```
+
+    使用 b4 shazam 自动应用指定版本的整个 patch series（多 patch）：
+    ```bash
+    # 即使是多 patch，如果不加 -P _，b4 也会“自作聪明”地根据线程启发式逻辑选择版本
+    # 最稳妥的方法是：指向该版本的 Cover Letter (0/N) URL，并强制指定 -P _
+    b4 shazam -P _ https://lore.kernel.org/all/cover.1737339732.git.realwujing@gmail.com/
+    ```
+
+    > **避坑指南**：
+    > 1. `b4` 默认通过线程扫描“最新”补丁。如果你指定 `-v4`，但 `b4` 误将 `v2` 识别为最新的 `v4`（常见于邮件主题不规范或缓存干扰），它会合入错误版本。
+    > 2. **`-P _` (Pick exactly this)** 是终极手段。它告诉 `b4`：*“别管线程里有什么，就给我处理这个特定 Message-ID 及其关联的系列。”*
+    > 3. 处理多补丁系列时，将 URL 指向 **Cover Letter (0/N)** 并加 `-P _` 是合入特定版本最稳准狠的方式。
 
 - [正确使用邮件列表参与开源社区的协作](https://tinylab.org/mailing-list-intro/)
 - [提交内核补丁到Linux社区的步骤](https://www.cnblogs.com/gmpy/p/12200609.html)
