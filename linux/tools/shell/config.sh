@@ -80,7 +80,7 @@ ln -s /home/wujing/code/realwujing.github.io/linux/tmux/.tmux.conf .tmux.conf
 
 # vim
 git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
-ln -s /home/wujing/code/realwujing.github.io/linux/vim/.vimrc .vimrc
+ln -s /home/wujing/code/realwujing.github.io/linux/tools/vim/.vimrc .vimrc
 vim +PluginInstall +qall
 
 tar -zcvf ~/custom-config.tar.gz \
