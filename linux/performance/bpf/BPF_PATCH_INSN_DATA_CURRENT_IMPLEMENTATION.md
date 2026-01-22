@@ -2375,21 +2375,683 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ## 实现检查清单
 
-### 每个 Patch 的检查项
+### Patch 1/18: bpf: introduce patchable instruction data structures
 
-- [ ] 代码编译通过（两种配置）
+**文件修改**：
+- [ ] `include/linux/bpf_verifier.h` - 添加 `struct bpf_patchable_insn`
+- [ ] `include/linux/bpf_verifier.h` - 添加 `struct bpf_patcher`
+
+**编译验证**：
+- [ ] `make kernel/bpf/verifier.o` - 编译通过
 - [ ] 无编译警告
-- [ ] 代码风格符合内核规范（`checkpatch.pl`）
-- [ ] Commit message 完整
-- [ ] 签名正确（Signed-off-by）
+- [ ] 无编译错误
 
-### 整体检查项
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 代码注释完整
+- [ ] 数据结构对齐正确
 
+**Commit Message**：
+- [ ] Subject 简洁明了（<50 字符）
+- [ ] Body 解释为什么需要这些数据结构
+- [ ] 包含 `Signed-off-by: Qiliang Yuan <realwujing@gmail.com>`
+
+---
+
+### Patch 2/18: bpf: add patcher initialization and cleanup helpers
+
+**文件修改**：
+- [ ] `kernel/bpf/verifier.c` - 添加 `alloc_patchable_insn()`
+- [ ] `kernel/bpf/verifier.c` - 添加 `init_patcher()`
+- [ ] `kernel/bpf/verifier.c` - 添加 `free_patcher()`
+
+**编译验证**：
+- [ ] `make kernel/bpf/verifier.o` - 编译通过
+- [ ] 无 "unused function" 警告（使用 `__maybe_unused`）
+- [ ] 内存分配使用正确的 GFP 标志
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 错误处理完整（内存分配失败）
+- [ ] 资源清理正确（free_patcher）
+- [ ] 函数注释完整
+
+**功能验证**：
+- [ ] `init_patcher()` 正确将数组转换为链表
+- [ ] `orig_to_node` 映射正确建立
+- [ ] `free_patcher()` 无内存泄漏
+
+**Commit Message**：
+- [ ] Subject: "bpf: add patcher initialization and cleanup helpers"
+- [ ] Body 解释数组 → 链表转换的必要性
+- [ ] 说明使用 `__maybe_unused` 的原因
+- [ ] 签名完整
+
+---
+
+### Patch 3/18: bpf: implement linked list instruction patching
+
+**文件修改**：
+- [ ] `kernel/bpf/verifier.c` - 添加 `patch_insn_list()`
+
+**编译验证**：
+- [ ] `make kernel/bpf/verifier.o` - 编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 边界检查完整（off 有效性）
+- [ ] 错误处理完整（内存分配失败）
+- [ ] 函数注释说明 O(1) 复杂度
+
+**功能验证**：
+- [ ] `len == 1` 时正确替换指令
+- [ ] `len > 1` 时正确插入多条指令
+- [ ] 链表指针正确维护
+- [ ] `total_cnt` 正确更新
+
+**Commit Message**：
+- [ ] Subject: "bpf: implement linked list instruction patching"
+- [ ] Body 强调 O(1) 插入 vs O(N) memmove
+- [ ] 签名完整
+
+---
+
+### Patch 4/18: bpf: implement program linearization
+
+**文件修改**：
+- [ ] `kernel/bpf/verifier.c` - 添加 `linearize_patcher()`
+
+**编译验证**：
+- [ ] `make kernel/bpf/verifier.o` - 编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 内存分配使用 `bpf_prog_realloc()`
+- [ ] 错误处理完整
+- [ ] 函数注释说明线性化过程
+
+**功能验证**：
+- [ ] `new_idx` 正确分配（从 0 开始递增）
+- [ ] 指令正确复制到新数组
+- [ ] 程序长度正确（`new_prog->len == patcher->total_cnt`）
+
+**Commit Message**：
+- [ ] Subject: "bpf: implement program linearization"
+- [ ] Body 解释链表 → 数组转换
+- [ ] 签名完整
+
+---
+
+### Patch 5/18: bpf: implement jump offset adjustment for linked list
+
+**文件修改**：
+- [ ] `kernel/bpf/verifier.c` - 添加 `adjust_branches_list()`
+
+**编译验证**：
+- [ ] `make kernel/bpf/verifier.o` - 编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 跳转类型判断正确（JMP/JMP32）
+- [ ] 边界检查完整
+- [ ] 函数注释说明使用 orig_idx → new_idx 映射
+
+**功能验证**：
+- [ ] 条件跳转偏移正确调整
+- [ ] 无条件跳转偏移正确调整
+- [ ] 新增指令（orig_idx == -1）正确跳过
+- [ ] 跳转目标越界检查
+
+**Commit Message**：
+- [ ] Subject: "bpf: implement jump offset adjustment for linked list"
+- [ ] Body 解释为什么只需调整一次（vs 每次修补都调整）
+- [ ] 签名完整
+
+---
+
+### Patch 6/18: bpf: add new bpf_patch_insn_data_list() API
+
+**文件修改**：
+- [ ] `kernel/bpf/verifier.c` - 添加 `bpf_patch_insn_data_list()`
+- [ ] `kernel/bpf/verifier.c` - 移除 Patch 2-5 函数的 `__maybe_unused`
+
+**编译验证**：
+- [ ] `make kernel/bpf/verifier.o` - 编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 错误处理完整（每个步骤）
+- [ ] 资源清理正确（失败时释放 patcher 和 new_prog）
+- [ ] 函数注释说明完整流程
+
+**功能验证**：
+- [ ] 初始化成功
+- [ ] 修补成功
+- [ ] 线性化成功
+- [ ] 跳转调整成功
+- [ ] 错误路径正确清理资源
+
+**Commit Message**：
+- [ ] Subject: "bpf: add new bpf_patch_insn_data_list() API"
+- [ ] Body 说明这是链表方案的主入口
+- [ ] 说明仍标记 `__maybe_unused`（Patch 7 才使用）
+- [ ] 签名完整
+
+---
+
+### Patch 7/18: bpf: add CONFIG_BPF_VERIFIER_LINKED_LIST option
+
+**文件修改**：
+- [ ] `kernel/bpf/Kconfig` - 添加 `CONFIG_BPF_VERIFIER_LINKED_LIST`
+- [ ] `kernel/bpf/verifier.c` - 修改 `bpf_patch_insn_data()` 添加 `#ifdef`
+- [ ] `kernel/bpf/verifier.c` - 移除 `bpf_patch_insn_data_list()` 的 `__maybe_unused`
+
+**编译验证**：
+- [ ] `make defconfig && ./scripts/config -d BPF_VERIFIER_LINKED_LIST && make kernel/bpf/verifier.o` - 编译通过（默认配置）
+- [ ] `./scripts/config -e BPF_VERIFIER_LINKED_LIST && make kernel/bpf/verifier.o` - 编译通过（启用链表）
+- [ ] 两种配置都无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] Kconfig 帮助文本清晰
+- [ ] `#ifdef` 分支清晰
+- [ ] 默认配置保持旧行为（`default n`）
+
+**功能验证**：
+- [ ] `CONFIG=n` 时使用数组实现
+- [ ] `CONFIG=y` 时使用链表实现
+- [ ] 两种配置都能正常工作
+
+**Commit Message**：
+- [ ] Subject: "bpf: add CONFIG_BPF_VERIFIER_LINKED_LIST option"
+- [ ] Body 说明这是实验性功能，默认关闭
+- [ ] 说明如何测试两种实现
+- [ ] 签名完整
+
+---
+
+### Patch 8/18: selftests/bpf: add basic tests
+
+**文件修改**：
+- [ ] `tools/testing/selftests/bpf/config` - 添加 `CONFIG_BPF_VERIFIER_LINKED_LIST=y`
+- [ ] `tools/testing/selftests/bpf/prog_tests/verifier_patch_list.c` - 新增测试
+
+**编译验证**：
+- [ ] `make -C tools/testing/selftests/bpf` - 编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 测试用例覆盖基本场景
+- [ ] 测试代码有 `#ifdef` 保护
+
+**功能验证**：
+- [ ] 简单程序验证通过
+- [ ] 单条指令替换测试
+- [ ] 多条指令插入测试
+- [ ] 跳转调整测试
+- [ ] 测试通过率 100%
+
+**Commit Message**：
+- [ ] Subject: "selftests/bpf: add basic tests for linked list patching"
+- [ ] Body 说明测试覆盖范围
+- [ ] 签名完整
+
+---
+
+### Patch 9/18: bpf: adjust insn_aux_data for linked list patching
+
+**文件修改**：
+- [ ] `kernel/bpf/verifier.c` - 在 `#ifdef` 内添加 `adjust_insn_aux_data_list()`
+- [ ] `kernel/bpf/verifier.c` - 修改 `bpf_patch_insn_data_list()` 调用新函数
+
+**编译验证**：
+- [ ] 两种配置都编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 使用 orig_idx → new_idx 映射
+- [ ] 错误处理完整
+- [ ] 函数注释说明与数组版本的区别
+
+**功能验证**：
+- [ ] `aux_data` 正确调整
+- [ ] `seen` 标志正确传播
+- [ ] `zext_dst` 正确设置
+
+**Commit Message**：
+- [ ] Subject: "bpf: adjust insn_aux_data for linked list patching"
+- [ ] Body 说明如何使用映射调整 aux_data
+- [ ] 签名完整
+
+---
+
+### Patch 10/18: bpf: add line info adjustment for linked list
+
+**文件修改**：
+- [ ] `kernel/bpf/verifier.c` - 在 `#ifdef` 内添加 `adjust_line_info_list()`
+- [ ] `kernel/bpf/verifier.c` - 修改 `bpf_patch_insn_data_list()` 调用新函数
+
+**编译验证**：
+- [ ] 两种配置都编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 使用 orig_idx → new_idx 映射
+- [ ] 错误处理完整
+- [ ] 函数注释说明 line info 调整逻辑
+
+**功能验证**：
+- [ ] Line info 正确调整
+- [ ] 行号映射正确
+- [ ] 调试信息完整
+
+**Commit Message**：
+- [ ] Subject: "bpf: add line info adjustment for linked list"
+- [ ] Body 说明这解决了 Jiong Wang RFC 中的问题
+- [ ] 签名完整
+
+---
+
+### Patch 11/18: bpf: refactor adjust_subprog_starts for linked list
+
+**文件修改**：
+- [ ] `kernel/bpf/verifier.c` - 在 `#ifdef` 内添加链表版本
+- [ ] `kernel/bpf/verifier.c` - 保持 `#else` 分支的旧实现
+
+**编译验证**：
+- [ ] 两种配置都编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 使用 orig_idx → new_idx 映射
+- [ ] 处理子程序被删除的情况
+- [ ] 函数注释说明边界情况
+
+**功能验证**：
+- [ ] 子程序起始位置正确调整
+- [ ] 子程序边界正确
+- [ ] 多子程序场景正确
+
+**Commit Message**：
+- [ ] Subject: "bpf: refactor adjust_subprog_starts for linked list"
+- [ ] Body 说明如何处理子程序边界
+- [ ] 签名完整
+
+---
+
+### Patch 12/18: bpf: refactor adjust_poke_descs for linked list
+
+**文件修改**：
+- [ ] `kernel/bpf/verifier.c` - 在 `#ifdef` 内添加链表版本
+- [ ] `kernel/bpf/verifier.c` - 保持 `#else` 分支的旧实现
+
+**编译验证**：
+- [ ] 两种配置都编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 使用 orig_idx → new_idx 映射
+- [ ] 错误处理完整
+
+**功能验证**：
+- [ ] Poke 描述符正确调整
+- [ ] 尾调用场景正确
+
+**Commit Message**：
+- [ ] Subject: "bpf: refactor adjust_poke_descs for linked list"
+- [ ] Body 说明 poke 描述符的作用
+- [ ] 签名完整
+
+---
+
+### Patch 13/18: bpf: refactor adjust_insn_arrays for linked list
+
+**文件修改**：
+- [ ] `kernel/bpf/verifier.c` - 在 `#ifdef` 内添加链表版本
+- [ ] `kernel/bpf/verifier.c` - 保持 `#else` 分支的旧实现
+
+**编译验证**：
+- [ ] 两种配置都编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 使用 orig_idx → new_idx 映射
+- [ ] 错误处理完整
+
+**功能验证**：
+- [ ] 指令数组映射正确调整
+- [ ] 多个数组场景正确
+
+**Commit Message**：
+- [ ] Subject: "bpf: refactor adjust_insn_arrays for linked list"
+- [ ] Body 说明指令数组映射的作用
+- [ ] 签名完整
+
+---
+
+### Patch 14/18: selftests/bpf: add comprehensive tests
+
+**文件修改**：
+- [ ] `tools/testing/selftests/bpf/prog_tests/verifier_patch_list.c` - 扩展测试
+
+**编译验证**：
+- [ ] `make -C tools/testing/selftests/bpf` - 编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 测试覆盖所有元数据场景
+
+**功能验证**：
+- [ ] aux_data 测试通过
+- [ ] line info 测试通过
+- [ ] subprog 测试通过
+- [ ] poke 描述符测试通过
+- [ ] insn_arrays 测试通过
 - [ ] 所有 selftests 通过
-- [ ] 性能测试完成
-- [ ] 文档更新
-- [ ] Bisectability 验证
-- [ ] 代码审查完成
+
+**Commit Message**：
+- [ ] Subject: "selftests/bpf: add comprehensive tests for metadata"
+- [ ] Body 列出测试覆盖的场景
+- [ ] 签名完整
+
+---
+
+### Patch 15/18: selftests/bpf: add equivalence test
+
+**文件修改**：
+- [ ] `tools/testing/selftests/bpf/prog_tests/verifier_patch_equiv.c` - 新增伪随机测试
+
+**编译验证**：
+- [ ] `make -C tools/testing/selftests/bpf` - 编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 伪随机测试框架完整
+- [ ] 测试可重现（固定种子）
+
+**功能验证**：
+- [ ] 数组实现 vs 链表实现结果一致
+- [ ] 测试覆盖各种修补场景
+- [ ] 测试覆盖各种程序大小
+- [ ] 1000+ 次随机测试通过
+
+**Commit Message**：
+- [ ] Subject: "selftests/bpf: add equivalence test for array vs linked list"
+- [ ] Body 说明伪随机测试的重要性
+- [ ] 签名完整
+
+---
+
+### Patch 16/18: selftests/bpf: add stress test
+
+**文件修改**：
+- [ ] `tools/testing/selftests/bpf/prog_tests/verifier_patch_stress.c` - 新增压力测试
+
+**编译验证**：
+- [ ] `make -C tools/testing/selftests/bpf` - 编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 压力测试场景完整
+
+**功能验证**：
+- [ ] 大规模程序测试（10 万条指令）
+- [ ] 极端修补场景（10 万次修补）
+- [ ] 内存使用测试（无泄漏）
+- [ ] 性能测试（验证提升）
+
+**Commit Message**：
+- [ ] Subject: "selftests/bpf: add stress test for large programs"
+- [ ] Body 说明测试的极端场景
+- [ ] 签名完整
+
+---
+
+### Patch 17/18: bpf: optimize memory allocation in patcher
+
+**文件修改**：
+- [ ] `kernel/bpf/verifier.c` - 优化内存分配
+
+**编译验证**：
+- [ ] 两种配置都编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 内存池实现正确
+- [ ] 无内存泄漏
+
+**功能验证**：
+- [ ] 性能提升（减少 kmalloc 调用）
+- [ ] 功能正确（所有测试通过）
+
+**性能测试**：
+- [ ] pyperf180.bpf.o 性能测试
+- [ ] 验证时间减少 30-40%
+- [ ] 内存使用合理
+
+**Commit Message**：
+- [ ] Subject: "bpf: optimize memory allocation in patcher"
+- [ ] Body 说明优化方法和性能数据
+- [ ] 签名完整
+
+---
+
+### Patch 18/18: bpf: remove array-based patching implementation
+
+**文件修改**：
+- [ ] `kernel/bpf/Kconfig` - 删除 `CONFIG_BPF_VERIFIER_LINKED_LIST`
+- [ ] `kernel/bpf/verifier.c` - 删除所有 `#ifdef` 和 `#else` 分支
+- [ ] `kernel/bpf/verifier.c` - 删除旧的数组实现函数
+- [ ] `kernel/bpf/core.c` - 删除 `bpf_patch_insn_single()`
+
+**编译验证**：
+- [ ] `make kernel/bpf/verifier.o` - 编译通过
+- [ ] `make kernel/bpf/core.o` - 编译通过
+- [ ] 无编译警告
+- [ ] 无未使用的函数
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+- [ ] 代码简洁（删除约 300 行）
+- [ ] 无死代码
+
+**功能验证**：
+- [ ] 所有 selftests 通过
+- [ ] 所有内核 BPF 测试通过
+- [ ] 无功能回归
+
+**性能测试**：
+- [ ] pyperf180.bpf.o 最终性能测试
+- [ ] 验证时间减少 30-40%
+- [ ] 与 baseline 对比
+
+**文档更新**：
+- [ ] 更新相关文档
+- [ ] 更新 commit message 引用
+
+**Commit Message**：
+- [ ] Subject: "bpf: remove array-based patching and enable linked list by default"
+- [ ] Body 说明删除的代码量
+- [ ] Body 包含最终性能数据
+- [ ] Body 说明这是系列的最后一个补丁
+- [ ] 签名完整
+
+---
+
+## 整体验证清单
+
+### Bisectability 验证
+
+- [ ] 运行 bisectability 验证脚本
+- [ ] 每个补丁都能独立编译（两种配置）
+- [ ] 每个补丁都能独立运行
+- [ ] `git bisect` 可用
+
+### 性能验证
+
+- [ ] Baseline 测试（Patch 1 之前）
+- [ ] 中期测试（Patch 8 之后）
+- [ ] 最终测试（Patch 18 之后）
+- [ ] 性能提升达到 30-40%
+
+### 功能验证
+
+- [ ] 所有 BPF selftests 通过
+- [ ] 内核 BPF 测试套件通过
+- [ ] 无功能回归
+- [ ] 无内存泄漏
+
+### 代码质量
+
+- [ ] 所有补丁通过 `checkpatch.pl`
+- [ ] 代码风格一致
+- [ ] 注释完整
+- [ ] 无死代码
+
+### 文档
+
+- [ ] 设计文档完整
+- [ ] Commit message 清晰
+- [ ] 性能数据完整
+- [ ] 参考资料完整
+
+### 社区准备
+
+- [ ] Cover letter 准备完成
+- [ ] 性能数据图表准备
+- [ ] 准备好回答审查意见
+- [ ] 准备好迭代多个版本
+
+---
+
+## 验证脚本
+
+### Bisectability 验证脚本
+
+```bash
+#!/bin/bash
+# verify_all_patches.sh
+
+set -e
+
+PATCHES=(
+    "Patch 1: data structures"
+    "Patch 2: init/cleanup"
+    "Patch 3: patching"
+    "Patch 4: linearization"
+    "Patch 5: jump adjustment"
+    "Patch 6: main API"
+    "Patch 7: CONFIG option"
+    "Patch 8: basic tests"
+    "Patch 9: aux_data"
+    "Patch 10: line info"
+    "Patch 11: subprog"
+    "Patch 12: poke descs"
+    "Patch 13: insn arrays"
+    "Patch 14: comprehensive tests"
+    "Patch 15: equivalence test"
+    "Patch 16: stress test"
+    "Patch 17: optimization"
+    "Patch 18: remove old code"
+)
+
+for i in {1..18}; do
+    echo "========================================="
+    echo "Testing ${PATCHES[$i-1]}"
+    echo "========================================="
+    
+    # 应用补丁
+    git checkout -b test-patch-$i
+    git cherry-pick patch-$i
+    
+    # 测试配置 1（默认）
+    echo "Testing with CONFIG_BPF_VERIFIER_LINKED_LIST=n"
+    make defconfig
+    ./scripts/config -d BPF_VERIFIER_LINKED_LIST
+    make kernel/bpf/verifier.o || {
+        echo "ERROR: Patch $i failed with CONFIG=n"
+        exit 1
+    }
+    
+    # 测试配置 2（启用，从 Patch 7 开始）
+    if [ $i -ge 7 ]; then
+        echo "Testing with CONFIG_BPF_VERIFIER_LINKED_LIST=y"
+        ./scripts/config -e BPF_VERIFIER_LINKED_LIST
+        make kernel/bpf/verifier.o || {
+            echo "ERROR: Patch $i failed with CONFIG=y"
+            exit 1
+        }
+    fi
+    
+    # 运行 checkpatch
+    echo "Running checkpatch.pl"
+    git format-patch -1 HEAD
+    ./scripts/checkpatch.pl *.patch || {
+        echo "WARNING: Patch $i has checkpatch warnings"
+    }
+    rm *.patch
+    
+    echo "Patch $i: OK"
+    git checkout main
+    git branch -D test-patch-$i
+done
+
+echo "========================================="
+echo "All patches verified successfully!"
+echo "========================================="
+```
+
+### 性能测试脚本
+
+```bash
+#!/bin/bash
+# performance_test.sh
+
+set -e
+
+echo "Running performance tests..."
+
+# Baseline
+echo "Baseline (before patches):"
+git checkout baseline
+./scripts/run_baseline_benchmark.sh
+
+# After Patch 8 (basic implementation)
+echo "After Patch 8 (basic implementation):"
+git checkout patch-8
+./scripts/config -e BPF_VERIFIER_LINKED_LIST
+make -j$(nproc)
+./scripts/run_baseline_benchmark.sh
+
+# After Patch 17 (optimized)
+echo "After Patch 17 (optimized):"
+git checkout patch-17
+./scripts/config -e BPF_VERIFIER_LINKED_LIST
+make -j$(nproc)
+./scripts/run_baseline_benchmark.sh
+
+# After Patch 18 (final)
+echo "After Patch 18 (final):"
+git checkout patch-18
+make -j$(nproc)
+./scripts/run_baseline_benchmark.sh
+
+echo "Performance tests completed!"
+```
 
 ---
 
