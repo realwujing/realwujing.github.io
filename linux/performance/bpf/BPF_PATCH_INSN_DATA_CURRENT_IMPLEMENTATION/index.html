@@ -1,0 +1,2449 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="BPF Verifier bpf_patch_insn_data 当前实现分析概述本文档详细分析 Linux 内核主线代码中 bpf_patch_insn_data() 函数的当前实现，解释为什么它成为 BPF 验证器的主要性能瓶颈（占用约 47% 的验证时间）。 BPF 程序的完整生命周期在理解为什么需要修补指令之前，先了解 BPF 程序从编写到执行的完整流程： 1234567891011121">
+<meta property="og:type" content="article">
+<meta property="og:title" content="BPF Verifier bpf_patch_insn_data 当前实现分析">
+<meta property="og:url" content="https://realwujing.github.io/linux/performance/bpf/BPF_PATCH_INSN_DATA_CURRENT_IMPLEMENTATION/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="BPF Verifier bpf_patch_insn_data 当前实现分析概述本文档详细分析 Linux 内核主线代码中 bpf_patch_insn_data() 函数的当前实现，解释为什么它成为 BPF 验证器的主要性能瓶颈（占用约 47% 的验证时间）。 BPF 程序的完整生命周期在理解为什么需要修补指令之前，先了解 BPF 程序从编写到执行的完整流程： 1234567891011121">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-01-22T06:20:26.000Z">
+<meta property="article:modified_time" content="2026-01-22T06:20:26.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="architect">
+<meta property="article:tag" content="bpf">
+<meta property="article:tag" content="fs">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="log">
+<meta property="article:tag" content="perf">
+<meta property="article:tag" content="sound">
+<meta property="article:tag" content="task">
+<meta property="article:tag" content="testing">
+<meta property="article:tag" content="tools">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="net">
+<meta property="article:tag" content="struct">
+<meta property="article:tag" content="security">
+<meta property="article:tag" content="bugs">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>BPF Verifier bpf_patch_insn_data 当前实现分析 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="BPF Verifier bpf_patch_insn_data 当前实现分析"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-01-22 06:20" pubdate>
+          2026年1月22日 早上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          36k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          304 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">BPF Verifier bpf_patch_insn_data 当前实现分析</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="BPF-Verifier-bpf-patch-insn-data-当前实现分析"><a href="#BPF-Verifier-bpf-patch-insn-data-当前实现分析" class="headerlink" title="BPF Verifier bpf_patch_insn_data 当前实现分析"></a>BPF Verifier bpf_patch_insn_data 当前实现分析</h1><h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>本文档详细分析 Linux 内核主线代码中 <code>bpf_patch_insn_data()</code> 函数的当前实现，解释为什么它成为 BPF 验证器的主要性能瓶颈（占用约 47% 的验证时间）。</p>
+<h3 id="BPF-程序的完整生命周期"><a href="#BPF-程序的完整生命周期" class="headerlink" title="BPF 程序的完整生命周期"></a>BPF 程序的完整生命周期</h3><p>在理解为什么需要修补指令之前，先了解 BPF 程序从编写到执行的完整流程：</p>
+<figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><code class="hljs stylus">┌─────────────────────────────────────────────────────────────────┐<br>│ <span class="hljs-number">1</span>. 用户空间：编写和编译                                          │<br>└─────────────────────────────────────────────────────────────────┘<br>   用户编写 C 代码（使用 libbpf）<br>        ↓<br>   Clang/LLVM 编译为 BPF 字节码（<span class="hljs-selector-class">.o</span> 文件）<br>        ↓<br>   用户空间加载器（bpftool/libbpf）读取字节码<br>        ↓<br>   通过 <span class="hljs-built_in">bpf</span>() 系统调用传递给内核<br><br>┌─────────────────────────────────────────────────────────────────┐<br>│ <span class="hljs-number">2</span>. 内核空间：验证和转换（⭐ 修补发生在这里）                     │<br>└─────────────────────────────────────────────────────────────────┘<br>   内核接收 BPF 字节码<br>        ↓<br>   ┌──────────────────────────────────────┐<br>   │ BPF Verifier 验证阶段                │<br>   │ - 检查程序安全性                      │<br>   │ - 跟踪寄存器状态                      │<br>   │ - 验证内存访问                        │<br>   │ - 检查循环和复杂度                    │<br>   └──────────────────────────────────────┘<br>        ↓<br>   ┌──────────────────────────────────────┐<br>   │ 指令修补阶段（⭐ 性能瓶颈）           │<br>   │ - <span class="hljs-built_in">convert_ctx_accesses</span>()             │<br>   │ - <span class="hljs-built_in">fixup_bpf_calls</span>()                  │<br>   │ - <span class="hljs-built_in">do_misc_fixups</span>()                   │<br>   │ 每个阶段可能修补数千次                │<br>   └──────────────────────────────────────┘<br>        ↓<br>   验证通过，程序准备就绪<br>        ↓<br>   ┌──────────────────────────────────────┐<br>   │ JIT 编译（可选）                      │<br>   │ - 将 BPF 字节码编译为本机机器码       │<br>   │ - 提高执行性能                        │<br>   └──────────────────────────────────────┘<br><br>┌─────────────────────────────────────────────────────────────────┐<br>│ <span class="hljs-number">3</span>. 运行时：执行                                                  │<br>└─────────────────────────────────────────────────────────────────┘<br>   BPF 程序附加到内核事件（hook point）<br>        ↓<br>   事件触发时执行 BPF 程序<br>        ↓<br>   - JIT 模式：执行本机机器码（快）<br>   - 解释器模式：解释执行 BPF 字节码（慢）<br></code></pre></td></tr></table></figure>
+
+<p><strong>关键阶段说明</strong>：</p>
+<ol>
+<li><p><strong>编译阶段（用户空间）</strong>：</p>
+<ul>
+<li>用户使用 C 语言编写 BPF 程序</li>
+<li>Clang&#x2F;LLVM 编译为 BPF 字节码（类似汇编）</li>
+<li>生成 ELF 格式的 .o 文件</li>
+</ul>
+</li>
+<li><p><strong>加载阶段（用户空间 → 内核）</strong>：</p>
+<ul>
+<li>用户空间工具（bpftool&#x2F;libbpf）解析 .o 文件</li>
+<li>通过 <code>bpf(BPF_PROG_LOAD, ...)</code> 系统调用传递给内核</li>
+<li>内核接收原始的 BPF 字节码</li>
+</ul>
+</li>
+<li><p><strong>验证阶段（内核空间）</strong>：</p>
+<ul>
+<li>Verifier 检查程序的安全性</li>
+<li>确保不会崩溃内核或访问非法内存</li>
+<li>这个阶段不修改指令，只是分析</li>
+</ul>
+</li>
+<li><p><strong>修补阶段（内核空间）⭐ 性能瓶颈所在</strong>：</p>
+<ul>
+<li>将抽象的 BPF 指令转换为可执行的形式</li>
+<li>插入安全检查</li>
+<li>优化和重写指令</li>
+<li><strong>这个阶段会调用 bpf_patch_insn_data() 数千次</strong></li>
+</ul>
+</li>
+<li><p><strong>JIT 编译阶段（内核空间，可选）</strong>：</p>
+<ul>
+<li>将 BPF 字节码编译为本机机器码（x86_64&#x2F;ARM64 等）</li>
+<li>提高运行时性能</li>
+</ul>
+</li>
+<li><p><strong>执行阶段（内核空间）</strong>：</p>
+<ul>
+<li>BPF 程序附加到内核 hook 点（如网络包处理、系统调用跟踪等）</li>
+<li>事件触发时执行 BPF 程序</li>
+</ul>
+</li>
+</ol>
+<p><strong>为什么修补阶段是瓶颈？</strong></p>
+<ul>
+<li>对于简单程序：验证 + 修补可能只需要几毫秒</li>
+<li>对于复杂程序（如 pyperf180）：<ul>
+<li>验证阶段：约 250ms</li>
+<li><strong>修补阶段：约 220ms（占 47%）</strong> ⭐</li>
+<li>JIT 编译：约 10ms</li>
+</ul>
+</li>
+</ul>
+<p>修补阶段占用了近一半的加载时间，这就是为什么优化 <code>bpf_patch_insn_data()</code> 如此重要。</p>
+<hr>
+<h3 id="为什么-BPF-Verifier-需要修补指令？"><a href="#为什么-BPF-Verifier-需要修补指令？" class="headerlink" title="为什么 BPF Verifier 需要修补指令？"></a>为什么 BPF Verifier 需要修补指令？</h3><p>在上述流程的<strong>修补阶段</strong>，verifier 需要对验证通过的 BPF 字节码进行转换和增强。修补（patch）指令的主要原因包括：</p>
+<ol>
+<li><p><strong>上下文访问转换（Context Access Conversion）</strong></p>
+<ul>
+<li>用户编写的 BPF 程序使用抽象的上下文结构（如 <code>struct __sk_buff</code>）</li>
+<li>内核需要将这些抽象访问转换为实际的内核结构访问</li>
+<li>一个简单的字段访问可能需要展开成多条指令</li>
+</ul>
+<p><strong>具体例子</strong>：访问网络包数据指针</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// 用户编写的 BPF 代码</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">bpf_prog</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> __sk_buff *skb)</span> &#123;<br>    <span class="hljs-type">void</span> *data = (<span class="hljs-type">void</span> *)(<span class="hljs-type">long</span>)skb-&gt;data;  <span class="hljs-comment">// 抽象访问</span><br>    <span class="hljs-comment">// ...</span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>编译后的 BPF 字节码（简化）：</p>
+<figure class="highlight armasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs armasm"><span class="hljs-symbol">r1</span> = *(u32 *)(<span class="hljs-built_in">r1</span> + offsetof(__sk_buff, <span class="hljs-meta">data</span>))  <span class="hljs-comment">// 1 条指令</span><br></code></pre></td></tr></table></figure>
+
+<p>Verifier 修补后的实际指令：</p>
+<figure class="highlight armasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs armasm"><span class="hljs-comment">// 需要从实际的 struct sk_buff 中加载</span><br><span class="hljs-symbol">r2</span> = *(u64 *)(<span class="hljs-built_in">r1</span> + offsetof(sk_buff, head))     <span class="hljs-comment">// 加载 head 指针</span><br><span class="hljs-symbol">r3</span> = *(u16 *)(<span class="hljs-built_in">r1</span> + offsetof(sk_buff, <span class="hljs-meta">data</span>))     <span class="hljs-comment">// 加载 data 偏移</span><br><span class="hljs-symbol">r3</span> &lt;&lt;= <span class="hljs-number">0</span>                                         <span class="hljs-comment">// 零扩展</span><br><span class="hljs-symbol">r1</span> = <span class="hljs-built_in">r2</span> + <span class="hljs-built_in">r3</span>                                     <span class="hljs-comment">// 计算实际地址</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>1 条抽象指令 → 4 条实际指令</strong>，需要调用 <code>bpf_patch_insn_data()</code> 将 1 条指令替换为 4 条。</p>
+<p>类似的转换还包括：</p>
+<ul>
+<li><code>skb-&gt;len</code> → 从 <code>sk_buff-&gt;len</code> 加载</li>
+<li><code>skb-&gt;protocol</code> → 从 <code>sk_buff-&gt;protocol</code> 加载并转换字节序</li>
+<li><code>skb-&gt;mark</code> → 从 <code>sk_buff-&gt;mark</code> 加载</li>
+</ul>
+<p>一个典型的网络 BPF 程序可能有几十个这样的字段访问，每个都需要修补。</p>
+</li>
+<li><p><strong>Helper 函数调用修复（Helper Call Fixup）</strong></p>
+<ul>
+<li>BPF 程序调用 helper 函数时使用的是函数 ID</li>
+<li>verifier 需要将函数 ID 转换为实际的函数地址</li>
+<li>可能需要插入额外的参数检查和转换指令</li>
+<li>某些 helper 调用需要内联展开</li>
+</ul>
+<p><strong>具体例子</strong>：调用 <code>bpf_map_lookup_elem()</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// 用户编写的 BPF 代码</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_map_def</span> <span class="hljs-title">my_map</span> =</span> &#123; ... &#125;;<br><br><span class="hljs-type">int</span> <span class="hljs-title function_">bpf_prog</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> __sk_buff *skb)</span> &#123;<br>    <span class="hljs-type">int</span> key = <span class="hljs-number">0</span>;<br>    <span class="hljs-type">void</span> *value = bpf_map_lookup_elem(&amp;my_map, &amp;key);<br>    <span class="hljs-comment">// ...</span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>编译后的 BPF 字节码：</p>
+<figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs awk">r1 = map_fd                    <span class="hljs-regexp">//</span> map 文件描述符<br>r2 = fp - <span class="hljs-number">4</span>                    <span class="hljs-regexp">//</span> key 的栈地址<br>call BPF_FUNC_map_lookup_elem  <span class="hljs-regexp">//</span> helper 函数 ID<br></code></pre></td></tr></table></figure>
+
+<p>Verifier 修补后：</p>
+<figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs awk"><span class="hljs-regexp">//</span> <span class="hljs-number">1</span>. 将 map_fd 转换为内核 map 指针<br>r1 = &lt;map_ptr&gt;                 <span class="hljs-regexp">//</span> 直接使用内核指针<br><br><span class="hljs-regexp">//</span> <span class="hljs-number">2</span>. 参数已经准备好<br>r2 = fp - <span class="hljs-number">4</span><br><br><span class="hljs-regexp">//</span> <span class="hljs-number">3</span>. 将函数 ID 替换为实际函数地址<br>call &lt;bpf_map_lookup_elem_addr&gt;  <span class="hljs-regexp">//</span> 实际函数地址<br><br><span class="hljs-regexp">//</span> <span class="hljs-number">4</span>. 可能插入返回值检查<br><span class="hljs-keyword">if</span> r0 == <span class="hljs-number">0</span> goto error          <span class="hljs-regexp">//</span> 空指针检查（某些情况）<br></code></pre></td></tr></table></figure>
+
+<p>某些 helper 函数还需要更复杂的转换：</p>
+<ul>
+<li><code>bpf_probe_read()</code> → 可能内联为多条内存访问指令</li>
+<li><code>bpf_get_current_task()</code> → 直接访问 per-CPU 变量</li>
+<li><code>bpf_ktime_get_ns()</code> → 可能内联为 RDTSC 指令（x86_64）</li>
+</ul>
+</li>
+<li><p><strong>安全检查插入（Security Instrumentation）</strong></p>
+<ul>
+<li>插入边界检查指令（防止越界访问）</li>
+<li>插入空指针检查</li>
+<li>插入除零检查</li>
+<li>插入栈溢出检查</li>
+</ul>
+<p><strong>具体例子</strong>：数组访问边界检查</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// 用户编写的 BPF 代码</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">bpf_prog</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> __sk_buff *skb)</span> &#123;<br>    <span class="hljs-type">char</span> buf[<span class="hljs-number">64</span>];<br>    <span class="hljs-type">int</span> idx = skb-&gt;len % <span class="hljs-number">64</span>;<br>    buf[idx] = <span class="hljs-number">1</span>;  <span class="hljs-comment">// 数组访问</span><br>    <span class="hljs-comment">// ...</span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>编译后的 BPF 字节码：</p>
+<figure class="highlight armasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs armasm"><span class="hljs-symbol">r1</span> = *(u32 *)(<span class="hljs-built_in">r1</span> + offsetof(__sk_buff, len))<br><span class="hljs-symbol">r1</span> &amp;= <span class="hljs-number">63</span>                       <span class="hljs-comment">// idx = len % 64</span><br><span class="hljs-symbol">r2</span> = <span class="hljs-built_in">fp</span> - <span class="hljs-number">64</span>                   <span class="hljs-comment">// buf 的地址</span><br><span class="hljs-symbol">r2</span> += <span class="hljs-built_in">r1</span>                       <span class="hljs-comment">// buf + idx</span><br>*(u8 *)(<span class="hljs-built_in">r2</span> + <span class="hljs-number">0</span>) = <span class="hljs-number">1</span>           <span class="hljs-comment">// buf[idx] = 1</span><br></code></pre></td></tr></table></figure>
+
+<p>Verifier 修补后（插入边界检查）：</p>
+<figure class="highlight armasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs armasm"><span class="hljs-symbol">r1</span> = *(u32 *)(<span class="hljs-built_in">r1</span> + offsetof(__sk_buff, len))<br><span class="hljs-symbol">r1</span> &amp;= <span class="hljs-number">63</span><br><br><span class="hljs-comment">// ⭐ 插入边界检查（verifier 添加）</span><br><span class="hljs-symbol">if</span> <span class="hljs-built_in">r1</span> &gt;= <span class="hljs-number">64</span> goto error        <span class="hljs-comment">// 确保 idx &lt; 64</span><br><br><span class="hljs-symbol">r2</span> = <span class="hljs-built_in">fp</span> - <span class="hljs-number">64</span><br><span class="hljs-symbol">r2</span> += <span class="hljs-built_in">r1</span><br><br><span class="hljs-comment">// ⭐ 插入栈访问检查（verifier 添加）</span><br><span class="hljs-symbol">if</span> <span class="hljs-built_in">r2</span> &lt; <span class="hljs-built_in">fp</span> - <span class="hljs-number">512</span> goto error   <span class="hljs-comment">// 确保在栈范围内</span><br><span class="hljs-symbol">if</span> <span class="hljs-built_in">r2</span> &gt;= <span class="hljs-built_in">fp</span> goto error<br><br>*(u8 *)(<span class="hljs-built_in">r2</span> + <span class="hljs-number">0</span>) = <span class="hljs-number">1</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>原本 5 条指令 → 修补后 9 条指令</strong></p>
+<p>其他安全检查例子：</p>
+<ul>
+<li><strong>除零检查</strong>：<code>r1 = r2 / r3</code> → 插入 <code>if r3 == 0 goto error</code></li>
+<li><strong>空指针检查</strong>：<code>r1 = *(u64 *)r2</code> → 插入 <code>if r2 == 0 goto error</code></li>
+<li><strong>指针运算检查</strong>：确保指针运算不会溢出</li>
+</ul>
+</li>
+<li><p><strong>优化和重写（Optimization and Rewriting）</strong></p>
+<ul>
+<li>常量折叠后的指令替换</li>
+<li>死代码消除</li>
+<li>跳转优化</li>
+<li>尾调用优化</li>
+</ul>
+<p><strong>具体例子</strong>：常量折叠和指令优化</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// 用户编写的 BPF 代码</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">bpf_prog</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> __sk_buff *skb)</span> &#123;<br>    <span class="hljs-type">int</span> x = <span class="hljs-number">10</span> + <span class="hljs-number">20</span>;           <span class="hljs-comment">// 常量表达式</span><br>    <span class="hljs-keyword">if</span> (x &gt; <span class="hljs-number">25</span>) &#123;              <span class="hljs-comment">// 可以在编译时确定</span><br>        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>;<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>编译后的 BPF 字节码：</p>
+<figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs awk">r0 = <span class="hljs-number">10</span><br>r0 += <span class="hljs-number">20</span>                       <span class="hljs-regexp">//</span> r0 = <span class="hljs-number">30</span><br><span class="hljs-keyword">if</span> r0 &gt; <span class="hljs-number">25</span> goto label_1        <span class="hljs-regexp">//</span> 总是跳转<br>r0 = <span class="hljs-number">0</span><br><span class="hljs-keyword">exit</span><br>label_1:<br>r0 = <span class="hljs-number">1</span><br><span class="hljs-keyword">exit</span><br></code></pre></td></tr></table></figure>
+
+<p>Verifier 优化后：</p>
+<figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs awk"><span class="hljs-regexp">//</span> 常量折叠 + 死代码消除<br>r0 = <span class="hljs-number">1</span>                         <span class="hljs-regexp">//</span> 直接返回 <span class="hljs-number">1</span><br><span class="hljs-keyword">exit</span><br><span class="hljs-regexp">//</span> 删除了不可达的代码<br></code></pre></td></tr></table></figure>
+
+<p><strong>原本 6 条指令 → 优化后 2 条指令</strong></p>
+<p>其他优化例子：</p>
+<ul>
+<li><strong>跳转链优化</strong>：<code>goto A; A: goto B</code> → <code>goto B</code></li>
+<li><strong>无用跳转消除</strong>：<code>goto next_insn</code> → 删除</li>
+<li><strong>ALU 指令简化</strong>：<code>r1 = r1 + 0</code> → 删除</li>
+<li><strong>尾调用优化</strong>：将函数调用转换为跳转</li>
+</ul>
+</li>
+<li><p><strong>架构特定转换（Architecture-Specific Conversion）</strong></p>
+<ul>
+<li>某些指令在特定架构上需要不同的实现</li>
+<li>32 位 vs 64 位的差异处理</li>
+<li>字节序转换</li>
+</ul>
+<p><strong>具体例子</strong>：64 位立即数加载</p>
+<p>BPF 指令集中，加载 64 位立即数需要特殊处理：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// 用户编写的 BPF 代码</span><br><span class="hljs-type">void</span> *ptr = (<span class="hljs-type">void</span> *)<span class="hljs-number">0x123456789abcdef0</span>ULL;  <span class="hljs-comment">// 64 位地址</span><br></code></pre></td></tr></table></figure>
+
+<p>编译后的 BPF 字节码（BPF_LD_IMM64）：</p>
+<figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs awk"><span class="hljs-regexp">//</span> BPF_LD_IMM64 是一个特殊的双字指令<br>r1 = <span class="hljs-number">0</span>x123456789abcdef0       <span class="hljs-regexp">//</span> 占用 <span class="hljs-number">2</span> 个指令槽<br></code></pre></td></tr></table></figure>
+
+<p>在某些架构上，verifier 可能需要修补为：</p>
+<figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs awk"><span class="hljs-regexp">//</span> x86_64: 可以直接使用<br>r1 = <span class="hljs-number">0</span>x123456789abcdef0<br><br><span class="hljs-regexp">//</span> <span class="hljs-number">32</span> 位架构: 需要分两次加载<br>r1 = <span class="hljs-number">0</span>x9abcdef0               <span class="hljs-regexp">//</span> 低 <span class="hljs-number">32</span> 位<br>r1 &lt;&lt;= <span class="hljs-number">32</span><br>r1 |= <span class="hljs-number">0</span>x12345678              <span class="hljs-regexp">//</span> 高 <span class="hljs-number">32</span> 位<br></code></pre></td></tr></table></figure>
+
+<p>其他架构特定转换：</p>
+<ul>
+<li><p><strong>字节序转换</strong>：网络字节序 ↔ 主机字节序</p>
+<figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs awk"><span class="hljs-regexp">//</span> 用户代码: ntohs(skb-&gt;protocol)<br><span class="hljs-regexp">//</span> 大端架构: 不需要转换<br><span class="hljs-regexp">//</span> 小端架构: 需要插入 bswap 指令<br></code></pre></td></tr></table></figure>
+</li>
+<li><p><strong>原子操作</strong>：不同架构的原子指令实现不同</p>
+<figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs awk"><span class="hljs-regexp">//</span> BPF 原子加法<br><span class="hljs-regexp">//</span> x86_64: lock xadd<br><span class="hljs-regexp">//</span> ARM64: ldxr/stxr 循环<br></code></pre></td></tr></table></figure>
+</li>
+<li><p><strong>除法指令</strong>：某些架构没有硬件除法</p>
+<figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs awk"><span class="hljs-regexp">//</span> r1 = r2 / r3<br><span class="hljs-regexp">//</span> 有硬件除法: 直接使用 div 指令<br><span class="hljs-regexp">//</span> 无硬件除法: 调用软件除法函数<br></code></pre></td></tr></table></figure></li>
+</ul>
+</li>
+</ol>
+<p><strong>修补的频率</strong>：</p>
+<ul>
+<li>简单程序：几十次修补</li>
+<li>复杂程序（如 pyperf180）：数千甚至数万次修补</li>
+<li>每次修补可能将 1 条指令展开成多条指令</li>
+</ul>
+<p><strong>为什么修补是性能瓶颈</strong>：</p>
+<ul>
+<li>修补操作非常频繁（M 很大）</li>
+<li>每次修补都需要移动整个数组（O(N)）</li>
+<li>累积效应：O(N*M) 的时间复杂度</li>
+</ul>
+<h3 id="关键发现"><a href="#关键发现" class="headerlink" title="关键发现"></a>关键发现</h3><ul>
+<li>当前实现使用数组结构存储 BPF 指令</li>
+<li>每次修补都需要移动整个数组</li>
+<li>时间复杂度为 O(N*M)，其中 N 是指令数，M 是修补次数</li>
+<li>对于复杂程序（如 pyperf180），占用 46.99% 的验证时间</li>
+</ul>
+<hr>
+<h2 id="当前实现方案"><a href="#当前实现方案" class="headerlink" title="当前实现方案"></a>当前实现方案</h2><h3 id="核心流程"><a href="#核心流程" class="headerlink" title="核心流程"></a>核心流程</h3><p>位置：<code>kernel/bpf/verifier.c:21304</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> bpf_prog *<span class="hljs-title function_">bpf_patch_insn_data</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env, </span><br><span class="hljs-params">                                            u32 off, </span><br><span class="hljs-params">                                            <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> bpf_insn *patch, </span><br><span class="hljs-params">                                            u32 len)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_prog</span> *<span class="hljs-title">new_prog</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn_aux_data</span> *<span class="hljs-title">new_data</span> =</span> <span class="hljs-literal">NULL</span>;<br><br>    <span class="hljs-comment">// 步骤 1: 如果插入多条指令，重新分配 aux_data 数组</span><br>    <span class="hljs-keyword">if</span> (len &gt; <span class="hljs-number">1</span>) &#123;<br>        new_data = vrealloc(env-&gt;insn_aux_data,<br>                           array_size(env-&gt;prog-&gt;len + len - <span class="hljs-number">1</span>,<br>                                     <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> bpf_insn_aux_data)),<br>                           GFP_KERNEL_ACCOUNT | __GFP_ZERO);<br>        <span class="hljs-keyword">if</span> (!new_data)<br>            <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>        env-&gt;insn_aux_data = new_data;<br>    &#125;<br><br>    <span class="hljs-comment">// 步骤 2: 修补指令（核心操作）</span><br>    new_prog = bpf_patch_insn_single(env-&gt;prog, off, patch, len);<br>    <span class="hljs-keyword">if</span> (IS_ERR(new_prog)) &#123;<br>        <span class="hljs-keyword">if</span> (PTR_ERR(new_prog) == -ERANGE)<br>            verbose(env,<br>                <span class="hljs-string">&quot;insn %d cannot be patched due to 16-bit range\n&quot;</span>,<br>                env-&gt;insn_aux_data[off].orig_idx);<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>    &#125;<br>    <br>    <span class="hljs-comment">// 步骤 3: 调整辅助数据</span><br>    adjust_insn_aux_data(env, new_prog, off, len);<br>    <br>    <span class="hljs-comment">// 步骤 4: 调整子程序起始位置</span><br>    adjust_subprog_starts(env, off, len);<br>    <br>    <span class="hljs-comment">// 步骤 5: 调整指令数组映射</span><br>    adjust_insn_arrays(env, off, len);<br>    <br>    <span class="hljs-comment">// 步骤 6: 调整 poke 描述符</span><br>    adjust_poke_descs(new_prog, off, len);<br>    <br>    <span class="hljs-keyword">return</span> new_prog;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h3 id="调用统计"><a href="#调用统计" class="headerlink" title="调用统计"></a>调用统计</h3><p>在 <code>verifier.c</code> 中，<code>bpf_patch_insn_data</code> 被调用 <strong>32 次</strong>，主要在以下场景：</p>
+<ol>
+<li><strong>convert_ctx_accesses()</strong> - 上下文访问转换</li>
+<li><strong>fixup_bpf_calls()</strong> - BPF 调用修复</li>
+<li><strong>do_misc_fixups()</strong> - 其他修复</li>
+</ol>
+<hr>
+<h2 id="核心函数详解"><a href="#核心函数详解" class="headerlink" title="核心函数详解"></a>核心函数详解</h2><h3 id="1-bpf-patch-insn-single-主要瓶颈（占-27-72-）"><a href="#1-bpf-patch-insn-single-主要瓶颈（占-27-72-）" class="headerlink" title="1. bpf_patch_insn_single() - 主要瓶颈（占 27.72%）"></a>1. bpf_patch_insn_single() - 主要瓶颈（占 27.72%）</h3><p>位置：<code>kernel/bpf/core.c:451</code></p>
+<p><strong>为什么是瓶颈？核心问题是数组插入操作的 O(N) 复杂度。</strong></p>
+<h4 id="问题根源：数组中间插入的代价"><a href="#问题根源：数组中间插入的代价" class="headerlink" title="问题根源：数组中间插入的代价"></a>问题根源：数组中间插入的代价</h4><p>BPF 程序使用<strong>连续数组</strong>存储指令：</p>
+<figure class="highlight tap"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs tap">原始程序（10 条指令）：<br>┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐<br>│<span class="hljs-number"> 0 </span>│<span class="hljs-number"> 1 </span>│<span class="hljs-number"> 2 </span>│<span class="hljs-number"> 3 </span>│<span class="hljs-number"> 4 </span>│<span class="hljs-number"> 5 </span>│<span class="hljs-number"> 6 </span>│<span class="hljs-number"> 7 </span>│<span class="hljs-number"> 8 </span>│<span class="hljs-number"> 9 </span>│<br>└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘<br><br>现在要在位置<span class="hljs-number"> 3 </span>插入<span class="hljs-number"> 2 </span>条新指令：<br>需要将位置<span class="hljs-number"> 3 </span>之后的所有指令向后移动<span class="hljs-number"> 2 </span>个位置<br><br>步骤 1: 移动指令（memmove）<br>┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐<br>│<span class="hljs-number"> 0 </span>│<span class="hljs-number"> 1 </span>│<span class="hljs-number"> 2 </span>│ ? │ ? │<span class="hljs-number"> 3 </span>│<span class="hljs-number"> 4 </span>│<span class="hljs-number"> 5 </span>│<span class="hljs-number"> 6 </span>│<span class="hljs-number"> 7 </span>│<span class="hljs-number"> 8 </span>│<span class="hljs-number"> 9 </span>│<br>└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘<br>              ↑   ↑<br>            新空间<br><br>步骤 2: 插入新指令<br>┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐<br>│<span class="hljs-number"> 0 </span>│<span class="hljs-number"> 1 </span>│<span class="hljs-number"> 2 </span>│ A │ B │<span class="hljs-number"> 3 </span>│<span class="hljs-number"> 4 </span>│<span class="hljs-number"> 5 </span>│<span class="hljs-number"> 6 </span>│<span class="hljs-number"> 7 </span>│<span class="hljs-number"> 8 </span>│<span class="hljs-number"> 9 </span>│<br>└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘<br>            新指令<br><br>移动的指令数 =<span class="hljs-number"> 10 </span>-<span class="hljs-number"> 3 </span>=<span class="hljs-number"> 7 </span>条<br></code></pre></td></tr></table></figure>
+
+<p><strong>关键问题</strong>：</p>
+<ul>
+<li>每次修补都要移动修补点之后的<strong>所有指令</strong></li>
+<li>对于 10,000 条指令的程序，在位置 1,000 修补，需要移动 9,000 条指令</li>
+<li>如果修补 5,000 次，累积移动次数达到<strong>数千万次</strong></li>
+</ul>
+<h4 id="代码实现分析"><a href="#代码实现分析" class="headerlink" title="代码实现分析"></a>代码实现分析</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">struct</span> bpf_prog *<span class="hljs-title function_">bpf_patch_insn_single</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_prog *prog, u32 off,</span><br><span class="hljs-params">                                       <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> bpf_insn *patch, u32 len)</span><br>&#123;<br>    u32 insn_adj_cnt, insn_rest, insn_delta = len - <span class="hljs-number">1</span>;<br>    <span class="hljs-type">const</span> u32 cnt_max = S16_MAX;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_prog</span> *<span class="hljs-title">prog_adj</span>;</span><br>    <span class="hljs-type">int</span> err;<br><br>    <span class="hljs-comment">/* 如果不需要扩展（len == 1），直接替换，O(1) */</span><br>    <span class="hljs-keyword">if</span> (insn_delta == <span class="hljs-number">0</span>) &#123;<br>        <span class="hljs-built_in">memcpy</span>(prog-&gt;insnsi + off, patch, <span class="hljs-keyword">sizeof</span>(*patch));<br>        <span class="hljs-keyword">return</span> prog;<br>    &#125;<br><br>    insn_adj_cnt = prog-&gt;len + insn_delta;<br><br>    <span class="hljs-comment">/* 检查是否会导致跳转偏移溢出 */</span><br>    <span class="hljs-keyword">if</span> (insn_adj_cnt &gt; cnt_max &amp;&amp;<br>        (err = bpf_adj_branches(prog, off, off + <span class="hljs-number">1</span>, off + len, <span class="hljs-literal">true</span>)))<br>        <span class="hljs-keyword">return</span> ERR_PTR(err);<br><br>    <span class="hljs-comment">/* ⭐ 瓶颈 1: 重新分配程序内存</span><br><span class="hljs-comment">     * 可能触发内存复制，O(N)</span><br><span class="hljs-comment">     */</span><br>    prog_adj = bpf_prog_realloc(prog, bpf_prog_size(insn_adj_cnt), GFP_USER);<br>    <span class="hljs-keyword">if</span> (!prog_adj)<br>        <span class="hljs-keyword">return</span> ERR_PTR(-ENOMEM);<br><br>    prog_adj-&gt;len = insn_adj_cnt;<br><br>    <span class="hljs-comment">/* 修补分 3 步 */</span><br>    insn_rest = insn_adj_cnt - off - len;  <span class="hljs-comment">// 需要移动的指令数</span><br><br>    <span class="hljs-comment">/* ⭐⭐⭐ 瓶颈 2: 移动指令数组（最大瓶颈）</span><br><span class="hljs-comment">     * 时间复杂度: O(insn_rest) = O(N - off)</span><br><span class="hljs-comment">     * 对于大程序，这是最耗时的操作</span><br><span class="hljs-comment">     */</span><br>    memmove(prog_adj-&gt;insnsi + off + len,    <span class="hljs-comment">// 目标：修补点 + 新指令长度</span><br>            prog_adj-&gt;insnsi + off + <span class="hljs-number">1</span>,       <span class="hljs-comment">// 源：修补点 + 1</span><br>            <span class="hljs-keyword">sizeof</span>(*patch) * insn_rest);      <span class="hljs-comment">// 大小：剩余指令数</span><br><br>    <span class="hljs-comment">/* 复制新指令到修补位置，O(len) */</span><br>    <span class="hljs-built_in">memcpy</span>(prog_adj-&gt;insnsi + off, patch, <span class="hljs-keyword">sizeof</span>(*patch) * len);<br><br>    <span class="hljs-comment">/* ⭐⭐ 瓶颈 3: 调整所有分支偏移</span><br><span class="hljs-comment">     * 需要遍历整个程序，O(N)</span><br><span class="hljs-comment">     * 检查每条跳转指令，调整受影响的偏移</span><br><span class="hljs-comment">     */</span><br>    BUG_ON(bpf_adj_branches(prog_adj, off, off + <span class="hljs-number">1</span>, off + len, <span class="hljs-literal">false</span>));<br><br>    <span class="hljs-comment">/* 调整行信息，O(line_info_cnt) */</span><br>    bpf_adj_linfo(prog_adj, off, insn_delta);<br><br>    <span class="hljs-keyword">return</span> prog_adj;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="性能开销详细分析"><a href="#性能开销详细分析" class="headerlink" title="性能开销详细分析"></a>性能开销详细分析</h4><p>假设程序有 <strong>N &#x3D; 10,000</strong> 条指令，在位置 <strong>off &#x3D; 3,000</strong> 修补，插入 <strong>len &#x3D; 3</strong> 条指令：</p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>复杂度</th>
+<th>实际操作数</th>
+<th>占比</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>memmove 指令</strong></td>
+<td>O(N - off)</td>
+<td>7,000 条指令</td>
+<td><strong>~60%</strong></td>
+<td>移动修补点后的所有指令</td>
+</tr>
+<tr>
+<td><strong>bpf_adj_branches</strong></td>
+<td>O(N)</td>
+<td>10,000 条指令</td>
+<td><strong>~25%</strong></td>
+<td>遍历所有指令调整跳转</td>
+</tr>
+<tr>
+<td><strong>bpf_prog_realloc</strong></td>
+<td>O(N)</td>
+<td>10,000 条指令</td>
+<td><strong>~10%</strong></td>
+<td>可能触发内存复制</td>
+</tr>
+<tr>
+<td>memcpy 新指令</td>
+<td>O(len)</td>
+<td>3 条指令</td>
+<td>&lt;1%</td>
+<td>复制新指令</td>
+</tr>
+<tr>
+<td>bpf_adj_linfo</td>
+<td>O(L)</td>
+<td>L 个行信息</td>
+<td>~5%</td>
+<td>调整行信息</td>
+</tr>
+</tbody></table>
+<p><strong>总时间复杂度：O(N)</strong></p>
+<h4 id="累积效应：为什么占-27-72-的时间？"><a href="#累积效应：为什么占-27-72-的时间？" class="headerlink" title="累积效应：为什么占 27.72% 的时间？"></a>累积效应：为什么占 27.72% 的时间？</h4><p>对于复杂程序（如 pyperf180），假设：</p>
+<ul>
+<li>程序长度：N &#x3D; 10,000 条指令</li>
+<li>修补次数：M &#x3D; 5,000 次</li>
+<li>平均修补位置：off_avg &#x3D; N &#x2F; 2 &#x3D; 5,000</li>
+</ul>
+<p><strong>每次修补的平均开销</strong>：</p>
+<figure class="highlight dns"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs dns">平均移动指令数 = (N - off_avg) = <span class="hljs-number">5</span>,<span class="hljs-number">000</span> 条<br>总移动次数 = M × <span class="hljs-number">5</span>,<span class="hljs-number">000</span> = <span class="hljs-number">25</span>,<span class="hljs-number">000,000</span> 次指令移动<br></code></pre></td></tr></table></figure>
+
+<p><strong>实际测试数据验证</strong>（pyperf180.bpf.o）：</p>
+<figure class="highlight crmsh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs crmsh">总验证时间: <span class="hljs-number">476.6</span> <span class="hljs-keyword">ms</span><br><span class="hljs-title">bpf_patch_insn_single</span>: <span class="hljs-number">132.0</span> <span class="hljs-keyword">ms</span> <span class="hljs-title">(27</span>.<span class="hljs-number">72</span>%)<br>  ├─ memmove: ~<span class="hljs-number">80</span> <span class="hljs-keyword">ms</span> <span class="hljs-title">(60</span>%)     ← 主要瓶颈<br>  ├─ bpf_adj_branches: ~<span class="hljs-number">33</span> <span class="hljs-keyword">ms</span> <span class="hljs-title">(25</span>%)<br>  ├─ bpf_prog_realloc: ~<span class="hljs-number">13</span> <span class="hljs-keyword">ms</span> <span class="hljs-title">(10</span>%)<br>  └─ 其他: ~<span class="hljs-number">6</span> <span class="hljs-keyword">ms</span> <span class="hljs-title">(5</span>%)<br></code></pre></td></tr></table></figure>
+
+<h4 id="为什么-memmove-这么慢？"><a href="#为什么-memmove-这么慢？" class="headerlink" title="为什么 memmove 这么慢？"></a>为什么 memmove 这么慢？</h4><ol>
+<li><p><strong>内存带宽限制</strong>：</p>
+<ul>
+<li>每条 BPF 指令 &#x3D; 8 字节</li>
+<li>移动 5,000 条指令 &#x3D; 40 KB</li>
+<li>5,000 次修补 × 40 KB &#x3D; 200 MB 数据移动</li>
+<li>即使内存带宽 10 GB&#x2F;s，也需要 20 ms</li>
+</ul>
+</li>
+<li><p><strong>缓存失效</strong>：</p>
+<ul>
+<li>大块内存移动导致 CPU 缓存失效</li>
+<li>每次 memmove 都要重新加载数据到缓存</li>
+<li>缓存未命中的代价很高</li>
+</ul>
+</li>
+<li><p><strong>非对齐访问</strong>：</p>
+<ul>
+<li>memmove 可能涉及非对齐内存访问</li>
+<li>在某些架构上性能更差</li>
+</ul>
+</li>
+</ol>
+<h4 id="为什么-bpf-adj-branches-也很慢？"><a href="#为什么-bpf-adj-branches-也很慢？" class="headerlink" title="为什么 bpf_adj_branches 也很慢？"></a>为什么 bpf_adj_branches 也很慢？</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">bpf_adj_branches</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_prog *prog, u32 pos, u32 end_old, u32 end_new, <span class="hljs-type">bool</span> probe)</span><br>&#123;<br>    u32 i, insn_cnt = prog-&gt;len;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn</span> *<span class="hljs-title">insn</span> =</span> prog-&gt;insnsi;<br>    <br>    <span class="hljs-comment">/* ⭐ 遍历所有指令 */</span><br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; insn_cnt; i++, insn++) &#123;<br>        u8 code = insn-&gt;code;<br>        <br>        <span class="hljs-comment">/* 跳过非跳转指令 */</span><br>        <span class="hljs-keyword">if</span> ((BPF_CLASS(code) != BPF_JMP &amp;&amp; BPF_CLASS(code) != BPF_JMP32) ||<br>            BPF_OP(code) == BPF_CALL || BPF_OP(code) == BPF_EXIT)<br>            <span class="hljs-keyword">continue</span>;<br>        <br>        <span class="hljs-comment">/* 检查跳转目标是否受影响 */</span><br>        <span class="hljs-keyword">if</span> (跳转目标在修补范围内) &#123;<br>            <span class="hljs-comment">/* 调整跳转偏移 */</span><br>            insn-&gt;off += delta;<br>        &#125;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>为什么慢</strong>：</p>
+<ul>
+<li>必须遍历<strong>所有指令</strong>（O(N)）</li>
+<li>每次修补都要遍历一次</li>
+<li>M 次修补 &#x3D; M × N 次指令检查</li>
+<li>5,000 × 10,000 &#x3D; 50,000,000 次检查</li>
+</ul>
+<h4 id="瓶颈总结"><a href="#瓶颈总结" class="headerlink" title="瓶颈总结"></a>瓶颈总结</h4><p><strong>bpf_patch_insn_single 占 27.72% 的原因</strong>：</p>
+<ol>
+<li><p><strong>memmove 指令数组</strong>（~60% 的时间）：</p>
+<ul>
+<li>每次修补移动数千条指令</li>
+<li>累积移动数千万次</li>
+<li>内存带宽和缓存失效</li>
+</ul>
+</li>
+<li><p><strong>bpf_adj_branches</strong>（~25% 的时间）：</p>
+<ul>
+<li>每次修补遍历整个程序</li>
+<li>累积遍历数千万次</li>
+<li>分支预测失败</li>
+</ul>
+</li>
+<li><p><strong>bpf_prog_realloc</strong>（~10% 的时间）：</p>
+<ul>
+<li>频繁的内存重新分配</li>
+<li>可能触发内存复制</li>
+</ul>
+</li>
+<li><p><strong>累积效应</strong>：</p>
+<ul>
+<li>单次修补不慢（几微秒）</li>
+<li>但修补次数太多（数千次）</li>
+<li>O(N) × M 次 &#x3D; O(N×M) 总复杂度</li>
+</ul>
+</li>
+</ol>
+<p><strong>核心问题</strong>：数组结构不适合频繁的中间插入操作！</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">struct</span> bpf_prog *<span class="hljs-title function_">bpf_patch_insn_single</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_prog *prog, u32 off,</span><br><span class="hljs-params">                                       <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> bpf_insn *patch, u32 len)</span><br>&#123;<br>    u32 insn_adj_cnt, insn_rest, insn_delta = len - <span class="hljs-number">1</span>;<br>    <span class="hljs-type">const</span> u32 cnt_max = S16_MAX;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_prog</span> *<span class="hljs-title">prog_adj</span>;</span><br>    <span class="hljs-type">int</span> err;<br><br>    <span class="hljs-comment">/* 如果不需要扩展，直接替换 */</span><br>    <span class="hljs-keyword">if</span> (insn_delta == <span class="hljs-number">0</span>) &#123;<br>        <span class="hljs-built_in">memcpy</span>(prog-&gt;insnsi + off, patch, <span class="hljs-keyword">sizeof</span>(*patch));<br>        <span class="hljs-keyword">return</span> prog;<br>    &#125;<br><br>    insn_adj_cnt = prog-&gt;len + insn_delta;<br><br>    <span class="hljs-comment">/* 检查是否会导致跳转偏移溢出 */</span><br>    <span class="hljs-keyword">if</span> (insn_adj_cnt &gt; cnt_max &amp;&amp;<br>        (err = bpf_adj_branches(prog, off, off + <span class="hljs-number">1</span>, off + len, <span class="hljs-literal">true</span>)))<br>        <span class="hljs-keyword">return</span> ERR_PTR(err);<br><br>    <span class="hljs-comment">/* 重新分配程序内存 ⭐ 可能触发内存复制 */</span><br>    prog_adj = bpf_prog_realloc(prog, bpf_prog_size(insn_adj_cnt), GFP_USER);<br>    <span class="hljs-keyword">if</span> (!prog_adj)<br>        <span class="hljs-keyword">return</span> ERR_PTR(-ENOMEM);<br><br>    prog_adj-&gt;len = insn_adj_cnt;<br><br>    <span class="hljs-comment">/* 修补分 3 步：</span><br><span class="hljs-comment">     * 1) 移动后面的指令，为新指令腾出空间</span><br><span class="hljs-comment">     * 2) 注入新指令</span><br><span class="hljs-comment">     * 3) 调整分支偏移</span><br><span class="hljs-comment">     */</span><br>    insn_rest = insn_adj_cnt - off - len;<br><br>    <span class="hljs-comment">/* ⭐⭐⭐ 主要瓶颈：移动修补点后的所有指令 */</span><br>    memmove(prog_adj-&gt;insnsi + off + len,    <span class="hljs-comment">// 目标位置</span><br>            prog_adj-&gt;insnsi + off + <span class="hljs-number">1</span>,       <span class="hljs-comment">// 源位置</span><br>            <span class="hljs-keyword">sizeof</span>(*patch) * insn_rest);      <span class="hljs-comment">// 移动大小 = (程序长度 - 修补位置 - 新指令数)</span><br><br>    <span class="hljs-comment">/* 复制新指令到修补位置 */</span><br>    <span class="hljs-built_in">memcpy</span>(prog_adj-&gt;insnsi + off, patch, <span class="hljs-keyword">sizeof</span>(*patch) * len);<br><br>    <span class="hljs-comment">/* ⭐⭐ 第二大瓶颈：调整所有分支偏移（遍历整个程序） */</span><br>    BUG_ON(bpf_adj_branches(prog_adj, off, off + <span class="hljs-number">1</span>, off + len, <span class="hljs-literal">false</span>));<br><br>    <span class="hljs-comment">/* 调整行信息 */</span><br>    bpf_adj_linfo(prog_adj, off, insn_delta);<br><br>    <span class="hljs-keyword">return</span> prog_adj;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>性能开销</strong>：</p>
+<ul>
+<li><code>memmove</code>：O(N) - 移动修补点后的所有指令</li>
+<li><code>bpf_adj_branches</code>：O(N) - 遍历所有指令调整跳转</li>
+<li><code>bpf_prog_realloc</code>：O(N) - 可能触发内存复制</li>
+</ul>
+<h3 id="2-adjust-insn-aux-data-第三大瓶颈"><a href="#2-adjust-insn-aux-data-第三大瓶颈" class="headerlink" title="2. adjust_insn_aux_data() - 第三大瓶颈"></a>2. adjust_insn_aux_data() - 第三大瓶颈</h3><p>位置：<code>kernel/bpf/verifier.c:21221</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_insn_aux_data</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env,</span><br><span class="hljs-params">                                 <span class="hljs-keyword">struct</span> bpf_prog *new_prog, u32 off, u32 cnt)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn_aux_data</span> *<span class="hljs-title">data</span> =</span> env-&gt;insn_aux_data;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn</span> *<span class="hljs-title">insn</span> =</span> new_prog-&gt;insnsi;<br>    u32 old_seen = data[off].seen;<br>    u32 prog_len;<br>    <span class="hljs-type">int</span> i;<br><br>    <span class="hljs-comment">/* 调整 OFF 位置的 aux info */</span><br>    data[off].zext_dst = insn_has_def32(insn + off + cnt - <span class="hljs-number">1</span>);<br><br>    <span class="hljs-keyword">if</span> (cnt == <span class="hljs-number">1</span>)<br>        <span class="hljs-keyword">return</span>;<br>    <br>    prog_len = new_prog-&gt;len;<br><br>    <span class="hljs-comment">/* ⭐⭐⭐ 第三大瓶颈：移动 aux_data 数组 */</span><br>    memmove(data + off + cnt - <span class="hljs-number">1</span>, data + off,<br>            <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> bpf_insn_aux_data) * (prog_len - off - cnt + <span class="hljs-number">1</span>));<br>    <br>    <span class="hljs-comment">/* 初始化新插入的 aux_data */</span><br>    <span class="hljs-built_in">memset</span>(data + off, <span class="hljs-number">0</span>, <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> bpf_insn_aux_data) * (cnt - <span class="hljs-number">1</span>));<br>    <span class="hljs-keyword">for</span> (i = off; i &lt; off + cnt - <span class="hljs-number">1</span>; i++) &#123;<br>        <span class="hljs-comment">/* 扩展 insni[off] 的 seen 计数到修补范围 */</span><br>        data[i].seen = old_seen;<br>        data[i].zext_dst = insn_has_def32(insn + i);<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>性能开销</strong>：</p>
+<ul>
+<li><code>memmove</code>：O(N) - 移动修补点后的所有辅助数据</li>
+<li>循环初始化：O(cnt) - 通常 cnt 较小</li>
+</ul>
+<h3 id="3-其他-adjust-函数"><a href="#3-其他-adjust-函数" class="headerlink" title="3. 其他 adjust 函数"></a>3. 其他 adjust 函数</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/* 调整子程序起始位置 - O(S)，S = 子程序数量 */</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_subprog_starts</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-type">int</span> i;<br>    <span class="hljs-keyword">if</span> (len == <span class="hljs-number">1</span>)<br>        <span class="hljs-keyword">return</span>;<br>    <span class="hljs-comment">/* 遍历所有子程序 */</span><br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt;= env-&gt;subprog_cnt; i++) &#123;<br>        <span class="hljs-keyword">if</span> (env-&gt;subprog_info[i].start &lt;= off)<br>            <span class="hljs-keyword">continue</span>;<br>        env-&gt;subprog_info[i].start += len - <span class="hljs-number">1</span>;<br>    &#125;<br>&#125;<br><br><span class="hljs-comment">/* 调整指令数组映射 - O(A)，A = 指令数组映射数量 */</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_insn_arrays</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-type">int</span> i;<br>    <span class="hljs-keyword">if</span> (len == <span class="hljs-number">1</span>)<br>        <span class="hljs-keyword">return</span>;<br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; env-&gt;insn_array_map_cnt; i++)<br>        bpf_insn_array_adjust(env-&gt;insn_array_maps[i], off, len);<br>&#125;<br><br><span class="hljs-comment">/* 调整 poke 描述符 - O(P)，P = poke 描述符数量 */</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_poke_descs</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_prog *prog, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_jit_poke_descriptor</span> *<span class="hljs-title">tab</span> =</span> prog-&gt;aux-&gt;poke_tab;<br>    <span class="hljs-type">int</span> i, sz = prog-&gt;aux-&gt;size_poke_tab;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_jit_poke_descriptor</span> *<span class="hljs-title">desc</span>;</span><br><br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; sz; i++) &#123;<br>        desc = &amp;tab[i];<br>        <span class="hljs-keyword">if</span> (desc-&gt;insn_idx &lt;= off)<br>            <span class="hljs-keyword">continue</span>;<br>        desc-&gt;insn_idx += len - <span class="hljs-number">1</span>;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="性能瓶颈分析"><a href="#性能瓶颈分析" class="headerlink" title="性能瓶颈分析"></a>性能瓶颈分析</h2><h3 id="1-时间复杂度分析"><a href="#1-时间复杂度分析" class="headerlink" title="1. 时间复杂度分析"></a>1. 时间复杂度分析</h3><p>假设一个程序有 <strong>N</strong> 条指令，需要进行 <strong>M</strong> 次修补：</p>
+<figure class="highlight mathematica"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs mathematica">第 <span class="hljs-number">1</span> 次修补：移动 <span class="hljs-built_in">N</span> 条指令<br>第 <span class="hljs-number">2</span> 次修补：移动 <span class="hljs-built_in">N</span><span class="hljs-operator">+</span><span class="hljs-number">1</span> 条指令<br>第 <span class="hljs-number">3</span> 次修补：移动 <span class="hljs-built_in">N</span><span class="hljs-operator">+</span><span class="hljs-number">2</span> 条指令<br><span class="hljs-operator">...</span><br>第 <span class="hljs-variable">M</span> 次修补：移动 <span class="hljs-built_in">N</span><span class="hljs-operator">+</span><span class="hljs-variable">M</span><span class="hljs-operator">-</span><span class="hljs-number">1</span> 条指令<br><br>总操作数 <span class="hljs-operator">=</span> <span class="hljs-built_in">N</span><span class="hljs-operator">*</span><span class="hljs-variable">M</span> <span class="hljs-operator">+</span> <span class="hljs-variable">M</span><span class="hljs-operator">*</span><span class="hljs-punctuation">(</span><span class="hljs-variable">M</span><span class="hljs-operator">-</span><span class="hljs-number">1</span><span class="hljs-punctuation">)</span><span class="hljs-operator">/</span><span class="hljs-number">2</span> ≈ <span class="hljs-built_in">O</span><span class="hljs-punctuation">(</span><span class="hljs-built_in">N</span><span class="hljs-operator">*</span><span class="hljs-variable">M</span> <span class="hljs-operator">+</span> <span class="hljs-variable">M</span>²<span class="hljs-punctuation">)</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>对于复杂程序</strong>（如 pyperf180）：</p>
+<ul>
+<li>N ≈ 10,000 条指令</li>
+<li>M ≈ 5,000 次修补</li>
+<li>总操作数 ≈ 50,000,000 次指令移动</li>
+</ul>
+<h3 id="2-每次修补的操作开销"><a href="#2-每次修补的操作开销" class="headerlink" title="2. 每次修补的操作开销"></a>2. 每次修补的操作开销</h3><table>
+<thead>
+<tr>
+<th>操作</th>
+<th>复杂度</th>
+<th>占比</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>memmove 指令数组</strong></td>
+<td>O(N)</td>
+<td>27.72%</td>
+<td>移动修补点后的所有指令</td>
+</tr>
+<tr>
+<td><strong>bpf_adj_branches</strong></td>
+<td>O(N)</td>
+<td>~10%</td>
+<td>遍历所有指令调整跳转</td>
+</tr>
+<tr>
+<td><strong>memmove aux_data</strong></td>
+<td>O(N)</td>
+<td>13.43%</td>
+<td>移动修补点后的所有辅助数据</td>
+</tr>
+<tr>
+<td><strong>vrealloc aux_data</strong></td>
+<td>O(N)</td>
+<td>5.84%</td>
+<td>重新分配并复制（len &gt; 1 时）</td>
+</tr>
+<tr>
+<td><strong>bpf_prog_realloc</strong></td>
+<td>O(N)</td>
+<td>~5%</td>
+<td>重新分配程序内存</td>
+</tr>
+<tr>
+<td>adjust_subprog_starts</td>
+<td>O(S)</td>
+<td>&lt;1%</td>
+<td>S &#x3D; 子程序数量</td>
+</tr>
+<tr>
+<td>adjust_insn_arrays</td>
+<td>O(A)</td>
+<td>&lt;1%</td>
+<td>A &#x3D; 指令数组映射数量</td>
+</tr>
+<tr>
+<td>adjust_poke_descs</td>
+<td>O(P)</td>
+<td>&lt;1%</td>
+<td>P &#x3D; poke 描述符数量</td>
+</tr>
+</tbody></table>
+<p><strong>总复杂度：O(N) 每次修补</strong></p>
+<h3 id="3-实际性能数据（Baseline-测试）"><a href="#3-实际性能数据（Baseline-测试）" class="headerlink" title="3. 实际性能数据（Baseline 测试）"></a>3. 实际性能数据（Baseline 测试）</h3><p>测试程序：pyperf180.bpf.o<br>内核版本：6.19.0-rc5<br>验证时间：0.4766 ± 0.0150 秒</p>
+<p><strong>perf 热点分析</strong>：</p>
+<figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">bpf_patch_insn_data</span><span class="hljs-punctuation">:</span> <span class="hljs-string">46.99% 总验证时间 ⭐⭐⭐</span><br><span class="hljs-attribute">├─ bpf_patch_insn_single</span><span class="hljs-punctuation">:</span> <span class="hljs-string">27.72% (59%)</span><br><span class="hljs-attribute">│  ├─ memmove (指令数组)</span><span class="hljs-punctuation">:</span> <span class="hljs-string">占大部分</span><br><span class="hljs-attribute">│  └─ bpf_adj_branches</span><span class="hljs-punctuation">:</span> <span class="hljs-string">遍历所有指令</span><br><span class="hljs-attribute">├─ memmove (aux_data)</span><span class="hljs-punctuation">:</span> <span class="hljs-string">13.43% (28.6%)</span><br><span class="hljs-attribute">└─ vrealloc</span><span class="hljs-punctuation">:</span> <span class="hljs-string">5.84% (12.4%)</span><br><br><span class="hljs-attribute">do_check</span><span class="hljs-punctuation">:</span> <span class="hljs-string">45.89%</span><br><span class="hljs-attribute">├─ check_helper_call</span><span class="hljs-punctuation">:</span> <span class="hljs-string">9.58%</span><br><span class="hljs-attribute">├─ check_cond_jmp_op</span><span class="hljs-punctuation">:</span> <span class="hljs-string">7.39%</span><br><span class="hljs-attribute">├─ states_equal</span><span class="hljs-punctuation">:</span> <span class="hljs-string">7.06%</span><br>└─ ...<br></code></pre></td></tr></table></figure>
+
+<p><strong>关键发现</strong>：</p>
+<ul>
+<li><code>bpf_patch_insn_data</code> 占用近 <strong>47%</strong> 的验证时间</li>
+<li>这证实了 Eduard Zingerman 的分析（他说约 40%）</li>
+<li>这是最大的性能瓶颈</li>
+</ul>
+<h3 id="4-历史性能数据（Jiong-Wang-2019）"><a href="#4-历史性能数据（Jiong-Wang-2019）" class="headerlink" title="4. 历史性能数据（Jiong Wang 2019）"></a>4. 历史性能数据（Jiong Wang 2019）</h3><p>极端大规模修补场景的测试数据：</p>
+<table>
+<thead>
+<tr>
+<th>修补次数</th>
+<th>当前耗时</th>
+<th>理想耗时</th>
+<th>提升比例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>15,000</td>
+<td>3秒</td>
+<td>&lt;0.5秒</td>
+<td>83%</td>
+</tr>
+<tr>
+<td>45,000</td>
+<td>29秒</td>
+<td>&lt;1秒</td>
+<td>97%</td>
+</tr>
+<tr>
+<td>95,000</td>
+<td>125秒</td>
+<td>&lt;2秒</td>
+<td>98%</td>
+</tr>
+<tr>
+<td>195,000</td>
+<td>712秒</td>
+<td>&lt;5秒</td>
+<td>99%</td>
+</tr>
+<tr>
+<td>1,000,000</td>
+<td>5100秒 (1.4小时)</td>
+<td>&lt;30秒</td>
+<td>99%+</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="为什么这么设计？"><a href="#为什么这么设计？" class="headerlink" title="为什么这么设计？"></a>为什么这么设计？</h2><h3 id="历史原因"><a href="#历史原因" class="headerlink" title="历史原因"></a>历史原因</h3><ol>
+<li><p><strong>BPF verifier 最初设计时</strong>：</p>
+<ul>
+<li>程序规模较小（几百条指令）</li>
+<li>修补次数不多（几十次）</li>
+<li>简单的数组实现足够用</li>
+</ul>
+</li>
+<li><p><strong>数组实现的优势</strong>：</p>
+<ul>
+<li>简单直观，易于理解</li>
+<li>随机访问 O(1)</li>
+<li>内存连续，缓存友好</li>
+</ul>
+</li>
+</ol>
+<h3 id="现在的问题"><a href="#现在的问题" class="headerlink" title="现在的问题"></a>现在的问题</h3><ol>
+<li><p><strong>现代 BPF 程序越来越复杂</strong>：</p>
+<ul>
+<li>指令数可达数万条</li>
+<li>修补次数可达数千甚至数万次</li>
+<li>O(N*M) 复杂度变得无法接受</li>
+</ul>
+</li>
+<li><p><strong>数组实现的劣势</strong>：</p>
+<ul>
+<li>插入&#x2F;删除操作 O(N)</li>
+<li>频繁的内存移动</li>
+<li>无法批量处理</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="具体例子：为什么这么慢？"><a href="#具体例子：为什么这么慢？" class="headerlink" title="具体例子：为什么这么慢？"></a>具体例子：为什么这么慢？</h2><h3 id="场景：10-000-条指令的程序，需要修补-5-000-次"><a href="#场景：10-000-条指令的程序，需要修补-5-000-次" class="headerlink" title="场景：10,000 条指令的程序，需要修补 5,000 次"></a>场景：10,000 条指令的程序，需要修补 5,000 次</h3><h4 id="当前实现（数组）"><a href="#当前实现（数组）" class="headerlink" title="当前实现（数组）"></a>当前实现（数组）</h4><figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext">修补位置 1000：<br>  <span class="hljs-bullet">-</span> <span class="hljs-string">memmove 9,000 条指令</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-string">调整 10,000 条指令的跳转</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-string">memmove 9,000 个 aux_data</span><br><br>修补位置 2000：<br>  <span class="hljs-bullet">-</span> <span class="hljs-string">memmove 8,001 条指令</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-string">调整 10,001 条指令的跳转</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-string">memmove 8,001 个 aux_data</span><br><br>... (重复 5,000 次)<br><br>总操作数：<br>  <span class="hljs-bullet">-</span> <span class="hljs-string">指令移动：约 50,000,000 次</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-string">跳转调整：约 50,000,000 次遍历</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-string">aux_data 移动：约 50,000,000 次</span><br><br>预计时间：数十秒<br></code></pre></td></tr></table></figure>
+
+<h4 id="理想实现（链表）"><a href="#理想实现（链表）" class="headerlink" title="理想实现（链表）"></a>理想实现（链表）</h4><figure class="highlight mathematica"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs mathematica">修补阶段（<span class="hljs-number">5</span><span class="hljs-operator">,</span><span class="hljs-number">000</span> 次）：<br>  <span class="hljs-operator">-</span> 每次修补：链表插入 <span class="hljs-built_in">O</span><span class="hljs-punctuation">(</span><span class="hljs-number">1</span><span class="hljs-punctuation">)</span><br>  <span class="hljs-operator">-</span> 总操作：<span class="hljs-number">5</span><span class="hljs-operator">,</span><span class="hljs-number">000</span> 次插入<br><br>线性化阶段（<span class="hljs-number">1</span> 次）：<br>  <span class="hljs-operator">-</span> 遍历链表：<span class="hljs-built_in">O</span><span class="hljs-punctuation">(</span><span class="hljs-built_in">N</span><span class="hljs-punctuation">)</span> <span class="hljs-operator">=</span> <span class="hljs-number">10</span><span class="hljs-operator">,</span><span class="hljs-number">000</span><br>  <span class="hljs-operator">-</span> 分配数组：<span class="hljs-built_in">O</span><span class="hljs-punctuation">(</span><span class="hljs-built_in">N</span><span class="hljs-punctuation">)</span> <span class="hljs-operator">=</span> <span class="hljs-number">10</span><span class="hljs-operator">,</span><span class="hljs-number">000</span><br>  <span class="hljs-operator">-</span> 调整跳转：<span class="hljs-built_in">O</span><span class="hljs-punctuation">(</span><span class="hljs-built_in">N</span><span class="hljs-punctuation">)</span> <span class="hljs-operator">=</span> <span class="hljs-number">10</span><span class="hljs-operator">,</span><span class="hljs-number">000</span><br><br>总操作数：约 <span class="hljs-number">35</span><span class="hljs-operator">,</span><span class="hljs-number">000</span> 次<br><br>预计时间：<span class="hljs-number">1</span><span class="hljs-operator">-</span><span class="hljs-number">2</span> 秒<br><br>性能提升：<span class="hljs-number">20</span><span class="hljs-operator">-</span><span class="hljs-number">40</span> 倍<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="为什么占-47-的验证时间？"><a href="#为什么占-47-的验证时间？" class="headerlink" title="为什么占 47% 的验证时间？"></a>为什么占 47% 的验证时间？</h2><h3 id="原因分析"><a href="#原因分析" class="headerlink" title="原因分析"></a>原因分析</h3><ol>
+<li><p><strong>修补是最频繁的操作</strong>：</p>
+<ul>
+<li>convert_ctx_accesses：每个上下文访问都可能修补</li>
+<li>fixup_bpf_calls：每个 helper 调用都可能修补</li>
+<li>do_misc_fixups：各种优化和修复</li>
+</ul>
+</li>
+<li><p><strong>每次修补都是 O(N) 操作</strong>：</p>
+<ul>
+<li>移动指令数组</li>
+<li>调整跳转偏移</li>
+<li>移动辅助数据</li>
+</ul>
+</li>
+<li><p><strong>累积效应</strong>：</p>
+<ul>
+<li>对于复杂程序，M 很大</li>
+<li>O(N*M) 的累积效应非常明显</li>
+<li>最终占据近一半的验证时间</li>
+</ul>
+</li>
+</ol>
+<h3 id="与其他操作的对比"><a href="#与其他操作的对比" class="headerlink" title="与其他操作的对比"></a>与其他操作的对比</h3><figure class="highlight erlang-repl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs erlang-repl">验证时间分布（pyperf180.bpf.o）：<br><br>bpf_patch_insn_data: <span class="hljs-number">46.99</span><span class="hljs-comment">% ⭐ 最大瓶颈</span><br>do_check: <span class="hljs-number">45.89</span><span class="hljs-comment">%</span><br>  ├─ check_helper_call: <span class="hljs-number">9.58</span><span class="hljs-comment">%</span><br>  ├─ check_cond_jmp_op: <span class="hljs-number">7.39</span><span class="hljs-comment">%</span><br>  ├─ states_equal: <span class="hljs-number">7.06</span><span class="hljs-comment">%</span><br>  ├─ copy_verifier_state: <span class="hljs-number">4.71</span><span class="hljs-comment">%</span><br>  └─ 其他: <span class="hljs-number">17.15</span><span class="hljs-comment">%</span><br>其他: <span class="hljs-number">7.12</span><span class="hljs-comment">%</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>关键观察</strong>：</p>
+<ul>
+<li><code>bpf_patch_insn_data</code> 单个函数占用 47%</li>
+<li><code>do_check</code> 包含多个子函数，总共占用 46%</li>
+<li>优化 <code>bpf_patch_insn_data</code> 的收益最明显</li>
+</ul>
+<hr>
+<h2 id="优化方向"><a href="#优化方向" class="headerlink" title="优化方向"></a>优化方向</h2><h3 id="当前实现的核心问题"><a href="#当前实现的核心问题" class="headerlink" title="当前实现的核心问题"></a>当前实现的核心问题</h3><ol>
+<li>✅ <strong>简单直观</strong>：数组实现，易于理解</li>
+<li>❌ <strong>O(N*M) 复杂度</strong>：每次修补都要移动整个数组</li>
+<li>❌ <strong>频繁内存操作</strong>：大量 memmove 和 realloc</li>
+<li>❌ <strong>重复遍历</strong>：每次都要调整跳转、子程序等</li>
+<li>❌ <strong>无法批量处理</strong>：一次只能修补一个位置</li>
+</ol>
+<h3 id="可能的优化方案"><a href="#可能的优化方案" class="headerlink" title="可能的优化方案"></a>可能的优化方案</h3><h4 id="方案-1：批量修补-API"><a href="#方案-1：批量修补-API" class="headerlink" title="方案 1：批量修补 API"></a>方案 1：批量修补 API</h4><p><strong>核心思路</strong>：将多个修补操作收集起来，排序后一次性处理，减少 memmove 次数。</p>
+<p><strong>当前问题</strong>：</p>
+<figure class="highlight node-repl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs node-repl">修补位置 100：移动 9,900 条指令<br>修补位置 200：移动 9,801 条指令<br>修补位置 300：移动 9,703 条指令<br><span class="hljs-meta prompt_">...</span><br>总移动次数：数千万次<br></code></pre></td></tr></table></figure>
+
+<p><strong>批量修补方案</strong>：</p>
+<figure class="highlight markdown"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs markdown">收集所有修补操作：<br><span class="hljs-bullet">  -</span> 位置 100：插入 2 条指令<br><span class="hljs-bullet">  -</span> 位置 200：插入 3 条指令<br><span class="hljs-bullet">  -</span> 位置 300：插入 1 条指令<br><span class="hljs-bullet">  -</span> ...<br><br>按位置从后往前排序（重要！）：<br><span class="hljs-bullet">  -</span> 位置 300：插入 1 条指令<br><span class="hljs-bullet">  -</span> 位置 200：插入 3 条指令<br><span class="hljs-bullet">  -</span> 位置 100：插入 2 条指令<br><br>从后往前依次修补：<br><span class="hljs-bullet">  1.</span> 位置 300：移动 9,700 条指令（一次）<br><span class="hljs-bullet">  2.</span> 位置 200：移动 9,800 条指令（一次）<br><span class="hljs-bullet">  3.</span> 位置 100：移动 9,900 条指令（一次）<br><br>总移动次数：只移动 3 次，而不是每个位置都移动一次<br></code></pre></td></tr></table></figure>
+
+<p><strong>API 设计</strong>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/* 批量修补条目 */</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patch_entry</span> &#123;</span><br>    u32 off;                    <span class="hljs-comment">// 修补位置</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn</span> *<span class="hljs-title">patch</span>;</span>     <span class="hljs-comment">// 新指令</span><br>    u32 len;                    <span class="hljs-comment">// 新指令数量</span><br>&#125;;<br><br><span class="hljs-comment">/* 批量修补上下文 */</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patch_batch</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patch_entry</span> *<span class="hljs-title">entries</span>;</span>  <span class="hljs-comment">// 修补条目数组</span><br>    u32 count;                         <span class="hljs-comment">// 条目数量</span><br>    u32 capacity;                      <span class="hljs-comment">// 容量</span><br>&#125;;<br><br><span class="hljs-comment">/* 添加修补操作到批次 */</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">bpf_patch_batch_add</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_patch_batch *batch, </span><br><span class="hljs-params">                        u32 off, </span><br><span class="hljs-params">                        <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> bpf_insn *patch, </span><br><span class="hljs-params">                        u32 len)</span>;<br><br><span class="hljs-comment">/* 一次性应用所有修补 */</span><br><span class="hljs-keyword">struct</span> bpf_prog *<span class="hljs-title function_">bpf_patch_batch_apply</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env, </span><br><span class="hljs-params">                                       <span class="hljs-keyword">struct</span> bpf_patch_batch *batch)</span>;<br></code></pre></td></tr></table></figure>
+
+<p><strong>实现步骤</strong>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">struct</span> bpf_prog *<span class="hljs-title function_">bpf_patch_batch_apply</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env, </span><br><span class="hljs-params">                                       <span class="hljs-keyword">struct</span> bpf_patch_batch *batch)</span><br>&#123;<br>    <span class="hljs-comment">// 1. 按位置从大到小排序（从后往前）</span><br>    sort(batch-&gt;entries, batch-&gt;count, compare_by_offset_desc);<br>    <br>    <span class="hljs-comment">// 2. 计算最终程序长度</span><br>    u32 total_new_len = env-&gt;prog-&gt;len;<br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; batch-&gt;count; i++)<br>        total_new_len += batch-&gt;entries[i].len - <span class="hljs-number">1</span>;<br>    <br>    <span class="hljs-comment">// 3. 一次性分配足够的内存</span><br>    new_prog = bpf_prog_realloc(env-&gt;prog, total_new_len, GFP_USER);<br>    <br>    <span class="hljs-comment">// 4. 从后往前依次修补（关键！）</span><br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; batch-&gt;count; i++) &#123;<br>        entry = &amp;batch-&gt;entries[i];<br>        <span class="hljs-comment">// 移动指令</span><br>        memmove(new_prog-&gt;insnsi + entry-&gt;off + entry-&gt;len,<br>                new_prog-&gt;insnsi + entry-&gt;off + <span class="hljs-number">1</span>,<br>                ...);<br>        <span class="hljs-comment">// 复制新指令</span><br>        <span class="hljs-built_in">memcpy</span>(new_prog-&gt;insnsi + entry-&gt;off, entry-&gt;patch, ...);<br>    &#125;<br>    <br>    <span class="hljs-comment">// 5. 只调整一次跳转偏移（而不是每次修补都调整）</span><br>    bpf_adj_branches_batch(new_prog, batch);<br>    <br>    <span class="hljs-comment">// 6. 调整 aux_data、subprog 等（一次性）</span><br>    adjust_all_metadata(env, new_prog, batch);<br>    <br>    <span class="hljs-keyword">return</span> new_prog;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>为什么从后往前修补？</strong></p>
+<p>关键原因：保持前面位置的偏移不变！</p>
+<figure class="highlight tap"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs tap">原始程序：<br>位置:<span class="hljs-number"> 0 </span> <span class="hljs-number"> 100 </span> <span class="hljs-number"> 200 </span> <span class="hljs-number"> 300 </span>  400<br>      |    |     |     |     |<br>      [====|=====|=====|=====|====]<br><br>如果从前往后修补：<br>1. 修补位置<span class="hljs-number"> 100 </span>→ 位置<span class="hljs-number"> 200 </span>变成 202，位置<span class="hljs-number"> 300 </span>变成 302<br>2. 修补位置<span class="hljs-number"> 202 </span>→ 位置<span class="hljs-number"> 302 </span>变成 305<br>3. 修补位置<span class="hljs-number"> 305 </span>→ 需要不断更新后续位置！<br><br>如果从后往前修补：<br>1. 修补位置<span class="hljs-number"> 300 </span>→ 位置 100、200 不变<br>2. 修补位置<span class="hljs-number"> 200 </span>→ 位置<span class="hljs-number"> 100 </span>不变<br>3. 修补位置<span class="hljs-number"> 100 </span>→ 完成！<br></code></pre></td></tr></table></figure>
+
+<p><strong>性能提升分析</strong>：</p>
+<p>假设 5,000 次修补操作：</p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>当前实现</th>
+<th>批量修补</th>
+<th>提升</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>memmove 次数</td>
+<td>5,000 次</td>
+<td>1 次（或少量）</td>
+<td><strong>99%</strong></td>
+</tr>
+<tr>
+<td>bpf_adj_branches</td>
+<td>5,000 次</td>
+<td>1 次</td>
+<td><strong>99%</strong></td>
+</tr>
+<tr>
+<td>内存分配</td>
+<td>5,000 次</td>
+<td>1 次</td>
+<td><strong>99%</strong></td>
+</tr>
+</tbody></table>
+<p>但实际提升只有 10-15%，为什么？</p>
+<ol>
+<li><p><strong>不是所有修补都能批量化</strong>：</p>
+<ul>
+<li>某些修补依赖前面修补的结果</li>
+<li>只能批量化同一阶段的修补（如 convert_ctx_accesses）</li>
+</ul>
+</li>
+<li><p><strong>批量化的开销</strong>：</p>
+<ul>
+<li>需要排序（O(M log M)）</li>
+<li>需要额外的内存存储批次</li>
+<li>需要更复杂的偏移计算</li>
+</ul>
+</li>
+<li><p><strong>实际可批量化的比例</strong>：</p>
+<ul>
+<li>假设只有 30% 的修补可以批量化</li>
+<li>5,000 次修补 → 1,500 次可批量，3,500 次仍然单独</li>
+<li>提升：1,500 &#x2F; 5,000 &#x3D; 30% 的修补操作被优化</li>
+<li>整体提升：30% × 47% &#x3D; 14%</li>
+</ul>
+</li>
+</ol>
+<p><strong>优势</strong>：</p>
+<ul>
+<li>改动相对较小，不需要重构核心数据结构</li>
+<li>可以逐步实施（先优化一个阶段，再扩展到其他阶段）</li>
+<li>风险可控，容易测试</li>
+</ul>
+<p><strong>劣势</strong>：</p>
+<ul>
+<li>提升有限（10-15%）</li>
+<li>不能解决根本问题（数组结构）</li>
+<li>实现仍然有一定复杂度</li>
+</ul>
+<h4 id="方案-2：链表-延迟线性化（完整重构）"><a href="#方案-2：链表-延迟线性化（完整重构）" class="headerlink" title="方案 2：链表 + 延迟线性化（完整重构）"></a>方案 2：链表 + 延迟线性化（完整重构）</h4><p><strong>核心思路</strong>：使用链表存储指令，修补时只需链表插入（O(1)），最后统一线性化为数组。</p>
+<p><strong>当前问题</strong>：数组插入 &#x3D; O(N)，M 次修补 &#x3D; O(N×M)</p>
+<p><strong>链表方案</strong>：链表插入 &#x3D; O(1)，M 次修补 &#x3D; O(M)，最后线性化 &#x3D; O(N)，总计 &#x3D; O(M + N)</p>
+<p><strong>数据结构设计</strong>（基于 Andrii Nakryiko 2019 年建议）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/* 可修补的指令节点（链表节点） */</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patchable_insn</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patchable_insn</span> *<span class="hljs-title">next</span>;</span>  <span class="hljs-comment">// 下一个节点</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn</span> <span class="hljs-title">insn</span>;</span>              <span class="hljs-comment">// BPF 指令</span><br>    <span class="hljs-type">int</span> orig_idx;                      <span class="hljs-comment">// 原始索引（用户程序中的位置）</span><br>    <span class="hljs-type">int</span> new_idx;                       <span class="hljs-comment">// 新索引（线性化后的位置，初始为 -1）</span><br>&#125;;<br><br><span class="hljs-comment">/* 修补器上下文 */</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patcher</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patchable_insn</span> *<span class="hljs-title">head</span>;</span>   <span class="hljs-comment">// 链表头</span><br>    <span class="hljs-type">int</span> *orig_to_node;                 <span class="hljs-comment">// 原始索引 → 节点指针的映射</span><br>    <span class="hljs-type">int</span> orig_cnt;                      <span class="hljs-comment">// 原始指令数</span><br>    <span class="hljs-type">int</span> total_cnt;                     <span class="hljs-comment">// 当前总指令数（包括新增的）</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p><strong>工作流程</strong>：</p>
+<figure class="highlight prolog"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><code class="hljs prolog">阶段 <span class="hljs-number">1</span>: 初始化（将数组转换为链表）<br>原始程序（数组）：<br>[<span class="hljs-number">0</span>] [<span class="hljs-number">1</span>] [<span class="hljs-number">2</span>] [<span class="hljs-number">3</span>] [<span class="hljs-number">4</span>] [<span class="hljs-number">5</span>] ...<br><br>转换为链表：<br>head → [<span class="hljs-number">0</span>] → [<span class="hljs-number">1</span>] → [<span class="hljs-number">2</span>] → [<span class="hljs-number">3</span>] → [<span class="hljs-number">4</span>] → [<span class="hljs-number">5</span>] → <span class="hljs-symbol">NULL</span><br>       ↑     ↑     ↑     ↑     ↑     ↑<br>    orig_to_node[<span class="hljs-number">0.</span><span class="hljs-number">.5</span>] 指向对应节点<br><br>阶段 <span class="hljs-number">2</span>: 修补（链表插入，<span class="hljs-symbol">O</span>(<span class="hljs-number">1</span>)）<br>在位置 <span class="hljs-number">2</span> 插入 <span class="hljs-number">3</span> 条新指令 [<span class="hljs-symbol">A</span>][<span class="hljs-symbol">B</span>][<span class="hljs-symbol">C</span>]：<br><br><span class="hljs-number">1.</span> 找到位置 <span class="hljs-number">2</span> 的节点（通过 orig_to_node[<span class="hljs-number">2</span>]）<br><span class="hljs-number">2.</span> 创建新节点 [<span class="hljs-symbol">A</span>][<span class="hljs-symbol">B</span>][<span class="hljs-symbol">C</span>]<br><span class="hljs-number">3.</span> 链表插入：<br>   head → [<span class="hljs-number">0</span>] → [<span class="hljs-number">1</span>] → [<span class="hljs-number">2</span>] → [<span class="hljs-symbol">A</span>] → [<span class="hljs-symbol">B</span>] → [<span class="hljs-symbol">C</span>] → [<span class="hljs-number">3</span>] → [<span class="hljs-number">4</span>] → [<span class="hljs-number">5</span>] → <span class="hljs-symbol">NULL</span><br>                       ↑<br>                    orig_to_node[<span class="hljs-number">2</span>] 仍指向原始节点 [<span class="hljs-number">2</span>]<br><br>关键：orig_to_node 映射不变！后续修补仍然能找到正确位置。<br><br>阶段 <span class="hljs-number">3</span>: 线性化（遍历链表，生成最终数组）<br>遍历链表，分配 new_idx：<br>[<span class="hljs-number">0</span>]:new_idx=<span class="hljs-number">0</span> → [<span class="hljs-number">1</span>]:new_idx=<span class="hljs-number">1</span> → [<span class="hljs-number">2</span>]:new_idx=<span class="hljs-number">2</span> → [<span class="hljs-symbol">A</span>]:new_idx=<span class="hljs-number">3</span> <br>→ [<span class="hljs-symbol">B</span>]:new_idx=<span class="hljs-number">4</span> → [<span class="hljs-symbol">C</span>]:new_idx=<span class="hljs-number">5</span> → [<span class="hljs-number">3</span>]:new_idx=<span class="hljs-number">6</span> → [<span class="hljs-number">4</span>]:new_idx=<span class="hljs-number">7</span> <br>→ [<span class="hljs-number">5</span>]:new_idx=<span class="hljs-number">8</span><br><br>生成最终数组：<br>[<span class="hljs-number">0</span>] [<span class="hljs-number">1</span>] [<span class="hljs-number">2</span>] [<span class="hljs-symbol">A</span>] [<span class="hljs-symbol">B</span>] [<span class="hljs-symbol">C</span>] [<span class="hljs-number">3</span>] [<span class="hljs-number">4</span>] [<span class="hljs-number">5</span>]<br><br>阶段 <span class="hljs-number">4</span>: 跳转调整（只需一次）<br>遍历所有指令，根据 orig_idx → new_idx 映射调整跳转：<br>if (insn-&gt;code == <span class="hljs-symbol">JMP</span>) &#123;<br>    target_orig_idx = insn-&gt;orig_idx + insn-&gt;off;<br>    target_new_idx = orig_to_node[target_orig_idx]-&gt;new_idx;<br>    insn-&gt;off = target_new_idx - insn-&gt;new_idx;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>性能对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>当前实现（数组）</th>
+<th>链表方案</th>
+<th>提升</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单次修补</td>
+<td>O(N) memmove</td>
+<td>O(1) 链表插入</td>
+<td><strong>N 倍</strong></td>
+</tr>
+<tr>
+<td>M 次修补</td>
+<td>O(N×M)</td>
+<td>O(M)</td>
+<td><strong>N 倍</strong></td>
+</tr>
+<tr>
+<td>跳转调整</td>
+<td>M 次，每次 O(N)</td>
+<td>1 次，O(N)</td>
+<td><strong>M 倍</strong></td>
+</tr>
+<tr>
+<td>线性化</td>
+<td>不需要</td>
+<td>1 次，O(N)</td>
+<td>新增开销</td>
+</tr>
+<tr>
+<td>总复杂度</td>
+<td>O(N×M)</td>
+<td>O(M + N)</td>
+<td><strong>显著</strong></td>
+</tr>
+</tbody></table>
+<p><strong>实际性能提升</strong>（pyperf180，N&#x3D;10,000, M&#x3D;5,000）：</p>
+<ul>
+<li>当前：O(10,000 × 5,000) &#x3D; 50,000,000 操作</li>
+<li>链表：O(5,000 + 10,000) &#x3D; 15,000 操作</li>
+<li>理论提升：<strong>3,333 倍</strong></li>
+<li>实际提升：30-40%（因为还有其他开销，如 do_check 占 46%）</li>
+</ul>
+<p><strong>为什么 2019 年 Jiong Wang 的链表方案未合入？</strong></p>
+<ol>
+<li><p><strong>维护者担心风险</strong>（Alexei Starovoitov）：</p>
+<blockquote>
+<p>“tbh sounds scary. We had so many bugs in the patch_insn over years.”</p>
+</blockquote>
+<ul>
+<li>patch_insn 历史上有很多 bug</li>
+<li>大规模重构容易引入新 bug</li>
+<li>影响所有 BPF 程序，后果严重</li>
+</ul>
+</li>
+<li><p><strong>实现复杂度高</strong>：</p>
+<ul>
+<li><strong>line info 调整</strong>：Jiong 在 RFC 中承认实现困难<blockquote>
+<p>“line info I need some careful implementation and I failed to have clean code for this during linearization”</p>
+</blockquote>
+<ul>
+<li>RFC 版本中 line info 处理不完善</li>
+<li>线性化阶段的 line info 调整代码不够干净</li>
+</ul>
+</li>
+<li><strong>subprog info 调整</strong>：需要处理子程序被删除的情况<ul>
+<li>RFC 中这部分实现也不完整</li>
+<li>子程序边界调整的边界情况复杂</li>
+</ul>
+</li>
+<li>需要处理各种边界情况</li>
+<li>代码审查困难，RFC 代码质量不够高</li>
+</ul>
+</li>
+<li><p><strong>测试覆盖困难</strong>：</p>
+<ul>
+<li>需要大量测试用例</li>
+<li>需要伪随机测试验证等价性</li>
+<li>难以保证所有场景都正确</li>
+</ul>
+</li>
+<li><p><strong>方案分歧</strong>：</p>
+<ul>
+<li>Jiong 提出链表方案</li>
+<li>Alexei 提出更复杂的基本块方案</li>
+<li>讨论转向更彻底的重构，但更复杂</li>
+</ul>
+</li>
+<li><p><strong>缺乏持续推动</strong>：</p>
+<ul>
+<li>Jiong 发布 RFC 后没有继续迭代</li>
+<li>没有 v2&#x2F;v3 版本</li>
+<li>社区没有其他人接手</li>
+</ul>
+</li>
+<li><p><strong>优先级不够</strong>：</p>
+<ul>
+<li>虽然有性能问题，但不是致命的</li>
+<li>大多数程序验证时间可接受</li>
+<li>有更紧急的功能需要实现</li>
+</ul>
+</li>
+</ol>
+<p><strong>如果要实现链表方案，需要</strong>：</p>
+<ul>
+<li>充分的测试覆盖（包括伪随机测试）</li>
+<li>渐进式实施（先实现核心，再扩展）</li>
+<li>与维护者充分沟通，获得支持</li>
+<li>准备好迭代多个版本</li>
+<li>证明与现有实现等价</li>
+</ul>
+<p><strong>优势</strong>：</p>
+<ul>
+<li>彻底解决性能问题（30-40% 提升）</li>
+<li>理论上最优的方案</li>
+<li>有社区讨论基础（2019 年 RFC）</li>
+</ul>
+<p><strong>劣势</strong>：</p>
+<ul>
+<li>实现复杂，风险高</li>
+<li>需要大量测试</li>
+<li>可能需要数月时间</li>
+<li>历史上未成功的先例</li>
+</ul>
+<h4 id="方案-3：基本块（Basic-Block）方案（Alexei-2022-提出）"><a href="#方案-3：基本块（Basic-Block）方案（Alexei-2022-提出）" class="headerlink" title="方案 3：基本块（Basic Block）方案（Alexei 2022 提出）"></a>方案 3：基本块（Basic Block）方案（Alexei 2022 提出）</h4><ul>
+<li>目标：使用编译器技术，将程序分割为基本块</li>
+<li>预期提升：可能更高，但实现复杂</li>
+<li>风险：非常高</li>
+<li>状态：仅讨论，未实现</li>
+</ul>
+<p><strong>什么是基本块（Basic Block）？</strong></p>
+<p>基本块是编译器理论中的概念，指的是一段顺序执行的指令序列，具有以下特点：</p>
+<ul>
+<li><strong>单一入口</strong>：只能从第一条指令进入</li>
+<li><strong>单一出口</strong>：只能从最后一条指令退出</li>
+<li><strong>顺序执行</strong>：中间没有跳转指令（除了最后一条）</li>
+</ul>
+<p><strong>基本块示例</strong>：</p>
+<figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">程序：</span><br><span class="hljs-attribute">  0</span><span class="hljs-punctuation">:</span> <span class="hljs-string">r1 = 10          ← BB1 开始</span><br>  <span class="hljs-attribute">1</span><span class="hljs-punctuation">:</span> <span class="hljs-string">r2 = 20</span><br>  <span class="hljs-attribute">2</span><span class="hljs-punctuation">:</span> <span class="hljs-string">r3 = r1 + r2</span><br>  <span class="hljs-attribute">3</span><span class="hljs-punctuation">:</span> <span class="hljs-string">if r3 &gt; 30 goto 6  ← BB1 结束（跳转）</span><br>  <span class="hljs-attribute">4</span><span class="hljs-punctuation">:</span> <span class="hljs-string">r4 = r3 * 2      ← BB2 开始</span><br>  <span class="hljs-attribute">5</span><span class="hljs-punctuation">:</span> <span class="hljs-string">goto 7           ← BB2 结束（跳转）</span><br>  <span class="hljs-attribute">6</span><span class="hljs-punctuation">:</span> <span class="hljs-string">r4 = r3 / 2      ← BB3 开始和结束（单条指令）</span><br>  <span class="hljs-attribute">7</span><span class="hljs-punctuation">:</span> <span class="hljs-string">exit             ← BB4 开始和结束</span><br><br><span class="hljs-attribute">基本块划分：</span><br><span class="hljs-attribute">  BB1</span><span class="hljs-punctuation">:</span> <span class="hljs-string">[0, 1, 2, 3]   - 顺序执行，以条件跳转结束</span><br>  <span class="hljs-attribute">BB2</span><span class="hljs-punctuation">:</span> <span class="hljs-string">[4, 5]         - 顺序执行，以无条件跳转结束</span><br>  <span class="hljs-attribute">BB3</span><span class="hljs-punctuation">:</span> <span class="hljs-string">[6]            - 单条指令</span><br>  <span class="hljs-attribute">BB4</span><span class="hljs-punctuation">:</span> <span class="hljs-string">[7]            - 退出指令</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>Alexei 提出的基本块方案思路</strong>：</p>
+<ol>
+<li><p><strong>分割阶段</strong>：将 BPF 程序分割为基本块</p>
+<figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs mipsasm">原始程序 → [<span class="hljs-keyword">BB1, </span><span class="hljs-keyword">BB2, </span><span class="hljs-keyword">BB3, </span>..., <span class="hljs-keyword">BBn]</span><br></code></pre></td></tr></table></figure>
+</li>
+<li><p><strong>跳转转换</strong>：将相对偏移转换为基本块索引</p>
+<figure class="highlight gcode"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs gcode">原始：<span class="hljs-keyword">if</span> r<span class="hljs-number">3</span> &gt; <span class="hljs-number">30</span> <span class="hljs-keyword">goto</span> <span class="hljs-number">+3</span>  <span class="hljs-comment">(相对偏移)</span><br>转换：<span class="hljs-keyword">if</span> r<span class="hljs-number">3</span> &gt; <span class="hljs-number">30</span> <span class="hljs-keyword">goto</span> BB<span class="hljs-number">3</span> <span class="hljs-comment">(基本块索引)</span><br></code></pre></td></tr></table></figure>
+</li>
+<li><p><strong>修补阶段</strong>：在基本块内部修补，无需调整跳转</p>
+<figure class="highlight asciidoc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs asciidoc">修补 BB2 内的指令：<br><span class="hljs-bullet">- </span>只需要移动 BB2 内的指令<br><span class="hljs-bullet">- </span>不需要调整其他基本块的跳转<br><span class="hljs-bullet">- </span>因为跳转目标是基本块索引，不是偏移<br></code></pre></td></tr></table></figure>
+</li>
+<li><p><strong>重建阶段</strong>：从基本块重建完整程序</p>
+<figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs mipsasm">[<span class="hljs-keyword">BB1, </span><span class="hljs-keyword">BB2, </span><span class="hljs-keyword">BB3, </span>...] → 最终程序<br>- 计算每个基本块的起始位置<br>- 将基本块索引转换回相对偏移<br></code></pre></td></tr></table></figure></li>
+</ol>
+<p><strong>基本块方案的优势</strong>：</p>
+<ol>
+<li><p><strong>修补局部化</strong>：</p>
+<ul>
+<li>修补只影响单个基本块</li>
+<li>不需要移动其他基本块的指令</li>
+<li>减少 memmove 的范围</li>
+</ul>
+</li>
+<li><p><strong>跳转调整延迟</strong>：</p>
+<ul>
+<li>修补时不需要调整跳转</li>
+<li>只在最后重建时统一调整</li>
+<li>避免重复遍历</li>
+</ul>
+</li>
+<li><p><strong>更好的缓存局部性</strong>：</p>
+<ul>
+<li>基本块通常较小</li>
+<li>修补操作更集中</li>
+</ul>
+</li>
+</ol>
+<p><strong>基本块方案的劣势</strong>：</p>
+<ol>
+<li><p><strong>实现极其复杂</strong>：</p>
+<ul>
+<li>需要实现基本块分析算法</li>
+<li>需要维护基本块图（Control Flow Graph）</li>
+<li>需要处理各种边界情况</li>
+</ul>
+</li>
+<li><p><strong>数据结构复杂</strong>：</p>
+<ul>
+<li>需要维护基本块数组</li>
+<li>需要维护跳转映射表</li>
+<li>需要处理基本块的分裂和合并</li>
+</ul>
+</li>
+<li><p><strong>调试困难</strong>：</p>
+<ul>
+<li>中间表示更抽象</li>
+<li>错误更难定位</li>
+<li>测试覆盖困难</li>
+</ul>
+</li>
+<li><p><strong>风险极高</strong>：</p>
+<ul>
+<li>影响 verifier 核心逻辑</li>
+<li>容易引入难以发现的 bug</li>
+<li>维护成本高</li>
+</ul>
+</li>
+</ol>
+<p><strong>为什么基本块方案未实现？</strong></p>
+<ol>
+<li><strong>过度设计</strong>：对于 BPF verifier 的需求来说太复杂</li>
+<li><strong>风险太高</strong>：Alexei 自己都说 “sounds scary”</li>
+<li><strong>投入产出比</strong>：实现成本远高于预期收益</li>
+<li><strong>有更简单的方案</strong>：链表方案已经足够好</li>
+</ol>
+<p><strong>对比：链表方案 vs 基本块方案</strong></p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>链表方案</th>
+<th>基本块方案</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>实现复杂度</td>
+<td>中等</td>
+<td>极高</td>
+</tr>
+<tr>
+<td>性能提升</td>
+<td>30-40%</td>
+<td>可能 40-50%</td>
+</tr>
+<tr>
+<td>风险</td>
+<td>高</td>
+<td>极高</td>
+</tr>
+<tr>
+<td>维护成本</td>
+<td>中等</td>
+<td>很高</td>
+</tr>
+<tr>
+<td>社区接受度</td>
+<td>有先例（Jiong Wang RFC）</td>
+<td>仅讨论</td>
+</tr>
+<tr>
+<td>推荐度</td>
+<td>可考虑</td>
+<td>不推荐</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ol>
+<li><p><strong>2019年讨论</strong> - Jiong Wang 的链表方案<br><a target="_blank" rel="noopener" href="https://lore.kernel.org/bpf/CAEf4BzYDAVUgajz4=dRTu5xQDddp5pi2s=T1BdFmRLZjOwGypQ@mail.gmail.com/">https://lore.kernel.org/bpf/CAEf4BzYDAVUgajz4=dRTu5xQDddp5pi2s=T1BdFmRLZjOwGypQ@mail.gmail.com/</a></p>
+</li>
+<li><p><strong>2022年讨论</strong> - Eduard Zingerman 的优化建议<br><a target="_blank" rel="noopener" href="https://lore.kernel.org/bpf/CAEf4BzY_E8MSL4mD0UPuuiDcbJhh9e2xQo2=5w+ppRWWiYSGvQ@mail.gmail.com/">https://lore.kernel.org/bpf/CAEf4BzY_E8MSL4mD0UPuuiDcbJhh9e2xQo2=5w+ppRWWiYSGvQ@mail.gmail.com/</a></p>
+</li>
+<li><p><strong>2026年反馈</strong> - Eduard 指出 bpf_patch_insn_data 占用 40% 时间<br><a target="_blank" rel="noopener" href="https://www.spinics.net/lists/kernel/msg6011549.html">https://www.spinics.net/lists/kernel/msg6011549.html</a></p>
+</li>
+<li><p><strong>Baseline 测试结果</strong><br><code>linux/BASELINE_RESULTS.txt</code></p>
+</li>
+<li><p><strong>历史 Patch 分析</strong><br><code>linux/HISTORICAL_PATCHES_STATUS.txt</code><br><code>linux/WHY_NOT_MERGED.txt</code></p>
+</li>
+</ol>
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p><strong>当前 bpf_patch_insn_data 实现</strong>：</p>
+<ul>
+<li>使用数组存储指令</li>
+<li>每次修补都移动整个数组</li>
+<li>时间复杂度 O(N*M)</li>
+<li>占用 47% 的验证时间</li>
+</ul>
+<p><strong>性能瓶颈根源</strong>：</p>
+<ul>
+<li>memmove 指令数组：27.72%</li>
+<li>memmove aux_data：13.43%</li>
+<li>vrealloc：5.84%</li>
+</ul>
+<p><strong>优化潜力</strong>：</p>
+<ul>
+<li>批量修补：10-15% 提升</li>
+<li>链表重构：30-40% 提升（对复杂程序）</li>
+</ul>
+<p><strong>历史教训</strong>：</p>
+<ul>
+<li>2019 年 Jiong Wang 的链表方案未合入（风险太高，缺乏持续推动）</li>
+<li>2022 年 Alexei 提出基本块方案未实现（过度复杂，风险极高）</li>
+<li>基本块方案虽然理论上更优，但实现成本远超收益</li>
+<li>需要采用渐进式、低风险的优化策略</li>
+</ul>
+<hr>
+<h2 id="推荐的优化路径"><a href="#推荐的优化路径" class="headerlink" title="推荐的优化路径"></a>推荐的优化路径</h2><p>基于以上分析和历史教训，必须面对一个现实：</p>
+<p><strong>核心问题：数组结构根本不适合频繁的中间插入操作</strong></p>
+<ul>
+<li>批量修补 API 只是减少 memmove 次数，但每次仍是 O(N)</li>
+<li>无论如何优化，只要使用数组，就绕不开读写和扩容的性能瓶颈</li>
+<li><strong>链表方案是唯一能彻底解决问题的方案</strong></li>
+</ul>
+<h3 id="方案对比：治标-vs-治本"><a href="#方案对比：治标-vs-治本" class="headerlink" title="方案对比：治标 vs 治本"></a>方案对比：治标 vs 治本</h3><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>批量修补 API</th>
+<th>链表方案</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>本质</td>
+<td><strong>治标</strong>：减少操作次数</td>
+<td><strong>治本</strong>：改变数据结构</td>
+</tr>
+<tr>
+<td>memmove</td>
+<td>仍需要，只是次数少</td>
+<td><strong>完全避免</strong></td>
+</tr>
+<tr>
+<td>单次修补</td>
+<td>O(N)</td>
+<td><strong>O(1)</strong></td>
+</tr>
+<tr>
+<td>M 次修补</td>
+<td>O(N×M&#x2F;k)，k&#x3D;批次数</td>
+<td><strong>O(M)</strong></td>
+</tr>
+<tr>
+<td>数组读写</td>
+<td>仍然频繁</td>
+<td>只在最后线性化</td>
+</tr>
+<tr>
+<td>数组扩容</td>
+<td>仍然需要</td>
+<td>只在最后一次</td>
+</tr>
+<tr>
+<td>性能提升</td>
+<td>10-15%（治标）</td>
+<td><strong>30-40%（治本）</strong></td>
+</tr>
+<tr>
+<td>根本问题</td>
+<td><strong>未解决</strong></td>
+<td><strong>已解决</strong></td>
+</tr>
+</tbody></table>
+<p><strong>结论</strong>：批量修补只是权宜之计，链表方案才是正确方向。</p>
+<h3 id="推荐方案：直接实施链表方案"><a href="#推荐方案：直接实施链表方案" class="headerlink" title="推荐方案：直接实施链表方案"></a>推荐方案：直接实施链表方案</h3><p><strong>为什么必须选择链表方案？</strong></p>
+<ol>
+<li><p><strong>这是唯一的根本解决方案</strong>：</p>
+<ul>
+<li>数组结构的性能瓶颈无法通过小修小补解决</li>
+<li>批量修补只是延缓问题，不能解决问题</li>
+<li>链表是唯一能将 O(N×M) 降低到 O(M+N) 的方案</li>
+</ul>
+</li>
+<li><p><strong>历史失败的原因可以克服</strong>：</p>
+<ul>
+<li>Jiong Wang RFC 失败的主要原因：<ul>
+<li>❌ line info 实现不完善 → ✅ 可以重新设计</li>
+<li>❌ subprog info 处理不完整 → ✅ 可以完善</li>
+<li>❌ 缺乏持续推动 → ✅ 我们可以持续投入</li>
+<li>❌ 测试覆盖不足 → ✅ 可以补充测试</li>
+</ul>
+</li>
+<li>这些都是工程问题，不是方案本身的问题</li>
+</ul>
+</li>
+<li><p><strong>社区已有讨论基础</strong>：</p>
+<ul>
+<li>2019 年 Jiong Wang RFC</li>
+<li>2019 年 Andrii Nakryiko 的改进建议</li>
+<li>2022 年 Eduard Zingerman 的讨论</li>
+<li>2026 年 Eduard 再次建议优化</li>
+<li><strong>社区认可这个方向，只是缺少完善的实现</strong></li>
+</ul>
+</li>
+<li><p><strong>投入产出比最高</strong>：</p>
+<ul>
+<li>批量修补：2 个月，10-15% 提升，但问题仍在</li>
+<li>链表方案：6 个月，30-40% 提升，<strong>彻底解决</strong></li>
+<li>长期看，链表方案的投入产出比更高</li>
+</ul>
+</li>
+</ol>
+<h3 id="实施策略：渐进式链表方案"><a href="#实施策略：渐进式链表方案" class="headerlink" title="实施策略：渐进式链表方案"></a>实施策略：渐进式链表方案</h3><p><strong>不要重蹈 Jiong Wang 的覆辙，采用渐进式实施：</strong></p>
+<h4 id="阶段-1：核心链表实现（2-个月）"><a href="#阶段-1：核心链表实现（2-个月）" class="headerlink" title="阶段 1：核心链表实现（2 个月）"></a>阶段 1：核心链表实现（2 个月）</h4><p><strong>目标</strong>：实现基本的链表修补功能，暂不处理复杂场景</p>
+<figure class="highlight asciidoc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs asciidoc">第 1-2 周：设计和数据结构<br><span class="hljs-bullet">- </span>定义 bpf_patchable_insn 和 bpf_patcher 结构<br><span class="hljs-bullet">- </span>设计 API 接口<br><span class="hljs-bullet">- </span>编写设计文档<br><br>第 3-4 周：核心功能实现<br><span class="hljs-bullet">- </span>实现链表创建（数组 → 链表）<br><span class="hljs-bullet">- </span>实现链表修补（插入节点）<br><span class="hljs-bullet">- </span>实现线性化（链表 → 数组）<br><span class="hljs-bullet">- </span>实现基本的跳转调整<br><br>第 5-6 周：基础测试<br><span class="hljs-bullet">- </span>在简单的 BPF 程序上测试<br><span class="hljs-bullet">- </span>验证功能正确性<br><span class="hljs-bullet">- </span>暂不处理 line info、subprog info<br><span class="hljs-bullet">- </span>只验证核心逻辑<br><br>第 7-8 周：性能测试和调优<br><span class="hljs-bullet">- </span>在 pyperf180 上测试性能<br><span class="hljs-bullet">- </span>对比 baseline<br><span class="hljs-bullet">- </span>修复性能问题<br></code></pre></td></tr></table></figure>
+
+<p><strong>成功标准</strong>：</p>
+<ul>
+<li>简单程序验证正确</li>
+<li>性能提升 &gt; 20%</li>
+<li>为下一阶段打好基础</li>
+</ul>
+<h4 id="阶段-2：完善元数据处理（2-个月）"><a href="#阶段-2：完善元数据处理（2-个月）" class="headerlink" title="阶段 2：完善元数据处理（2 个月）"></a>阶段 2：完善元数据处理（2 个月）</h4><p><strong>目标</strong>：解决 Jiong Wang RFC 中的问题</p>
+<figure class="highlight asciidoc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs asciidoc">第 9-10 周：line info 处理<br><span class="hljs-bullet">- </span>研究当前 line info 调整逻辑<br><span class="hljs-bullet">- </span>设计链表版本的 line info 调整<br><span class="hljs-bullet">- </span>实现并测试<br><br>第 11-12 周：subprog info 处理<br><span class="hljs-bullet">- </span>研究子程序边界调整<br><span class="hljs-bullet">- </span>处理子程序被删除的情况<br><span class="hljs-bullet">- </span>实现并测试<br><br>第 13-14 周：其他元数据<br><span class="hljs-bullet">- </span>poke descriptors<br><span class="hljs-bullet">- </span>insn_array_maps<br><span class="hljs-bullet">- </span>其他辅助数据<br><br>第 15-16 周：集成测试<br><span class="hljs-bullet">- </span>运行所有 selftests<br><span class="hljs-bullet">- </span>修复发现的问题<br><span class="hljs-bullet">- </span>确保功能完整<br></code></pre></td></tr></table></figure>
+
+<p><strong>成功标准</strong>：</p>
+<ul>
+<li>所有元数据正确处理</li>
+<li>所有 selftests 通过</li>
+<li>无功能回归</li>
+</ul>
+<h4 id="阶段-3：测试和优化（1-2-个月）"><a href="#阶段-3：测试和优化（1-2-个月）" class="headerlink" title="阶段 3：测试和优化（1-2 个月）"></a>阶段 3：测试和优化（1-2 个月）</h4><p><strong>目标</strong>：充分测试，确保可以合入</p>
+<figure class="highlight asciidoc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs asciidoc">第 17-18 周：伪随机测试<br><span class="hljs-bullet">- </span>实现伪随机测试框架<br><span class="hljs-bullet">- </span>验证链表方案与数组方案等价<br><span class="hljs-bullet">- </span>覆盖各种修补场景<br><br>第 19-20 周：压力测试<br><span class="hljs-bullet">- </span>测试大规模程序（10 万条指令）<br><span class="hljs-bullet">- </span>测试极端修补场景（10 万次修补）<br><span class="hljs-bullet">- </span>测试内存使用<br><br>第 21-22 周：性能优化<br><span class="hljs-bullet">- </span>根据 perf 数据优化热点<br><span class="hljs-bullet">- </span>减少内存分配<br><span class="hljs-bullet">- </span>优化缓存局部性<br><br>第 23-24 周：文档和代码审查<br><span class="hljs-bullet">- </span>完善代码注释<br><span class="hljs-bullet">- </span>编写设计文档<br><span class="hljs-bullet">- </span>内部代码审查<br></code></pre></td></tr></table></figure>
+
+<p><strong>成功标准</strong>：</p>
+<ul>
+<li>通过所有测试</li>
+<li>性能提升 30-40%</li>
+<li>代码质量高，易于审查</li>
+</ul>
+<h4 id="阶段-4：社区提交和迭代（1-2-个月）"><a href="#阶段-4：社区提交和迭代（1-2-个月）" class="headerlink" title="阶段 4：社区提交和迭代（1-2 个月）"></a>阶段 4：社区提交和迭代（1-2 个月）</h4><figure class="highlight asciidoc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs asciidoc">第 25-26 周：准备补丁<br><span class="hljs-bullet">- </span>拆分为合理的补丁系列<br><span class="hljs-bullet">- </span>编写详细的 commit message<br><span class="hljs-bullet">- </span>准备性能数据<br><br>第 27-28 周：提交和响应<br><span class="hljs-bullet">- </span>提交到 bpf-next<br><span class="hljs-bullet">- </span>及时响应审查意见<br><span class="hljs-bullet">- </span>准备好迭代多个版本<br><br>第 29-30 周：迭代和合入<br><span class="hljs-bullet">- </span>根据反馈修改<br><span class="hljs-bullet">- </span>提交 v2、v3...<br><span class="hljs-bullet">- </span>最终合入<br></code></pre></td></tr></table></figure>
+
+<h3 id="关键成功因素"><a href="#关键成功因素" class="headerlink" title="关键成功因素"></a>关键成功因素</h3><ol>
+<li><p><strong>解决 RFC 中的具体问题</strong>：</p>
+<ul>
+<li>line info：必须有干净的实现</li>
+<li>subprog info：必须处理所有边界情况</li>
+<li>不能留下未完成的部分</li>
+</ul>
+</li>
+<li><p><strong>充分的测试覆盖</strong>：</p>
+<ul>
+<li>功能测试：所有 selftests</li>
+<li>等价性测试：伪随机测试</li>
+<li>压力测试：大规模程序</li>
+<li>性能测试：详细的 perf 数据</li>
+</ul>
+</li>
+<li><p><strong>与维护者充分沟通</strong>：</p>
+<ul>
+<li>提前发 RFC 征求意见</li>
+<li>展示清晰的设计和收益</li>
+<li>及时响应审查意见</li>
+<li>准备好长期投入</li>
+</ul>
+</li>
+<li><p><strong>渐进式实施</strong>：</p>
+<ul>
+<li>不要一次性提交所有代码</li>
+<li>先提交核心功能</li>
+<li>再逐步完善</li>
+<li>每一步都充分测试</li>
+</ul>
+</li>
+</ol>
+<h3 id="风险和应对"><a href="#风险和应对" class="headerlink" title="风险和应对"></a>风险和应对</h3><p><strong>风险 1：实现比预期复杂</strong></p>
+<ul>
+<li>应对：渐进式实施，每个阶段都可以独立评估</li>
+<li>如果某个阶段遇到困难，可以调整计划</li>
+</ul>
+<p><strong>风险 2：维护者不接受</strong></p>
+<ul>
+<li>应对：提前沟通，展示清晰的收益数据</li>
+<li>强调这是唯一的根本解决方案</li>
+<li>参考历史讨论，说明如何解决之前的问题</li>
+</ul>
+<p><strong>风险 3：引入新的 bug</strong></p>
+<ul>
+<li>应对：充分的测试覆盖</li>
+<li>伪随机测试验证等价性</li>
+<li>渐进式合入，每一步都验证</li>
+</ul>
+<p><strong>风险 4：时间投入过长</strong></p>
+<ul>
+<li>应对：6 个月的时间投入是值得的</li>
+<li>彻底解决问题，长期收益大</li>
+<li>可以分阶段评估，及时调整</li>
+</ul>
+<h3 id="为什么不推荐批量修补-API？"><a href="#为什么不推荐批量修补-API？" class="headerlink" title="为什么不推荐批量修补 API？"></a>为什么不推荐批量修补 API？</h3><p>虽然批量修补风险更低，但：</p>
+<ol>
+<li><p><strong>治标不治本</strong>：</p>
+<ul>
+<li>仍然使用数组，性能瓶颈仍在</li>
+<li>只是减少操作次数，不能改变 O(N) 的本质</li>
+<li>10-15% 的提升不够显著</li>
+</ul>
+</li>
+<li><p><strong>浪费时间</strong>：</p>
+<ul>
+<li>花 2 个月实现批量修补</li>
+<li>发现效果有限，还是要做链表</li>
+<li>总共花 8 个月，不如直接花 6 个月做链表</li>
+</ul>
+</li>
+<li><p><strong>代码债务</strong>：</p>
+<ul>
+<li>批量修补的代码最终会被链表方案替换</li>
+<li>维护两套代码增加复杂度</li>
+<li>不如直接做正确的事情</li>
+</ul>
+</li>
+</ol>
+<h3 id="总结：必须选择链表方案"><a href="#总结：必须选择链表方案" class="headerlink" title="总结：必须选择链表方案"></a>总结：必须选择链表方案</h3><p><strong>核心观点</strong>：</p>
+<ul>
+<li>数组结构的性能瓶颈无法通过小修小补解决</li>
+<li>链表方案是唯一能彻底解决问题的方案</li>
+<li>历史失败的原因是工程问题，不是方案问题</li>
+<li>采用渐进式实施，可以降低风险</li>
+</ul>
+<p><strong>行动计划</strong>：</p>
+<ul>
+<li>直接实施链表方案（6 个月）</li>
+<li>渐进式实施，分 4 个阶段</li>
+<li>充分测试，确保质量</li>
+<li>与社区保持沟通</li>
+</ul>
+<p><strong>预期结果</strong>：</p>
+<ul>
+<li>彻底解决 bpf_patch_insn_data 的性能瓶颈</li>
+<li>验证时间减少 30-40%</li>
+<li>为 BPF 社区做出重要贡献</li>
+<li>建立技术信誉</li>
+</ul>
+<p><strong>核心原则</strong>：</p>
+<ol>
+<li><strong>做正确的事情</strong>，而不是简单的事情</li>
+<li><strong>治本</strong>，而不是治标</li>
+<li><strong>长期投入</strong>，而不是短期收益</li>
+<li><strong>渐进式实施</strong>，降低风险</li>
+<li><strong>充分测试</strong>，确保质量</li>
+</ol>
+<hr>
+<p><strong>文档版本</strong>：v1.0<br><strong>日期</strong>：2026-01-22<br><strong>作者</strong>：Qiliang Yuan <a href="mailto:&#114;&#101;&#97;&#x6c;&#x77;&#x75;&#106;&#x69;&#110;&#103;&#x40;&#103;&#x6d;&#x61;&#x69;&#x6c;&#46;&#x63;&#x6f;&#x6d;">&#114;&#101;&#97;&#x6c;&#x77;&#x75;&#106;&#x69;&#110;&#103;&#x40;&#103;&#x6d;&#x61;&#x69;&#x6c;&#46;&#x63;&#x6f;&#x6d;</a><br><strong>测试环境</strong>：Linux 6.19.0-rc5</p>
+<hr>
+<h2 id="Patch-Series-规划（18-个补丁）-复用现有函数名"><a href="#Patch-Series-规划（18-个补丁）-复用现有函数名" class="headerlink" title="Patch Series 规划（18 个补丁）- 复用现有函数名"></a>Patch Series 规划（18 个补丁）- 复用现有函数名</h2><h3 id="设计原则"><a href="#设计原则" class="headerlink" title="设计原则"></a>设计原则</h3><p><strong>复用现有函数名，修改实现</strong>：</p>
+<ul>
+<li>✅ 保持 API 兼容性</li>
+<li>✅ 减少代码变更</li>
+<li>✅ 更容易审查</li>
+<li>✅ 更容易理解</li>
+</ul>
+<p><strong>可复用的现有函数</strong>：</p>
+<ol>
+<li><code>adjust_insn_aux_data()</code> - 调整 aux_data</li>
+<li><code>adjust_subprog_starts()</code> - 调整子程序</li>
+<li><code>adjust_insn_arrays()</code> - 调整指令数组</li>
+<li><code>adjust_poke_descs()</code> - 调整 poke 描述符</li>
+<li><code>bpf_patch_insn_data()</code> - 主入口函数</li>
+</ol>
+<hr>
+<h3 id="总览"><a href="#总览" class="headerlink" title="总览"></a>总览</h3><table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>补丁数</th>
+<th>周期</th>
+<th>目标</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>阶段 1：核心实现</td>
+<td>8</td>
+<td>1-8 周</td>
+<td>链表基础功能 + RFC</td>
+</tr>
+<tr>
+<td>阶段 2：元数据处理</td>
+<td>6</td>
+<td>9-16 周</td>
+<td>完整功能 + V1</td>
+</tr>
+<tr>
+<td>阶段 3：优化测试</td>
+<td>4</td>
+<td>17-24 周</td>
+<td>性能优化 + 合入</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="阶段-1：核心链表实现（Patch-1-8）"><a href="#阶段-1：核心链表实现（Patch-1-8）" class="headerlink" title="阶段 1：核心链表实现（Patch 1-8）"></a>阶段 1：核心链表实现（Patch 1-8）</h3><h4 id="1-bpf-introduce-patchable-instruction-data-structures"><a href="#1-bpf-introduce-patchable-instruction-data-structures" class="headerlink" title="1. bpf: introduce patchable instruction data structures"></a>1. bpf: introduce patchable instruction data structures</h4><p><strong>文件</strong>：<code>include/linux/bpf_verifier.h</code></p>
+<p><strong>内容</strong>：定义链表节点和修补器结构（新增）</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patchable_insn</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patchable_insn</span> *<span class="hljs-title">next</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn</span> <span class="hljs-title">insn</span>;</span><br>    <span class="hljs-type">int</span> orig_idx, new_idx;<br>&#125;;<br><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patcher</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patchable_insn</span> *<span class="hljs-title">head</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patchable_insn</span> **<span class="hljs-title">orig_to_node</span>;</span><br>    <span class="hljs-type">int</span> orig_cnt, total_cnt;<br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="2-bpf-add-patcher-initialization-and-cleanup-helpers"><a href="#2-bpf-add-patcher-initialization-and-cleanup-helpers" class="headerlink" title="2. bpf: add patcher initialization and cleanup helpers"></a>2. bpf: add patcher initialization and cleanup helpers</h4><p><strong>文件</strong>：<code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：新增辅助函数（不复用，因为是新概念）</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/* 新增：分配链表节点 */</span><br><span class="hljs-type">static</span> __maybe_unused <span class="hljs-keyword">struct</span> bpf_patchable_insn *<br><span class="hljs-title function_">alloc_patchable_insn</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_insn *insn, <span class="hljs-type">int</span> orig_idx)</span>;<br><br><span class="hljs-comment">/* 新增：初始化 patcher（将数组转换为链表） */</span><br><span class="hljs-type">static</span> __maybe_unused <span class="hljs-type">int</span> <br><span class="hljs-title function_">init_patcher</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_patcher *patcher, <span class="hljs-keyword">struct</span> bpf_prog *prog)</span>;<br><br><span class="hljs-comment">/* 新增：释放 patcher */</span><br><span class="hljs-type">static</span> __maybe_unused <span class="hljs-type">void</span> <br><span class="hljs-title function_">free_patcher</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_patcher *patcher)</span>;<br></code></pre></td></tr></table></figure>
+
+<p><strong>说明</strong>：这些是链表特有的概念，当前代码中不存在对应函数，必须新增。</p>
+<hr>
+<h4 id="3-bpf-implement-linked-list-instruction-patching"><a href="#3-bpf-implement-linked-list-instruction-patching" class="headerlink" title="3. bpf: implement linked list instruction patching"></a>3. bpf: implement linked list instruction patching</h4><p><strong>文件</strong>：<code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：新增链表修补函数</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/* 新增：在链表中修补指令（O(1) 插入操作） */</span><br><span class="hljs-type">static</span> __maybe_unused <span class="hljs-type">int</span> <br><span class="hljs-title function_">patch_insn_list</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_patcher *patcher, u32 off, </span><br><span class="hljs-params">                <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> bpf_insn *patch, u32 len)</span>;<br></code></pre></td></tr></table></figure>
+
+<p><strong>说明</strong>：这是链表修补的核心函数，实现 O(1) 的插入操作，当前代码中不存在对应函数。</p>
+<hr>
+<h4 id="4-bpf-implement-program-linearization"><a href="#4-bpf-implement-program-linearization" class="headerlink" title="4. bpf: implement program linearization"></a>4. bpf: implement program linearization</h4><p><strong>文件</strong>：<code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：新增线性化函数</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/* 新增：链表 → 数组（线性化） */</span><br><span class="hljs-type">static</span> __maybe_unused <span class="hljs-keyword">struct</span> bpf_prog *<br><span class="hljs-title function_">linearize_patcher</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_patcher *patcher)</span>;<br></code></pre></td></tr></table></figure>
+
+<p><strong>说明</strong>：将链表转换回数组，这是链表方案特有的步骤，当前代码中不存在对应函数。</p>
+<hr>
+<h4 id="5-bpf-implement-jump-offset-adjustment-for-linked-list"><a href="#5-bpf-implement-jump-offset-adjustment-for-linked-list" class="headerlink" title="5. bpf: implement jump offset adjustment for linked list"></a>5. bpf: implement jump offset adjustment for linked list</h4><p><strong>文件</strong>：<code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：新增跳转调整函数</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/* 新增：调整跳转偏移（链表版本，使用 orig_idx → new_idx 映射） */</span><br><span class="hljs-type">static</span> __maybe_unused <span class="hljs-type">int</span> <br><span class="hljs-title function_">adjust_branches_list</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_patcher *patcher, <span class="hljs-keyword">struct</span> bpf_prog *prog)</span>;<br></code></pre></td></tr></table></figure>
+
+<p><strong>说明</strong>：链表版本的跳转调整，使用 orig_idx → new_idx 映射，与数组版本的 <code>bpf_adj_branches()</code> 逻辑不同，必须新增。</p>
+<hr>
+<h4 id="6-bpf-add-new-bpf-patch-insn-data-list-API"><a href="#6-bpf-add-new-bpf-patch-insn-data-list-API" class="headerlink" title="6. bpf: add new bpf_patch_insn_data_list() API"></a>6. bpf: add new bpf_patch_insn_data_list() API</h4><p><strong>文件</strong>：<code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：实现完整的链表版本主函数，移除前面函数的 <code>__maybe_unused</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/* 新增：链表版本的主函数（临时名称，Patch 7 会整合到 bpf_patch_insn_data） */</span><br><span class="hljs-type">static</span> __maybe_unused <span class="hljs-keyword">struct</span> bpf_prog *<br><span class="hljs-title function_">bpf_patch_insn_data_list</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env,</span><br><span class="hljs-params">                        u32 off, <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> bpf_insn *patch, u32 len)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patcher</span> <span class="hljs-title">patcher</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_prog</span> *<span class="hljs-title">new_prog</span>;</span><br>    <span class="hljs-type">int</span> ret;<br>    <br>    <span class="hljs-comment">/* 初始化：数组 → 链表 */</span><br>    ret = init_patcher(&amp;patcher, env-&gt;prog);<br>    <span class="hljs-keyword">if</span> (ret)<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>    <br>    <span class="hljs-comment">/* 修补：O(1) 链表插入 */</span><br>    ret = patch_insn_list(&amp;patcher, off, patch, len);<br>    <span class="hljs-keyword">if</span> (ret) &#123;<br>        free_patcher(&amp;patcher);<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>    &#125;<br>    <br>    <span class="hljs-comment">/* 线性化：链表 → 数组 */</span><br>    new_prog = linearize_patcher(&amp;patcher);<br>    <span class="hljs-keyword">if</span> (!new_prog) &#123;<br>        free_patcher(&amp;patcher);<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>    &#125;<br>    <br>    <span class="hljs-comment">/* 调整跳转：只需一次 */</span><br>    ret = adjust_branches_list(&amp;patcher, new_prog);<br>    <span class="hljs-keyword">if</span> (ret) &#123;<br>        bpf_prog_free(new_prog);<br>        free_patcher(&amp;patcher);<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>    &#125;<br>    <br>    <span class="hljs-comment">/* 清理 */</span><br>    free_patcher(&amp;patcher);<br>    <br>    <span class="hljs-keyword">return</span> new_prog;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>注意</strong>：</p>
+<ul>
+<li>此时移除 Patch 2-5 中函数的 <code>__maybe_unused</code>（因为已被使用）</li>
+<li>这个函数本身仍标记 <code>__maybe_unused</code>（Patch 7 才使用）</li>
+</ul>
+<hr>
+<h4 id="7-bpf-add-CONFIG-BPF-VERIFIER-LINKED-LIST-option"><a href="#7-bpf-add-CONFIG-BPF-VERIFIER-LINKED-LIST-option" class="headerlink" title="7. bpf: add CONFIG_BPF_VERIFIER_LINKED_LIST option"></a>7. bpf: add CONFIG_BPF_VERIFIER_LINKED_LIST option</h4><p><strong>文件</strong>：<code>kernel/bpf/Kconfig</code>, <code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：添加编译选项，<strong>复用</strong> <code>bpf_patch_insn_data()</code> 函数名</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// Kconfig</span><br>config BPF_VERIFIER_LINKED_LIST<br>    <span class="hljs-type">bool</span> <span class="hljs-string">&quot;Use linked list for instruction patching&quot;</span><br>    <span class="hljs-keyword">default</span> n<br><br><span class="hljs-comment">// verifier.c - 复用函数名，切换实现</span><br><span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> bpf_prog *<span class="hljs-title function_">bpf_patch_insn_data</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env,</span><br><span class="hljs-params">                                            u32 off,</span><br><span class="hljs-params">                                            <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> bpf_insn *patch,</span><br><span class="hljs-params">                                            u32 len)</span><br>&#123;<br><span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_BPF_VERIFIER_LINKED_LIST</span><br>    <span class="hljs-keyword">return</span> bpf_patch_insn_data_list(env, off, patch, len);<br><span class="hljs-meta">#<span class="hljs-keyword">else</span></span><br>    <span class="hljs-comment">/* 保持旧实现 */</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_prog</span> *<span class="hljs-title">new_prog</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn_aux_data</span> *<span class="hljs-title">new_data</span> =</span> <span class="hljs-literal">NULL</span>;<br>    <br>    <span class="hljs-keyword">if</span> (len &gt; <span class="hljs-number">1</span>) &#123;<br>        new_data = vrealloc(env-&gt;insn_aux_data, ...);<br>        <span class="hljs-keyword">if</span> (!new_data)<br>            <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>        env-&gt;insn_aux_data = new_data;<br>    &#125;<br>    <br>    new_prog = bpf_patch_insn_single(env-&gt;prog, off, patch, len);<br>    <span class="hljs-keyword">if</span> (IS_ERR(new_prog))<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>    <br>    adjust_insn_aux_data(env, new_prog, off, len);<br>    adjust_subprog_starts(env, off, len);<br>    adjust_insn_arrays(env, off, len);<br>    adjust_poke_descs(new_prog, off, len);<br>    <br>    <span class="hljs-keyword">return</span> new_prog;<br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>关键</strong>：</p>
+<ul>
+<li><strong>复用</strong> <code>bpf_patch_insn_data()</code> 函数名</li>
+<li>通过 <code>#ifdef</code> 切换实现</li>
+<li>移除 <code>bpf_patch_insn_data_list()</code> 的 <code>__maybe_unused</code></li>
+</ul>
+<hr>
+<h4 id="8-selftests-bpf-add-basic-tests"><a href="#8-selftests-bpf-add-basic-tests" class="headerlink" title="8. selftests&#x2F;bpf: add basic tests"></a>8. selftests&#x2F;bpf: add basic tests</h4><p><strong>文件</strong>：<code>tools/testing/selftests/bpf/prog_tests/verifier_patch_list.c</code></p>
+<p><strong>内容</strong>：基础功能测试</p>
+<hr>
+<h3 id="阶段-2：元数据处理（Patch-9-14）"><a href="#阶段-2：元数据处理（Patch-9-14）" class="headerlink" title="阶段 2：元数据处理（Patch 9-14）"></a>阶段 2：元数据处理（Patch 9-14）</h3><h4 id="9-bpf-refactor-adjust-insn-aux-data-for-linked-list"><a href="#9-bpf-refactor-adjust-insn-aux-data-for-linked-list" class="headerlink" title="9. bpf: refactor adjust_insn_aux_data for linked list"></a>9. bpf: refactor adjust_insn_aux_data for linked list</h4><p><strong>文件</strong>：<code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：<strong>复用</strong> <code>adjust_insn_aux_data()</code> 函数名，修改实现</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_BPF_VERIFIER_LINKED_LIST</span><br><br><span class="hljs-comment">/* 复用函数名，链表版本的实现 */</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_insn_aux_data</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env,</span><br><span class="hljs-params">                                 <span class="hljs-keyword">struct</span> bpf_prog *new_prog, u32 off, u32 cnt)</span><br>&#123;<br>    <span class="hljs-comment">/* 链表版本：在线性化时一次性调整 */</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn_aux_data</span> *<span class="hljs-title">data</span> =</span> env-&gt;insn_aux_data;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn</span> *<span class="hljs-title">insn</span> =</span> new_prog-&gt;insnsi;<br>    u32 prog_len = new_prog-&gt;len;<br>    <span class="hljs-type">int</span> i;<br>    <br>    <span class="hljs-comment">/* 使用 orig_idx → new_idx 映射调整 */</span><br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; prog_len; i++) &#123;<br>        <span class="hljs-comment">/* 根据映射调整 aux_data */</span><br>    &#125;<br>&#125;<br><br><span class="hljs-meta">#<span class="hljs-keyword">else</span></span><br><br><span class="hljs-comment">/* 保持旧实现 */</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_insn_aux_data</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env,</span><br><span class="hljs-params">                                 <span class="hljs-keyword">struct</span> bpf_prog *new_prog, u32 off, u32 cnt)</span><br>&#123;<br>    <span class="hljs-comment">/* 数组版本：每次修补都调整 */</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn_aux_data</span> *<span class="hljs-title">data</span> =</span> env-&gt;insn_aux_data;<br>    ...<br>    memmove(data + off + cnt - <span class="hljs-number">1</span>, data + off, ...);<br>    ...<br>&#125;<br><br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br></code></pre></td></tr></table></figure>
+
+<p><strong>关键</strong>：</p>
+<ul>
+<li><strong>复用</strong> <code>adjust_insn_aux_data()</code> 函数名</li>
+<li>修改函数实现（链表版本）</li>
+<li>保持函数签名不变</li>
+</ul>
+<hr>
+<h4 id="10-bpf-add-line-info-adjustment-for-linked-list"><a href="#10-bpf-add-line-info-adjustment-for-linked-list" class="headerlink" title="10. bpf: add line info adjustment for linked list"></a>10. bpf: add line info adjustment for linked list</h4><p><strong>文件</strong>：<code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：新增 line info 调整（当前代码中 line info 调整在 <code>bpf_adj_linfo()</code> 中，但在 <code>kernel/bpf/core.c</code>）</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_BPF_VERIFIER_LINKED_LIST</span><br><br><span class="hljs-comment">/* 新增：line info 调整（链表版本） */</span><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">adjust_line_info_list</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_patcher *patcher,</span><br><span class="hljs-params">                                 <span class="hljs-keyword">struct</span> bpf_prog *prog)</span><br>&#123;<br>    <span class="hljs-comment">/* 使用 orig_idx → new_idx 映射调整 line info */</span><br>&#125;<br><br><span class="hljs-comment">/* 在 bpf_patch_insn_data_list() 中调用 */</span><br><span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> bpf_prog *<span class="hljs-title function_">bpf_patch_insn_data_list</span><span class="hljs-params">(...)</span><br>&#123;<br>    ...<br>    new_prog = linearize_patcher(&amp;patcher);<br>    <br>    <span class="hljs-comment">/* 调整 line info */</span><br>    ret = adjust_line_info_list(&amp;patcher, new_prog);<br>    <span class="hljs-keyword">if</span> (ret) &#123;<br>        bpf_prog_free(new_prog);<br>        free_patcher(&amp;patcher);<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>    &#125;<br>    ...<br>&#125;<br><br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br></code></pre></td></tr></table></figure>
+
+<p><strong>说明</strong>：当前代码中 <code>bpf_adj_linfo()</code> 在 <code>kernel/bpf/core.c</code> 中，我们需要在 verifier.c 中新增链表版本。</p>
+<hr>
+<h4 id="11-bpf-refactor-adjust-subprog-starts-for-linked-list"><a href="#11-bpf-refactor-adjust-subprog-starts-for-linked-list" class="headerlink" title="11. bpf: refactor adjust_subprog_starts for linked list"></a>11. bpf: refactor adjust_subprog_starts for linked list</h4><p><strong>文件</strong>：<code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：<strong>复用</strong> <code>adjust_subprog_starts()</code> 函数名</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_BPF_VERIFIER_LINKED_LIST</span><br><br><span class="hljs-comment">/* 复用函数名，链表版本 */</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_subprog_starts</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-comment">/* 链表版本：使用 orig_idx → new_idx 映射 */</span><br>    <span class="hljs-type">int</span> i;<br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt;= env-&gt;subprog_cnt; i++) &#123;<br>        <span class="hljs-comment">/* 根据映射调整子程序起始位置 */</span><br>    &#125;<br>&#125;<br><br><span class="hljs-meta">#<span class="hljs-keyword">else</span></span><br><br><span class="hljs-comment">/* 保持旧实现 */</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_subprog_starts</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-type">int</span> i;<br>    <span class="hljs-keyword">if</span> (len == <span class="hljs-number">1</span>)<br>        <span class="hljs-keyword">return</span>;<br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt;= env-&gt;subprog_cnt; i++) &#123;<br>        <span class="hljs-keyword">if</span> (env-&gt;subprog_info[i].start &lt;= off)<br>            <span class="hljs-keyword">continue</span>;<br>        env-&gt;subprog_info[i].start += len - <span class="hljs-number">1</span>;<br>    &#125;<br>&#125;<br><br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="12-bpf-refactor-adjust-poke-descs-for-linked-list"><a href="#12-bpf-refactor-adjust-poke-descs-for-linked-list" class="headerlink" title="12. bpf: refactor adjust_poke_descs for linked list"></a>12. bpf: refactor adjust_poke_descs for linked list</h4><p><strong>文件</strong>：<code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：<strong>复用</strong> <code>adjust_poke_descs()</code> 函数名</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_BPF_VERIFIER_LINKED_LIST</span><br><br><span class="hljs-comment">/* 复用函数名，链表版本 */</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_poke_descs</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_prog *prog, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-comment">/* 链表版本：使用映射调整 */</span><br>&#125;<br><br><span class="hljs-meta">#<span class="hljs-keyword">else</span></span><br><br><span class="hljs-comment">/* 保持旧实现 */</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_poke_descs</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_prog *prog, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_jit_poke_descriptor</span> *<span class="hljs-title">tab</span> =</span> prog-&gt;aux-&gt;poke_tab;<br>    <span class="hljs-type">int</span> i, sz = prog-&gt;aux-&gt;size_poke_tab;<br>    <br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; sz; i++) &#123;<br>        <span class="hljs-keyword">if</span> (tab[i].insn_idx &lt;= off)<br>            <span class="hljs-keyword">continue</span>;<br>        tab[i].insn_idx += len - <span class="hljs-number">1</span>;<br>    &#125;<br>&#125;<br><br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="13-bpf-refactor-adjust-insn-arrays-for-linked-list"><a href="#13-bpf-refactor-adjust-insn-arrays-for-linked-list" class="headerlink" title="13. bpf: refactor adjust_insn_arrays for linked list"></a>13. bpf: refactor adjust_insn_arrays for linked list</h4><p><strong>文件</strong>：<code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：<strong>复用</strong> <code>adjust_insn_arrays()</code> 函数名</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> CONFIG_BPF_VERIFIER_LINKED_LIST</span><br><br><span class="hljs-comment">/* 复用函数名，链表版本 */</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_insn_arrays</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-comment">/* 链表版本：使用映射调整 */</span><br>&#125;<br><br><span class="hljs-meta">#<span class="hljs-keyword">else</span></span><br><br><span class="hljs-comment">/* 保持旧实现 */</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_insn_arrays</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-type">int</span> i;<br>    <span class="hljs-keyword">if</span> (len == <span class="hljs-number">1</span>)<br>        <span class="hljs-keyword">return</span>;<br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; env-&gt;insn_array_map_cnt; i++)<br>        bpf_insn_array_adjust(env-&gt;insn_array_maps[i], off, len);<br>&#125;<br><br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br></code></pre></td></tr></table></figure>
+
+<hr>
+<h4 id="14-selftests-bpf-add-comprehensive-tests"><a href="#14-selftests-bpf-add-comprehensive-tests" class="headerlink" title="14. selftests&#x2F;bpf: add comprehensive tests"></a>14. selftests&#x2F;bpf: add comprehensive tests</h4><p><strong>文件</strong>：<code>tools/testing/selftests/bpf/prog_tests/verifier_patch_list.c</code></p>
+<p><strong>内容</strong>：测试所有元数据场景</p>
+<hr>
+<h3 id="阶段-3：优化和测试（Patch-15-18）"><a href="#阶段-3：优化和测试（Patch-15-18）" class="headerlink" title="阶段 3：优化和测试（Patch 15-18）"></a>阶段 3：优化和测试（Patch 15-18）</h3><h4 id="15-selftests-bpf-add-equivalence-test"><a href="#15-selftests-bpf-add-equivalence-test" class="headerlink" title="15. selftests&#x2F;bpf: add equivalence test"></a>15. selftests&#x2F;bpf: add equivalence test</h4><p><strong>文件</strong>：<code>tools/testing/selftests/bpf/prog_tests/verifier_patch_equiv.c</code></p>
+<p><strong>内容</strong>：伪随机测试，验证等价性</p>
+<hr>
+<h4 id="16-selftests-bpf-add-stress-test"><a href="#16-selftests-bpf-add-stress-test" class="headerlink" title="16. selftests&#x2F;bpf: add stress test"></a>16. selftests&#x2F;bpf: add stress test</h4><p><strong>文件</strong>：<code>tools/testing/selftests/bpf/prog_tests/verifier_patch_stress.c</code></p>
+<p><strong>内容</strong>：大规模测试</p>
+<hr>
+<h4 id="17-bpf-optimize-memory-allocation"><a href="#17-bpf-optimize-memory-allocation" class="headerlink" title="17. bpf: optimize memory allocation"></a>17. bpf: optimize memory allocation</h4><p><strong>文件</strong>：<code>kernel/bpf/verifier.c</code></p>
+<p><strong>内容</strong>：内存池优化</p>
+<hr>
+<h4 id="18-bpf-remove-array-based-patching-implementation"><a href="#18-bpf-remove-array-based-patching-implementation" class="headerlink" title="18. bpf: remove array-based patching implementation"></a>18. bpf: remove array-based patching implementation</h4><p><strong>文件</strong>：<code>kernel/bpf/Kconfig</code>, <code>kernel/bpf/verifier.c</code>, <code>kernel/bpf/core.c</code></p>
+<p><strong>内容</strong>：</p>
+<ul>
+<li>删除 <code>CONFIG_BPF_VERIFIER_LINKED_LIST</code> 选项</li>
+<li>删除所有 <code>#ifdef</code> &#x2F; <code>#else</code> 分支</li>
+<li><strong>只保留链表实现</strong></li>
+<li>删除旧代码（约 300 行）：<ul>
+<li><code>bpf_patch_insn_single()</code> 及相关函数</li>
+<li>数组版本的 <code>adjust_*</code> 函数</li>
+</ul>
+</li>
+<li><strong>保留所有函数名</strong>：<ul>
+<li><code>bpf_patch_insn_data()</code> - 链表实现</li>
+<li><code>adjust_insn_aux_data()</code> - 链表实现</li>
+<li><code>adjust_subprog_starts()</code> - 链表实现</li>
+<li><code>adjust_insn_arrays()</code> - 链表实现</li>
+<li><code>adjust_poke_descs()</code> - 链表实现</li>
+</ul>
+</li>
+</ul>
+<p><strong>最终代码</strong>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/* 最终只保留链表实现，函数名不变 */</span><br><span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> bpf_prog *<span class="hljs-title function_">bpf_patch_insn_data</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env,</span><br><span class="hljs-params">                                            u32 off,</span><br><span class="hljs-params">                                            <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> bpf_insn *patch,</span><br><span class="hljs-params">                                            u32 len)</span><br>&#123;<br>    <span class="hljs-comment">/* 链表实现 */</span><br>    <span class="hljs-keyword">return</span> bpf_patch_insn_data_list(env, off, patch, len);<br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_insn_aux_data</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env,</span><br><span class="hljs-params">                                 <span class="hljs-keyword">struct</span> bpf_prog *new_prog, u32 off, u32 cnt)</span><br>&#123;<br>    <span class="hljs-comment">/* 链表实现 */</span><br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_subprog_starts</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-comment">/* 链表实现 */</span><br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_insn_arrays</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_verifier_env *env, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-comment">/* 链表实现 */</span><br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">adjust_poke_descs</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> bpf_prog *prog, u32 off, u32 len)</span><br>&#123;<br>    <span class="hljs-comment">/* 链表实现 */</span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="复用函数名总结"><a href="#复用函数名总结" class="headerlink" title="复用函数名总结"></a>复用函数名总结</h3><table>
+<thead>
+<tr>
+<th>函数名</th>
+<th>当前存在</th>
+<th>操作</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>bpf_patch_insn_data()</code></td>
+<td>✅</td>
+<td><strong>复用</strong></td>
+<td>主入口，通过 <code>#ifdef</code> 切换实现</td>
+</tr>
+<tr>
+<td><code>adjust_insn_aux_data()</code></td>
+<td>✅</td>
+<td><strong>复用</strong></td>
+<td>修改实现，使用 orig_idx → new_idx 映射</td>
+</tr>
+<tr>
+<td><code>adjust_subprog_starts()</code></td>
+<td>✅</td>
+<td><strong>复用</strong></td>
+<td>修改实现，使用 orig_idx → new_idx 映射</td>
+</tr>
+<tr>
+<td><code>adjust_insn_arrays()</code></td>
+<td>✅</td>
+<td><strong>复用</strong></td>
+<td>修改实现，使用 orig_idx → new_idx 映射</td>
+</tr>
+<tr>
+<td><code>adjust_poke_descs()</code></td>
+<td>✅</td>
+<td><strong>复用</strong></td>
+<td>修改实现，使用 orig_idx → new_idx 映射</td>
+</tr>
+<tr>
+<td><code>alloc_patchable_insn()</code></td>
+<td>❌</td>
+<td><strong>新增</strong></td>
+<td>链表节点分配（链表特有概念）</td>
+</tr>
+<tr>
+<td><code>init_patcher()</code></td>
+<td>❌</td>
+<td><strong>新增</strong></td>
+<td>初始化 patcher（数组 → 链表）</td>
+</tr>
+<tr>
+<td><code>free_patcher()</code></td>
+<td>❌</td>
+<td><strong>新增</strong></td>
+<td>清理 patcher</td>
+</tr>
+<tr>
+<td><code>patch_insn_list()</code></td>
+<td>❌</td>
+<td><strong>新增</strong></td>
+<td>链表修补（O(1) 插入）</td>
+</tr>
+<tr>
+<td><code>linearize_patcher()</code></td>
+<td>❌</td>
+<td><strong>新增</strong></td>
+<td>线性化（链表 → 数组）</td>
+</tr>
+<tr>
+<td><code>adjust_branches_list()</code></td>
+<td>❌</td>
+<td><strong>新增</strong></td>
+<td>跳转调整（链表版本）</td>
+</tr>
+<tr>
+<td><code>adjust_line_info_list()</code></td>
+<td>❌</td>
+<td><strong>新增</strong></td>
+<td>line info 调整（链表版本）</td>
+</tr>
+<tr>
+<td><code>bpf_patch_insn_data_list()</code></td>
+<td>❌</td>
+<td><strong>临时</strong></td>
+<td>临时函数名，Patch 18 删除</td>
+</tr>
+</tbody></table>
+<p><strong>复用策略</strong>：</p>
+<ul>
+<li>✅ <strong>5 个核心函数复用</strong>：保持 API 兼容性，只修改内部实现</li>
+<li>❌ <strong>7 个新增函数</strong>：链表特有概念，必须新增</li>
+<li>🔄 <strong>1 个临时函数</strong>：<code>bpf_patch_insn_data_list()</code> 在 Patch 18 会被删除</li>
+</ul>
+<p><strong>优势</strong>：</p>
+<ul>
+<li>✅ 最大化复用现有函数名（5&#x2F;13 &#x3D; 38%）</li>
+<li>✅ 保持 API 兼容性</li>
+<li>✅ 更容易审查（函数名熟悉）</li>
+<li>✅ 更容易理解（概念一致）</li>
+<li>✅ 减少代码变更量</li>
+</ul>
+<p><strong>为什么不能复用更多？</strong></p>
+<ol>
+<li><p><strong>链表特有概念</strong>：</p>
+<ul>
+<li><code>init_patcher()</code> &#x2F; <code>free_patcher()</code> - 数组方案不需要</li>
+<li><code>patch_insn_list()</code> - 链表插入逻辑完全不同</li>
+<li><code>linearize_patcher()</code> - 数组方案不需要线性化</li>
+</ul>
+</li>
+<li><p><strong>实现逻辑差异</strong>：</p>
+<ul>
+<li><code>adjust_branches_list()</code> - 使用 orig_idx → new_idx 映射，与 <code>bpf_adj_branches()</code> 逻辑完全不同</li>
+<li><code>adjust_line_info_list()</code> - 链表版本的 line info 调整</li>
+</ul>
+</li>
+<li><p><strong>临时过渡</strong>：</p>
+<ul>
+<li><code>bpf_patch_insn_data_list()</code> - 在 Patch 7-17 期间作为 <code>#ifdef</code> 分支，Patch 18 删除</li>
+</ul>
+</li>
+</ol>
+<p><strong>最终状态（Patch 18 后）</strong>：</p>
+<ul>
+<li>只保留 5 个复用的函数名 + 7 个新增函数</li>
+<li>删除 <code>bpf_patch_insn_data_list()</code> 和所有旧数组实现</li>
+<li>总计 12 个函数，其中 5 个是复用的函数名</li>
+</ul>
+<hr>
+<h3 id="Bisectability-保证"><a href="#Bisectability-保证" class="headerlink" title="Bisectability 保证"></a>Bisectability 保证</h3><p><strong>关键技术</strong>：</p>
+<ol>
+<li><strong>Patch 1-6</strong>：使用 <code>__maybe_unused</code> 标记</li>
+<li><strong>Patch 7-17</strong>：新代码在 <code>#ifdef CONFIG_BPF_VERIFIER_LINKED_LIST</code> 内</li>
+<li><strong>Patch 18</strong>：删除 <code>#ifdef</code> 和旧代码</li>
+</ol>
+<p><strong>编译验证</strong>：每个补丁测试两种配置</p>
+<ul>
+<li><code>CONFIG_BPF_VERIFIER_LINKED_LIST=n</code>（默认）</li>
+<li><code>CONFIG_BPF_VERIFIER_LINKED_LIST=y</code>（测试）</li>
+</ul>
+<hr>
+<h2 id="详细实现指南"><a href="#详细实现指南" class="headerlink" title="详细实现指南"></a>详细实现指南</h2><h3 id="Patch-1-数据结构定义"><a href="#Patch-1-数据结构定义" class="headerlink" title="Patch 1: 数据结构定义"></a>Patch 1: 数据结构定义</h3><p><strong>修改文件</strong>：<code>include/linux/bpf_verifier.h</code></p>
+<p><strong>添加内容</strong>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/* 链表节点：可修补的指令 */</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patchable_insn</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patchable_insn</span> *<span class="hljs-title">next</span>;</span>  <span class="hljs-comment">/* 下一个节点 */</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_insn</span> <span class="hljs-title">insn</span>;</span>              <span class="hljs-comment">/* BPF 指令 */</span><br>    <span class="hljs-type">int</span> orig_idx;                      <span class="hljs-comment">/* 原始索引（用户程序中的位置） */</span><br>    <span class="hljs-type">int</span> new_idx;                       <span class="hljs-comment">/* 新索引（线性化后的位置，初始为 -1） */</span><br>&#125;;<br><br><span class="hljs-comment">/* 修补器上下文 */</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patcher</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patchable_insn</span> *<span class="hljs-title">head</span>;</span>   <span class="hljs-comment">/* 链表头 */</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">bpf_patchable_insn</span> **<span class="hljs-title">orig_to_node</span>;</span>  <span class="hljs-comment">/* 原始索引 → 节点指针的映射 */</span><br>    <span class="hljs-type">int</span> orig_cnt;                      <span class="hljs-comment">/* 原始指令数 */</span><br>    <span class="hljs-type">int</span> total_cnt;                     <span class="hljs-comment">/* 当前总指令数（包括新增的） */</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p><strong>编译验证</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">make kernel/bpf/verifier.o  <span class="hljs-comment"># 应该编译通过</span><br></code></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="Patch-2-6-核心函数实现"><a href="#Patch-2-6-核心函数实现" class="headerlink" title="Patch 2-6: 核心函数实现"></a>Patch 2-6: 核心函数实现</h3><p>详细实现代码见上文 Patch 2-6 的描述。每个 patch 添加后都要验证编译通过。</p>
+<hr>
+<h3 id="Patch-7-CONFIG-选项"><a href="#Patch-7-CONFIG-选项" class="headerlink" title="Patch 7: CONFIG 选项"></a>Patch 7: CONFIG 选项</h3><p>详细实现见上文 Patch 7 的描述。关键是通过 <code>#ifdef</code> 切换实现，默认使用旧实现。</p>
+<hr>
+<h3 id="Patch-9-13-元数据处理"><a href="#Patch-9-13-元数据处理" class="headerlink" title="Patch 9-13: 元数据处理"></a>Patch 9-13: 元数据处理</h3><p>每个 patch 都在 <code>#ifdef CONFIG_BPF_VERIFIER_LINKED_LIST</code> 内添加新实现，保持旧实现不变。</p>
+<hr>
+<h3 id="Patch-18-删除旧实现"><a href="#Patch-18-删除旧实现" class="headerlink" title="Patch 18: 删除旧实现"></a>Patch 18: 删除旧实现</h3><p>删除所有 <code>#ifdef</code> 分支和旧代码，只保留链表实现。详细见上文描述。</p>
+<hr>
+<h2 id="实现检查清单"><a href="#实现检查清单" class="headerlink" title="实现检查清单"></a>实现检查清单</h2><h3 id="每个-Patch-的检查项"><a href="#每个-Patch-的检查项" class="headerlink" title="每个 Patch 的检查项"></a>每个 Patch 的检查项</h3><ul>
+<li><input disabled type="checkbox"> 代码编译通过（两种配置）</li>
+<li><input disabled type="checkbox"> 无编译警告</li>
+<li><input disabled type="checkbox"> 代码风格符合内核规范（<code>checkpatch.pl</code>）</li>
+<li><input disabled type="checkbox"> Commit message 完整</li>
+<li><input disabled type="checkbox"> 签名正确（Signed-off-by）</li>
+</ul>
+<h3 id="整体检查项"><a href="#整体检查项" class="headerlink" title="整体检查项"></a>整体检查项</h3><ul>
+<li><input disabled type="checkbox"> 所有 selftests 通过</li>
+<li><input disabled type="checkbox"> 性能测试完成</li>
+<li><input disabled type="checkbox"> 文档更新</li>
+<li><input disabled type="checkbox"> Bisectability 验证</li>
+<li><input disabled type="checkbox"> 代码审查完成</li>
+</ul>
+<hr>
+<h3 id="提交策略"><a href="#提交策略" class="headerlink" title="提交策略"></a>提交策略</h3><h4 id="RFC（第-1-8-周）"><a href="#RFC（第-1-8-周）" class="headerlink" title="RFC（第 1-8 周）"></a>RFC（第 1-8 周）</h4><figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">[RFC PATCH 0/8] bpf</span><span class="hljs-punctuation">:</span> <span class="hljs-string">optimize verifier instruction patching with linked list</span><br><br><span class="hljs-attribute">Cover Letter</span><span class="hljs-punctuation">:</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">性能瓶颈（47%）</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">链表方案优势</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">初步性能数据</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">征求意见</span><br></code></pre></td></tr></table></figure>
+
+<h4 id="V1（第-9-16-周）"><a href="#V1（第-9-16-周）" class="headerlink" title="V1（第 9-16 周）"></a>V1（第 9-16 周）</h4><figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">[PATCH v1 0/14] bpf</span><span class="hljs-punctuation">:</span> <span class="hljs-string">optimize verifier instruction patching with linked list</span><br><br><span class="hljs-attribute">Cover Letter</span><span class="hljs-punctuation">:</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">RFC 反馈处理</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">完整功能实现</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">详细性能数据</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">完整测试覆盖</span><br></code></pre></td></tr></table></figure>
+
+<h4 id="V2-VN（第-17-24-周）"><a href="#V2-VN（第-17-24-周）" class="headerlink" title="V2-VN（第 17-24 周）"></a>V2-VN（第 17-24 周）</h4><figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">[PATCH v2 0/18] bpf</span><span class="hljs-punctuation">:</span> <span class="hljs-string">optimize verifier instruction patching with linked list</span><br><br><span class="hljs-attribute">Cover Letter</span><span class="hljs-punctuation">:</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">V1 反馈处理</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">性能优化</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">压力测试</span><br><span class="hljs-bullet">-</span> <span class="hljs-string">准备合入</span><br></code></pre></td></tr></table></figure>
+
+<hr>
+<hr>
+<h3 id="代码变更统计"><a href="#代码变更统计" class="headerlink" title="代码变更统计"></a>代码变更统计</h3><ul>
+<li><strong>新增代码</strong>：约 1,500 行（链表实现 + 测试）</li>
+<li><strong>删除代码</strong>：约 300 行（旧数组实现）</li>
+<li><strong>净增加</strong>：约 1,200 行</li>
+</ul>
+<hr>
+<h3 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h3><p><strong>修正后的方案保证</strong>：</p>
+<ol>
+<li>✅ <strong>每个补丁都能编译通过</strong>（两种配置）</li>
+<li>✅ <strong>每个补丁都能独立运行</strong></li>
+<li>✅ <strong>git bisect 可用</strong></li>
+<li>✅ <strong>默认行为不变</strong>（直到 Patch 18）</li>
+<li>✅ <strong>可以 A&#x2F;B 对比</strong>（Patch 7-17）</li>
+</ol>
+<p><strong>关键技术</strong>：</p>
+<ul>
+<li><code>__maybe_unused</code> 标记（Patch 1-6）</li>
+<li><code>#ifdef CONFIG_BPF_VERIFIER_LINKED_LIST</code>（Patch 7-17）</li>
+<li>渐进式启用（Patch 18 才默认启用）</li>
+</ul>
+<p>这是 Linux 内核开发的标准做法，完全符合社区要求！</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/performance/" class="category-chain-item">performance</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/performance/bpf/" class="category-chain-item">bpf</a>
+  
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/architect/">#architect</a>
+      
+        <a href="/tags/bpf/">#bpf</a>
+      
+        <a href="/tags/fs/">#fs</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/go/">#go</a>
+      
+        <a href="/tags/kernel/">#kernel</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/log/">#log</a>
+      
+        <a href="/tags/perf/">#perf</a>
+      
+        <a href="/tags/sound/">#sound</a>
+      
+        <a href="/tags/task/">#task</a>
+      
+        <a href="/tags/testing/">#testing</a>
+      
+        <a href="/tags/tools/">#tools</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/net/">#net</a>
+      
+        <a href="/tags/struct/">#struct</a>
+      
+        <a href="/tags/security/">#security</a>
+      
+        <a href="/tags/bugs/">#bugs</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>BPF Verifier bpf_patch_insn_data 当前实现分析</div>
+      <div>https://realwujing.github.io/linux/performance/bpf/BPF_PATCH_INSN_DATA_CURRENT_IMPLEMENTATION/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年1月22日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/virt/container/docker/ctyunos/ctyunos2/README/" title="CTYunOS 2 Docker 内核编译环境">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">CTYunOS 2 Docker 内核编译环境</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/performance/linux_tracing_architecture/" title="Linux 追踪与性能分析框架全景图">
+                        <span class="hidden-mobile">Linux 追踪与性能分析框架全景图</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '69421f290a8aff25f3a652481d9bcdb3'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
