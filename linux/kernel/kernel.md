@@ -197,7 +197,7 @@ make olddefconfig
 
 使用LLVM编译内核:
 ```bash
-make LLVM=1 bindeb-pkg -j32
+make LLVM=1 bindeb-pkg -j32 LOCALVERSION=-baseline-944aacb68baf
 ```
 
 使用LLVM编译BPF selftests:
