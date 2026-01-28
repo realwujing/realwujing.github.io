@@ -1,6 +1,7 @@
 ---
-date: 2022/12/05 22:48:50
-updated: 2023/04/21 15:49:27
+title: 'git submodules'
+date: '2023/04/21 15:49:27'
+updated: '2023/04/21 15:49:27'
 ---
 
 # git submodules
