@@ -1348,6 +1348,7 @@ time rpmbuild -ba --target=aarch64 --define "_host_cpu aarch64" build/kernel.spe
 
 ### 内核链表
 
+- [为什么有人说在现代计算机体系中「链表已死」？](https://www.toutiao.com/article/7599999558193578532/)
 - [玩转内核链表list_head，教你管理不同类型节点的实现，建议收藏](https://mp.weixin.qq.com/s/Ddonv6FdY4oroIT32IGxOw)
 - [Linux内核中经典链表 list_head 常见使用方法解析](https://blog.csdn.net/wanshilun/article/details/79747710)
 - [Linux内核中的常用宏container_of其实很简单](https://blog.csdn.net/npy_lp/article/details/7010752)
