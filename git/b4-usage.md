@@ -25,27 +25,40 @@ sudo apt install b4
 
 ---
 
-## 2. 开启一个新的补丁系列
+## 2. 开启一个新的补丁系列 (Enrollment)
 
-在你的开发分支上，首先将该分支注册到 `b4` 的管理系统中：
+在你的开发分支上，首先将该分支注册到 `b4` 的管理系统中。这一步被称为 **Enroll**，它是 `b4` 接管分支的起点。
 
+### 核心命令
 ```bash
-# 进入内核源码目录并切换到你的开发分支
 b4 prep --enroll [fork-point]
 ```
-*   `fork-point`：补丁系列的基准点。可以是上游分支名（如 `origin/master`）、标签（Tag），或者一个**具体的 Commit ID**。`b4` 会以此为起点识别你的所有提交。
+*   `fork-point`：补丁系列的基准点。可以是上游分支名（如 `origin/master`）、标签（Tag），或者一个**具体的 Commit ID**。
+
+### 它在底层做了什么？
+1.  **界定范围**：告诉 `b4` 你的补丁系列从哪个 commit 开始。
+2.  **插入“元数据提交”**：这是最关键的操作。`b4` 会在基准点处插件一个空的“虚拟提交”。这个提交不包含代码改动，专门用于存放**封面信（Cover Letter）**和**控制 JSON**（如版本号、Change-ID）。
+3.  **分配身份证 (Change-Id)**：生成一个唯一的 ID 用于跨版本追踪。
+
+**关键点：** 如果你提供具体的 Commit ID，它必须是你想要提交的第一个补丁的**上一个 commit（父节点）**。
 
 **实例演示：**
-如果你当前的分支是基于 `v6.6` 内核标签开始开发的：
+假设你的分支上只有一个提交 `f34ecc590516`，它是基于 `b54345928fa1` 开发的：
 ```bash
-# 使用标签作为基准点
-b4 prep --enroll v6.6
+# 1. 查看 log，确认基准点（父节点）
+git log --oneline -2
+# f34ecc590516 (HEAD) mm/page_alloc: boost watermarks...
+# b54345928fa1 Merge tag 'gfs2-for-6.19-rc6'...
 
-# 或者使用具体的 Commit ID
-b4 prep --enroll 58390c8f50aa
+# 2. 对父节点执行 enroll
+b4 prep --enroll b54345928fa1
+
+# 3. 再次查看 log，你会发现 b4 插入了一个“虚拟封面信”提交
+git log --oneline -3
+# 2f5adb4a45f4 (HEAD) mm/page_alloc: boost watermarks... (你的补丁被重定位了)
+# 36bc6e58305b EDITME: cover title... (b4 插入的封面信)
+# b54345928fa1 Merge tag 'gfs2-for-6.19-rc6'... (原始基准点)
 ```
-
-此时，`b4` 会在分支的起始点创建一个特殊的“虚拟提交”，用于存储**封面信（Cover Letter）**和元数据。
 
 ---
 
@@ -57,35 +70,40 @@ b4 prep --enroll 58390c8f50aa
 ```bash
 b4 prep --edit-cover
 ```
-这会调用你的默认编辑器。注意：封面信下方包含 `--- b4-submit-tracking ---` 元数据，**千万不要删除它**。
+这会调用你的默认编辑器。
+**注意：** 在编辑器中你只能看到和编辑标题、正文和 `Signed-off-by`。`b4` 会自动隐藏底部的 JSON 元数据以防误删。
 
-### 非交互式更新（进阶）
-如果你想在 VS Code 等编辑器中编辑内容，可以通过手动更新 commit 的方式：
-1. 提取内容到文件：`git log --format=%B -n 1 [cover-commit-id] > cover.txt`
-2. 编辑 `cover.txt`。
-3. 创建新提交并重基：
-   ```bash
-   NEW_COVER=$(git commit-tree [cover-id]^{tree} -p [cover-id]^ -F cover.txt)
-   git rebase --onto $NEW_COVER [cover-id] [branch-name]
-   ```
+---
 
-**实例演示：**
-假设当前封面信 commit ID 为 `a1b2c3d`，分支名为 `feature-dhei`：
+## 4. 调整版本号与前缀
+
+如果你需要修改版本号（例如接管系列）或添加 `RFC` 等前缀，**推荐直接使用命令行参数**，而不是手动去翻 commit 里的 JSON。
+
+### 修改版本号 (Revision)
+如果你想把当前系列的版本强制改为 v8：
 ```bash
-# 1. 导出文字
-git log --format=%B -n 1 a1b2c3d > cover.txt
+b4 prep --force-revision 8
+```
 
-# 2. (在 VS Code 中修改 cover.txt 内容)
+### 设置前缀 (Prefixes)
+如果你想在 `[PATCH]` 中加入 `RFC`：
+```bash
+# 设置为 [PATCH RFC]
+b4 prep --set-prefixes RFC
 
-# 3. 注入新内容并重挂载系列
-# 这里 a1b2c3d^ 表示封面信的父节点（即基准点）
-NEW_COVER=$(git commit-tree a1b2c3d^{tree} -p a1b2c3d^ -F cover.txt)
-git rebase --onto $NEW_COVER a1b2c3d feature-dhei
+# 如果要设置多个，比如 [PATCH RFC v2] (v2 建议由 revision 控制，这里仅演示多个前缀)
+b4 prep --set-prefixes RFC draft
+```
+
+### 确认修改结果
+运行以下命令查看当前状态：
+```bash
+b4 prep --show-info
 ```
 
 ---
 
-## 4. 自动收集维护者 (To/Cc)
+## 5. 自动收集维护者 (To/Cc)
 
 这是 `b4` 最强大的功能之一。它会自动运行 `get_maintainer.pl` 扫描你系列中每个 patch 修改的文件，并将相关维护者合并到封面信中。
 
@@ -95,9 +113,28 @@ b4 prep --auto-to-cc
 
 执行后，封面信会增加大量的 `To:` 和 `Cc:` 字段。
 
+### 手动添加抄送人 (Manual CC)
+如果你想额外手动添加某个人（比如你的同事或领导），有几种方式：
+
+1.  **方式 A：直接修改封面信（最推荐）**：
+    运行 `b4 prep --edit-cover`，在生成的 `To:` 或 `Cc:` 列表下方，按同样的格式手动添加：
+    ```text
+    Cc: Colleague Name <colleague@example.com>
+    ```
+    *注意：如果是单补丁系列（没有封面信），手动添加的 `Cc` 会被 `b4` 自动移动到补丁的 `---` 分割线之后。*
+
+2.  **方式 B：在代码 Commit 信息中添加**：
+    在你的补丁 `Signed-off-by` 附近添加 `Cc: Name <email>`，`b4` 在发送时会自动识别并加入到邮件头中。
+
+3.  **方式 C：发送时临时指定**：
+    如果你只想在发送这一瞬间临时加人，可以使用命令行：
+    ```bash
+    b4 send --cc colleague@example.com --no-sign
+    ```
+
 ---
 
-## 5. 导出与预览
+## 6. 导出与预览
 
 ### 导出所有补丁
 将系列转换成 `.eml` 文件保存到特定目录：
@@ -114,7 +151,7 @@ b4 send --reflect --no-sign
 
 ---
 
-## 6. 正式提交给上游
+## 7. 正式提交给上游
 
 一切准备就绪后，临门一脚：
 ```bash
@@ -123,7 +160,7 @@ b4 send --no-sign
 *   `b4` 会正式向所有的 `To` 和 `Cc` 地址投递邮件。
 *   发送成功后，`b4` 会自动将本地版本标记为 v1，并准备好 v2 的开发环境（包括更新元数据中的 `revision`）。
 
-## 7. 版本迭代 (v1 -> v2)
+## 8. 版本迭代 (v1 -> v2)
 
 当收到社区反馈需要修改代码时：
 1. 直接在分支上修改代码并交互式重基：`git rebase -i`。
@@ -132,7 +169,7 @@ b4 send --no-sign
    - **自动升级版本**：它会自动带上 `[PATCH v2]` 前缀。
    - **开启新线程（推荐）**：默认情况下，`b4` 会为新版本开启一个全新的邮件线程，避免讨论树过深。这是 Linus 和大多数维护者（如 Greg KH）推荐的做法。
 
-## 8. 接管现有的 Patch 系列（例如从 v8 开始）
+## 9. 接管现有的 Patch 系列（例如从 v8 开始）
 
 如果你之前的 v1-v7 是通过 `git send-email` 手动发送的，现在想改用 `b4` 发送 v8，可以按照以下步骤“接管”：
 
@@ -141,16 +178,12 @@ b4 send --no-sign
    b4 prep --enroll [fork-point]
    ```
 2. **手动强制修改版本号**：
-   运行 `b4 prep --edit-cover`，在底部的 JSON 元数据中，将 `revision` 改为 `8`：
-   ```json
-   "series": {
-     "revision": 8,
-     "change-id": "...",
-     "prefixes": []
-   }
+   使用 `b4` 专门的命令将版本号设为 8：
+   ```bash
+   b4 prep --force-revision 8
    ```
 3. **关联前序版本（可选）**：
-   如果你想让 `b4` 知道 v7 的存在（以便在封面信生成 Lore 链接），可以在 JSON 中手动添加 `history` 记录（虽然略显繁琐），或者直接在封面信正文中手动贴上 v7 的 Lore 链接。
+   如果你想让 `b4` 知道 v7 的存在（以便在封面信生成 Lore 链接），可以直接在封面信正文中手动贴上 v7 的 Lore 链接。
 
 **实例演示：**
 假设你的 Patch 系列已经手动发到了 v7，现在需要在 `feature-v8` 分支上开始 v8 的开发：
@@ -159,14 +192,14 @@ b4 send --no-sign
 b4 prep --enroll v6.6
 
 # 2. 修改版本号
-# 执行 b4 prep --edit-cover，在编辑器中找到 JSON 元数据部分：
+# 执行 b4 prep --force-revision 8
 # 将 "revision": 1 修改为 "revision": 8
 
 # 3. (建议) 在封面信正文中手动注明前序版本的 Lore 链接
 # v7: https://lore.kernel.org/all/20260120-patch-v7@gmail.com/
 ```
 
-## 9. 单补丁处理（不需要封面信时）
+## 10. 单补丁处理（不需要封面信时）
 
 对于只有 1 个 Patch 的任务，通常不需要单独的第 0 封封面信。
 
@@ -292,9 +325,44 @@ index 8168739aaf9a..c9d10d385da8 100644
 
 ---
 
-## 10. 重发当前版本 (Resend)
+## 11. 重发当前版本 (Resend)
 
-有时候你可能已经发出了 v1，但突然发现漏掉了一个重要的邮件列表，或者因为网络问题发送失败。此时你并不想升级到 v2，而是想**原封不动地重发 v1**。
+在一个标准的 `b4` 工作流中，重发的逻辑是基于 **Git Tag** 的快照机制。
+
+### 标准 Resend 流程
+1.  **正式发送 (v1)**：
+    运行 `b4 send --no-sign`。发送成功后，`b4` 会自动在本地打一个记录标签，格式如：`sent/20260126-subject-v1`。
+2.  **发现问题**：
+    你发现 v1 少抄送了一个直属领导，或者某个邮件列表没发进去。
+3.  **执行重发**：
+    运行 `b4 send --resend --no-sign`。
+4.  **b4 的行为**：
+    *   **回溯快照**：它不会读取你当前分支的 HEAD（因为你可能已经开始改 v2 的逻辑了），而是去寻找最近的那个 `sent/...-v1` 标签。
+    *   **生成补丁**：基于标签里的快照重新生成补丁。
+    *   **添加标记**：在主题中自动加入 `RESEND` 字样，如 `[PATCH v1 RESEND]`。
+
+### 为什么有时会失败？
+- **没有发送记录**：如果你之前的 v1 是用 `git send-email` 发的，`b4` 找不到 `sent/` 标签。
+- **已被清理**：运行了 `b4 prep --cleanup`，该命令会抹除所有历史发送记录。
+
+### 进阶：手动添加 RESEND 标签（及如何取消）
+如果你无法使用标准的 `--resend`（例如接管了外部系列，或者清理了 Tag），可以直接利用前缀功能。
+
+1.  **添加 RESEND 前缀**：
+    ```bash
+    b4 prep --set-prefixes RESEND
+    ```
+    *效果：生成的补丁主题会变为 `[PATCH RESEND v8 0/1] ...`。*
+
+2.  **发送后取消 RESEND 标记**：
+    由于 `b4` 会持久化存储前缀，一旦发送完成准备下一版（v9）时，**必须手动清理**，否则下一版还会带着 `RESEND`。
+    ```bash
+    # 清空所有自定义前缀
+    b4 prep --set-prefixes ""
+
+    # 或者恢复为 RFC
+    b4 prep --set-prefixes RFC
+    ```
 
 - **操作命令**：
   ```bash
@@ -310,21 +378,59 @@ index 8168739aaf9a..c9d10d385da8 100644
 
 ---
 
+## 12. 取消 b4 托管与清理
+
+当你完成了一个系列的开发并已被合并，或者单纯想让分支重回“普通状态”时，需要进行清理。
+
+### 彻底删除分支与标签 (Cleanup)
+**警告：此操作会直接删除本地分支！** 仅当你确信该系列已经合入上游，或者你打算彻底放弃该分支时才使用。它会移除开发分支以及所有由 `b4` 生成的 `sent/` 标签。
+```bash
+b4 prep --cleanup [branch-name]
+```
+**注意**：
+- 你不能在当前分支执行该命令（会报错 `is currently checked out`）。
+- **误删恢复**：如果不小心删错了，可以通过 `git reflog` 找回最后的 Commit ID，然后用 `git branch <name> <commit-id>` 恢复。
+
+### 仅取消托管（恢复为普通分支）
+如果你不想删除分支，只想去掉 `b4` 插入的那个“虚拟封面信”提交，让它变回普通分支：
+1.  **确定基准点 (Fork-point)**：
+    运行 `b4 prep --show-info` 查看 `base-commit`。
+2.  **手动删除封面信提交**：
+    通常 `b4` 的封面信提交就是在基准点之上的第一个 commit。直接使用交互式重基删除它即可：
+    ```bash
+    git rebase --onto [base-commit] [cover-letter-commit] [branch-name]
+    ```
+    *例如：*
+    ```bash
+    git rebase --onto b54345928fa1 2f5aff8d7919 wujing/mm/page_alloc-v8
+    ```
+3.  **验证结果**：
+    运行 `b4 prep --show-info`，如果显示 `CRITICAL: This is not a prep-managed branch.`，说明已成功取消托管。
+4.  **清理 Change-ID（建议）**：
+    如果你在 Commit 正文中也插入了 `change-id` 字段，记得一并删掉。
+
+---
+
 ## 常用 Tips
 - **查看状态**：`b4 prep --show-revision`。
-- **添加 RFC 前缀**：在封面信底部的 `--- b4-submit-tracking ---` 元数据中，将 `"RFC"` 添加到 `prefixes` 数组中。
-  **示例：**
-  ```json
-  --- b4-submit-tracking ---
-  {
-    "series": {
-      "revision": 1,
-      "change-id": "20260206-feature-dynamic-isolcpus-dhei",
-      "prefixes": ["RFC"]
-    }
-  }
-  ```
+- **修改版本号**：`b4 prep --force-revision N`。
+- **添加 RFC 前缀**：`b4 prep --set-prefixes RFC`。
 - **关于嵌套（Threading）**：
   - **系列内**：Patch 1-N 永远会挂在封面信下方，形成一个清晰的整体。
   - **版本间**：如果你确实需要将 v2 回复给 v1（虽然不推荐），可以使用 `b4 send --in-reply-to [v1-msg-id]`。
 - **清理重试**：如果 `git-filter-repo` 报错，可以尝试 `rm -rf .git/filter-repo`。
+---
+
+## 12. 常见问题排查 (Troubleshooting)
+
+### JSON 报错：`json.decoder.JSONDecodeError: Extra data`
+- **现象**：运行 `b4 prep --show-info` 或其他命令时崩溃。
+- **原因**：手动编辑封面信时，不小心在底部的 `--- b4-submit-tracking ---` 块中多打了括号 `}` 或引入了非法字符。
+- **解决方法**：
+  1. 运行 `git log -1` 查看封面信提交。
+  2. 使用 `git commit --amend` 再次编辑该提交。
+  3. 确保 JSON 块结构严谨（大括号成对），且末尾没有多余内容。
+
+### 命令报错：`CRITICAL: ... is currently checked out`
+- **原因**：试图对当前所在的分支执行 `--cleanup`。
+- **解决方法**：请先切换到其他分支（如 `git checkout master`），然后再执行 `b4 prep --cleanup <target-branch>`。
