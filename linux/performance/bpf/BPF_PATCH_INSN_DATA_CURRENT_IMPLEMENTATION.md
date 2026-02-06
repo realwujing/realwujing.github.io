@@ -2105,7 +2105,7 @@ if (insn->code == JMP) {
 ---
 
 
-## Patch Series 规划（18 个补丁）- 复用现有函数名
+## Patch Series 规划（19 个补丁）- 复用现有函数名
 
 ### 设计原则
 
@@ -2130,7 +2130,7 @@ if (insn->code == JMP) {
 |------|--------|------|------|
 | 阶段 1：核心实现 | 8 | 1-8 周 | 链表基础功能 + RFC |
 | 阶段 2：元数据处理 | 6 | 9-16 周 | 完整功能 + V1 |
-| 阶段 3：优化测试 | 4 | 17-24 周 | 性能优化 + 合入 |
+| 阶段 3：优化测试与默认开启 | 5 | 17-24 周 | 性能优化 + 默认开启 + 合入 |
 
 ---
 
@@ -2551,7 +2551,7 @@ static void adjust_insn_arrays(struct bpf_verifier_env *env, u32 off, u32 len)
 
 ---
 
-### 阶段 3：优化和测试（Patch 15-18）
+### 阶段 3：优化、默认开启与清理（Patch 15-19）
 
 #### 15. selftests/bpf: add equivalence test
 
@@ -2687,8 +2687,8 @@ static void adjust_poke_descs(struct bpf_prog *prog, u32 off, u32 len)
 **关键技术**：
 
 1. **Patch 1-6**：使用 `__maybe_unused` 标记
-2. **Patch 7-17**：新代码在 `#ifdef CONFIG_BPF_VERIFIER_LINKED_LIST` 内
-3. **Patch 18**：删除 `#ifdef` 和旧代码
+2. **Patch 7-18**：新代码在 `#ifdef CONFIG_BPF_VERIFIER_LINKED_LIST` 内
+3. **Patch 19**：删除 `#ifdef` 和旧代码
 
 **编译验证**：每个补丁测试两种配置
 - `CONFIG_BPF_VERIFIER_LINKED_LIST=n`（默认）
@@ -2754,7 +2754,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ## 实现检查清单
 
-### Patch 1/18: bpf: introduce patchable instruction data structures
+### Patch 1/19:  add linked-list structures to avoid memmove during patching
 
 **文件修改**：
 - [ ] `include/linux/bpf_verifier.h` - 添加 `struct bpf_patchable_insn`
@@ -2777,7 +2777,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 2/18: bpf: add patcher initialization and cleanup helpers
+### Patch 2/19: bpf/verifier: add patcher initialization and cleanup helpers
 
 **文件修改**：
 - [ ] `kernel/bpf/verifier.c` - 添加 `alloc_patchable_insn()`
@@ -2808,7 +2808,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 3/18: bpf: implement linked list instruction patching
+### Patch 3/19: bpf/verifier: implement linked list instruction patching
 
 **文件修改**：
 - [ ] `kernel/bpf/verifier.c` - 添加 `patch_insn_list()`
@@ -2836,7 +2836,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 4/18: bpf: implement program linearization
+### Patch 4/19: bpf/verifier: implement program linearization
 
 **文件修改**：
 - [ ] `kernel/bpf/verifier.c` - 添加 `linearize_patcher()`
@@ -2863,7 +2863,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 5/18: bpf: implement jump offset adjustment for linked list
+### Patch 5/19: bpf/verifier: implement jump offset adjustment for linked list
 
 **文件修改**：
 - [ ] `kernel/bpf/verifier.c` - 添加 `adjust_branches_list()`
@@ -2891,7 +2891,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 6/18: bpf: add new bpf_patch_insn_data_list() API
+### Patch 6/19: bpf/verifier: add new bpf_patch_insn_data_list() API
 
 **文件修改**：
 - [ ] `kernel/bpf/verifier.c` - 添加 `bpf_patch_insn_data_list()`
@@ -2922,7 +2922,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 7/18: bpf: add CONFIG_BPF_VERIFIER_LINKED_LIST option
+### Patch 7/19: bpf/verifier: add CONFIG_BPF_VERIFIER_LINKED_LIST option
 
 **文件修改**：
 - [ ] `kernel/bpf/Kconfig` - 添加 `CONFIG_BPF_VERIFIER_LINKED_LIST`
@@ -2953,7 +2953,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 8/18: selftests/bpf: add basic tests
+### Patch 8/19: bpf/selftests: add initial linked-list patching tests
 
 **文件修改**：
 - [ ] `tools/testing/selftests/bpf/config` - 添加 `CONFIG_BPF_VERIFIER_LINKED_LIST=y`
@@ -2976,13 +2976,13 @@ make kernel/bpf/verifier.o  # 应该编译通过
 - [ ] 测试通过率 100%
 
 **Commit Message**：
-- [ ] Subject: "selftests/bpf: add basic tests for linked list patching"
+- [ ] Subject: "bpf/selftests: add initial linked-list patching tests"
 - [ ] Body 说明测试覆盖范围
 - [ ] 签名完整
 
 ---
 
-### Patch 9/18: bpf: adjust insn_aux_data for linked list patching
+### Patch 9/19: bpf/verifier: adjust insn_aux_data for linked list patching
 
 **文件修改**：
 - [ ] `kernel/bpf/verifier.c` - 在 `#ifdef` 内添加 `adjust_insn_aux_data_list()`
@@ -3010,7 +3010,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 10/18: bpf: add line info adjustment for linked list
+### Patch 10/19: bpf/verifier: add line info adjustment for linked list
 
 **文件修改**：
 - [ ] `kernel/bpf/verifier.c` - 在 `#ifdef` 内添加 `adjust_line_info_list()`
@@ -3038,7 +3038,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 11/18: bpf: refactor adjust_subprog_starts for linked list
+### Patch 11/19: bpf/verifier: refactor adjust_subprog_starts for linked list
 
 **文件修改**：
 - [ ] `kernel/bpf/verifier.c` - 在 `#ifdef` 内添加链表版本
@@ -3066,7 +3066,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 12/18: bpf: refactor adjust_poke_descs for linked list
+### Patch 12/19: bpf/verifier: refactor adjust_poke_descs for linked list
 
 **文件修改**：
 - [ ] `kernel/bpf/verifier.c` - 在 `#ifdef` 内添加链表版本
@@ -3092,7 +3092,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 13/18: bpf: refactor adjust_insn_arrays for linked list
+### Patch 13/19: bpf/verifier: refactor adjust_insn_arrays for linked list
 
 **文件修改**：
 - [ ] `kernel/bpf/verifier.c` - 在 `#ifdef` 内添加链表版本
@@ -3118,7 +3118,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 14/18: selftests/bpf: add comprehensive tests
+### Patch 14/19: selftests/bpf: add comprehensive tests
 
 **文件修改**：
 - [ ] `tools/testing/selftests/bpf/prog_tests/verifier_patch_list.c` - 扩展测试
@@ -3146,7 +3146,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 15/18: selftests/bpf: add equivalence test
+### Patch 15/19: selftests/bpf: add equivalence test
 
 **文件修改**：
 - [ ] `tools/testing/selftests/bpf/prog_tests/verifier_patch_equiv.c` - 新增伪随机测试
@@ -3173,7 +3173,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 16/18: selftests/bpf: add stress test
+### Patch 16/19: selftests/bpf: add stress test
 
 **文件修改**：
 - [ ] `tools/testing/selftests/bpf/prog_tests/verifier_patch_stress.c` - 新增压力测试
@@ -3199,7 +3199,7 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 17/18: bpf: optimize memory allocation in patcher
+### Patch 17/19: bpf/verifier: optimize memory allocation in patcher
 
 **文件修改**：
 - [ ] `kernel/bpf/verifier.c` - 优化内存分配
@@ -3229,7 +3229,31 @@ make kernel/bpf/verifier.o  # 应该编译通过
 
 ---
 
-### Patch 18/18: bpf: remove array-based patching implementation
+### Patch 18/19: bpf/verifier: enable linked list patching by default
+
+**文件修改**：
+- [ ] `kernel/bpf/Kconfig` - 将 `CONFIG_BPF_VERIFIER_LINKED_LIST` 的 `default n` 改为 `default y` 以默认启用链表补丁优化功能
+
+**编译验证**：
+- [ ] `make defconfig` - 检查 `.config` 中 `CONFIG_BPF_VERIFIER_LINKED_LIST=y`
+- [ ] `make kernel/bpf/verifier.o` - 编译通过
+- [ ] 无编译警告
+
+**代码质量**：
+- [ ] `./scripts/checkpatch.pl` - 无警告
+
+**功能验证**：
+- [ ] 默认配置下所有 selftests 通过
+- [ ] 确认使用的是链表实现路径
+
+**Commit Message**：
+- [ ] Subject: "bpf: enable linked list patching by default"
+- [ ] Body 说明这是为了在彻底移除旧代码前进行更广泛的测试
+- [ ] 签名完整
+
+---
+
+### Patch 19/19: bpf/verifier: remove array-based patching implementation
 
 **文件修改**：
 - [ ] `kernel/bpf/Kconfig` - 删除 `CONFIG_BPF_VERIFIER_LINKED_LIST`
@@ -3345,10 +3369,11 @@ PATCHES=(
     "Patch 15: equivalence test"
     "Patch 16: stress test"
     "Patch 17: optimization"
-    "Patch 18: remove old code"
+    "Patch 18: enable by default"
+    "Patch 19: remove old code"
 )
 
-for i in {1..18}; do
+for i in {1..19}; do
     echo "========================================="
     echo "Testing ${PATCHES[$i-1]}"
     echo "========================================="
@@ -3366,8 +3391,8 @@ for i in {1..18}; do
         exit 1
     }
     
-    # 测试配置 2（启用，从 Patch 7 开始）
-    if [ $i -ge 7 ]; then
+    # 测试配置 2（启用，从 Patch 7 开始，到 Patch 18 结束）
+    if [ $i -ge 7 ] && [ $i -le 18 ]; then
         echo "Testing with CONFIG_BPF_VERIFIER_LINKED_LIST=y"
         ./scripts/config -e BPF_VERIFIER_LINKED_LIST
         make kernel/bpf/verifier.o || {
@@ -3423,9 +3448,15 @@ git checkout patch-17
 make -j$(nproc)
 ./scripts/run_baseline_benchmark.sh
 
-# After Patch 18 (final)
-echo "After Patch 18 (final):"
+# After Patch 18 (enabled by default)
+echo "After Patch 18 (enabled by default):"
 git checkout patch-18
+make -j$(nproc)
+./scripts/run_baseline_benchmark.sh
+
+# After Patch 19 (final)
+echo "After Patch 19 (final):"
+git checkout patch-19
 make -j$(nproc)
 ./scripts/run_baseline_benchmark.sh
 
@@ -3463,7 +3494,7 @@ Cover Letter:
 #### V2-VN（第 17-24 周）
 
 ```
-[PATCH v2 0/18] bpf: optimize verifier instruction patching with linked list
+[PATCH v2 0/19] bpf: optimize verifier instruction patching with linked list
 
 Cover Letter:
 - V1 反馈处理
@@ -3491,13 +3522,13 @@ Cover Letter:
 1. ✅ **每个补丁都能编译通过**（两种配置）
 2. ✅ **每个补丁都能独立运行**
 3. ✅ **git bisect 可用**
-4. ✅ **默认行为不变**（直到 Patch 18）
+4. ✅ **默认行为不变**（直到 Patch 17）
 5. ✅ **可以 A/B 对比**（Patch 7-17）
 
 **关键技术**：
 - `__maybe_unused` 标记（Patch 1-6）
-- `#ifdef CONFIG_BPF_VERIFIER_LINKED_LIST`（Patch 7-17）
-- 渐进式启用（Patch 18 才默认启用）
+- `#ifdef CONFIG_BPF_VERIFIER_LINKED_LIST`（Patch 7-18）
+- 渐进式启用（Patch 18 默认启用，Patch 19 彻底清理）
 
 这是 Linux 内核开发的标准做法，完全符合社区要求！
 
@@ -3669,5 +3700,6 @@ Cover Letter:
 **测试环境**：Linux 6.19.0-rc5
 
 **更新日志**：
+- v1.2 (2026-01-30): 将补丁规划优化为 19 个，增加“默认开启”缓冲期（Patch 18），遵循内核渐进式演进策略
 - v1.1 (2026-01-22): 添加其他数据结构方案对比分析（Gap Buffer、Rope、分块数组、COW）
 - v1.0 (2026-01-22): 初始版本，链表方案设计和 18 个补丁规划
