@@ -28,6 +28,10 @@ git config --global core.editor vim
 
 - [修改Git默认编辑器](https://www.jianshu.com/p/86a7640705cd)
 
+## 使用 b4 管理 Linux 内核补丁
+
+- [b4 使用教程](b4-usage.md)
+
 ## 彻底替换https为ssh
 
 设置git url https请求替换为ssh方式
