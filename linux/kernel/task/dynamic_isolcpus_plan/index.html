@@ -1,0 +1,956 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="动态隔离核心 (Dynamic Housekeeping &amp; Enhanced Isolation - DHEI) 开发计划1. 项目核心目标打破 Linux 内核中 CPU 隔离（Housekeeping）必须通过引导参数（isolcpus &#x2F; nohz_full）配置且重启生效的限制。实现一个可以在运行时通过 sysfs 接口动态调整隔离掩码，并自动同步到 IRQ, RCU,">
+<meta property="og:type" content="article">
+<meta property="og:title" content="动态隔离核心 (Dynamic Housekeeping &amp; Enhanced Isolation - DHEI) 开发计划">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/task/dynamic_isolcpus_plan/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="动态隔离核心 (Dynamic Housekeeping &amp; Enhanced Isolation - DHEI) 开发计划1. 项目核心目标打破 Linux 内核中 CPU 隔离（Housekeeping）必须通过引导参数（isolcpus &#x2F; nohz_full）配置且重启生效的限制。实现一个可以在运行时通过 sysfs 接口动态调整隔离掩码，并自动同步到 IRQ, RCU,">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-02-06T04:05:16.000Z">
+<meta property="article:modified_time" content="2026-02-06T04:05:16.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="3d">
+<meta property="article:tag" content="fs">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="struct">
+<meta property="article:tag" content="thread">
+<meta property="article:tag" content="proc">
+<meta property="article:tag" content="rcu">
+<meta property="article:tag" content="sync">
+<meta property="article:tag" content="mutex">
+<meta property="article:tag" content="irq">
+<meta property="article:tag" content="tick">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>动态隔离核心 (Dynamic Housekeeping &amp; Enhanced Isolation - DHEI) 开发计划 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="动态隔离核心 (Dynamic Housekeeping &amp; Enhanced Isolation - DHEI) 开发计划"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-02-06 04:05" pubdate>
+          2026年2月6日 凌晨
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          20 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">动态隔离核心 (Dynamic Housekeeping &amp; Enhanced Isolation - DHEI) 开发计划</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="动态隔离核心-Dynamic-Housekeeping-Enhanced-Isolation-DHEI-开发计划"><a href="#动态隔离核心-Dynamic-Housekeeping-Enhanced-Isolation-DHEI-开发计划" class="headerlink" title="动态隔离核心 (Dynamic Housekeeping &amp; Enhanced Isolation - DHEI) 开发计划"></a>动态隔离核心 (Dynamic Housekeeping &amp; Enhanced Isolation - DHEI) 开发计划</h1><h2 id="1-项目核心目标"><a href="#1-项目核心目标" class="headerlink" title="1. 项目核心目标"></a>1. 项目核心目标</h2><p>打破 Linux 内核中 CPU 隔离（Housekeeping）必须通过引导参数（<code>isolcpus</code> &#x2F; <code>nohz_full</code>）配置且重启生效的限制。实现一个可以在运行时通过 <code>sysfs</code> 接口动态调整隔离掩码，并自动同步到 IRQ, RCU, 调度域, NOHZ_FULL, 工作队列, 监控狗等子系统的完整框架。</p>
+<h2 id="2-系统架构设计"><a href="#2-系统架构设计" class="headerlink" title="2. 系统架构设计"></a>2. 系统架构设计</h2><p>DHEI 采用<strong>通知链（Notifier Chain）驱动模型</strong>：</p>
+<ul>
+<li><strong>核心组件</strong>：<code>kernel/sched/isolation.c</code> 负责管理全局隔离掩码，并通过 <code>housekeeping_mutex</code> 保证并发更新安全。</li>
+<li><strong>触发机制</strong>：用户写入 <code>/sys/kernel/housekeeping/xx</code>。</li>
+<li><strong>分发机制</strong>：<code>HK_UPDATE_MASK</code> 通知的广播。</li>
+<li><strong>同步机制</strong>：各子系统订阅通知并执行热迁移逻辑（如重映射 IRQ 亲和性、踢出 NOHZ_FULL CPU、重新绑定内核线程等）。</li>
+</ul>
+<h2 id="3-详细开发路线-Commit-by-Commit"><a href="#3-详细开发路线-Commit-by-Commit" class="headerlink" title="3. 详细开发路线 (Commit-by-Commit)"></a>3. 详细开发路线 (Commit-by-Commit)</h2><h3 id="Phase-1-基础框架解耦-Infrastructure-Decoupling"><a href="#Phase-1-基础框架解耦-Infrastructure-Decoupling" class="headerlink" title="Phase 1: 基础框架解耦 (Infrastructure Decoupling)"></a>Phase 1: 基础框架解耦 (Infrastructure Decoupling)</h3><ul>
+<li><p><strong>Commit 1</strong>: <code>caa6eeef47aa</code> - 移除了 <code>housekeeping.c</code> 中的 <code>__init</code> 限制。</p>
+<ul>
+<li>将引导时分配改用 <code>alloc_cpumask_var()</code>，根据 <code>system_state</code> 动态选择 <code>GFP_NOWAIT</code> 或 <code>GFP_KERNEL</code>。</li>
+<li>引入 <code>housekeeping_mutex</code> 保护全局掩码数据结构。</li>
+</ul>
+</li>
+<li><p><strong>Commit 2</strong>: <code>300a8fdb1c4e</code> - 引入 <code>blocking_notifier_chain</code>。</p>
+<ul>
+<li>定义了 <code>struct housekeeping_update</code> 结构体，用于在掩码变化时传递类型和新的亲和性列表。</li>
+<li>提供了核心通知辅助函数 <code>housekeeping_update_notify()</code>。</li>
+</ul>
+</li>
+</ul>
+<h3 id="Phase-2-子系统动态同步实现-Subsystem-Synchronization"><a href="#Phase-2-子系统动态同步实现-Subsystem-Synchronization" class="headerlink" title="Phase 2: 子系统动态同步实现 (Subsystem Synchronization)"></a>Phase 2: 子系统动态同步实现 (Subsystem Synchronization)</h3><ul>
+<li><p><strong>Commit 3</strong>: <code>ce83d6c0f482</code> - <strong>genirq</strong> 动态迁移。</p>
+<ul>
+<li>实现了对管理中断（Managed IRQs）的响应逻辑，通过迭代所有中断并调用 <code>irq_set_affinity_locked()</code> 将中断从新隔离的 CPU 迁移到新 housekeeping CPU。</li>
+</ul>
+</li>
+<li><p><strong>Commit 4</strong>: <code>86489c76a857</code> - <strong>RCU</strong> 掩码同步。</p>
+<ul>
+<li>实现了 <code>rcu_housekeeping_reconfigure()</code>。</li>
+<li>动态更新 <code>rcu_state.gp_kthread</code>（RCU 宽限期内核线程）的亲和性。</li>
+</ul>
+</li>
+<li><p><strong>Commit 5</strong>: <code>88b36ffd8d3c</code> - <strong>调度器核心</strong> 域调整。</p>
+<ul>
+<li>在 <code>HK_TYPE_DOMAIN</code> 更新时触发 <code>rebuild_sched_domains()</code>。</li>
+<li>实现了在运行时将 CPU 动态隔离出（或拉回）普通的调度负载均衡领域。</li>
+</ul>
+</li>
+<li><p><strong>Commit 6</strong>: <code>2c25c75b053d</code> - <strong>Watchdog</strong> 亲和性切换。</p>
+<ul>
+<li>动态更新 <code>watchdog_cpumask</code>。</li>
+<li>调用 <code>proc_watchdog_update()</code> 使硬锁检测线程同步移动。</li>
+</ul>
+</li>
+<li><p><strong>Commit 7</strong>: <code>6c708991a41a</code> - <strong>Workqueue (unbound)</strong> 支持。</p>
+<ul>
+<li>绑定 <code>HK_TYPE_WQ</code> 通知。</li>
+<li>动态更新 <code>wq_unbound_cpumask</code> 和 <code>wq_isolated_cpumask</code>，确保无绑定工作队列不占用隔离核心。</li>
+</ul>
+</li>
+<li><p><strong>Commit 8</strong>: <code>23ba0d066e70</code> - <strong>kcompactd</strong> 线程同步。</p>
+<ul>
+<li>解决了内存压缩线程（kcompactd）在隔离 CPU 上运行导致高抖动的问题，实现了动态亲和性重亲。</li>
+</ul>
+</li>
+</ul>
+<h3 id="Phase-3-用户接口与高级特性-Interface-Advanced-Features"><a href="#Phase-3-用户接口与高级特性-Interface-Advanced-Features" class="headerlink" title="Phase 3: 用户接口与高级特性 (Interface &amp; Advanced Features)"></a>Phase 3: 用户接口与高级特性 (Interface &amp; Advanced Features)</h3><ul>
+<li><p><strong>Commit 9</strong>: <code>ae1753a2997f</code> - <strong>sysfs 接口实现</strong>。</p>
+<ul>
+<li>在 <code>/sys/kernel/housekeeping/</code> 目录下创建子节点：<code>timer</code>, <code>rcu</code>, <code>misc</code>, <code>tick</code>, <code>domain</code>, <code>workqueue</code>, <code>managed_irq</code>, <code>kthread</code>。</li>
+<li>实现了各类型隔离任务的长久分离控制。</li>
+</ul>
+</li>
+<li><p><strong>Commit 10</strong>: <code>027043166da7</code> - <strong>动态 NOHZ_FULL 切换</strong>。</p>
+<ul>
+<li>技术最为复杂的一环：移除了 <code>tick-sched</code> 中关于 full dynticks 的初始化限制。</li>
+<li>调用 <code>tick_nohz_full_kick_cpu()</code> 在掩码改变后强制所有 CPU 重新评估 tick 依赖，实现非重启开启 tick 隔离。</li>
+</ul>
+</li>
+<li><p><strong>Commit 11 &amp; 12</strong>: <code>8babc98515e3</code> - <strong>SMT 感知与安全性</strong>。</p>
+<ul>
+<li>引入 <code>smt_aware_mode</code>：当开启时，隔离一个 CPU 会自动隔离其所有的超线程兄弟核心。</li>
+<li>实现了 <strong>“Last Housekeeping CPU”</strong> 防护：禁止用户隔离所有的在线 CPU，确保系统不会死锁。</li>
+</ul>
+</li>
+<li><p><strong>Commit 13</strong>: <code>9d50c77451c9</code> - <strong>引导参数接管与桥接</strong>。</p>
+<ul>
+<li>将 DHEI 接口与传统的 <code>isolcpus=</code> 引导链条对接，确保启动配置能被运行时接口完美继承和修改。</li>
+</ul>
+</li>
+</ul>
+<h2 id="4-使用说明"><a href="#4-使用说明" class="headerlink" title="4. 使用说明"></a>4. 使用说明</h2><p>用户可以通过以下方式在运行时改变隔离策略：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 查看当前计时器 housekeeping CPU</span><br><span class="hljs-built_in">cat</span> /sys/kernel/housekeeping/timer<br><br><span class="hljs-comment"># 动态隔离 CPU 4-7，让它们不再处理任何内核杂务（NOHZ_FULL 等）</span><br><span class="hljs-built_in">echo</span> 0-3 &gt; /sys/kernel/housekeeping/tick<br><span class="hljs-built_in">echo</span> 0-3 &gt; /sys/kernel/housekeeping/timer<br><span class="hljs-built_in">echo</span> 0-3 &gt; /sys/kernel/housekeeping/rcu<br></code></pre></td></tr></table></figure>
+
+<h2 id="5-总结"><a href="#5-总结" class="headerlink" title="5. 总结"></a>5. 总结</h2><p>DHEI 使得 Linux 内核能够更好地适应现代云原生和高频交易等对延迟极端敏感的场景，赋予了管理员在不中断业务的情况下根据负载动态调整隔离核心的能力。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/task/" class="category-chain-item">task</a>
+  
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/3d/">#3d</a>
+      
+        <a href="/tags/fs/">#fs</a>
+      
+        <a href="/tags/kernel/">#kernel</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/struct/">#struct</a>
+      
+        <a href="/tags/thread/">#thread</a>
+      
+        <a href="/tags/proc/">#proc</a>
+      
+        <a href="/tags/rcu/">#rcu</a>
+      
+        <a href="/tags/sync/">#sync</a>
+      
+        <a href="/tags/mutex/">#mutex</a>
+      
+        <a href="/tags/irq/">#irq</a>
+      
+        <a href="/tags/tick/">#tick</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>动态隔离核心 (Dynamic Housekeeping &amp; Enhanced Isolation - DHEI) 开发计划</div>
+      <div>https://realwujing.github.io/linux/kernel/task/dynamic_isolcpus_plan/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年2月6日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/git/b4-usage/" title="Linux 内核补丁管理利器：b4 使用教程">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">Linux 内核补丁管理利器：b4 使用教程</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/virt/container/docker/ctyunos/ctyunos2/README/" title="CTYunOS 2 Docker 内核编译环境">
+                        <span class="hidden-mobile">CTYunOS 2 Docker 内核编译环境</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '050aa30f65d029df5f8aeeca0272852c'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
