@@ -365,6 +365,8 @@ Linux 内核相关网站的出现顺序:
 - [提交补丁：如何让你的改动进入内核](https://www.kernel.org/doc/html/latest/translations/zh_CN/process/submitting-patches.html)
 - [所有你想知道的事情 - 关于linux稳定版发布](https://www.kernel.org/doc/html/latest/translations/zh_CN/process/stable-kernel-rules.html)
 - [Everything you ever wanted to know about Linux -stable](https://www.kernel.org/doc/html/latest/process/stable-kernel-rules.html)
+- [The general rules about changelogs in the Submitting patches guide](https://www.kernel.org/doc/html/latest/process/maintainer-tip.html#changelog)
+
 
 ### 内核源码结构
 
