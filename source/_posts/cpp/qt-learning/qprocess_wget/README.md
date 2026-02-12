@@ -1,7 +1,10 @@
 ---
-date: 2023/02/01 13:37:53
-updated: 2023/04/21 15:49:27
+title: 'QProcess进程管理示例'
+date: '2023/04/21 15:49:27'
+updated: '2025/11/18 22:04:31'
 ---
+
+# QProcess进程管理示例
 
 ```bash
 ostree --repo=/deepin/linglong/repo/repo-test refs --delete com.qq.weixin.work.deepin/4.0.0.6007/x86_64 && ostree --repo=/deepin/linglong/repo/repo-test prune --refs-only

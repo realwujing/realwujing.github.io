@@ -1,11 +1,12 @@
 ---
-date: 2023/04/19 18:07:54
-updated: 2023/04/21 17:51:07
+title: 'Linux与编程技术电子书资源'
+date: '2023/04/19 18:07:54'
+updated: '2025/11/18 22:09:02'
 ---
 
-# 电子书
+# Linux与编程技术电子书资源
 
-- [推荐一个 GitHub 的开源电子书仓库，值得收藏](https://xie.infoq.cn/article/207aab244ae44b9fc5c71a059)
+- [推荐一个 GitHub 的开源电子书仓库,值得收藏](https://xie.infoq.cn/article/207aab244ae44b9fc5c71a059)
 
 - [书栈网·BookStack_程序员IT互联网开源编程书籍免费阅读与下载，取之于猿用之于猿！](https://www.bookstack.cn/)
 - [经典技术书籍PDF文件，涵盖：编程语言、计算机系统、网络协议、数据库、代码艺术、设计模式、算法与数据结构、系统架构、微服务、测试、程序员职业修炼等相关书籍。](https://awesome-programming-books.github.io/)

@@ -1,14 +1,15 @@
 ---
-date: 2023/04/21 11:43:50
-updated: 2023/04/21 11:43:50
+title: 'Python编程学习笔记'
+date: '2023/04/21 11:43:50'
+updated: '2025/11/20 10:38:54'
 ---
 
-# python
+# Python编程学习笔记
 
 ## anaconda
 
 - [Anaconda python3.6版本安装_华仔的博客-CSDN博客_anaconda python3.6](https://blog.csdn.net/qq_36338754/article/details/96430294)
-- wget <https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-5.2.0-Linux-x86_64.sh>
+- `wget https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/Anaconda3-5.2.0-Linux-x86_64.sh`
 
 - [pipreqs查找python项目依赖并生成requirements.txt - 一抹浅笑 - 博客园 (cnblogs.com)](https://www.cnblogs.com/zhaopanpan/p/9383350.html)
 - [python使用清华源进行pip安装的方法（最方便，不用换源只需一行代码）](https://zhuanlan.zhihu.com/p/129866307)
@@ -16,12 +17,42 @@ updated: 2023/04/21 11:43:50
 - [Python使用清华大学镜像源](https://blog.csdn.net/liuYinXinAll/article/details/90042947)
 - [pipreqs（找当前项目依赖的包）](https://www.cnblogs.com/believepd/p/10423094.html)
 - [python国内镜像源](https://www.cnblogs.com/songzhixue/p/11296720.html)
-- [Ubuntu中conda的安装及常用命令](https://blog.csdn.net/weixin_40922744/article/details/109866687)
+- [<font color=Red>Ubuntu中conda的安装及常用命令</font>](https://blog.csdn.net/weixin_40922744/article/details/109866687)
 - [anaconda | 镜像站使用帮助 | 清华大学开源软件镜像站 | Tsinghua Open Source Mirror](https://mirrors.tuna.tsinghua.edu.cn/help/anaconda/)
 
     ```bash
-    pip config set global.index-url<https://mirrors.aliyun.com/pypi/simple/
+    pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple/
     ```
+
+### Anaconda3-2022.05-Linux-x86_64.sh
+
+```bash
+wget https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/Anaconda3-2022.05-Linux-x86_64.sh
+sudo mkdir -p /opt/anaconda3
+sudo chmod +x Anaconda3-2022.05-Linux-x86_64.sh
+sudo chmod -R 777 /opt/anaconda3
+./Anaconda3-2022.05-Linux-x86_64.sh -u
+```
+
+在启动终端时取消自动激活 base 环境:
+
+```bash
+conda config --set auto_activate_base false
+```
+
+```bash
+conda activate base
+```
+
+```bash
+conda deactivate
+```
+
+将社区驱动的conda-forge channel添加到你的channel列表中：
+
+```bash
+conda config --append channels conda-forge
+```
 
 ## 日志
 
@@ -83,6 +114,20 @@ updated: 2023/04/21 11:43:50
 - [Python+gensim-文本相似度分析（小白进）](https://blog.csdn.net/Yellow_python/article/details/81021142)
 - [机器学习&数据挖掘笔记_16（常见面试之机器学习算法思想简单梳理）](https://www.cnblogs.com/tornadomeet/p/3395593.html)
 - [机器学习笔试面试超详细总结（一）](https://blog.csdn.net/jiaoyangwm/article/details/79805939)
+
+### book
+
+- [机器学习 周志华.pdf](https://git.nju.edu.cn/201300035/NJUAI-Notes/-/blob/master/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%20%E5%91%A8%E5%BF%97%E5%8D%8E.pdf)
+- [《机器学习》PDF下载(西瓜书)](https://pdfs.top/book/dpdyt)
+
+### stanford-cs336
+
+- [CS336: Language Modeling from Scratch Stanford / Spring 2025](https://stanford-cs336.github.io/spring2025/index.html#schedule)
+
+## deepseek
+
+- [基于WSL2上的Docker部署DeepSeek镜像，亲测可用](https://blog.csdn.net/BigCookies/article/details/145512825)
+- [CUDA Toolkit 12.9 Update 1 Downloads](https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=WSL-Ubuntu&target_version=2.0&target_type=deb_network)
 
 ## 其他
 
