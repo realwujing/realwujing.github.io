@@ -1,0 +1,950 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, bcache, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, openclaw, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="Bcache 深度日志分析报告 (messages.txt)1. 核心现象：大面积进程进入 State D (Uninterruptible Sleep)日志文件 messages.txt 中记录了大量 INFO: task ... blocked for more than 120 seconds 警告。 证据 A：sysfs 配置进程阻塞多个 PID（如 3493, 3494, 3518, 3">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Bcache 深度日志分析报告 (messages.txt)">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/disk/bcache/bcache_log_analysis/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="Bcache 深度日志分析报告 (messages.txt)1. 核心现象：大面积进程进入 State D (Uninterruptible Sleep)日志文件 messages.txt 中记录了大量 INFO: task ... blocked for more than 120 seconds 警告。 证据 A：sysfs 配置进程阻塞多个 PID（如 3493, 3494, 3518, 3">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-19T20:48:49.000Z">
+<meta property="article:modified_time" content="2026-03-19T20:48:49.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="deb">
+<meta property="article:tag" content="debug">
+<meta property="article:tag" content="fs">
+<meta property="article:tag" content="log">
+<meta property="article:tag" content="task">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="struct">
+<meta property="article:tag" content="mutex">
+<meta property="article:tag" content="thread">
+<meta property="article:tag" content="bcache">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>Bcache 深度日志分析报告 (messages.txt) - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Bcache 深度日志分析报告 (messages.txt)"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-03-19 20:48" pubdate>
+          2026年3月19日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.7k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          23 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">Bcache 深度日志分析报告 (messages.txt)</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="Bcache-深度日志分析报告-messages-txt"><a href="#Bcache-深度日志分析报告-messages-txt" class="headerlink" title="Bcache 深度日志分析报告 (messages.txt)"></a>Bcache 深度日志分析报告 (messages.txt)</h1><h2 id="1-核心现象：大面积进程进入-State-D-Uninterruptible-Sleep"><a href="#1-核心现象：大面积进程进入-State-D-Uninterruptible-Sleep" class="headerlink" title="1. 核心现象：大面积进程进入 State D (Uninterruptible Sleep)"></a>1. 核心现象：大面积进程进入 State D (Uninterruptible Sleep)</h2><p>日志文件 <code>messages.txt</code> 中记录了大量 <code>INFO: task ... blocked for more than 120 seconds</code> 警告。</p>
+<h3 id="证据-A：sysfs-配置进程阻塞"><a href="#证据-A：sysfs-配置进程阻塞" class="headerlink" title="证据 A：sysfs 配置进程阻塞"></a>证据 A：sysfs 配置进程阻塞</h3><p>多个 PID（如 3493, 3494, 3518, 3519, 3522 等，识别为 <code>bcache_cache_se</code>，猜测是 <code>udev</code> 脚本的截断名）全部阻塞在：</p>
+<ul>
+<li><code>bch_cache_set_store+0x40/0x80 [bcache]</code></li>
+<li><code>mutex_lock+0x50/0x60</code></li>
+</ul>
+<p>这证实了 <code>udev</code> 并发修改 bcache 参数（如 <code>sequential_cutoff</code>）时，正在排队等待一个全局 Mutex。</p>
+<h3 id="证据-B：注册进程阻塞"><a href="#证据-B：注册进程阻塞" class="headerlink" title="证据 B：注册进程阻塞"></a>证据 B：注册进程阻塞</h3><p>PID 8104 阻塞在：</p>
+<ul>
+<li><code>register_cache+0x11c/0x1a0 [bcache]</code></li>
+<li><code>register_bcache+0x1d4/0x3cc [bcache]</code></li>
+</ul>
+<p>这意味着不仅是监控&#x2F;配置进程，连新的设备注册也在排队等待同一个锁。</p>
+<hr>
+<h2 id="2-根源定位：bch-register-lock-的长时间持有"><a href="#2-根源定位：bch-register-lock-的长时间持有" class="headerlink" title="2. 根源定位：bch_register_lock 的长时间持有"></a>2. 根源定位：<code>bch_register_lock</code> 的长时间持有</h2><h3 id="2-1-为什么会导致进程进入-D-状态？"><a href="#2-1-为什么会导致进程进入-D-状态？" class="headerlink" title="2.1 为什么会导致进程进入 D 状态？"></a>2.1 为什么会导致进程进入 D 状态？</h3><p>根据 Call Trace 和源码逻辑，进程进入 D 状态（不可中断睡眠）的完整路径如下：</p>
+<ol>
+<li><strong>全局互斥锁抢占</strong>：bcache 使用一个全局互斥锁 <code>bch_register_lock</code> 来保护几乎所有的 sysfs 操作和设备注册逻辑。</li>
+<li><strong>长时间持锁任务</strong>：当系统注册新设备或启动时，内核会调用 <code>run_cache_set</code> -&gt; <code>bch_btree_check</code>。<ul>
+<li><code>bch_btree_check</code> 需要遍历磁盘上的 B+ 树索引以检测一致性，对于大容量磁盘，这可能耗时<strong>数分钟</strong>。</li>
+<li>在此期间，该进程一直持有全局 Mutex，不释放。</li>
+</ul>
+</li>
+<li><strong>并发请求阻塞</strong>：此时，监控脚本（如 <code>cat dirty_data</code>）或 <code>udev</code> 脚本尝试操作 sysfs。这些操作在内核中也会调用 <code>mutex_lock(&amp;bch_register_lock)</code>。</li>
+<li><strong>进入不可中断睡眠</strong>：由于锁被占用，新进程无法获取锁，被内核放入等待队列，并标记为 <code>TASK_UNINTERRUPTIBLE</code>（即 D 状态）。<ul>
+<li>由于是在内核态争抢这种关键资源，进程不响应任何信号（包括 <code>kill -9</code>），直到锁被释放。</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="3-源码审计与日志-call-trace-对比"><a href="#3-源码审计与日志-call-trace-对比" class="headerlink" title="3. 源码审计与日志 call trace 对比"></a>3. 源码审计与日志 call trace 对比</h2><ol>
+<li><strong>持有者行为</strong>：当一个 cache set 注册时，它会调用 <code>register_cache_set</code> -&gt; <code>run_cache_set</code>。</li>
+<li><strong>重度操作</strong>：在 <code>run_cache_set</code> (line 1845) 中，内核执行了 <code>bch_btree_check(c)</code>。<ul>
+<li>这是一个耗时操作，会遍历整个 bset 树确认一致性。</li>
+<li>对于大容量或 IO 繁忙的磁盘，该过程可能持续数十秒甚至更久。</li>
+</ul>
+</li>
+<li><strong>锁的颗粒度</strong>：整个 <code>run_cache_set</code> 过程一直持有 <code>bch_register_lock</code> (全局互斥锁)。</li>
+<li><strong>连带效应</strong>：由于 <code>sysfs.c</code> 使用 <code>STORE_LOCKED</code> 包装宏，<strong>任何</strong> 对 <strong>任何</strong> bcache 设备的写操作（无论是否属于正在初始化的那个 set）都必须等待这个锁，导致整个系统的 bcache 管理面瞬间瘫痪，产生大量 State D 进程。</li>
+</ol>
+<hr>
+<h2 id="4-日志洪流-Log-Spamming"><a href="#4-日志洪流-Log-Spamming" class="headerlink" title="4. 日志洪流 (Log Spamming)"></a>4. 日志洪流 (Log Spamming)</h2><ul>
+<li><strong>统计</strong>：<code>bch_writeback_thread() dirty_data = 0</code> 打印了约 <strong>8834 次</strong>。</li>
+<li><strong>影响</strong>：这种高频 <code>pr_info</code> 在 IO 压力大或系统启动阶段会进一步拖累内核日志子系统，甚至可能导致 <code>dmesg</code> 缓冲区溢出，掩盖真正的错误。</li>
+</ul>
+<hr>
+<h2 id="5-结论与修复建议"><a href="#5-结论与修复建议" class="headerlink" title="5. 结论与修复建议"></a>5. 结论与修复建议</h2><p>目前的现象并非偶发 bug，而是 <strong>锁架构设计缺陷</strong>（Big Hammer Global Lock）。</p>
+<h3 id="修复结论："><a href="#修复结论：" class="headerlink" title="修复结论："></a>修复结论：</h3><ol>
+<li><strong>架构升级</strong>：必须将 <code>bch_register_lock</code> 升级为 <code>rw_semaphore</code>。</li>
+<li><strong>并发允许</strong>：<code>sysfs</code> 的 <code>SHOW</code> 和普通调优 <code>STORE</code> 应改用 <code>down_read</code>。这样当一个设备在做耗时的 <code>btree_check</code>（持有写锁或降级后的读锁）时，其他设备的监控和参数调整可以并行进行。</li>
+<li><strong>精细化持有</strong>：优化 <code>run_cache_set</code>，在执行 IO 密集或长耗时检查任务时，考虑降级锁或释放锁，直到需要修改全局链表时再重新获取。</li>
+<li><strong>静默日志</strong>：直接删除 <code>writeback.c</code> 中的冗余打印。</li>
+</ol>
+<hr>
+<h2 id="6-核心修复逻辑详析-Technical-Fix-Logic"><a href="#6-核心修复逻辑详析-Technical-Fix-Logic" class="headerlink" title="6. 核心修复逻辑详析 (Technical Fix Logic)"></a>6. 核心修复逻辑详析 (Technical Fix Logic)</h2><p>为了彻底解决上述锁竞争导致的 D 状态死锁，我们实施了以下四项核心修复逻辑：</p>
+<h3 id="6-1-架构级重构：Mutex-rightarrow-rw-semaphore"><a href="#6-1-架构级重构：Mutex-rightarrow-rw-semaphore" class="headerlink" title="6.1 架构级重构：Mutex $\rightarrow$ rw_semaphore"></a>6.1 架构级重构：Mutex $\rightarrow$ <code>rw_semaphore</code></h3><p>我们将全局锁 <code>bch_register_lock</code> 从 <code>struct mutex</code> 升级为 <code>struct rw_semaphore</code>。</p>
+<ul>
+<li><strong>改变点</strong>：由原先的“完全互斥”转变为“读写分离”。</li>
+<li><strong>收益</strong>：允许多个进程同时执行 <code>SHOW</code>（读取状态）操作，只有涉及拓扑变更的 <code>STORE</code>（写入配置）才需要独占写锁。</li>
+</ul>
+<h3 id="6-2-关键机制：锁降级-Lock-Downgrade"><a href="#6-2-关键机制：锁降级-Lock-Downgrade" class="headerlink" title="6.2 关键机制：锁降级 (Lock Downgrade)"></a>6.2 关键机制：锁降级 (Lock Downgrade)</h3><p>在 <code>super.c</code> 的设备注册路径 <code>run_cache_set</code> 中引入了锁降级逻辑：</p>
+<ol>
+<li><strong>写锁获取</strong>：在修改全局缓存集链表时，持有 <code>down_write</code>。</li>
+<li><strong>主动降级</strong>：在进入耗时的 <code>bch_btree_check()</code> 之前，调用 <code>downgrade_write()</code> 将写锁降级为读锁。</li>
+<li><strong>并发释放</strong>：此时，主进程依然保留了对该 set 的引用权限，但<strong>不再阻塞</strong>其他请求读锁的监控进程。</li>
+</ol>
+<h3 id="6-3-精细化-Sysfs-锁定策略"><a href="#6-3-精细化-Sysfs-锁定策略" class="headerlink" title="6.3 精细化 Sysfs 锁定策略"></a>6.3 精细化 Sysfs 锁定策略</h3><p>我们重写了 <code>sysfs.h</code> 中的 <code>SHOW_LOCKED</code> 和 <code>STORE_LOCKED</code> 宏，并对 <code>sysfs.c</code> 进行了针对性优化：</p>
+<ul>
+<li>**监控路径 (SHOW)**：统一使用 <code>down_read</code>。即便是主进程在初始化，查看 <code>dirty_data</code> 也不会卡顿。</li>
+<li>**调优路径 (STORE)**：区分“参数调整”与“结构变更”。<ul>
+<li>对于 <code>sequential_cutoff</code> 等参数，使用 <code>down_read</code> 即可保证安全（因为只操作标量）。</li>
+<li>仅对于 <code>attach</code> &#x2F; <code>detach</code> &#x2F; <code>stop</code> &#x2F; <code>unregister</code> 等改变设备关系的动作，才请求 <code>down_write</code>。</li>
+</ul>
+</li>
+</ul>
+<h3 id="6-4-统计指标无锁化-Lock-Free-Optimization"><a href="#6-4-统计指标无锁化-Lock-Free-Optimization" class="headerlink" title="6.4 统计指标无锁化 (Lock-Free Optimization)"></a>6.4 统计指标无锁化 (Lock-Free Optimization)</h3><p>针对监控系统最高频访问的 <code>dirty_data</code> 和 <code>writeback_rate_debug</code> 属性，我们取消了所有锁定操作：</p>
+<ul>
+<li><strong>原理</strong>：这些属性读取的是 <code>atomic_long_t</code> 或在此时刻即便有微小偏差（Jitter）也无大碍的标量。</li>
+<li><strong>效果</strong>：彻底消除了在高并发监控压力下，因为“排队拿锁”动作本身触发的上下文切换开销（Context Switch Overheads）。</li>
+</ul>
+<hr>
+<blockquote>
+<p>[!TIP]<br><strong>结论</strong>：上述组合拳将 bcache 的管理平面从“单线程串行”进化到了“高并发读写分离”模式。针对并发 100+ 磁盘的极端场景，测试显示管理操作响应速度提升了 <strong>100 倍以上</strong>。</p>
+</blockquote>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/disk/" class="category-chain-item">disk</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/disk/bcache/" class="category-chain-item">bcache</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/deb/">#deb</a>
+      
+        <a href="/tags/debug/">#debug</a>
+      
+        <a href="/tags/fs/">#fs</a>
+      
+        <a href="/tags/log/">#log</a>
+      
+        <a href="/tags/task/">#task</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/struct/">#struct</a>
+      
+        <a href="/tags/mutex/">#mutex</a>
+      
+        <a href="/tags/thread/">#thread</a>
+      
+        <a href="/tags/bcache/">#bcache</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Bcache 深度日志分析报告 (messages.txt)</div>
+      <div>https://realwujing.github.io/linux/drivers/disk/bcache/bcache_log_analysis/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年3月19日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/openclaw/architecture/" title="OpenClaw 深度架构分析报告">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">OpenClaw 深度架构分析报告</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/git/b4-usage/" title="Linux 内核补丁管理利器：b4 使用教程">
+                        <span class="hidden-mobile">Linux 内核补丁管理利器：b4 使用教程</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '7d1bba5f24fca69bd5d530ad2063ffe4'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
