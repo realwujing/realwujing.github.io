@@ -49,6 +49,10 @@
 - [布隆过滤器(Bloom Filter)的设计和实现](https://www.toutiao.com/article/7209275067782464040)
 
 
+## Transformer
+
+- [Transformer算法详解与PyTorch实现](transformer.md)
+
 ## 其它
 
 - [必知必会位运算技巧手册](https://mp.weixin.qq.com/s/4vHfaNnn1OpWQJcsssWWdQ)
