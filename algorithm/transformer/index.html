@@ -24,7 +24,7 @@
 <meta property="og:description" content="Transformer 算法详解与 PyTorch 实现 基于论文 Attention Is All You Need (Vaswani et al., 2017)   1. 概述Transformer 是一种基于自注意力机制（Self-Attention）的深度学习模型，完全抛弃了传统的 RNN&#x2F;CNN 结构，仅依靠注意力机制来捕捉序列中的全局依赖关系。 核心优势：  并行计算：不像">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-04-27T18:03:26.000Z">
-<meta property="article:modified_time" content="2026-04-27T18:03:26.000Z">
+<meta property="article:modified_time" content="2026-04-28T15:14:51.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="git">
 <meta property="article:tag" content="gpu">
@@ -285,7 +285,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          69k 字
+          72k 字
         
       </span>
     
@@ -296,7 +296,7 @@
         
         
         
-          577 分钟
+          600 分钟
         
       </span>
     
@@ -335,6 +335,14 @@
           <article class="post-content mx-auto">
             <!-- SEO header -->
             <h1 style="display: none">Transformer 算法详解与 PyTorch 实现</h1>
+            
+              <p class="note note-info">
+                
+                  
+                    本文最后更新于：2026年4月28日 下午
+                  
+                
+              </p>
             
             
               <div class="markdown-body">
@@ -515,6 +523,39 @@
 <li>$n_{\text{heads}}$ 太多 → $d_k$ 太小 → 每个头表达力不足</li>
 <li>$n_{\text{heads}}$ 太少 → $d_k$ 太大 → 退化为单头，失去多视角优势</li>
 </ul>
+<p><strong>从512到万亿参数：模型规模的扩展规律</strong></p>
+<p>“所有层维度一样”并不意味着维度必须是512——这个”一样的值”可以很大。Transformer的参数量近似为：</p>
+<p>$$\text{参数量} \approx 12 \times N \times d_{\text{model}}^2$$</p>
+<p>（每层约12倍 $d_{\text{model}}^2$ 的参数：Attention部分4×$d_{\text{model}}^2$，FFN部分8×$d_{\text{model}}^2$）</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>$N$ (层数)</th>
+<th>$d_{\text{model}}$</th>
+<th>参数量</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>原论文</td>
+<td>6</td>
+<td>512</td>
+<td>~6M</td>
+</tr>
+<tr>
+<td>GPT-2</td>
+<td>48</td>
+<td>1600</td>
+<td>~1.5B</td>
+</tr>
+<tr>
+<td>GPT-3</td>
+<td>96</td>
+<td>12288</td>
+<td>~175B</td>
+</tr>
+</tbody></table>
+<p>所以万亿参数模型的搞法就是：<strong>把 $d_{\text{model}}$ 从512拉到万级别，再把层数从6拉到百级别</strong>。维度确实”每个都一样”，但这个一样的值变大了，参数量就平方级增长。</p>
 <table>
 <thead>
 <tr>
@@ -1133,7 +1174,131 @@
 <tr>
 <td>计算量大</td>
 <td>大模型需要大量GPU</td>
-<td>量化、蒸馏、剪枝</td>
+<td>量化、蒸馏、剪枝、MoE</td>
+</tr>
+</tbody></table>
+<h3 id="9-6-MoE：稀疏激活的规模优化"><a href="#9-6-MoE：稀疏激活的规模优化" class="headerlink" title="9.6 MoE：稀疏激活的规模优化"></a>9.6 MoE：稀疏激活的规模优化</h3><p><strong>稠密模型的问题：</strong> GPT-3（175B）这样的稠密模型，每个token都要经过所有层的所有FFN参数，推理一个token需要175B FLOPs。参数量大 → 计算量大 → 成本高。</p>
+<p><strong>MoE（Mixture of Experts）的核心思路：参数量不变，但每个token只激活一小部分参数。</strong></p>
+<p>把每层的单个FFN替换成N个并行FFN（专家），加一个路由器（Router）决定每个token去哪几个专家：</p>
+<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br></pre></td><td class="code"><pre><code class="hljs routeros">          Transformer 每层结构（Encoder Block）<br><br>          ┌─────────────────────────────────────────┐<br>          │                                         │<br>x ──────→ │  Multi-Head Self-Attention              │<br>          │     ↓                                   │<br>          │  <span class="hljs-built_in">Add</span> &amp; Norm (残差 + LayerNorm)           │ ──→ x<span class="hljs-string">&#x27;</span><br><span class="hljs-string">          │                                         │</span><br><span class="hljs-string">x&#x27;</span> ─────→ │  FFN (Feed-Forward Network)  ← MoE替换这！│<br>          │     ↓                                   │<br>          │  <span class="hljs-built_in">Add</span> &amp; Norm (残差 + LayerNorm)           │ ──→ output<br>          │                                         │<br>          └─────────────────────────────────────────┘<br><br>          Attention: <span class="hljs-string">&quot;看哪里&quot;</span> —— 跨位置收集信息（线性加权求和）<br>          FFN:       <span class="hljs-string">&quot;看懂什么&quot;</span> —— 逐位置非线性深加工（两层MLP）<br><br>          FFN 内部结构:<br>          x → W₁(d_model → d_ff) → ReLU → W₂(d_ff → d_model) → output<br>          例: 512 → 2048 → ReLU → 2048 → 512<br>          参数量: W₁(512×2048) + W₂(2048×512) ≈ 2M，占每层约2/3<br><br><br>          MoE 替换后:<br><br>          ┌─────────────────────────────────────────┐<br>          │                                         │<br>x ──────→ │  Multi-Head Self-Attention              │ ← 不变<br>          │     ↓                                   │<br>          │  <span class="hljs-built_in">Add</span> &amp; Norm                             │ ──→ x<span class="hljs-string">&#x27;</span><br><span class="hljs-string">          │                                         │</span><br><span class="hljs-string">x&#x27;</span> ─────→ │  Router → 选top-k → Expert₁ + Expert₄  │ ← FFN变成MoE<br>          │     ↓                                   │<br>          │  <span class="hljs-built_in">Add</span> &amp; Norm                             │ ──→ output<br>          │                                         │<br>          └─────────────────────────────────────────┘<br><br>                  稠密 FFN（每个token都过全部参数）<br>                  ┌─────────────────────────┐<br>                  │         FFN             │<br>token ───────────→│  d_model → d_ff → d_model│──────────→ 输出<br>                  │   (W₁, W₂ 全部参与)     │<br>                  └─────────────────────────┘<br><br><br>                  MoE FFN（每个token只过 top-k 个专家）<br><br>                  ┌── Expert₁ (FFN₁) ──→ ┐     ┌─ 加权 ──→ 输出<br>                  │                       │     │   求和<br>token ──→ Router ─┤── Expert₂ (FFN₂) ──→ │ × ─┤<br>   │     (选      │  ↑                    │     │<br>   │     top-k)   ├── Expert₃ (FFN₃) ──→ │ ×0  │<br>   │              │  ↑                    │     │<br>   └─────────────→├── Expert₄ (FFN₄) ──→ │ × ──┤<br>   │   p₁=0.3     │  ↑                    │     │<br>   │   p₂=0.25    ├── Expert₅ (FFN₅) ──→ │ ×0  │<br>   │   p₃=0.05    │  ↑                    │     │<br>   │   p₄=0.28    ├── Expert₆ (FFN₆) ──→ │ ×0  │<br>   │   p₅=0.03    │  ↑                    │     │<br>   │   p₆=0.02    ├── Expert₇ (FFN₇) ──→ │ ×0  │<br>   │   p₇=0.02    │  ↑                    │     │<br>   │   p₈=0.05    └── Expert₈ (FFN₈) ──→ │ ×0  ┘<br>   │   top-2:      └                       ↑<br>   │   ①₄, ②₁     ×0 = 未被选中，不计算<br>   ↓                ×  = 被选中，参与计算<br> softmax(Wᵣ·x)<br> → 选出概率最大的 <span class="hljs-attribute">k</span>=2 个专家<br> → 只计算这 2 个 FFN，其余 6 个跳过<br></code></pre></td></tr></table></figure>
+
+<p>典型配置：N&#x3D;8个专家，k&#x3D;2（每个token只激活2个专家）</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>GPT-3 稠密</th>
+<th>GPT-3 MoE (8专家)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>总参数</td>
+<td>175B</td>
+<td>~175B × 8 ≈ 1T</td>
+</tr>
+<tr>
+<td>每token激活参数</td>
+<td>175B</td>
+<td>175B × 2&#x2F;8 ≈ 44B</td>
+</tr>
+<tr>
+<td>计算量&#x2F;token</td>
+<td>175B FLOPs</td>
+<td>~44B FLOPs</td>
+</tr>
+<tr>
+<td>模型容量</td>
+<td>175B</td>
+<td>1T（知识量更大）</td>
+</tr>
+</tbody></table>
+<p><strong>本质：</strong> 用稀疏激活实现了”大容量 + 低计算”——模型有1T参数存储知识（容量大），但推理时每token只算44B（成本低）。就像一个公司有8个部门，每个客户只需要对接2个部门就能获得服务——公司规模大但服务成本低。</p>
+<p><strong>MoE的关键组件：</strong></p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>功能</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Router</td>
+<td>决定token去哪些专家</td>
+<td>通常用线性层+softmax，输出N个专家的概率，取top-k</td>
+</tr>
+<tr>
+<td>Experts</td>
+<td>N个独立的FFN</td>
+<td>每个专家是完整的FFN（d_model → d_ff → d_model），参数互不共享</td>
+</tr>
+<tr>
+<td>Top-k选择</td>
+<td>每token只激活k个专家</td>
+<td>k&#x3D;1最激进（可能信息丢失），k&#x3D;2是常用配置</td>
+</tr>
+</tbody></table>
+<p><strong>MoE的代价与挑战：</strong></p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>说明</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>路由不均衡</td>
+<td>某些专家被过度使用，某些被冷落</td>
+<td>Auxiliary Loss（辅助损失，鼓励均匀分配）</td>
+</tr>
+<tr>
+<td>通信开销</td>
+<td>多GPU间需传递token给不同专家所在GPU</td>
+<td>Expert Parallelism + All-to-All通信</td>
+</tr>
+<tr>
+<td>训练不稳定</td>
+<td>路由器的离散选择导致梯度不连续</td>
+<td>Load Balancing + 容量因子(Capacity Factor)</td>
+</tr>
+<tr>
+<td>知识遗忘</td>
+<td>微调时部分专家未被激活，能力退化</td>
+<td>专家微调策略</td>
+</tr>
+</tbody></table>
+<p><strong>代表性MoE模型：</strong></p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>专家数</th>
+<th>激活专家数</th>
+<th>总参数</th>
+<th>激活参数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Switch Transformer</td>
+<td>8</td>
+<td>1</td>
+<td>~1.6T</td>
+<td>~200B</td>
+</tr>
+<tr>
+<td>GShard</td>
+<td>8</td>
+<td>2</td>
+<td>~600B</td>
+<td>~150B</td>
+</tr>
+<tr>
+<td>Mixtral 8x7B</td>
+<td>8</td>
+<td>2</td>
+<td>~47B</td>
+<td>~13B</td>
 </tr>
 </tbody></table>
 <hr>
