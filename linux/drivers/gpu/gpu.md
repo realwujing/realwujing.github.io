@@ -81,6 +81,10 @@ sudo apt install task-gnome-desktop
 - [Linux 显示子系统之 Framebuffer 与 DRM](https://mp.weixin.qq.com/s/apXuHnOTpKq0Za8VsFhM0A)
 - [Linux GPU Driver Developer’s Guide](https://blog.csdn.net/u012839187/article/details/89875800)
 
+### 内存
+
+- [1994年CPU撞上的墙，2026年GPU又撞上了](https://www.toutiao.com/article/7636914628357784090/)
+
 ### ai
 
 - [AISystem 主要是指AI系统，包括AI芯片、AI编译器、AI推理和训练框架等AI全栈底层技术](https://github.com/chenzomi12/AISystem.git)
