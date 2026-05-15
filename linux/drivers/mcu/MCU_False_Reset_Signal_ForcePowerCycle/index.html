@@ -1,0 +1,1081 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, bcache, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, mcu, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, openclaw, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="BMC误判Host异常重启根因分析：MCU固件2.03.30多线程资源竞争再发1 背景2026年5月13日，DPU2.5鲲鹏环境节点10.8.94.254（SoC 10.8.94.231）出现异常重启，BMC一键收集日志后需定位根因。 此前同类问题（ZJSNC-2449，2026年4月）已定位为MCU固件多线程资源竞争导致误上报CPLD寄存器信息，BMC误判Host reset后误触发ForceP">
+<meta property="og:type" content="article">
+<meta property="og:title" content="BMC误判Host异常重启根因分析：MCU固件2.03.30多线程资源竞争再发">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/mcu/MCU_False_Reset_Signal_ForcePowerCycle/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="BMC误判Host异常重启根因分析：MCU固件2.03.30多线程资源竞争再发1 背景2026年5月13日，DPU2.5鲲鹏环境节点10.8.94.254（SoC 10.8.94.231）出现异常重启，BMC一键收集日志后需定位根因。 此前同类问题（ZJSNC-2449，2026年4月）已定位为MCU固件多线程资源竞争导致误上报CPLD寄存器信息，BMC误判Host reset后误触发ForceP">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-15T11:44:17.000Z">
+<meta property="article:modified_time" content="2026-05-15T11:44:17.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="acpi">
+<meta property="article:tag" content="boot">
+<meta property="article:tag" content="grub">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="log">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="mcu">
+<meta property="article:tag" content="proxy">
+<meta property="article:tag" content="power">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>BMC误判Host异常重启根因分析：MCU固件2.03.30多线程资源竞争再发 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="BMC误判Host异常重启根因分析：MCU固件2.03.30多线程资源竞争再发"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-05-15 11:44" pubdate>
+          2026年5月15日 中午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          5.1k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          43 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">BMC误判Host异常重启根因分析：MCU固件2.03.30多线程资源竞争再发</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="BMC误判Host异常重启根因分析：MCU固件2-03-30多线程资源竞争再发"><a href="#BMC误判Host异常重启根因分析：MCU固件2-03-30多线程资源竞争再发" class="headerlink" title="BMC误判Host异常重启根因分析：MCU固件2.03.30多线程资源竞争再发"></a>BMC误判Host异常重启根因分析：MCU固件2.03.30多线程资源竞争再发</h1><h2 id="1-背景"><a href="#1-背景" class="headerlink" title="1 背景"></a>1 背景</h2><p>2026年5月13日，DPU2.5鲲鹏环境节点10.8.94.254（SoC 10.8.94.231）出现异常重启，BMC一键收集日志后需定位根因。</p>
+<p>此前同类问题（ZJSNC-2449，2026年4月）已定位为MCU固件多线程资源竞争导致误上报CPLD寄存器信息，BMC误判Host reset后误触发ForcePowerCycle。本次需确认是否同类根因。</p>
+<h2 id="2-推理链"><a href="#2-推理链" class="headerlink" title="2 推理链"></a>2 推理链</h2><p>先说结论，再说证据：</p>
+<figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs mipsasm">Host没重启 → 为什么<span class="hljs-keyword">BMC认为Host重启了？</span><br><span class="hljs-keyword"></span>  → <span class="hljs-keyword">BMC通过MCU读取CPLD寄存器获取reset信号</span><br><span class="hljs-keyword"></span>  → MCU有已知<span class="hljs-keyword">bug（多线程资源竞争）导致上报信息异常</span><br><span class="hljs-keyword"></span>  → MCU误上报了<span class="hljs-string">&quot;Host reset&quot;</span>信号给<span class="hljs-keyword">BMC</span><br><span class="hljs-keyword"></span>  → <span class="hljs-keyword">BMC误判Host异常重启</span><br><span class="hljs-keyword"></span>  → host_checker <span class="hljs-number">3</span>分钟超时<br>  → <span class="hljs-keyword">BMC强制PowerCycle（把正常运行的Host强行断电重启了）</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>一句话总结</strong>：Host本来在正常运行，MCU固件bug导致误报了一个假的”Host reset”信号，BMC信了，3分钟后把Host强行断电重启——这才是业务中断的真正原因。</p>
+<h2 id="3-关键概念"><a href="#3-关键概念" class="headerlink" title="3 关键概念"></a>3 关键概念</h2><p>在理解根因之前，先梳理Host reset信号从硬件到BMC的完整路径：</p>
+<figure class="highlight gcode"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs gcode">Host硬件reset信号线 → CPLD硬件检测 → CPLD寄存器<span class="hljs-comment">(SysResetDetected位)</span> → MCU通信通道<span class="hljs-comment">(SMBus)</span> → BMC读取<br></code></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>CPLD</strong></td>
+<td>Complex Programmable Logic Device，可编程硬件芯片。通过物理信号线检测Host reset，将结果写入SysResetDetected寄存器位。纯硬件逻辑，不运行软件</td>
+</tr>
+<tr>
+<td><strong>MCU</strong></td>
+<td>微控制器，运行固件(2.03.30)。作为BMC与CPLD之间的通信桥梁——BMC通过MCU(SMBus通道)读取CPLD寄存器值</td>
+</tr>
+<tr>
+<td><strong>BMC</strong></td>
+<td>基带管理控制器。通过MCU读取CPLD寄存器获取Host reset状态，如果检测到SysResetDetected&#x3D;1且非BMC主动发起，则判定Host异常reset</td>
+</tr>
+</tbody></table>
+<p><strong>核心</strong>：CPLD只做信号检测和寄存器存储，MCU负责通信传递。如果MCU把CPLD寄存器值传错了，BMC就会收到假的reset信号。</p>
+<h2 id="4-证据链"><a href="#4-证据链" class="headerlink" title="4 证据链"></a>4 证据链</h2><h3 id="证据1（新）：Host-OS内核日志在00-51-42前后完全连续，无任何重启记录"><a href="#证据1（新）：Host-OS内核日志在00-51-42前后完全连续，无任何重启记录" class="headerlink" title="证据1（新）：Host OS内核日志在00:51:42前后完全连续，无任何重启记录"></a>证据1（新）：Host OS内核日志在00:51:42前后完全连续，无任何重启记录</h3><p>BMC在00:51:42检测到<code>SysResetDetected=1</code>，但Host OS的messages日志在该时间前后完全连续运行，kernel uptime计数器从31664秒连续到31806秒，没有任何中断：</p>
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">messages</span>-<span class="hljs-number">20260513</span>:<span class="hljs-number">168053</span>  <span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">09</span> kernel uptime连续 kubelet正常<br><span class="hljs-attribute">messages</span>-<span class="hljs-number">20260513</span>:<span class="hljs-number">168074</span>  <span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">43</span> kubelet正常（BMC说Host reset后<span class="hljs-number">1</span>秒！）<br><span class="hljs-attribute">messages</span>-<span class="hljs-number">20260513</span>:<span class="hljs-number">168075</span>  <span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">47</span> kubelet正常<br><span class="hljs-attribute">messages</span>-<span class="hljs-number">20260513</span>:<span class="hljs-number">168076</span>  <span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">49</span> kubelet正常<br><span class="hljs-attribute">messages</span>-<span class="hljs-number">20260513</span>:<span class="hljs-number">168081</span>  <span class="hljs-number">00</span>:<span class="hljs-number">52</span>:<span class="hljs-number">01</span> systemd正常<br><span class="hljs-attribute">messages</span>-<span class="hljs-number">20260513</span>:<span class="hljs-number">168094</span>  <span class="hljs-number">00</span>:<span class="hljs-number">52</span>:<span class="hljs-number">09</span> kubelet正常<br><span class="hljs-attribute">messages</span>-<span class="hljs-number">20260513</span>:<span class="hljs-number">168106</span>  <span class="hljs-number">00</span>:<span class="hljs-number">52</span>:<span class="hljs-number">29</span> kernel:<span class="hljs-meta"> [31802秒] vfio-pci正常（uptime连续）</span><br></code></pre></td></tr></table></figure>
+
+<p>kernel uptime从31664秒连续到31806秒，Host从未重启。00:51:42 BMC声称检测到Host reset时，Host OS还在正常写日志。</p>
+<p><strong>这是判断是否MCU误报的关键证据</strong>：Host OS日志在00:51:42前后是否有重启记录——无记录&#x3D;MCU误报（同ZJSNC-2449），有记录&#x3D;Host真异常需进一步排查。本次明确：<strong>无记录，MCU误报。</strong></p>
+<blockquote>
+<p>日志路径：<code>messages-20260513/messages-20260513</code></p>
+</blockquote>
+<h3 id="证据2：BMC通过MCU读取CPLD寄存器获得假reset信号"><a href="#证据2：BMC通过MCU读取CPLD寄存器获得假reset信号" class="headerlink" title="证据2：BMC通过MCU读取CPLD寄存器获得假reset信号"></a>证据2：BMC通过MCU读取CPLD寄存器获得假reset信号</h3><figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">app</span>.log:<span class="hljs-number">10675</span>  <span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">42</span> Refresh system reset detected <span class="hljs-number">1</span><br><span class="hljs-attribute">app</span>.log:<span class="hljs-number">10676</span>  <span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">42</span> reset not initiated by BMC<br><span class="hljs-attribute">app</span>.log:<span class="hljs-number">10680</span>  <span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">42</span><span class="hljs-meta"> [monitor-power] monitor system reset, power state is ON, SysResetDetected value is 1</span><br></code></pre></td></tr></table></figure>
+
+<p>Host实际没重启 → SysResetDetected&#x3D;1是假信号 → MCU误上报CPLD寄存器</p>
+<blockquote>
+<p>日志路径：<code>LogDump/app.log</code></p>
+</blockquote>
+<h3 id="证据3：对比正常CTCC生命周期操作-vs-异常00-51-42"><a href="#证据3：对比正常CTCC生命周期操作-vs-异常00-51-42" class="headerlink" title="证据3：对比正常CTCC生命周期操作 vs 异常00:51:42"></a>证据3：对比正常CTCC生命周期操作 vs 异常00:51:42</h3><p><strong>正常CTCC host_checker（09:14:20，BMC主动控制）</strong>：</p>
+<figure class="highlight pgsql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs pgsql"><span class="hljs-number">09</span>:<span class="hljs-number">14</span>:<span class="hljs-number">20</span>  <span class="hljs-keyword">Notify</span> cpld <span class="hljs-keyword">to</span> send short button signal through hwproxy Accessor   ← BMC主动通知CPLD发<span class="hljs-keyword">reset</span>信号<br><span class="hljs-number">09</span>:<span class="hljs-number">14</span>:<span class="hljs-number">20</span>  <span class="hljs-keyword">Set</span> sys_reset_flag <span class="hljs-keyword">to</span> <span class="hljs-keyword">true</span>                                         ← BMC标记是自己发起的<br><span class="hljs-number">09</span>:<span class="hljs-number">14</span>:<span class="hljs-number">23</span>  <span class="hljs-keyword">Refresh</span> <span class="hljs-keyword">system</span> <span class="hljs-keyword">reset</span> detected <span class="hljs-number">1</span>                                    ← 检测到<span class="hljs-keyword">reset</span>（预期中的）<br><span class="hljs-number">09</span>:<span class="hljs-number">14</span>:<span class="hljs-number">23</span>  <span class="hljs-keyword">Set</span> sys_reset_flag <span class="hljs-keyword">to</span> <span class="hljs-keyword">false</span>                                        ← 清除标记<br><span class="hljs-number">09</span>:<span class="hljs-number">14</span>:<span class="hljs-number">53</span>  clear <span class="hljs-keyword">system</span> <span class="hljs-keyword">reset</span> detected                                        ← <span class="hljs-number">30</span>秒后正常清除<br></code></pre></td></tr></table></figure>
+
+<p><strong>异常00:51:42（BMC未发起）</strong>：</p>
+<figure class="highlight pgsql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs pgsql"><span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">42</span>  <span class="hljs-keyword">Refresh</span> <span class="hljs-keyword">system</span> <span class="hljs-keyword">reset</span> detected <span class="hljs-number">1</span>                                    ← 检测到<span class="hljs-keyword">reset</span>，但没有&quot;BMC通知CPLD&quot;的前置步骤！<br><span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">42</span>  <span class="hljs-keyword">reset</span> <span class="hljs-keyword">not</span> initiated <span class="hljs-keyword">by</span> BMC                                        ← BMC确认不是自己发起的<br><span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">42</span>  <span class="hljs-keyword">Refresh</span> <span class="hljs-keyword">system</span> <span class="hljs-keyword">reset</span> detected <span class="hljs-number">0</span>                                    ← <span class="hljs-number">0.66</span>秒后<span class="hljs-keyword">reset</span>信号消失<br><span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">44</span>  <span class="hljs-keyword">Set</span> sys_reset_flag <span class="hljs-keyword">to</span> <span class="hljs-keyword">false</span>                                        ← 异常<span class="hljs-keyword">reset</span>没有sys_reset_flag=<span class="hljs-keyword">true</span>的前置步骤<br><span class="hljs-number">00</span>:<span class="hljs-number">52</span>:<span class="hljs-number">14</span>  clear <span class="hljs-keyword">system</span> <span class="hljs-keyword">reset</span> detected                                        ← <span class="hljs-number">32</span>秒后清除<br></code></pre></td></tr></table></figure>
+
+<p><strong>关键差异</strong>：正常操作时BMC先通知CPLD发送信号再检测到reset；异常时没有BMC通知步骤，reset信号直接从CPLD寄存器读出 → <strong>MCU误上报CPLD寄存器信息</strong>。</p>
+<blockquote>
+<p>日志路径：<code>LogDump/app.log</code></p>
+</blockquote>
+<h3 id="证据4：与ZJSNC-2449同类根因，MCU-BCU固件版本完全一致"><a href="#证据4：与ZJSNC-2449同类根因，MCU-BCU固件版本完全一致" class="headerlink" title="证据4：与ZJSNC-2449同类根因，MCU_BCU固件版本完全一致"></a>证据4：与ZJSNC-2449同类根因，MCU_BCU固件版本完全一致</h3><table>
+<thead>
+<tr>
+<th>MCU芯片</th>
+<th>ZJSNC-2449（上次）</th>
+<th>本次</th>
+<th>是否一致</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>MCU_BCU_010101</td>
+<td><strong>2.03.30</strong></td>
+<td><strong>2.03.30</strong></td>
+<td><strong>完全一致</strong></td>
+</tr>
+<tr>
+<td>MCU_IEU</td>
+<td>1.47.00</td>
+<td>1.26.00(01010109) &#x2F; 1.47.00(01010D)</td>
+<td>IEU主体一致</td>
+</tr>
+<tr>
+<td>MCU_CLU_010103</td>
+<td>缺失</td>
+<td>缺失</td>
+<td>都缺失</td>
+</tr>
+</tbody></table>
+<p>上次MCU_BCU &#x3D; 2.03.30，本次MCU_BCU &#x3D; 2.03.30，<strong>问题未修复再发生</strong>。</p>
+<p>上次报告明确指出：”MCU由于多线程的资源竞争导致的MCU上报给BMC的信息异常，而未知原因重启的信号同样也是BMC通过MCU读取的CPLD寄存器信息”。</p>
+<blockquote>
+<p>上次日志路径：<code>MK222_2102315JJK10R3100019_20260427-1704/dump_info/AppDump/general_hardware/mcu_info</code><br>本次日志路径：<code>AppDump/general_hardware/mcu_info</code></p>
+</blockquote>
+<h3 id="证据5：BMC误判后的连锁反应——强制断电重启正常运行的Host"><a href="#证据5：BMC误判后的连锁反应——强制断电重启正常运行的Host" class="headerlink" title="证据5：BMC误判后的连锁反应——强制断电重启正常运行的Host"></a>证据5：BMC误判后的连锁反应——强制断电重启正常运行的Host</h3><figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">app</span>.log:<span class="hljs-number">10678</span>  <span class="hljs-number">00</span>:<span class="hljs-number">51</span>:<span class="hljs-number">42</span> host_agent: reset monitor: sys reset detected to <span class="hljs-number">1</span>     ← BMC误判Host reset<br><span class="hljs-attribute">app</span>.log        <span class="hljs-number">00</span>:<span class="hljs-number">54</span>:<span class="hljs-number">42</span> host_checker timeout                                    ← Host实际没reset，无法通过checker<br><span class="hljs-attribute">app</span>.log:<span class="hljs-number">10749</span>  <span class="hljs-number">00</span>:<span class="hljs-number">54</span>:<span class="hljs-number">43</span> execute force power <span class="hljs-literal">off</span>                                 ← ForcePowerCycle restart_cause=Oem<br></code></pre></td></tr></table></figure>
+
+<p>BMC误判 → host_checker超时 → ForcePowerCycle → 强制断电重启正常运行的Host</p>
+<p><strong>Host被ForcePowerCycle强制重启才导致业务中断</strong>——不是Host自己出了问题，是BMC基于MCU的假信号把正常运行的Host强行杀掉了。</p>
+<blockquote>
+<p>日志路径：<code>LogDump/app.log</code></p>
+</blockquote>
+<h2 id="5-根因确认"><a href="#5-根因确认" class="headerlink" title="5 根因确认"></a>5 根因确认</h2><h3 id="判断逻辑"><a href="#判断逻辑" class="headerlink" title="判断逻辑"></a>判断逻辑</h3><p>采用与ZJSNC-2449相同的判断逻辑：</p>
+<table>
+<thead>
+<tr>
+<th>条件</th>
+<th>结果</th>
+<th>本次情况</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>仅带外(BMC)有reset记录</td>
+<td>BMC可能误判</td>
+<td>✅ BMC检测到SysResetDetected&#x3D;1</td>
+</tr>
+<tr>
+<td>Host OS&#x2F;BIOS无reset记录</td>
+<td>Host实际没重启</td>
+<td>✅ messages日志连续，uptime连续，无任何重启记录</td>
+</tr>
+<tr>
+<td>Host实际没重启 + BMC读到reset信号</td>
+<td>MCU误上报CPLD寄存器</td>
+<td>✅ Host没reset，但BMC读到SysResetDetected&#x3D;1</td>
+</tr>
+</tbody></table>
+<h3 id="信号传递路径中的出错点"><a href="#信号传递路径中的出错点" class="headerlink" title="信号传递路径中的出错点"></a>信号传递路径中的出错点</h3><figure class="highlight maxima"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs maxima">Host硬件<span class="hljs-built_in">reset</span>信号线（无信号，Host没<span class="hljs-built_in">reset</span>）<br>    ↓<br>CPLD硬件检测（CPLD寄存器应为<span class="hljs-number">0</span>）<br>    ↓<br>MCU通信通道 ← ❌ 出错点：MCU多线程资源竞争导致上报信息异常，把CPLD寄存器值传成了<span class="hljs-number">1</span><br>    ↓<br>BMC读取（读到SysResetDetected=<span class="hljs-number">1</span>，误判Host <span class="hljs-built_in">reset</span>）<br>    ↓<br>host_checker超时 → ForcePowerCycle → 正常运行的Host被强制断电重启<br></code></pre></td></tr></table></figure>
+
+<h3 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h3><p><strong>与ZJSNC-2449同类根因：MCU_BCU固件2.03.30多线程资源竞争导致上报BMC的CPLD寄存器信息异常（SysResetDetected从0误报为1），BMC误判Host异常reset，触发host_checker超时后ForcePowerCycle，将正常运行的Host强制断电重启。两次事件MCU_BCU固件版本完全一致（2.03.30），问题未修复。</strong></p>
+<h3 id="排除项"><a href="#排除项" class="headerlink" title="排除项"></a>排除项</h3><table>
+<thead>
+<tr>
+<th>假设</th>
+<th>排除依据</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>硬件问题导致Host重启</td>
+<td>硬件重启会带外上报硬件告警 + 掉电无法恢复后自动重启进入系统，与本次不一致；且Host OS日志连续证明Host没有真的重启</td>
+</tr>
+<tr>
+<td>Host OS自身异常重启</td>
+<td>messages日志在00:51:42前后完全连续，无reboot&#x2F;shutdown&#x2F;crash&#x2F;panic记录</td>
+</tr>
+<tr>
+<td>BMC主动发起reset</td>
+<td>BMC日志明确记录”reset not initiated by BMC”</td>
+</tr>
+</tbody></table>
+<h2 id="6-时间线"><a href="#6-时间线" class="headerlink" title="6 时间线"></a>6 时间线</h2><table>
+<thead>
+<tr>
+<th>时间</th>
+<th>事件</th>
+<th>来源</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>05-03</td>
+<td>framework.log首次记录SMBus失败（比app.log早9天）</td>
+<td>framework.log</td>
+</tr>
+<tr>
+<td>05-11 23:06</td>
+<td>PCIe error 201首次出现（4154次，贯穿全程）</td>
+<td>app.log</td>
+</tr>
+<tr>
+<td>05-12 01:26</td>
+<td>app.log首次SMBus失败 + IOError + DPU掉电#1</td>
+<td>app.log</td>
+</tr>
+<tr>
+<td>05-12 09:08&#x2F;13:01&#x2F;15:54</td>
+<td>CTCC正常生命周期操作 + host_checker×3（均在3分钟内恢复）</td>
+<td>app.log</td>
+</tr>
+<tr>
+<td>05-13 00:46:58</td>
+<td>SMBus失败 + IOError + DPU掉电On→Off→On(1秒恢复)</td>
+<td>app.log</td>
+</tr>
+<tr>
+<td><strong>05-13 00:51:42</strong></td>
+<td><strong>MCU误报SysResetDetected&#x3D;1 → BMC误判Host reset</strong></td>
+<td><strong>app.log:10675</strong></td>
+</tr>
+<tr>
+<td>05-13 00:54:42</td>
+<td>host_checker超时</td>
+<td>app.log</td>
+</tr>
+<tr>
+<td>05-13 00:54:43</td>
+<td>ForcePowerCycle（restart_cause&#x3D;Oem）</td>
+<td>app.log:10749</td>
+</tr>
+</tbody></table>
+<h2 id="7-建议"><a href="#7-建议" class="headerlink" title="7 建议"></a>7 建议</h2><table>
+<thead>
+<tr>
+<th>优先级</th>
+<th>建议</th>
+<th>责任方</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>P0</td>
+<td><strong>升级MCU_BCU固件</strong>，修复多线程资源竞争问题</td>
+<td>SDI MCU团队</td>
+</tr>
+<tr>
+<td>P0</td>
+<td>联系SDI MCU团队读取MCU error log，确认MCU内部是否有异常记录</td>
+<td>SDI MCU团队</td>
+</tr>
+<tr>
+<td>P1</td>
+<td>BMC软件改进：检测到SysResetDetected&#x3D;1时，先通过IPMI&#x2F;Redfish验证Host OS是否真的在运行，再决定是否触发ForcePowerCycle</td>
+<td>BMC软件团队</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>复现测试，保持环境不变观察是否再次出现</td>
+<td>测试团队</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>Host OS配置改进：配置GRUB kbox_mem参数、启用rasdaemon、内核启用pstore</td>
+<td>OS团队</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>BIOS配置改进：配置ACPI ERST表，正确配置_OSC暴露AER&#x2F;DPC能力</td>
+<td>BIOS团队</td>
+</tr>
+</tbody></table>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/mcu/" class="category-chain-item">mcu</a>
+  
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/acpi/">#acpi</a>
+      
+        <a href="/tags/boot/">#boot</a>
+      
+        <a href="/tags/grub/">#grub</a>
+      
+        <a href="/tags/kernel/">#kernel</a>
+      
+        <a href="/tags/log/">#log</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/mcu/">#mcu</a>
+      
+        <a href="/tags/proxy/">#proxy</a>
+      
+        <a href="/tags/power/">#power</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>BMC误判Host异常重启根因分析：MCU固件2.03.30多线程资源竞争再发</div>
+      <div>https://realwujing.github.io/linux/drivers/mcu/MCU_False_Reset_Signal_ForcePowerCycle/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年5月15日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/algorithm/transformer/" title="Transformer 算法详解与 PyTorch 实现">
+                        <span class="hidden-mobile">Transformer 算法详解与 PyTorch 实现</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '4b13bc9f14eed6929070634aad9bf073'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
