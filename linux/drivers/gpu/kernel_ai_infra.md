@@ -233,8 +233,9 @@ drivers/infiniband/
 | **内存注册** | 只 pin 页，记录 `struct page*` 数组 | 同 rxe | 写入网卡 IOMMU/TLB，存总线地址 |
 | **每字节 CPU 拷贝** | ≥ 2 次 | ≥ 2 次 | **0 次** |
 | **完成通知** | workqueue 直接回调 | `sk_data_ready` socket 回调 | MSI-X 硬中断 + doorbell |
-| **延迟** | 硬件 RDMA 的 10-50 倍 | 同左 | 微秒级 |
-| **吞吐瓶颈** | CPU 拷贝带宽 | TCP + CPU 拷贝带宽 | PCIe 带宽（可跑满 400Gbps） |
+| **单向延迟** | 10-30 µs | 15-50 µs | 1-2 µs (IB)，2-5 µs (RoCEv2) |
+| **吞吐** | ~10-30 Gbps (受 CPU 限) | ~5-20 Gbps (受 TCP 限) | 100-400 Gbps (受 PCIe 限) |
+| **CPU 开销** | 100%（数据搬运全占用） | 100%（数据搬运全占用） | < 5%（只写描述符 + doorbell） |
 
 ### 数据路径对比（代码佐证）
 
