@@ -5,10 +5,11 @@
 2. [专用 AI 加速器框架：drivers/accel](#专用-ai-加速器框架driversaccel)
 3. [GPU 计算驱动](#gpu-计算驱动)
 4. [RDMA 子系统详解](#rdma-子系统详解)
-5. [GPU ↔ RDMA 集成：零拷贝数据传输](#gpu--rdma-集成零拷贝数据传输)
-6. [异构内存管理：HMM/GPUSVM/Pagemap](#异构内存管理hmmsvm)
-7. [其他 AI 相关基础设施](#其他-ai-相关基础设施)
-8. [分布式 AI 训练的完整内核栈](#分布式-ai-训练的完整内核栈)
+5. [软 RDMA vs 硬 RDMA：架构差异深度对比](#软-rdma-vs-硬-rdma架构差异深度对比)
+6. [GPU ↔ RDMA 集成：零拷贝数据传输](#gpu--rdma-集成零拷贝数据传输)
+7. [异构内存管理：HMM/GPUSVM/Pagemap](#异构内存管理hmmsvm)
+8. [其他 AI 相关基础设施](#其他-ai-相关基础设施)
+9. [分布式 AI 训练的完整内核栈](#分布式-ai-训练的完整内核栈)
 
 ---
 
@@ -216,6 +217,110 @@ drivers/infiniband/
 | **iser/isert** | iSCSI over RDMA (initiator/target) |
 | **srp/srpt** | SCSI RDMA Protocol (initiator/target) |
 | **rtrs** | RDMA Transport (块设备远程挂载) |
+
+---
+
+## 软 RDMA vs 硬 RDMA：架构差异深度对比
+
+`drivers/infiniband/sw/` 和 `drivers/infiniband/hw/` 的根本区别：**数据搬运谁来做**。
+
+### 核心对比
+
+| | rxe (软 RoCE) | siw (软 iWARP) | mlx5 (硬 RDMA) |
+|---|---|---|---|
+| **数据搬运** | CPU `memcpy` | CPU `skb_copy_bits` | 网卡 PCIe DMA 引擎 |
+| **网络栈** | 走内核 IP/UDP 栈 | 走内核 TCP 栈 | 网卡硬件直接发包 |
+| **内存注册** | 只 pin 页，记录 `struct page*` 数组 | 同 rxe | 写入网卡 IOMMU/TLB，存总线地址 |
+| **每字节 CPU 拷贝** | ≥ 2 次 | ≥ 2 次 | **0 次** |
+| **完成通知** | workqueue 直接回调 | `sk_data_ready` socket 回调 | MSI-X 硬中断 + doorbell |
+| **延迟** | 硬件 RDMA 的 10-50 倍 | 同左 | 微秒级 |
+| **吞吐瓶颈** | CPU 拷贝带宽 | TCP + CPU 拷贝带宽 | PCIe 带宽（可跑满 400Gbps） |
+
+### 数据路径对比（代码佐证）
+
+**rxe — CPU 搬数据，走内核 IP/UDP 栈：**
+
+```c
+// rxe_mr.c:341-348 — CPU memcpy 逐字节搬运
+va = kmap_local_page(info->page);
+if (dir == RXE_FROM_MR_OBJ)
+    memcpy(addr, va + page_offset, bytes);   // ← CPU 拷贝！
+else
+    memcpy(va + page_offset, addr, bytes);   // ← CPU 拷贝！
+kunmap_local(va);
+
+// rxe_net.c:457-460 — 发包走内核 IP 栈
+if (skb->protocol == htons(ETH_P_IP))
+    err = ip_local_out(dev_net(...), skb->sk, skb);    // ← 内核网络栈！
+else
+    err = ip6_local_out(dev_net(...), skb->sk, skb);
+
+// rxe_net.c:283 — 收包走 UDP tunnel 回调
+rxe_udp_encap_recv() → rxe_rcv() → workqueue tasklet → copy_data() 拷到用户页
+```
+
+**siw — CPU 搬数据，走内核 TCP 栈：**
+
+```c
+// siw_qp_rx.c:56-57 — 从 skb 拷贝到用户页
+dest = kmap_atomic(p);
+rv = skb_copy_bits(srx->skb, srx->skb_offset, dest + pg_off, bytes);
+                                                        // ← CPU 拷贝！
+// siw_qp_tx.c:286 — 发包走内核 socket
+rv = kernel_sendmsg(sock, &msg, vec, num, len);         // ← TCP socket！
+
+// siw_qp.c:118 — 收包走 socket 回调
+tcp_read_sock(sk, bytes, siw_tcp_rx_data);              // ← TCP 栈收包
+```
+
+**mlx5 — CPU 只写描述符，网卡 DMA：**
+
+```c
+// wr.c:1025-1048 — CPU 只写 WQE 描述符 + 敲 doorbell
+qp->db.db[MLX5_SND_DBR] = cpu_to_be32(qp->sq.cur_post);   // 更新 doorbell record
+wmb();
+mlx5_write64((__be32 *)ctrl, bf->bfreg->map + bf->offset); // 敲 BlueFlame 寄存器
+// ↑ 网卡收到 doorbell 后，自己通过 PCIe DMA 读 WQE 和应用 buffer
+// CPU 不触碰数据
+
+// cq.c:1006-1007 — 完成通知通过 MSI-X 中断触发 tasklet
+cq->mcq.tasklet_ctx.comp = mlx5_ib_cq_comp;
+// cq.c:663-666 — 通过写 UAR 页面的 doorbell 来 arm CQ
+mlx5_cq_arm(&cq->mcq, ..., uar_page, to_mcq(ibcq)->mcq.cons_index);
+```
+
+### 内存注册的本质区别
+
+**软 RDMA**：`ib_umem_get()` 只是 pin 住用户页，存个 `page_info[]` 数组。后续访问靠 `kmap` + `memcpy`：
+
+```c
+// rxe_mr.c:192-218
+umem = ib_umem_get(&rxe->ib_dev, start, length, access);  // 只 pin 页
+rxe_mr_fill_pages_from_sgt(mr, &umem->sgt_append.sgt);     // 记录 struct page* 数组
+// 使用时：kmap_local_page(info->page) + memcpy
+// 无 IOMMU，无 DMA 地址，无设备页表
+```
+
+**硬 RDMA**：`create_mkey` 固件命令将 DMA 总线地址编程进网卡 IOMMU/TLB。网卡拿到 MR key 后能从 TLB 查到物理地址直接 DMA：
+
+```c
+// mr.c:532-637
+pas = (__be64 *)MLX5_ADDR_OF(create_mkey_in, in, klm_pas_mtt);
+mlx5_ib_populate_pas(umem, 1UL << mr->page_shift, pas, ...);  // 填 DMA 总线地址
+err = mlx5_ib_create_mkey(dev, &mr->mmkey, in, inlen);         // 编程进网卡 TLB
+```
+
+软 RDMA 的底层依赖 `INFINIBAND_VIRT_DMA`（`drivers/infiniband/Kconfig:77-78`），这是一个编译时恒等映射技巧：`!HIGHMEM` 时所有内核内存都在 direct map 中，`virt_to_page()` 和 `page_to_virt()` 是 O(1) 操作。没有真实的 DMA 映射。
+
+### 软 RDMA 的价值
+
+既然性能差距悬殊，软 RDMA 有什么用？
+
+1. **开发调试**：在没有 RDMA 硬件的笔记本上开发和测试 RDMA 应用
+2. **协议验证**：验证 RoCE/iWARP 协议正确性，无需昂贵硬件
+3. **功能测试**：CI/CD 流水线中跑 RDMA verbs 功能测试
+4. **学习研究**：理解 RDMA 协议和行为，源码线性可读
+5. **低端需求**：吞吐要求不高但需要 RDMA 语义（单边操作、零拷贝）的场景
 
 ---
 
@@ -427,3 +532,5 @@ drivers/gpu/drm/ttm/        ← TTM 多内存类型管理器
 | RDMA 怎么用 HMM | `drivers/infiniband/core/umem_odp.c:365` `hmm_range_fault()` |
 | 多 GPU 怎么 P2P | `drivers/gpu/drm/amd/amdkfd/` `HSA_AMD_P2P` |
 | CXL 内存怎么共享 | `drivers/cxl/core/region.c` |
+| 软 RDMA 怎么实现 | `drivers/infiniband/sw/rxe/rxe_mr.c` (MR), `rxe_req.c` (QP send), `rxe_net.c` (IP/UDP) |
+| 硬 RDMA 怎么实现 | `drivers/infiniband/hw/mlx5/wr.c` (doorbell), `mr.c` (MKey/IOMMU) |
