@@ -24,21 +24,21 @@
 <meta property="og:description" content="Linux 内核 AI Infra 全景：GPU、加速器、RDMA 与异构计算目录 内核 AI 基础设施总览 专用 AI 加速器框架：drivers&#x2F;accel GPU 计算驱动 RDMA 子系统详解 软 RDMA vs 硬 RDMA：架构差异深度对比 RDMA 丢包解析：两层视角   GPU ↔ RDMA 集成：零拷贝数据传输 异构内存管理：HMM&#x2F;GPUSVM&#x2F;P">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-05-20T20:23:29.000Z">
-<meta property="article:modified_time" content="2026-05-20T21:17:45.000Z">
+<meta property="article:modified_time" content="2026-05-20T21:24:19.000Z">
 <meta property="article:author" content="Wu Jing">
 <meta property="article:tag" content="3d">
-<meta property="article:tag" content="fs">
-<meta property="article:tag" content="go">
-<meta property="article:tag" content="mm">
-<meta property="article:tag" content="net">
 <meta property="article:tag" content="acpi">
 <meta property="article:tag" content="drivers">
+<meta property="article:tag" content="fs">
+<meta property="article:tag" content="go">
 <meta property="article:tag" content="gpu">
 <meta property="article:tag" content="kernel">
 <meta property="article:tag" content="kvm">
 <meta property="article:tag" content="linux">
 <meta property="article:tag" content="task">
 <meta property="article:tag" content="virt">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="net">
 <meta property="article:tag" content="struct">
 <meta property="article:tag" content="sync">
 <meta property="article:tag" content="power">
@@ -293,7 +293,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          15k 字
+          17k 字
         
       </span>
     
@@ -304,7 +304,7 @@
         
         
         
-          127 分钟
+          139 分钟
         
       </span>
     
@@ -770,19 +770,26 @@
 <li><strong>学习研究</strong>：理解 RDMA 协议和行为，源码线性可读</li>
 <li><strong>低端需求</strong>：吞吐要求不高但需要 RDMA 语义（单边操作、零拷贝）的场景</li>
 </ol>
-<h3 id="RDMA-丢包解析：两层视角"><a href="#RDMA-丢包解析：两层视角" class="headerlink" title="RDMA 丢包解析：两层视角"></a>RDMA 丢包解析：两层视角</h3><p>“RDMA 不丢包” 是流传最广也最容易误解的说法。真相分两层：</p>
-<figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs mipsasm">┌────────────────────────────────────────────────┐<br>│  传输层（IB Transport）                          │<br>│  • QP 重传、超时、RNR NAK ← 这里会<span class="hljs-string">&quot;丢&quot;</span>          │<br>│  • IB_WC_RETRY_EXC_ERR, IB_WC_RESP_TIMEOUT_ERR  │<br>│  • 原因：对端 <span class="hljs-keyword">buffer </span>不够、处理超时、协议违例      │<br>├────────────────────────────────────────────────┤<br>│  链路层（IB Link Layer）                         │<br>│  • credit-<span class="hljs-keyword">based </span>逐跳流控 ← 这里<span class="hljs-string">&quot;不丢&quot;</span>            │<br>│  • 物理线缆上缓冲溢出被消除                       │<br>│  • 原因：信用协商是硬件逐跳的，收发双方预先协商     │<br>└────────────────────────────────────────────────┘<br></code></pre></td></tr></table></figure>
+<h3 id="RDMA-丢包解析：两层视角"><a href="#RDMA-丢包解析：两层视角" class="headerlink" title="RDMA 丢包解析：两层视角"></a>RDMA 丢包解析：两层视角</h3><p>“RDMA 不丢包” 是流传最广也最容易误解的说法。正确理解需要分两个层次看：<strong>链路层</strong>和<strong>传输层</strong>不是一回事。</p>
+<figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs mipsasm">┌──────────────────────────────────────────────────┐<br>│  传输层（IB Transport）                           │<br>│  • QP 重传、超时、RNR NAK ← 这里会<span class="hljs-string">&quot;丢&quot;</span>           │<br>│  • IB_WC_RETRY_EXC_ERR, IB_WC_RESP_TIMEOUT_ERR   │<br>│  • 原因：对端 <span class="hljs-keyword">buffer </span>不够、处理超时、协议违例       │<br>│  • 软硬 RDMA 都走同一套 ib_qp_attr 重传参数        │<br>├──────────────────────────────────────────────────┤<br>│  链路层（IB Link Layer）                          │<br>│  • credit-<span class="hljs-keyword">based </span>逐跳流控 ← 这里<span class="hljs-string">&quot;不丢&quot;</span>             │<br>│  • 物理线缆上缓冲溢出被消除                        │<br>│  • 硬 RDMA 硬件保证，软 RDMA 做不到                │<br>└──────────────────────────────────────────────────┘<br></code></pre></td></tr></table></figure>
 
-<h4 id="链路层：硬-RDMA-真不丢-vs-软-RDMA-做不到"><a href="#链路层：硬-RDMA-真不丢-vs-软-RDMA-做不到" class="headerlink" title="链路层：硬 RDMA 真不丢 vs 软 RDMA 做不到"></a>链路层：硬 RDMA 真不丢 vs 软 RDMA 做不到</h4><p><strong>硬 RDMA (InfiniBand)</strong> — 逐跳硬件信用（credit）流控：</p>
-<figure class="highlight prolog"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs prolog"><span class="hljs-symbol">Host</span> <span class="hljs-symbol">HCA</span> ──[credits]──→ <span class="hljs-symbol">Switch</span> ──[credits]──→ <span class="hljs-symbol">Target</span> <span class="hljs-symbol">HCA</span><br>           <span class="hljs-string">&quot;能收 32 个 VL15 buffer，发吧&quot;</span><br>           <span class="hljs-string">&quot;能收 16 个，发吧&quot;</span><br></code></pre></td></tr></table></figure>
+<p><strong>类比 TCP over Ethernet</strong> 更容易理解：</p>
+<blockquote>
+<p>以太网链路层 CRC 校验保证帧传输不 bit-flip（链路层保护），但 TCP 仍然要做重传，因为路由丢包、接收端 socket buffer 满、三次握手失败等（传输层保护）。CRC 没坏 ≠ TCP 不会超时重传。</p>
+</blockquote>
+<h4 id="链路层：硬-RDMA-真不丢，软-RDMA-做不到"><a href="#链路层：硬-RDMA-真不丢，软-RDMA-做不到" class="headerlink" title="链路层：硬 RDMA 真不丢，软 RDMA 做不到"></a>链路层：硬 RDMA 真不丢，软 RDMA 做不到</h4><p><strong>硬 RDMA (InfiniBand)</strong> — 逐跳硬件信用（credit）流控：</p>
+<figure class="highlight prolog"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs prolog"><span class="hljs-symbol">Host</span> <span class="hljs-symbol">HCA</span> ──[credits]──→ <span class="hljs-symbol">Switch</span> <span class="hljs-number">1</span> ──[credits]──→ <span class="hljs-symbol">Switch</span> <span class="hljs-number">2</span> ──[credits]──→ <span class="hljs-symbol">Target</span> <span class="hljs-symbol">HCA</span><br>           <span class="hljs-string">&quot;有 32 个 VL15 buffer，发吧&quot;</span>   <span class="hljs-string">&quot;有 16 个，发吧&quot;</span>   <span class="hljs-string">&quot;能收 8 个，发吧&quot;</span><br></code></pre></td></tr></table></figure>
 
+<p>核心特点：</p>
 <ul>
 <li><strong>逐跳（per-hop）</strong>：每根线缆两端独立协商 credits，不依赖端到端</li>
-<li><strong>按虚拟通道（VL）隔离</strong>：每个 VL 有独立 credit 池，管理流量不会被数据流量饿死</li>
 <li><strong>硬件实现</strong>：HCA&#x2F;Switch ASIC 纳秒级响应，不经过 OS</li>
+<li><strong>按虚拟通道（VL）隔离</strong>：每个 VL 有独立 credit 池，管理流量不被数据流量饿死</li>
 <li><strong>发送方不发没有 buffer 的包</strong> → 物理上没有缓冲溢出 → 链路层丢包不可能</li>
 </ul>
-<p>这跟 TCP&#x2F;IP 的根本区别在于设计哲学：</p>
+<p>这跟 <strong>TCP&#x2F;IP 的设计哲学根本不同</strong>：</p>
+<figure class="highlight arduino"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs arduino">TCP over <span class="hljs-built_in">Ethernet</span> 的流控：<br>  Host ──────────→ Router ──────────→ <span class="hljs-built_in">Server</span><br>    TCP 滑动窗口（端到端）         ARP（链路层）<br>    丢包 = 拥塞信号              无逐跳硬件信用<br>    AIMD 降速                    交换机只管转发<br><br>InfiniBand 的流控：<br>  HCA ──[credits]──→ Switch ──[credits]──→ HCA<br>    信用协商消除拥塞（前验）      逐跳硬件保证（后验）<br>    物理上禁止缓冲溢出            每跳独立协商<br></code></pre></td></tr></table></figure>
+
 <table>
 <thead>
 <tr>
@@ -793,34 +800,37 @@
 </thead>
 <tbody><tr>
 <td><strong>流控位置</strong></td>
-<td>端到端（TCP 滑动窗口）</td>
-<td>逐跳（每根线缆硬件 credit）</td>
+<td>端到端（TCP 滑动窗口，只关心最终接收方 <code>rwnd</code>）</td>
+<td>逐跳（每根线缆硬件 credit，关心中间每一跳）</td>
 </tr>
 <tr>
 <td><strong>拥塞信号</strong></td>
-<td>丢包 &#x3D; 拥塞信号（后验）</td>
-<td>credit 协商消除拥塞（前验）</td>
+<td>丢包 &#x3D; 拥塞信号，触发慢启动&#x2F;AIMD 降速（<strong>后验</strong>）</td>
+<td>credit 协商消除拥塞可能（<strong>前验</strong>）</td>
 </tr>
 <tr>
 <td><strong>丢包态度</strong></td>
-<td>容忍丢包，丢了重传</td>
+<td>容忍丢包，丢了再重传</td>
 <td>设计上禁止丢包</td>
 </tr>
 <tr>
 <td><strong>中间交换机</strong></td>
-<td>buffer 不够就 tail drop&#x2F;RED</td>
-<td>每跳有 credit，不会溢出</td>
-</tr>
-<tr>
-<td><strong>以太网 PAUSE</strong></td>
-<td>全局停等，头阻严重，生产少用</td>
-<td>不适用，IB 是自建网络</td>
+<td>buffer 不够就 tail drop 或 RED 随机丢</td>
+<td>每跳有 credit 池，不会溢出</td>
 </tr>
 </tbody></table>
-<p><strong>软 RDMA (rxe)</strong> — 没有链路层保护，走的是普通以太网 + 内核 IP&#x2F;UDP 栈。链路层该丢照丢。</p>
-<h4 id="传输层：无论软硬，RDMA-都有丢包和重传"><a href="#传输层：无论软硬，RDMA-都有丢包和重传" class="headerlink" title="传输层：无论软硬，RDMA 都有丢包和重传"></a>传输层：无论软硬，RDMA 都有丢包和重传</h4><p>即使硬 RDMA 链路层不丢包，传输层仍然会触发重传和 error：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// include/rdma/ib_verbs.h:991-1016 — 传输层错误码</span><br><span class="hljs-class"><span class="hljs-keyword">enum</span> <span class="hljs-title">ib_wc_status</span> &#123;</span><br>    IB_WC_SUCCESS,<br>    IB_WC_RETRY_EXC_ERR,       <span class="hljs-comment">// 重传次数耗尽！</span><br>    IB_WC_RNR_RETRY_EXC_ERR,    <span class="hljs-comment">// RNR NAK 重试耗尽！</span><br>    IB_WC_RESP_TIMEOUT_ERR,     <span class="hljs-comment">// 响应超时！</span><br>    IB_WC_LOC_ACCESS_ERR,       <span class="hljs-comment">// 本地访问违例</span><br>    IB_WC_REM_ACCESS_ERR,       <span class="hljs-comment">// 远端访问违例</span><br>    IB_WC_WR_FLUSH_ERR,         <span class="hljs-comment">// WR 队列被清空</span><br>    <span class="hljs-comment">// ...</span><br>&#125;;<br><br><span class="hljs-comment">// drivers/infiniband/hw/mlx5/cq.c:325,329 — 网卡固件错误映射</span><br><span class="hljs-keyword">case</span> MLX5_CQE_SYNDROME_LOCAL_ACCESS_ERR:<br>    wc-&gt;status = IB_WC_RETRY_EXC_ERR;      <span class="hljs-comment">// ← 网卡重传失败！</span><br>    wc-&gt;status = IB_WC_RNR_RETRY_EXC_ERR;  <span class="hljs-comment">// ← 对端 Not Ready！</span><br></code></pre></td></tr></table></figure>
-
+<p><strong>以太网的 PAUSE 帧 ≠ credit 流控。</strong> 802.3x PAUSE 做了链路层流控但：</p>
+<ul>
+<li>全局停等而非逐 VL：一发 PAUSE 整根线全停，不分流量类型</li>
+<li>头阻（HOL blocking）：一根线停导致上游全堵</li>
+<li>PFC 改进为按优先级停，但仍有 PFC 风暴和死锁风险</li>
+<li>生产环境中基本不用：数据中心 TCP 靠 ECN + DCTCP&#x2F;DCQCN，不依赖链路层无损</li>
+</ul>
+<p><strong>软 RDMA (rxe&#x2F;siw)</strong> — 没有链路层保护，走的是普通以太网 + 内核 IP&#x2F;UDP&#x2F;TCP 栈。链路层该丢照丢。</p>
+<h4 id="传输层：无论软硬，RDMA-都会丢"><a href="#传输层：无论软硬，RDMA-都会丢" class="headerlink" title="传输层：无论软硬，RDMA 都会丢"></a>传输层：无论软硬，RDMA 都会丢</h4><p>链路层 credit 保证的是：<strong>包从 HCA → 交换机 → 远端 HCA 这段物理路径上不会因 buffer 溢出被丢弃。</strong> 但传输层仍然面临：</p>
+<blockquote>
+<p>链路层 CRC 没坏 ≠ TCP 不会超时重传。网卡不收错包 ≠ 对端软件不拒绝。</p>
+</blockquote>
 <p><strong>创建 QP 必须配置重传参数</strong>（<code>struct ib_qp_attr</code>）：</p>
 <table>
 <thead>
@@ -842,7 +852,7 @@
 </tr>
 <tr>
 <td><code>min_rnr_timer</code></td>
-<td>RNR NAK 最小等待延迟</td>
+<td>RNR NAK 最小等待延迟（对端多久准备好 buffer）</td>
 <td>12 (≈1ms)</td>
 </tr>
 <tr>
@@ -850,60 +860,70 @@
 <td>本地 ACK 超时 <code>4.096 × 2^timeout</code> µs</td>
 <td>14 (≈67ms)</td>
 </tr>
+<tr>
+<td><code>packet_life_time</code></td>
+<td>包在网络中存活的最长时间</td>
+<td>—</td>
+</tr>
 </tbody></table>
-<p>这些参数在软硬 RDMA 上共用同一套代码：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// rxe_qp.c:761-770 — rxe 和 mlx5 用同样的 ib_qp_attr 字段</span><br>qp-&gt;attr.retry_cnt = attr-&gt;retry_cnt;     <span class="hljs-comment">// 重传上限</span><br>qp-&gt;comp.retry_cnt = attr-&gt;retry_cnt;<br>qp-&gt;attr.rnr_retry = attr-&gt;rnr_retry;     <span class="hljs-comment">// RNR 重试上限</span><br>qp-&gt;comp.rnr_retry = attr-&gt;rnr_retry;<br></code></pre></td></tr></table></figure>
+<p>这些参数存在的本身就在说：<strong>RDMA 不仅会丢，还必须设计应对”丢”的机制。</strong></p>
+<p>软硬 RDMA 共用同一套参数，代码完全一致：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// rxe_qp.c:761-770 — 和 mlx5 用同样的 ib_qp_attr 字段</span><br>qp-&gt;attr.retry_cnt = attr-&gt;retry_cnt;<br>qp-&gt;comp.retry_cnt = attr-&gt;retry_cnt;<br>qp-&gt;attr.rnr_retry = attr-&gt;rnr_retry;<br>qp-&gt;comp.rnr_retry = attr-&gt;rnr_retry;<br></code></pre></td></tr></table></figure>
 
-<h4 id="传输层丢包的根本原因"><a href="#传输层丢包的根本原因" class="headerlink" title="传输层丢包的根本原因"></a>传输层丢包的根本原因</h4><p>这些场景下，即使链路层完好，传输层也会失败：</p>
+<p>传输层错误码：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// include/rdma/ib_verbs.h:991-1016 — IB 的&quot;丢包&quot;就是这些</span><br><span class="hljs-class"><span class="hljs-keyword">enum</span> <span class="hljs-title">ib_wc_status</span> &#123;</span><br>    IB_WC_SUCCESS,<br>    IB_WC_RETRY_EXC_ERR,        <span class="hljs-comment">// 重传次数耗尽！</span><br>    IB_WC_RNR_RETRY_EXC_ERR,     <span class="hljs-comment">// RNR NAK 重试耗尽！</span><br>    IB_WC_RESP_TIMEOUT_ERR,      <span class="hljs-comment">// 响应超时！</span><br>    IB_WC_LOC_ACCESS_ERR,        <span class="hljs-comment">// 本地访问违例</span><br>    IB_WC_REM_ACCESS_ERR,        <span class="hljs-comment">// 远端访问违例</span><br>    IB_WC_WR_FLUSH_ERR,          <span class="hljs-comment">// WR 队列被清空</span><br>    <span class="hljs-comment">// ...</span><br>&#125;;<br><br><span class="hljs-comment">// drivers/infiniband/hw/mlx5/cq.c:325,329 — 网卡固件也没辙</span><br><span class="hljs-keyword">case</span> MLX5_CQE_SYNDROME_LOCAL_ACCESS_ERR:<br>    wc-&gt;status = IB_WC_RETRY_EXC_ERR;       <span class="hljs-comment">// ← 网卡重传失败！</span><br>    wc-&gt;status = IB_WC_RNR_RETRY_EXC_ERR;   <span class="hljs-comment">// ← 对端 Not Ready！</span><br></code></pre></td></tr></table></figure>
+
+<h4 id="传输层”丢”的常见场景"><a href="#传输层”丢”的常见场景" class="headerlink" title="传输层”丢”的常见场景"></a>传输层”丢”的常见场景</h4><p>链路层可能完好，但传输层照样失败：</p>
 <table>
 <thead>
 <tr>
 <th>场景</th>
-<th>机制</th>
-<th>结果</th>
+<th>链路层</th>
+<th>传输层</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>接收端 QP recv queue 满了</td>
-<td>网卡发 RNR NAK，发送方等 <code>min_rnr_timer</code> 后重试</td>
-<td><code>rnr_retry</code> 耗尽 → <code>IB_WC_RNR_RETRY_EXC_ERR</code></td>
+<td>远端 QP recv queue 满了</td>
+<td>链路正常，包成功到达</td>
+<td><strong>RNR NAK</strong>，发送方等 <code>min_rnr_timer</code> 后重试 → <code>rnr_retry</code> 耗尽 → <code>IB_WC_RNR_RETRY_EXC_ERR</code></td>
 </tr>
 <tr>
-<td>接收端处理太慢没回 ACK</td>
-<td>发送方 <code>timeout</code> 超时触发重传</td>
-<td><code>retry_cnt</code> 耗尽 → <code>IB_WC_RETRY_EXC_ERR</code></td>
+<td>远端处理超时没回 ACK</td>
+<td>链路正常</td>
+<td><strong>ACK 超时</strong>，发送方重传 → <code>retry_cnt</code> 耗尽 → <code>IB_WC_RETRY_EXC_ERR</code></td>
 </tr>
 <tr>
-<td>远端 MR key 无效</td>
-<td>远端网卡校验失败 → 本地收到 NAK</td>
-<td><code>IB_WC_REM_ACCESS_ERR</code></td>
+<td>远端 MR key 不合法</td>
+<td>链路正常，包成功到达</td>
+<td><strong>访问违例</strong>，远端网卡拒绝 → <code>IB_WC_REM_ACCESS_ERR</code></td>
 </tr>
 <tr>
-<td>光纤断&#x2F;光模块坏</td>
-<td>物理中断</td>
-<td><code>retry_cnt</code> 耗尽 → QP error</td>
+<td>光纤断了&#x2F;光模块坏</td>
+<td>链路挂了，包没了</td>
+<td>超时重传耗尽 → QP error</td>
 </tr>
 <tr>
 <td>RoCEv2 PFC 死锁&#x2F;风暴</td>
-<td>链路层无损失效</td>
+<td>链路层无损机制失效</td>
 <td>实际丢包 → ACK 超时 → 重传</td>
 </tr>
 </tbody></table>
-<h4 id="软-RDMA-的丢包恢复路径（代码佐证）"><a href="#软-RDMA-的丢包恢复路径（代码佐证）" class="headerlink" title="软 RDMA 的丢包恢复路径（代码佐证）"></a>软 RDMA 的丢包恢复路径（代码佐证）</h4><p>软 RDMA 没有链路层 credit，靠 <strong>PSN 包序号 + 超时重传</strong> 补回来：</p>
-<p><strong>PSN 检测丢包：</strong></p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// rxe_resp.c:78-93 — 根据 PSN diff 判断丢包、重复、乱序</span><br><span class="hljs-keyword">if</span> (diff &gt; <span class="hljs-number">0</span>)  &#123;                    <span class="hljs-comment">// 期望 PSN 更大 → 前面有包丢了！</span><br>    qp-&gt;resp.sent_psn_nak = <span class="hljs-number">1</span>;      <span class="hljs-comment">// 发 NAK 通知对方重传</span><br>    rxe_counter_inc(rxe, RXE_CNT_OUT_OF_SEQ_REQ);<br>    <span class="hljs-keyword">return</span> RESPST_ERR_PSN_OUT_OF_SEQ;<br>&#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (diff &lt; <span class="hljs-number">0</span>) &#123;              <span class="hljs-comment">// 收到的 PSN 更小 → 重复包</span><br>    rxe_counter_inc(rxe, RXE_CNT_DUP_REQ);<br>    <span class="hljs-keyword">return</span> RESPST_DUPLICATE_REQUEST;<br>&#125;<br></code></pre></td></tr></table></figure>
+<h4 id="软-RDMA-的丢包恢复路径"><a href="#软-RDMA-的丢包恢复路径" class="headerlink" title="软 RDMA 的丢包恢复路径"></a>软 RDMA 的丢包恢复路径</h4><p>软 RDMA 没有链路层 credit，链路层该丢照丢。可靠交付靠 <strong>PSN 包序号（类似 TCP 序列号）+ 定时器重传</strong> 补回来。</p>
+<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs routeros">发送方 rxe                                     接收方 rxe<br>    │                                             │<br>    │  <span class="hljs-attribute">PSN</span>=1 ────────── [丢了] ────X              │<br>    │  <span class="hljs-attribute">PSN</span>=2 ──────────────────────────→          │   diff &gt; 0：PSN 2 比期望大 → 1 丢了<br>    │                                             │   发 NAK（out-of-sequence）<br>    │  ←────── PSN NAK ────────────────           │<br>    │  req_retry() 重置 WQE，从 PSN 1 重发        │<br>    │  <span class="hljs-attribute">PSN</span>=1 ──────────────────────────→          │<br>    │  <span class="hljs-attribute">PSN</span>=2 ──────────────────────────→          │   收齐 ack_psn 推进<br></code></pre></td></tr></table></figure>
 
-<p><strong>RNR NAK Timer — 内核 timer 上的重传：</strong></p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// rxe_req.c:101-115 — 对端 Recv Queue 满了，等 timer 再试</span><br><span class="hljs-type">void</span> <span class="hljs-title function_">rnr_nak_timer</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> timer_list *t)</span><br>&#123;<br>    qp-&gt;req.need_retry = <span class="hljs-number">1</span>;           <span class="hljs-comment">// 标记需要重传</span><br>    qp-&gt;req.wait_for_rnr_timer = <span class="hljs-number">0</span>;<br>    rxe_sched_task(&amp;qp-&gt;send_task);   <span class="hljs-comment">// 切到 workqueue 再发</span><br>&#125;<br></code></pre></td></tr></table></figure>
+<p><strong>PSN 序号检测</strong> — 发现丢包、重复、乱序：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// rxe_resp.c:78-93 — PSN 就是 RDMA 的&quot;TCP 序列号&quot;</span><br><span class="hljs-keyword">if</span> (diff &gt; <span class="hljs-number">0</span>)  &#123;                    <span class="hljs-comment">// 收到的 PSN &gt; 期望 PSN → 前面有包丢了！</span><br>    qp-&gt;resp.sent_psn_nak = <span class="hljs-number">1</span>;      <span class="hljs-comment">// 发 NAK 通知对方重传</span><br>    rxe_counter_inc(rxe, RXE_CNT_OUT_OF_SEQ_REQ);<br>    <span class="hljs-keyword">return</span> RESPST_ERR_PSN_OUT_OF_SEQ;<br>&#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (diff &lt; <span class="hljs-number">0</span>) &#123;              <span class="hljs-comment">// 收到的 PSN &lt; 期望 PSN → 重复包</span><br>    rxe_counter_inc(rxe, RXE_CNT_DUP_REQ);<br>    <span class="hljs-keyword">return</span> RESPST_DUPLICATE_REQUEST; <span class="hljs-comment">// 丢掉</span><br>&#125;<br></code></pre></td></tr></table></figure>
 
-<p><strong>重传逻辑 — req_retry() 重置 WQE 从头再发：</strong></p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// rxe_req.c:37-94 — 收到 NAK 后重走整个 SQ</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">req_retry</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> rxe_qp *qp)</span><br>&#123;<br>    qp-&gt;req.psn = qp-&gt;comp.psn;          <span class="hljs-comment">// 回退 PSN</span><br>    <span class="hljs-keyword">for</span> (...) &#123;<br>        wqe-&gt;dma.resid = wqe-&gt;dma.length; <span class="hljs-comment">// 重置 DMA 游标</span><br>        wqe-&gt;dma.cur_sge = <span class="hljs-number">0</span>;<br>        wqe-&gt;dma.sge_offset = <span class="hljs-number">0</span>;<br>        wqe-&gt;state = wqe_state_posted;    <span class="hljs-comment">// 重新投递</span><br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p><strong>RNR NAK Timer</strong> — 用内核 timer 模拟硬件 QP 的 RNR 等待：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// rxe_req.c:101-115 — 对端 Recv Queue 满了，硬件是微秒级的等待，</span><br><span class="hljs-comment">//                    软 RDMA 只能靠内核 timer（毫秒级精度）</span><br><span class="hljs-type">void</span> <span class="hljs-title function_">rnr_nak_timer</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> timer_list *t)</span><br>&#123;<br>    qp-&gt;req.need_retry = <span class="hljs-number">1</span>;           <span class="hljs-comment">// 标记需要重传</span><br>    qp-&gt;req.wait_for_rnr_timer = <span class="hljs-number">0</span>;<br>    rxe_sched_task(&amp;qp-&gt;send_task);   <span class="hljs-comment">// 切到 workqueue 再发</span><br>&#125;<br></code></pre></td></tr></table></figure>
 
-<p><strong>软硬 RDMA 丢包机制对比：</strong></p>
-<figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">硬 RDMA (IB)</span><span class="hljs-punctuation">:</span><br>  <span class="hljs-attribute">链路层</span><span class="hljs-punctuation">:</span> <span class="hljs-string">credit 协商，绝对不丢 ──→ 传输层: 只处理 RNR/超时/违例</span><br>  <span class="hljs-attribute">丢包恢复</span><span class="hljs-punctuation">:</span> <span class="hljs-string">不用管（硬件保证）</span><br><br><span class="hljs-attribute">软 RDMA (rxe)</span><span class="hljs-punctuation">:</span><br>  <span class="hljs-attribute">链路层</span><span class="hljs-punctuation">:</span> <span class="hljs-string">普通以太网，该丢就丢 ──→ 传输层: PSN 检测 + timer 超时重传</span><br>  <span class="hljs-attribute">丢包恢复</span><span class="hljs-punctuation">:</span> <span class="hljs-string">靠内核 timer + workqueue 重传，和 TCP 逻辑类似</span><br><br><span class="hljs-attribute">共同点</span><span class="hljs-punctuation">:</span><br>  传输层都共用同一套 ib_qp_attr(retry_cnt/rnr_retry/timeout)<br>  都走 PSN 序号校验 → NAK → 重传的协议标准<br></code></pre></td></tr></table></figure>
+<p><strong>req_retry()</strong> — 收到 NAK 后重置整个 SQ 从头再发：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// rxe_req.c:37-94 — 等价于硬 RDMA 网卡内部的重传引擎，</span><br><span class="hljs-comment">//                   但这里是 CPU 在 workqueue 里跑</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">req_retry</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> rxe_qp *qp)</span><br>&#123;<br>    qp-&gt;req.psn = qp-&gt;comp.psn;          <span class="hljs-comment">// 回退 PSN 到已确认的位置</span><br>    <span class="hljs-keyword">for</span> (...) &#123;<br>        wqe-&gt;dma.resid = wqe-&gt;dma.length; <span class="hljs-comment">// 重置 DMA 游标到开头</span><br>        wqe-&gt;dma.cur_sge = <span class="hljs-number">0</span>;<br>        wqe-&gt;dma.sge_offset = <span class="hljs-number">0</span>;<br>        wqe-&gt;state = wqe_state_posted;    <span class="hljs-comment">// 重新投递 WQE</span><br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="软硬丢包机制对比"><a href="#软硬丢包机制对比" class="headerlink" title="软硬丢包机制对比"></a>软硬丢包机制对比</h4><figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">硬 RDMA (IB/mlx5)</span><span class="hljs-punctuation">:</span><br>  <span class="hljs-attribute">链路层</span><span class="hljs-punctuation">:</span> <span class="hljs-string">硬件 credit 协商，绝对不丢 ─→  传输层: 只需处理 RNR/超时/违例</span><br>  <span class="hljs-attribute">重传</span><span class="hljs-punctuation">:</span> <span class="hljs-string">  网卡 ASIC 内部硬件引擎，纳秒级响应</span><br>  <span class="hljs-attribute">丢包率</span><span class="hljs-punctuation">:</span> <span class="hljs-string">链路层 0，传输层看参数配置</span><br><br><span class="hljs-attribute">软 RDMA (rxe)</span><span class="hljs-punctuation">:</span><br>  <span class="hljs-attribute">链路层</span><span class="hljs-punctuation">:</span> <span class="hljs-string">普通以太网 + 内核 UDP 栈，该丢照丢 ─→  传输层: PSN 序号检测 + timer 重传</span><br>  <span class="hljs-attribute">重传</span><span class="hljs-punctuation">:</span> <span class="hljs-string">  内核 workqueue + timer，毫秒级精度</span><br>  <span class="hljs-attribute">丢包率</span><span class="hljs-punctuation">:</span> <span class="hljs-string">链路层和物理网络一样，传输层靠重传补</span><br><br><span class="hljs-attribute">共同点</span><span class="hljs-punctuation">:</span><br>  <span class="hljs-attribute">• 都用同一套 ib_qp_attr(retry_cnt / rnr_retry / timeout)</span><br><span class="hljs-attribute">  • 都走 PSN 序号校验 → NAK → 重传的 IB 协议标准</span><br><span class="hljs-attribute">  • PSN 之于 RDMA，就像序列号之于 TCP</span><br><span class="hljs-attribute">  • 错误码同一套 enum ib_wc_status</span><br><span class="hljs-attribute"></span><br><span class="hljs-attribute">本质区别</span><span class="hljs-punctuation">:</span><br>  • 硬 RDMA：链路层物理保证不乱丢，传输层只管 RNR/超时/违例<br>  • 软 RDMA：链路层完全不可靠，传输层用 PSN + timer 模拟可靠交付，和 TCP 思路一致<br>  • TCP = &quot;丢了再重传，通过丢包感知拥塞&quot;（后验模型）<br>  • IB = &quot;确保绝对不丢，通过信用协商消除拥塞可能&quot;（前验模型）<br></code></pre></td></tr></table></figure>
 
 <h4 id="一句话总结"><a href="#一句话总结" class="headerlink" title="一句话总结"></a>一句话总结</h4><blockquote>
-<p><strong>InfiniBand 链路层是无损的（credit-based 硬件流控），RDMA 传输层仍然有重传和超时机制。RoCEv2 依赖 PFC 尝试实现链路无损但不稳定。软 RDMA 完全没有链路层保护，用 PSN 序号 + timer 重传模拟可靠交付。无论是硬是软，QP 的 <code>retry_cnt</code>&#x2F;<code>rnr_retry</code>&#x2F;<code>timeout</code> 参数都是为了应对”丢”而存在的。</strong></p>
+<p><strong>InfiniBand 链路层是无损的（credit-based 硬件逐跳流控），RDMA 传输层仍然有重传和超时机制。RoCEv2 依赖 PFC 尝试链路无损但不稳定。软 RDMA 完全没有链路层保护，靠 PSN 序号（类似 TCP seq）+ 内核 timer 重传模拟可靠交付。QP 的 <code>retry_cnt</code>&#x2F;<code>rnr_retry</code>&#x2F;<code>timeout</code> 参数的存在就是最好的证据——RDMA 不仅会”丢”，还必须为此设计全套恢复机制。</strong></p>
 </blockquote>
 <hr>
 <h2 id="GPU-↔-RDMA-集成：零拷贝数据传输"><a href="#GPU-↔-RDMA-集成：零拷贝数据传输" class="headerlink" title="GPU ↔ RDMA 集成：零拷贝数据传输"></a>GPU ↔ RDMA 集成：零拷贝数据传输</h2><p>GPU 和 RDMA 的核心集成点是<strong>零拷贝</strong>——RDMA 网卡直接 DMA 读写 GPU 显存，CPU 和系统内存被完全旁路。</p>
@@ -1052,17 +1072,13 @@
       
         <a href="/tags/3d/">#3d</a>
       
-        <a href="/tags/fs/">#fs</a>
-      
-        <a href="/tags/go/">#go</a>
-      
-        <a href="/tags/mm/">#mm</a>
-      
-        <a href="/tags/net/">#net</a>
-      
         <a href="/tags/acpi/">#acpi</a>
       
         <a href="/tags/drivers/">#drivers</a>
+      
+        <a href="/tags/fs/">#fs</a>
+      
+        <a href="/tags/go/">#go</a>
       
         <a href="/tags/gpu/">#gpu</a>
       
@@ -1075,6 +1091,10 @@
         <a href="/tags/task/">#task</a>
       
         <a href="/tags/virt/">#virt</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/net/">#net</a>
       
         <a href="/tags/struct/">#struct</a>
       
