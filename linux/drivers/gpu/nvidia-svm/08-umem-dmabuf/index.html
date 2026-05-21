@@ -24,16 +24,16 @@
 <meta property="og:description" content="第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c 源码：drivers&#x2F;infiniband&#x2F;core&#x2F;umem_dmabuf.c | 头文件：include&#x2F;rdma&#x2F;ib_umem.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. 问题：GPU 内存如何被 RDMA 网卡直接访问机器学习训练中，一张 8×H100 GPU 节点在做 all-reduce 时，">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-05-21T12:01:44.000Z">
-<meta property="article:modified_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:modified_time" content="2026-05-21T17:08:39.000Z">
 <meta property="article:author" content="Wu Jing">
-<meta property="article:tag" content="drivers">
 <meta property="article:tag" content="fs">
 <meta property="article:tag" content="git">
 <meta property="article:tag" content="go">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="drivers">
 <meta property="article:tag" content="gpu">
 <meta property="article:tag" content="linux">
 <meta property="article:tag" content="virt">
-<meta property="article:tag" content="mm">
 <meta property="article:tag" content="struct">
 <meta property="article:tag" content="nvidia-svm">
 <meta name="twitter:card" content="summary_large_image">
@@ -287,7 +287,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          9.1k 字
+          10k 字
         
       </span>
     
@@ -298,7 +298,7 @@
         
         
         
-          77 分钟
+          84 分钟
         
       </span>
     
@@ -338,6 +338,14 @@
             <!-- SEO header -->
             <h1 style="display: none">第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c</h1>
             
+              <p class="note note-info">
+                
+                  
+                    本文最后更新于：2026年5月21日 下午
+                  
+                
+              </p>
+            
             
               <div class="markdown-body">
                 
@@ -347,8 +355,8 @@
 <h2 id="1-问题：GPU-内存如何被-RDMA-网卡直接访问"><a href="#1-问题：GPU-内存如何被-RDMA-网卡直接访问" class="headerlink" title="1. 问题：GPU 内存如何被 RDMA 网卡直接访问"></a>1. 问题：GPU 内存如何被 RDMA 网卡直接访问</h2><p>机器学习训练中，一张 8×H100 GPU 节点在做 all-reduce 时，每个 GPU 需要把本地梯度发给其他 7 张 GPU。传统路径：</p>
 <figure class="highlight gcode"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs gcode">GPU VRAM → CPU 内存 <span class="hljs-comment">(cudaMemcpy)</span> → RDMA 网卡 DMA → 网络<br>                                     ↑<br>                                   <span class="hljs-number">3</span> 次拷贝<br></code></pre></td></tr></table></figure>
 
-<p>GPUDirect RDMA 优化后的路径：</p>
-<figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs nginx"><span class="hljs-attribute">GPU</span> VRAM ────────────→ RDMA 网卡 DMA → 网络<br>        PCIe P2P                      ↑<br>                                    <span class="hljs-number">0</span> 次拷贝<br></code></pre></td></tr></table></figure>
+<p>GPUDirect RDMA 优化后的路径 — CPU 被完全旁路：</p>
+<figure class="highlight smali"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><code class="hljs smali">                       GPU 0 显存 (VRAM)<br>                      ┌──────────────────┐<br>PyTorch/TensorFlow    │  ┌────────────┐  │<br>all-reduce 梯度:      │  │  gradient  │  │  ① GPU 驱动 (amdgpu/nouveau)<br>GPU0 → GPU1           │  │  tensor    │──┼──── dmabuf export<br>                      │  └────────────┘  │      (VRAM bus address)<br>                      └────────┬─────────┘<br>                               │<br>                       PCIe BAR 映射<br>                       (GPU VRAM 地址 = PCIe 总线地址)<br>                               │<br>                  ┌────────────┼────────────┐<br>                  │   ib_umem_dmabuf_get()   │  ② RDMA core 接收 dmabuf<br>                  │   dma_buf_map_attach()   │     获取 VRAM SG table<br>                  │   → PAS<span class="hljs-built_in"> array </span>           │     填充 mlx5 MTT<br>                  └────────────┬────────────┘<br>                               │<br>         ┌─────────────────────┼─────────────────────┐<br>         │         RDMA 网卡 (Mellanox HCA)          │  ③ HCA IOMMU/TLB<br>         │                                           │     存 GPU VRAM<br>         │  ┌───────────────────────────────────┐   │     总线地址<br>         │  │  MKey → MTT → GPU VRAM bus addr   │   │<br>         │  └───────────────────────────────────┘   │<br>         │                    │                      │<br>         │           PCIe bus-master DMA             │<br>         │     HCA 主动读 GPU VRAM 梯度数据          │<br>         └────────────────────┬─────────────────────┘<br>                              │<br>                  ┌───────────┴───────────┐<br>                  │   InfiniBand/RoCEv2    │  ④ 网络发送<br>                  │   100-400 Gbps wire    │<br>                  └───────────┬───────────┘<br>                              │<br>                  ┌───────────┴───────────┐<br>                  │   RDMA 网卡 (GPU 1)    │  ⑤ 远端 HCA<br>                  │   直接 DMA write 到    │     写入目标 GPU 显存<br>                  │   GPU 1 VRAM           │<br>                  └───────────────────────┘<br><br>    关键: CPU 不触碰数据，PCIe switch 直接做 GPU↔HCA P2P 转发<br></code></pre></td></tr></table></figure>
 
 <p>这要求 RDMA 网卡的 IOMMU 直接映射到 GPU VRAM 的 PCIe 总线地址。<code>umem_dmabuf.c</code> 就是实现这个映射的<strong>桥梁代码</strong>。</p>
 <h2 id="2-整体数据流"><a href="#2-整体数据流" class="headerlink" title="2. 整体数据流"></a>2. 整体数据流</h2><figure class="highlight smali"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><code class="hljs smali">GPU 驱动                umem_dmabuf.c               mlx5 驱动<br>   │                        │                          │<br>   ├─ export dmabuf fd      │                          │<br>   │  (GPU VRAM 地址空间)    │                          │<br>   │                        │                          │<br>用户态 ioctl ──────────→   │                          │<br>   │  (传入 dmabuf fd)      │                          │<br>   │                   ┌────┴────┐                     │<br>   │                   │ ib_umem │                     │<br>   │                   │ _dmabuf │                     │<br>   │                   │ _get    │                     │<br>   │                   │ (174)   │                     │<br>   │                   └────┬────┘                     │<br>   │                        │                          │<br>   │                   ┌────┴─────┐                    │<br>   │                   │ dma_buf  │                    │<br>   │                   │ _get(fd) │ ← import dmabuf    │<br>   │                   └────┬─────┘                    │<br>   │                        │                          │<br>   │                   ┌────┴──────────┐               │<br>   │                   │ dma_buf       │               │<br>   │                   │ _dynamic      │               │<br>   │                   │ _attach       │ ← 绑定设备     │<br>   │                   └────┬──────────┘               │<br>   │                        │                          │<br>用户态 MR 注册 ─────────────────────────────────→     │<br>   │                   ┌────┴──────────┐   reg_usr    │<br>   │                   │ dma_buf_pin   │ ← 钉住 VRAM  │<br>   │                   └────┬──────────┘               │<br>   │                   ┌────┴──────────┐               │<br>   │                   │ map_pages     │ ← 获取 SG    │<br>   │                   │  (15)         │   table       │<br>   │                   └────┬──────────┘               │<br>   │                        │                          │<br>   │                        │  SG table (GPU BUS addr) │<br>   │                        ├────────────────────────→ │<br>   │                        │                    ┌─────┴──────┐<br>   │                        │                    │  populate  │<br>   │                        │                    │  PAS<span class="hljs-built_in"> array </span>│<br>   │                        │                    │  →CREATE   │<br>   │                        │                    │  _MKEY fw  │<br>   │                        │                    └────────────┘<br>   │                        │                          │<br>   │                        │   RDMA HCA ←── DMA ───→ GPU VRAM<br>   │                        │          PCIe P2P<br></code></pre></td></tr></table></figure>
@@ -500,21 +508,21 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/drivers/">#drivers</a>
-      
         <a href="/tags/fs/">#fs</a>
       
         <a href="/tags/git/">#git</a>
       
         <a href="/tags/go/">#go</a>
       
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/drivers/">#drivers</a>
+      
         <a href="/tags/gpu/">#gpu</a>
       
         <a href="/tags/linux/">#linux</a>
       
         <a href="/tags/virt/">#virt</a>
-      
-        <a href="/tags/mm/">#mm</a>
       
         <a href="/tags/struct/">#struct</a>
       
@@ -575,9 +583,9 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/linux/drivers/gpu/nvidia-svm/README/" title="NVIDIA AI Infra 内核源码深度解析系列">
+                      <a href="/linux/drivers/gpu/nvidia-svm/07-gpu-scheduler/" title="第7篇：GPU 命令提交调度：DRM Scheduler">
                         <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">NVIDIA AI Infra 内核源码深度解析系列</span>
+                        <span class="hidden-mobile">第7篇：GPU 命令提交调度：DRM Scheduler</span>
                         <span class="visible-mobile">上一篇</span>
                       </a>
                     
@@ -585,8 +593,8 @@
                   <article class="post-next col-6">
                     
                     
-                      <a href="/linux/drivers/gpu/kernel_ai_infra/" title="Linux 内核 AI Infra 全景：GPU、加速器、RDMA 与异构计算">
-                        <span class="hidden-mobile">Linux 内核 AI Infra 全景：GPU、加速器、RDMA 与异构计算</span>
+                      <a href="/linux/drivers/gpu/nvidia-svm/README/" title="NVIDIA AI Infra 内核源码深度解析系列">
+                        <span class="hidden-mobile">NVIDIA AI Infra 内核源码深度解析系列</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
