@@ -2020,7 +2020,7 @@ rsync -avzP -e 'ssh -p 10000' linux-y.tar.gz root@10.63.8.158:/inf/yql/code
 Remove-Item C:\Users\17895\.ssh\config
 
 # 创建符号链接指向 WSL 中的配置
-New-Item -ItemType SymbolicLink -Path "C:\Users\17895\.ssh\config" -Target "\\wsl.localhost\Ubuntu-24.04\home\wujing\code\config\ssh\config"
+New-Item -ItemType SymbolicLink -Path "C:\Users\17895\.ssh\config" -Target "\\wsl.localhost\Ubuntu-26.04\home\wujing\code\config\ssh\config"
 ```
 
 **测试连接：**
