@@ -13,12 +13,49 @@ GPU VRAM → CPU 内存 (cudaMemcpy) → RDMA 网卡 DMA → 网络
                                    3 次拷贝
 ```
 
-GPUDirect RDMA 优化后的路径：
+GPUDirect RDMA 优化后的路径 — CPU 被完全旁路：
 
 ```
-GPU VRAM ────────────→ RDMA 网卡 DMA → 网络
-        PCIe P2P                      ↑
-                                    0 次拷贝
+                         GPU 0 显存 (VRAM)
+                        ┌──────────────────┐
+  PyTorch/TensorFlow    │  ┌────────────┐  │
+  all-reduce 梯度:      │  │  gradient  │  │  ① GPU 驱动 (amdgpu/nouveau)
+  GPU0 → GPU1           │  │  tensor    │──┼──── dmabuf export
+                        │  └────────────┘  │      (VRAM bus address)
+                        └────────┬─────────┘
+                                 │
+                         PCIe BAR 映射
+                         (GPU VRAM 地址 = PCIe 总线地址)
+                                 │
+                    ┌────────────┼────────────┐
+                    │   ib_umem_dmabuf_get()   │  ② RDMA core 接收 dmabuf
+                    │   dma_buf_map_attach()   │     获取 VRAM SG table
+                    │   → PAS array            │     填充 mlx5 MTT
+                    └────────────┬────────────┘
+                                 │
+           ┌─────────────────────┼─────────────────────┐
+           │         RDMA 网卡 (Mellanox HCA)          │  ③ HCA IOMMU/TLB
+           │                                           │     存 GPU VRAM
+           │  ┌───────────────────────────────────┐   │     总线地址
+           │  │  MKey → MTT → GPU VRAM bus addr   │   │
+           │  └───────────────────────────────────┘   │
+           │                    │                      │
+           │           PCIe bus-master DMA             │
+           │     HCA 主动读 GPU VRAM 梯度数据          │
+           └────────────────────┬─────────────────────┘
+                                │
+                    ┌───────────┴───────────┐
+                    │   InfiniBand/RoCEv2    │  ④ 网络发送
+                    │   100-400 Gbps wire    │
+                    └───────────┬───────────┘
+                                │
+                    ┌───────────┴───────────┐
+                    │   RDMA 网卡 (GPU 1)    │  ⑤ 远端 HCA
+                    │   直接 DMA write 到    │     写入目标 GPU 显存
+                    │   GPU 1 VRAM           │
+                    └───────────────────────┘
+
+      关键: CPU 不触碰数据，PCIe switch 直接做 GPU↔HCA P2P 转发
 ```
 
 这要求 RDMA 网卡的 IOMMU 直接映射到 GPU VRAM 的 PCIe 总线地址。`umem_dmabuf.c` 就是实现这个映射的**桥梁代码**。
