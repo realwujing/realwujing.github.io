@@ -1,0 +1,992 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, bcache, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, mcu, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, nvidia-svm, openclaw, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="第5篇：GPU 多内存类型管理 — TTM 框架 源码：drivers&#x2F;gpu&#x2F;drm&#x2F;ttm&#x2F;ttm_bo.c | 头文件：include&#x2F;drm&#x2F;ttm&#x2F;ttm_bo.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. 本篇位置前四篇文章我们逐层解析了 HMM → GPUSVM → nouveau_svm → nouveau_dmem 的链条。nouveau_dmem.c 通">
+<meta property="og:type" content="article">
+<meta property="og:title" content="第5篇：GPU 多内存类型管理 — TTM 框架">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/05-ttm/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="第5篇：GPU 多内存类型管理 — TTM 框架 源码：drivers&#x2F;gpu&#x2F;drm&#x2F;ttm&#x2F;ttm_bo.c | 头文件：include&#x2F;drm&#x2F;ttm&#x2F;ttm_bo.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. 本篇位置前四篇文章我们逐层解析了 HMM → GPUSVM → nouveau_svm → nouveau_dmem 的链条。nouveau_dmem.c 通">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:modified_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="drivers">
+<meta property="article:tag" content="fs">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="gpu">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="virt">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="struct">
+<meta property="article:tag" content="sync">
+<meta property="article:tag" content="container">
+<meta property="article:tag" content="tick">
+<meta property="article:tag" content="nvidia-svm">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>第5篇：GPU 多内存类型管理 — TTM 框架 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="第5篇：GPU 多内存类型管理 — TTM 框架"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-05-21 12:01" pubdate>
+          2026年5月21日 中午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          14k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          117 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">第5篇：GPU 多内存类型管理 — TTM 框架</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="第5篇：GPU-多内存类型管理-—-TTM-框架"><a href="#第5篇：GPU-多内存类型管理-—-TTM-框架" class="headerlink" title="第5篇：GPU 多内存类型管理 — TTM 框架"></a>第5篇：GPU 多内存类型管理 — TTM 框架</h1><blockquote>
+<p>源码：<code>drivers/gpu/drm/ttm/ttm_bo.c</code> | 头文件：<code>include/drm/ttm/ttm_bo.h</code><br>系列目录：<a target="_blank" rel="noopener" href="https://github.com/realwujing/realwujing.github.io/blob/main/linux/drivers/gpu/nvidia-svm/README.md">NVIDIA AI Infra 内核源码深度解析</a></p>
+</blockquote>
+<h2 id="1-本篇位置"><a href="#1-本篇位置" class="headerlink" title="1. 本篇位置"></a>1. 本篇位置</h2><p>前四篇文章我们逐层解析了 HMM → GPUSVM → nouveau_svm → nouveau_dmem 的链条。<code>nouveau_dmem.c</code> 通过 <code>nouveau_bo_new_pin()</code> 在 VRAM 中分配内存——这个调用背后就是 <strong>TTM (Translation Table Manager)</strong> 框架。</p>
+<p>TTM 是 Linux DRM 子系统的 GPU 内存管理器，解决一个根本问题：<strong>GPU 有多块不同类型的物理内存（VRAM、GTT、System RAM），BO (Buffer Object) 应该在哪儿？何时迁移？</strong></p>
+<figure class="highlight reasonml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs reasonml">┌─────────────────────────────────────────────────────┐<br>│                   TTM 框架 (ttm_bo.c)                │<br>│                                                      │<br>│  ttm<span class="hljs-constructor">_bo_init_reserved()</span>    ← 创建 BO                │<br>│  ttm<span class="hljs-constructor">_bo_validate()</span>         ← 核心：placement 决策    │<br>│  ttm<span class="hljs-constructor">_bo_pin()</span>/unpin<span class="hljs-literal">()</span>     ← 固定/解除                │<br>│  ttm<span class="hljs-constructor">_bo_wait_ctx()</span>         ← 等待 GPU 空闲           │<br>│  ttm<span class="hljs-constructor">_bo_move_to_lru_tail()</span> ← LRU 管理               │<br>│  ttm<span class="hljs-constructor">_bo_evict()</span>            ← 驱逐                    │<br>│  ttm<span class="hljs-constructor">_bo_swapout()</span>          ← 换出到 swap             │<br>│                                                      │<br>│  内存域: TTM_PL_VRAM <span class="hljs-pattern-match">| <span class="hljs-constructor">TTM_PL_TT</span> | <span class="hljs-constructor">TTM_PL_SYSTEM</span>    │</span><br><span class="hljs-pattern-match">└─────────────────────────────────────────────────────┘</span><br></code></pre></td></tr></table></figure>
+
+<h2 id="2-GPU-的三种内存域"><a href="#2-GPU-的三种内存域" class="headerlink" title="2. GPU 的三种内存域"></a>2. GPU 的三种内存域</h2><p>TTM 管理三种核心内存类型（Place，即 <code>ttm_place.mem_type</code>）：</p>
+<figure class="highlight avrasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs avrasm">┌──────────────────────────────────────────────────────┐<br>│  GPU 芯片                                             │<br>│  ┌──────────────┐       ┌──────────────────┐         │<br>│  │  计算单元     │       │  DRAM Controller  │         │<br>│  │  (SM/CU)     │       └────────┬─────────┘         │<br>│  └──────┬───────┘                │                   │<br>│         │               ┌────────▼─────────┐         │<br>│  ┌──────▼───────┐       │     VRAM          │         │<br>│  │  TLB / MMU   │       │  TTM_PL_VRAM      │         │<br>│  │  (GART/GTT)  │       │  <span class="hljs-number">8</span><span class="hljs-number">-80</span> GB HBM/GDDR │         │<br>│  └──────┬───────┘       └──────────────────┘         │<br>│         │                                            │<br>│  ┌──────▼───────┐       ┌──────────────────┐         │<br>│  │   PCIe BAR   │       │   系统内存        │         │<br>│  │  TTM_PL_TT   │       │   TTM_PL_SYSTEM   │         │<br>│  │  (GTT 窗口)  │  ──── │   <span class="hljs-number">256</span><span class="hljs-number">-1024</span> GB    │         │<br>│  └──────────────┘  PCIe └──────────────────┘         │<br>└──────────────────────────────────────────────────────┘<br><br><span class="hljs-symbol">TTM_PL_VRAM:</span>   板载显存 (HBM/GDDR) — 极快，受限容量<br><span class="hljs-symbol">TTM_PL_TT:</span>     通过 PCIe BAR 映射的系统内存 — GPU 可见<br><span class="hljs-symbol">TTM_PL_SYSTEM:</span> 纯系统内存 — CPU 可见，需 dma_map 才能 GPU 访问<br></code></pre></td></tr></table></figure>
+
+<p><strong>GTT (Graphics Translation Table)</strong> 是 <code>TTM_PL_TT</code> 的命名来源——GPU 通过 PCIe BAR 窗口”偷看”系统内存，窗口大小受限于 BAR 大小（通常 256MB-512MB），通过 GTT 页表做地址翻译。</p>
+<h2 id="3-核心数据结构"><a href="#3-核心数据结构" class="headerlink" title="3. 核心数据结构"></a>3. 核心数据结构</h2><h3 id="3-1-struct-ttm-buffer-object-—-缓冲区对象"><a href="#3-1-struct-ttm-buffer-object-—-缓冲区对象" class="headerlink" title="3.1 struct ttm_buffer_object — 缓冲区对象"></a>3.1 <code>struct ttm_buffer_object</code> — 缓冲区对象</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// include/drm/ttm/ttm_bo.h:101-138</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ttm_buffer_object</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">drm_gem_object</span> <span class="hljs-title">base</span>;</span>        <span class="hljs-comment">// DRM GEM 基类</span><br><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ttm_device</span> *<span class="hljs-title">bdev</span>;</span>           <span class="hljs-comment">// TTM 设备</span><br>    <span class="hljs-class"><span class="hljs-keyword">enum</span> <span class="hljs-title">ttm_bo_type</span> <span class="hljs-title">type</span>;</span>             <span class="hljs-comment">// device / kernel / sg</span><br>    <span class="hljs-type">uint32_t</span> page_alignment;<br>    <span class="hljs-type">void</span> (*destroy)(<span class="hljs-keyword">struct</span> ttm_buffer_object *);<br><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">kref</span> <span class="hljs-title">kref</span>;</span>                  <span class="hljs-comment">// 引用计数</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ttm_resource</span> *<span class="hljs-title">resource</span>;</span>     <span class="hljs-comment">// 当前 placement</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ttm_tt</span> *<span class="hljs-title">ttm</span>;</span>                <span class="hljs-comment">// TTM 结构 (系统内存页)</span><br>    <span class="hljs-type">bool</span> deleted;                      <span class="hljs-comment">// 僵尸标记</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ttm_lru_bulk_move</span> *<span class="hljs-title">bulk_move</span>;</span><br>    <span class="hljs-type">unsigned</span> priority;                 <span class="hljs-comment">// LRU 优先级 (低优先先驱逐)</span><br>    <span class="hljs-type">unsigned</span> pin_count;                <span class="hljs-comment">// Pin 计数 (&gt;0 不可驱逐)</span><br><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">work_struct</span> <span class="hljs-title">delayed_delete</span>;</span>  <span class="hljs-comment">// 延迟删除 work</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sg_table</span> *<span class="hljs-title">sg</span>;</span>               <span class="hljs-comment">// dmabuf sg 表</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p>BO 通过 <code>resource</code> 知道自己当前在哪种内存中，通过 <code>ttm</code> 持有系统内存的后备页（用于 swap&#x2F;迁移）。</p>
+<h3 id="3-2-struct-ttm-operation-ctx-—-操作上下文"><a href="#3-2-struct-ttm-operation-ctx-—-操作上下文" class="headerlink" title="3.2 struct ttm_operation_ctx — 操作上下文"></a>3.2 <code>struct ttm_operation_ctx</code> — 操作上下文</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// include/drm/ttm/ttm_bo.h:173-199</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ttm_operation_ctx</span> &#123;</span><br>    <span class="hljs-type">bool</span> interruptible;       <span class="hljs-comment">// 是否可中断睡眠</span><br>    <span class="hljs-type">bool</span> no_wait_gpu;         <span class="hljs-comment">// GPU 忙时立即返回</span><br>    <span class="hljs-type">bool</span> gfp_retry_mayfail;   <span class="hljs-comment">// 页面分配可失败</span><br>    <span class="hljs-type">bool</span> allow_res_evict;     <span class="hljs-comment">// 允许驱逐 reserved BO</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dma_resv</span> *<span class="hljs-title">resv</span>;</span>    <span class="hljs-comment">// 共享 reservation</span><br>    <span class="hljs-type">uint64_t</span> bytes_moved;     <span class="hljs-comment">// 统计：移动了多少字节</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<h3 id="3-3-BO-类型"><a href="#3-3-BO-类型" class="headerlink" title="3.3 BO 类型"></a>3.3 BO 类型</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// include/drm/ttm/ttm_bo.h:67-71</span><br><span class="hljs-class"><span class="hljs-keyword">enum</span> <span class="hljs-title">ttm_bo_type</span> &#123;</span><br>    ttm_bo_type_device,   <span class="hljs-comment">// 普通设备 BO (可 mmap)</span><br>    ttm_bo_type_kernel,   <span class="hljs-comment">// 内核专用 BO (不可 mmap)</span><br>    ttm_bo_type_sg         <span class="hljs-comment">// dmabuf sg 表 BO</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<h2 id="4-BO-创建-—-ttm-bo-init-reserved"><a href="#4-BO-创建-—-ttm-bo-init-reserved" class="headerlink" title="4. BO 创建 — ttm_bo_init_reserved"></a>4. BO 创建 — <code>ttm_bo_init_reserved</code></h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:929-984</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">ttm_bo_init_reserved</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_device *bdev, <span class="hljs-keyword">struct</span> ttm_buffer_object *bo,</span><br><span class="hljs-params">    <span class="hljs-keyword">enum</span> ttm_bo_type type, <span class="hljs-keyword">struct</span> ttm_placement *placement,</span><br><span class="hljs-params">    <span class="hljs-type">uint32_t</span> alignment, <span class="hljs-keyword">struct</span> ttm_operation_ctx *ctx,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> sg_table *sg, <span class="hljs-keyword">struct</span> dma_resv *resv,</span><br><span class="hljs-params">    <span class="hljs-type">void</span> (*destroy)(<span class="hljs-keyword">struct</span> ttm_buffer_object *))</span><br></code></pre></td></tr></table></figure>
+
+<p>创建流程：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// 1. 初始化基本字段 (line 937-949)</span><br>kref_init(&amp;bo-&gt;kref);<br>bo-&gt;bdev = bdev;<br>bo-&gt;type = type;<br>bo-&gt;page_alignment = alignment;<br>bo-&gt;destroy = destroy;<br>bo-&gt;pin_count = <span class="hljs-number">0</span>;<br>bo-&gt;sg = sg;<br>bo-&gt;bulk_move = <span class="hljs-literal">NULL</span>;<br>bo-&gt;base.resv = resv ?: &amp;bo-&gt;base._resv; <span class="hljs-comment">// 使用共享或私有 reservation</span><br><br><span class="hljs-comment">// 2. 全局 BO 计数 (line 949)</span><br><span class="hljs-type">atomic_inc</span>(&amp;ttm_glob.bo_count);<br><br><span class="hljs-comment">// 3. 分配设备地址空间 (line 955-960)</span><br><span class="hljs-keyword">if</span> (bo-&gt;type == ttm_bo_type_device || bo-&gt;type == ttm_bo_type_sg) &#123;<br>    ret = drm_vma_offset_add(bdev-&gt;vma_manager, &amp;bo-&gt;base.vma_node,<br>                             PFN_UP(bo-&gt;base.size));<br>&#125;<br><br><span class="hljs-comment">// 4. 立即验证 placement (line 970)</span><br>ret = ttm_bo_validate(bo, placement, ctx);<br></code></pre></td></tr></table></figure>
+
+<h2 id="5-核心函数：ttm-bo-validate-—-Placement-引擎"><a href="#5-核心函数：ttm-bo-validate-—-Placement-引擎" class="headerlink" title="5. 核心函数：ttm_bo_validate — Placement 引擎"></a>5. 核心函数：<code>ttm_bo_validate</code> — Placement 引擎</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:818-894</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">ttm_bo_validate</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ttm_placement *placement,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ttm_operation_ctx *ctx)</span><br></code></pre></td></tr></table></figure>
+
+<p>这是 TTM 的<strong>心脏</strong>——决定 BO 的物理位置。调用者提供一个 <code>placement</code> 数组（按优先级排列），TTM 尝试将 BO 放到最佳位置。</p>
+<h3 id="5-1-placement-数据结构"><a href="#5-1-placement-数据结构" class="headerlink" title="5.1 placement 数据结构"></a>5.1 placement 数据结构</h3><p><code>struct ttm_placement</code> 包含两个数组：</p>
+<ul>
+<li><code>placement[]</code>：首选位置（按优先级排列）</li>
+<li><code>busy_placement[]</code>：GPU 忙时的备选位置</li>
+</ul>
+<p>每个 <code>struct ttm_place</code> 包含：</p>
+<ul>
+<li><code>mem_type</code>：目标内存域（VRAM, TT, SYSTEM）</li>
+<li><code>flags</code>：放置标志（DESIRED, FALLBACK, CONTIGUOUS, etc.）</li>
+</ul>
+<h3 id="5-2-验证流程"><a href="#5-2-验证流程" class="headerlink" title="5.2 验证流程"></a>5.2 验证流程</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs c">force_space = <span class="hljs-literal">false</span>;<br><span class="hljs-keyword">do</span> &#123;<br>    <span class="hljs-comment">// 步骤 1: 检查当前 placement 是否已满足需求</span><br>    <span class="hljs-comment">//         (line 838-841)</span><br>    <span class="hljs-keyword">if</span> (bo-&gt;resource &amp;&amp;<br>        ttm_resource_compatible(bo-&gt;resource, placement, force_space))<br>        <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;  <span class="hljs-comment">// ← 已经在合适的位置，直接返回</span><br><br>    <span class="hljs-comment">// 步骤 2: 禁止移动 pin 住的 BO (line 844)</span><br>    <span class="hljs-keyword">if</span> (bo-&gt;pin_count)<br>        <span class="hljs-keyword">return</span> -EINVAL;<br><br>    <span class="hljs-comment">// 步骤 3: 分配资源 (line 856-857)</span><br>    ret = ttm_bo_alloc_resource(bo, placement, ctx, force_space, &amp;res);<br><br>    <span class="hljs-comment">// 第一次尝试：force_space=false (不驱逐)</span><br>    <span class="hljs-comment">// 第二次尝试：force_space=true  (驱逐其他 BO)</span><br>    force_space = !force_space;<br><br>    <span class="hljs-keyword">if</span> (ret == -ENOSPC)<br>        <span class="hljs-keyword">continue</span>;  <span class="hljs-comment">// 该 placement 放不下，尝试下一个</span><br><br>    <span class="hljs-comment">// 步骤 4: 执行物理移动 (line 865)</span><br>    ret = ttm_bo_handle_move_mem(bo, res, <span class="hljs-literal">false</span>, ctx, &amp;hop);<br>    <span class="hljs-comment">// -EMULTIHOP → 通过中间域中转</span><br>    <span class="hljs-comment">//   例如: VRAM 不够 → 先移到 SYSTEM → 等待 VRAM 释放 → 移回</span><br><br>&#125; <span class="hljs-keyword">while</span> (ret &amp;&amp; force_space);<br></code></pre></td></tr></table></figure>
+
+<h3 id="5-3-资源分配-—-ttm-bo-alloc-resource"><a href="#5-3-资源分配-—-ttm-bo-alloc-resource" class="headerlink" title="5.3 资源分配 — ttm_bo_alloc_resource"></a>5.3 资源分配 — <code>ttm_bo_alloc_resource</code></h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:710-772</span><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">ttm_bo_alloc_resource</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ttm_placement *placement,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ttm_operation_ctx *ctx,</span><br><span class="hljs-params">    <span class="hljs-type">bool</span> force_space,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ttm_resource **res)</span><br></code></pre></td></tr></table></figure>
+
+<p>遍历 placement 数组中的每个位置尝试分配：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; placement-&gt;num_placement; ++i) &#123;<br>    <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ttm_place</span> *<span class="hljs-title">place</span> =</span> &amp;placement-&gt;placement[i];<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ttm_resource_manager</span> *<span class="hljs-title">man</span>;</span><br><br>    man = ttm_manager_type(bdev, place-&gt;mem_type);<br>    <span class="hljs-keyword">if</span> (!man || !ttm_resource_manager_used(man))<br>        <span class="hljs-keyword">continue</span>;<br><br>    <span class="hljs-comment">// 跳过不适合当前 force_space 模式的 placement</span><br>    <span class="hljs-keyword">if</span> (place-&gt;flags &amp; (force_space ? TTM_PL_FLAG_DESIRED :<br>                        TTM_PL_FLAG_FALLBACK))<br>        <span class="hljs-keyword">continue</span>;<br><br>    <span class="hljs-comment">// 尝试直接分配</span><br>    may_evict = (force_space &amp;&amp; place-&gt;mem_type != TTM_PL_SYSTEM);<br>    ret = ttm_resource_alloc(bo, place, res, ...);<br><br>    <span class="hljs-keyword">if</span> (ret == -ENOSPC &amp;&amp; may_evict) &#123;<br>        <span class="hljs-comment">// 需要驱逐其他 BO</span><br>        ret = ttm_bo_evict_alloc(bdev, man, place, bo, ctx,<br>                                 ticket, res, limit_pool);<br>    &#125;<br>    <span class="hljs-comment">// ...</span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h3 id="5-4-物理移动-—-ttm-bo-handle-move-mem"><a href="#5-4-物理移动-—-ttm-bo-handle-move-mem" class="headerlink" title="5.4 物理移动 — ttm_bo_handle_move_mem"></a>5.4 物理移动 — <code>ttm_bo_handle_move_mem</code></h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:121-173</span><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">ttm_bo_handle_move_mem</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ttm_resource *mem, <span class="hljs-type">bool</span> evict,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ttm_operation_ctx *ctx,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ttm_place *hop)</span><br></code></pre></td></tr></table></figure>
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// 1. 如果需要，创建 system memory 后备 (TTM_PL_TT 用的)</span><br><span class="hljs-keyword">if</span> (new_use_tt) &#123;<br>    ret = ttm_tt_create(bo, old_use_tt);<br>    <span class="hljs-keyword">if</span> (mem-&gt;mem_type != TTM_PL_SYSTEM) &#123;<br>        ret = ttm_bo_populate(bo, ctx);  <span class="hljs-comment">// 填充系统内存页</span><br>    &#125;<br>&#125;<br><br><span class="hljs-comment">// 2. 预留 fence 槽 (line 154)</span><br>ret = dma_resv_reserve_fences(bo-&gt;base.resv, <span class="hljs-number">1</span>);<br><br><span class="hljs-comment">// 3. 调用设备驱动 move 函数 (line 158)</span><br>ret = bdev-&gt;funcs-&gt;move(bo, evict, ctx, mem, hop);<br><span class="hljs-comment">//   - bdev-&gt;funcs-&gt;move 通常指向 ttm_bo_move_memcpy 或驱动自定义</span><br><span class="hljs-comment">//   - -EMULTIHOP: 需要中间步骤</span><br><br><span class="hljs-comment">// 4. 统计 (line 165)</span><br>ctx-&gt;bytes_moved += bo-&gt;base.size;<br></code></pre></td></tr></table></figure>
+
+<h2 id="6-驱逐流程-—-ttm-bo-evict"><a href="#6-驱逐流程-—-ttm-bo-evict" class="headerlink" title="6. 驱逐流程 — ttm_bo_evict"></a>6. 驱逐流程 — <code>ttm_bo_evict</code></h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:358-410</span><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">ttm_bo_evict</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo,</span><br><span class="hljs-params">                        <span class="hljs-keyword">struct</span> ttm_operation_ctx *ctx)</span><br></code></pre></td></tr></table></figure>
+
+<p>当需要释放 VRAM 空间时：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// 1. 获取驱逐目标位置 (line 371)</span><br>bo-&gt;bdev-&gt;funcs-&gt;evict_flags(bo, &amp;placement);<br><span class="hljs-comment">// 通常目标 = TTM_PL_SYSTEM (把 BO 遣返到系统内存)</span><br><br><span class="hljs-comment">// 2. 如果无有效目标，等待 BO 空闲后 pipeline gutting (line 373-383)</span><br><span class="hljs-keyword">if</span> (!placement.num_placement) &#123;<br>    ret = ttm_bo_wait_ctx(bo, ctx);<br>    <span class="hljs-keyword">return</span> ttm_bo_pipeline_gutting(bo);  <span class="hljs-comment">// 直接释放后备存储</span><br>&#125;<br><br><span class="hljs-comment">// 3. 分配目标空间 (line 385)</span><br>ret = ttm_bo_mem_space(bo, &amp;placement, &amp;evict_mem, ctx);<br><br><span class="hljs-comment">// 4. 执行移动（支持 MULTIHOP）(line 396-401)</span><br><span class="hljs-keyword">do</span> &#123;<br>    ret = ttm_bo_handle_move_mem(bo, evict_mem, <span class="hljs-literal">true</span>, ctx, &amp;hop);<br>    <span class="hljs-keyword">if</span> (ret != -EMULTIHOP) <span class="hljs-keyword">break</span>;<br>    ret = ttm_bo_bounce_temp_buffer(bo, ctx, &amp;hop);  <span class="hljs-comment">// 中间跳</span><br>&#125; <span class="hljs-keyword">while</span> (!ret);<br></code></pre></td></tr></table></figure>
+
+<p>EMULTIHOP 机制：有些 GPU 架构不支持直接从 VRAM 到 SYSTEM 的拷贝，需要先经由 GTT 中转。</p>
+<figure class="highlight gcode"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs gcode">VRAM ──<span class="hljs-comment">(hop)</span>──→ GTT ──<span class="hljs-comment">(hop)</span>──→ SYSTEM<br></code></pre></td></tr></table></figure>
+
+<p><code>ttm_bo_bounce_temp_buffer</code>（line 334-356）负责执行中间跳。</p>
+<h3 id="6-1-驱逐选择-—-ttm-bo-eviction-valuable"><a href="#6-1-驱逐选择-—-ttm-bo-eviction-valuable" class="headerlink" title="6.1 驱逐选择 — ttm_bo_eviction_valuable"></a>6.1 驱逐选择 — <code>ttm_bo_eviction_valuable</code></h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:420-434</span><br><span class="hljs-type">bool</span> <span class="hljs-title function_">ttm_bo_eviction_valuable</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo,</span><br><span class="hljs-params">                              <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> ttm_place *place)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ttm_resource</span> *<span class="hljs-title">res</span> =</span> bo-&gt;resource;<br><br>    <span class="hljs-comment">// SYSTEM 中的 BO 总是可驱逐的</span><br>    <span class="hljs-keyword">if</span> (res-&gt;mem_type == TTM_PL_SYSTEM)<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;<br><br>    <span class="hljs-comment">// 只驱逐占用所需 placement 的 BO</span><br>    <span class="hljs-keyword">return</span> ttm_resource_intersects(bo-&gt;bdev, res, place, bo-&gt;base.size);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>驱逐原则：只驱逐那些占据”目标”内存域的 BO。比如需要 VRAM 空间，就只驱逐 VRAM 中的 BO。</p>
+<h3 id="6-2-LRU-驱逐遍历"><a href="#6-2-LRU-驱逐遍历" class="headerlink" title="6.2 LRU 驱逐遍历"></a>6.2 LRU 驱逐遍历</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:514-550 (回调函数)</span><br><span class="hljs-type">static</span> s64 <span class="hljs-title function_">ttm_bo_evict_cb</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_lru_walk *walk,</span><br><span class="hljs-params">                           <span class="hljs-keyword">struct</span> ttm_buffer_object *bo)</span><br>&#123;<br>    <span class="hljs-comment">// 跳过 pinned BO</span><br>    <span class="hljs-keyword">if</span> (bo-&gt;pin_count || !bo-&gt;bdev-&gt;funcs-&gt;eviction_valuable(bo, place))<br>        <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br><br>    <span class="hljs-comment">// 处理 deleted BO（等待清理）</span><br>    <span class="hljs-keyword">if</span> (bo-&gt;deleted) &#123;<br>        lret = ttm_bo_wait_ctx(bo, walk-&gt;arg.ctx);<br>        <span class="hljs-keyword">if</span> (!lret)<br>            ttm_bo_cleanup_memtype_use(bo);<br>    &#125; <span class="hljs-keyword">else</span> &#123;<br>        lret = ttm_bo_evict(bo, walk-&gt;arg.ctx);<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>TTM 使用 <code>ttm_lru_walk_for_evict</code> 遍历 LRU 链表，从最少使用的 BO 开始驱逐。支持 cgroup DMEM 策略（<code>dmem_cgroup_state_evict_valuable</code>）和 low watermark 控制。</p>
+<h2 id="7-Pin-Unpin-—-固定-BO"><a href="#7-Pin-Unpin-—-固定-BO" class="headerlink" title="7. Pin&#x2F;Unpin — 固定 BO"></a>7. Pin&#x2F;Unpin — 固定 BO</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:624-634</span><br><span class="hljs-type">void</span> <span class="hljs-title function_">ttm_bo_pin</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo)</span><br>&#123;<br>    dma_resv_assert_held(bo-&gt;base.resv);<br>    spin_lock(&amp;bo-&gt;bdev-&gt;lru_lock);<br>    <span class="hljs-keyword">if</span> (bo-&gt;resource)<br>        ttm_resource_del_bulk_move(bo-&gt;resource, bo);  <span class="hljs-comment">// 移出 bulk move</span><br>    <span class="hljs-keyword">if</span> (!bo-&gt;pin_count++ &amp;&amp; bo-&gt;resource)<br>        ttm_resource_move_to_lru_tail(bo-&gt;resource);   <span class="hljs-comment">// 移到 LRU 尾部</span><br>    spin_unlock(&amp;bo-&gt;bdev-&gt;lru_lock);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:643-656</span><br><span class="hljs-type">void</span> <span class="hljs-title function_">ttm_bo_unpin</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo)</span><br>&#123;<br>    dma_resv_assert_held(bo-&gt;base.resv);<br>    spin_lock(&amp;bo-&gt;bdev-&gt;lru_lock);<br>    <span class="hljs-keyword">if</span> (!--bo-&gt;pin_count &amp;&amp; bo-&gt;resource) &#123;<br>        ttm_resource_add_bulk_move(bo-&gt;resource, bo);   <span class="hljs-comment">// 恢复 bulk move</span><br>        ttm_resource_move_to_lru_tail(bo-&gt;resource);    <span class="hljs-comment">// 移到 LRU 尾部</span><br>    &#125;<br>    spin_unlock(&amp;bo-&gt;bdev-&gt;lru_lock);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>Pin 机制的核心：<code>pin_count &gt; 0</code> 的 BO 不会被驱逐（<code>ttm_bo_evict_cb</code> line 524 检查 <code>bo-&gt;pin_count</code>）。Pin&#x2F;Unpin 时将 BO 移到 LRU 尾部，降低被驱逐的优先级。</p>
+<p><strong>nouveau_dmem.c 中正是使用 <code>nouveau_bo_new_pin</code> 来固定 VRAM 中的 DMEM chunk</strong>。</p>
+<h2 id="8-LRU-管理与-ttm-bo-move-to-lru-tail"><a href="#8-LRU-管理与-ttm-bo-move-to-lru-tail" class="headerlink" title="8. LRU 管理与 ttm_bo_move_to_lru_tail"></a>8. LRU 管理与 <code>ttm_bo_move_to_lru_tail</code></h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:80-86</span><br><span class="hljs-type">void</span> <span class="hljs-title function_">ttm_bo_move_to_lru_tail</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo)</span><br>&#123;<br>    dma_resv_assert_held(bo-&gt;base.resv);<br>    <span class="hljs-keyword">if</span> (bo-&gt;resource)<br>        ttm_resource_move_to_lru_tail(bo-&gt;resource);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>TTM 为每种内存域维护独立的 LRU 链表。当 BO 被访问时，移到 LRU 尾部——这样 LRU 头部的 BO 就是”最久未使用”的，优先被驱逐。</p>
+<p>TPS (Bulk Move) 优化（<code>ttm_bo_set_bulk_move</code>，line 103-118）：多个 BO 可以绑定到同一个 <code>ttm_lru_bulk_move</code>，一次性将整组 BO 移到 LRU 尾部，避免逐个操作的锁争用。</p>
+<h2 id="9-BO-生命周期与引用计数"><a href="#9-BO-生命周期与引用计数" class="headerlink" title="9. BO 生命周期与引用计数"></a>9. BO 生命周期与引用计数</h2><h3 id="9-1-释放-—-ttm-bo-put"><a href="#9-1-释放-—-ttm-bo-put" class="headerlink" title="9.1 释放 — ttm_bo_put"></a>9.1 释放 — <code>ttm_bo_put</code></h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:323-326</span><br><span class="hljs-type">void</span> <span class="hljs-title function_">ttm_bo_put</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo)</span><br>&#123;<br>    kref_put(&amp;bo-&gt;kref, ttm_bo_release);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h3 id="9-2-ttm-bo-release-—-真正的释放"><a href="#9-2-ttm-bo-release-—-真正的释放" class="headerlink" title="9.2 ttm_bo_release — 真正的释放"></a>9.2 <code>ttm_bo_release</code> — 真正的释放</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:249-320</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">ttm_bo_release</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> kref *kref)</span><br></code></pre></td></tr></table></figure>
+
+<p>关键路径：</p>
+<figure class="highlight reasonml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs reasonml"><span class="hljs-number">1.</span> 检查 pin_count (必须为 <span class="hljs-number">0</span>)<br><span class="hljs-number">2.</span> ttm<span class="hljs-constructor">_bo_individualize_resv()</span> — 如有共享 resv，复制 fence 到私有 resv<br><span class="hljs-number">3.</span> drm<span class="hljs-constructor">_vma_offset_remove()</span> — 移除设备地址空间映射<br><span class="hljs-number">4.</span> ttm<span class="hljs-constructor">_mem_io_free()</span> — 释放 I/O 映射<br><span class="hljs-number">5.</span> 判断 BO 是否空闲：<br>   ├─ 空闲 → ttm<span class="hljs-constructor">_bo_cleanup_memtype_use()</span> — 立即清理 resource + tt<br>   │         dma<span class="hljs-constructor">_resv_unlock()</span><br>   │         bo-&gt;destroy(bo) — 调用驱动销毁函数<br>   └─ 不空闲 → 延迟删除：<br>              ttm<span class="hljs-constructor">_bo_flush_all_fences()</span> — 加速 fence signal<br>              bo-&gt;deleted = <span class="hljs-literal">true</span><br>              kref<span class="hljs-constructor">_init(&amp;<span class="hljs-params">bo</span>-&gt;<span class="hljs-params">kref</span>)</span> — 复活引用计数<br>              <span class="hljs-constructor">INIT_WORK(&amp;<span class="hljs-params">bo</span>-&gt;<span class="hljs-params">delayed_delete</span>, <span class="hljs-params">ttm_bo_delayed_delete</span>)</span><br>              queue<span class="hljs-constructor">_work_node(<span class="hljs-operator">...</span>, &amp;<span class="hljs-params">bo</span>-&gt;<span class="hljs-params">delayed_delete</span>)</span><br></code></pre></td></tr></table></figure>
+
+<p>延迟删除的核心（<code>ttm_bo_delayed_delete</code>，line 235-247）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">ttm_bo_delayed_delete</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> work_struct *work)</span><br>&#123;<br>    bo = container_of(work, typeof(*bo), delayed_delete);<br><br>    <span class="hljs-comment">// 等待所有 fence 完成</span><br>    dma_resv_wait_timeout(&amp;bo-&gt;base._resv, DMA_RESV_USAGE_BOOKKEEP,<br>                          <span class="hljs-literal">false</span>, MAX_SCHEDULE_TIMEOUT);<br><br>    <span class="hljs-comment">// 现在可以安全释放了</span><br>    dma_resv_lock(bo-&gt;base.resv, <span class="hljs-literal">NULL</span>);<br>    ttm_bo_cleanup_memtype_use(bo);<br>    dma_resv_unlock(bo-&gt;base.resv);<br>    ttm_bo_put(bo);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h2 id="10-Idle-等待-—-ttm-bo-wait-ctx"><a href="#10-Idle-等待-—-ttm-bo-wait-ctx" class="headerlink" title="10. Idle 等待 — ttm_bo_wait_ctx"></a>10. Idle 等待 — <code>ttm_bo_wait_ctx</code></h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:1071-1091</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">ttm_bo_wait_ctx</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo,</span><br><span class="hljs-params">                    <span class="hljs-keyword">struct</span> ttm_operation_ctx *ctx)</span><br>&#123;<br>    <span class="hljs-keyword">if</span> (ctx-&gt;no_wait_gpu) &#123;<br>        <span class="hljs-comment">// 不等待：检查 fence 是否已 signaled</span><br>        <span class="hljs-keyword">if</span> (dma_resv_test_signaled(bo-&gt;base.resv, DMA_RESV_USAGE_BOOKKEEP))<br>            <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>        <span class="hljs-keyword">return</span> -EBUSY;<br>    &#125;<br><br>    <span class="hljs-comment">// 等待最多 15 秒</span><br>    ret = dma_resv_wait_timeout(bo-&gt;base.resv, DMA_RESV_USAGE_BOOKKEEP,<br>                                ctx-&gt;interruptible, <span class="hljs-number">15</span> * HZ);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>等待 BO 的 GPU 操作完成。<code>DMA_RESV_USAGE_BOOKKEEP</code> 级别的 fence 包括所有 GPU 使用。（15 秒是硬编码的超时）</p>
+<h2 id="11-Swap-out-—-内存压力下的换出"><a href="#11-Swap-out-—-内存压力下的换出" class="headerlink" title="11. Swap-out — 内存压力下的换出"></a>11. Swap-out — 内存压力下的换出</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo.c:1213-1230</span><br>s64 <span class="hljs-title function_">ttm_bo_swapout</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_device *bdev, <span class="hljs-keyword">struct</span> ttm_operation_ctx *ctx,</span><br><span class="hljs-params">                   <span class="hljs-keyword">struct</span> ttm_resource_manager *man, <span class="hljs-type">gfp_t</span> gfp_flags,</span><br><span class="hljs-params">                   s64 target)</span><br></code></pre></td></tr></table></figure>
+
+<p>swapout 回调（<code>ttm_bo_swapout_cb</code>，line 1106-1195）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// 1. 跳过 pinned BO (line 1123)</span><br><span class="hljs-keyword">if</span> (bo-&gt;pin_count || !bdev-&gt;funcs-&gt;eviction_valuable(bo, &amp;place))<br>    <span class="hljs-keyword">return</span> -EBUSY;<br><br><span class="hljs-comment">// 2. 如果 BO 不在 SYSTEM 中，先移到 SYSTEM (line 1149-1166)</span><br><span class="hljs-keyword">if</span> (bo-&gt;resource-&gt;mem_type != TTM_PL_SYSTEM) &#123;<br>    place.mem_type = TTM_PL_SYSTEM;<br>    ttm_resource_alloc(bo, &amp;place, &amp;evict_mem, <span class="hljs-literal">NULL</span>);<br>    ttm_bo_handle_move_mem(bo, evict_mem, <span class="hljs-literal">true</span>, ctx, &amp;hop);<br>&#125;<br><br><span class="hljs-comment">// 3. 等待 BO 空闲 (line 1171)</span><br>ttm_bo_wait_ctx(bo, ctx);<br><br><span class="hljs-comment">// 4. 取消 vmap (line 1175)</span><br>ttm_bo_unmap_virtual(bo);<br><br><span class="hljs-comment">// 5. 换出到 shmem (line 1179-1180)</span><br>ttm_tt_swapout(bdev, tt, swapout_walk-&gt;gfp_flags);<br><span class="hljs-comment">// 系统内存页 → 交换文件</span><br></code></pre></td></tr></table></figure>
+
+<p>Swap-out 将 BO 的后备页（<code>ttm-&gt;pages[]</code>）换出到 shmem 交换空间，释放系统内存。</p>
+<h2 id="12-数据搬运工具-—-ttm-bo-util-c"><a href="#12-数据搬运工具-—-ttm-bo-util-c" class="headerlink" title="12. 数据搬运工具 — ttm_bo_util.c"></a>12. 数据搬运工具 — <code>ttm_bo_util.c</code></h2><p>虽然本文聚焦 <code>ttm_bo.c</code>，但物理搬运的实际执行在 <code>ttm_bo_util.c</code> 中：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// ttm_bo_util.c (声明在 ttm_bo.h:461-473)</span><br><br><span class="hljs-comment">// CPU memcpy 方式 (慢但可靠)</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">ttm_bo_move_memcpy</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo,</span><br><span class="hljs-params">                       <span class="hljs-keyword">struct</span> ttm_operation_ctx *ctx,</span><br><span class="hljs-params">                       <span class="hljs-keyword">struct</span> ttm_resource *new_mem)</span>;<br><br><span class="hljs-comment">// 加速清理 (GPU blit 后 pipeline cleanup)</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">ttm_bo_move_accel_cleanup</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo,</span><br><span class="hljs-params">                              <span class="hljs-keyword">struct</span> dma_fence *fence, <span class="hljs-type">bool</span> evict,</span><br><span class="hljs-params">                              <span class="hljs-type">bool</span> pipeline,</span><br><span class="hljs-params">                              <span class="hljs-keyword">struct</span> ttm_resource *new_mem)</span>;<br><br><span class="hljs-comment">// 同步清理 (CPU 已等待 fence)</span><br><span class="hljs-type">void</span> <span class="hljs-title function_">ttm_bo_move_sync_cleanup</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ttm_buffer_object *bo,</span><br><span class="hljs-params">                              <span class="hljs-keyword">struct</span> ttm_resource *new_mem)</span>;<br></code></pre></td></tr></table></figure>
+
+<p>驱动实现 <code>bdev-&gt;funcs-&gt;move</code> 时通常会选择：</p>
+<ul>
+<li>如果 GPU blit 引擎可用 → <code>ttm_bo_move_accel_cleanup</code>（异步，在 fence signal 后清理旧资源）</li>
+<li>否则 → <code>ttm_bo_move_memcpy</code>（CPU 搬运，同步）</li>
+</ul>
+<h2 id="13-完整状态图"><a href="#13-完整状态图" class="headerlink" title="13. 完整状态图"></a>13. 完整状态图</h2><figure class="highlight xl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><code class="hljs xl">              ttm_bo_init_reserved()<br>                     │<br>                     ▼<br>          ┌─────────────────────┐<br>          │    ttm_bo_validate  │<br>          │  (placement 决策)   │<br>          └─────────┬───────────┘<br>                    │<br>       ┌────────────┼────────────┐<br>       ▼            ▼            ▼<br>┌──────────┐ ┌──────────┐ ┌──────────┐<br>│  VRAM    │ │   GTT    │ │  SYSTEM  │<br>│ PL_VRAM  │ │  PL_TT   │ │PL_SYSTEM │<br>└────┬─────┘ └────┬─────┘ └────┬─────┘<br>     │            │            │<br>     │   ┌────────┼────────┐   │<br>     ▼   ▼        ▼        ▼   ▼<br>┌──────────────────────────────────┐<br>│        ttm_bo_handle_move_mem    │<br>│   ├─ ttm_tt_create (<span class="hljs-keyword">if</span> GTT)     │<br>│   ├─ ttm_bo_populate            │<br>│   ├─ <span class="hljs-function"><span class="hljs-title">bdev</span>-&gt;</span><span class="hljs-function"><span class="hljs-title">funcs</span>-&gt;</span>move()        │<br>│   └─ <span class="hljs-function"><span class="hljs-title">ctx</span>-&gt;</span>bytes_moved += size   │<br>└──────────────────────────────────┘<br>                    │<br>     ┌──────────────┼──────────────┐<br>     ▼                             ▼<br>┌──────────────┐            ┌──────────────┐<br>│ ttm_bo_evict │            │ttm_bo_swapout│<br>│ (内存压力)    │            │ (内存压力)    │<br>│ → SYSTEM     │            │ → shmem swap │<br>└──────────────┘            └──────────────┘<br>     │                             │<br>     ▼                             ▼<br>┌──────────────────────────────────────┐<br>│          ttm_bo_put()                │<br>│   ├─ 空闲 → 立即释放 resource + tt   │<br>│   └─ 忙   → delayed_delete work      │<br>└──────────────────────────────────────┘<br></code></pre></td></tr></table></figure>
+
+<h2 id="14-与-nouveau-dmem-的关系"><a href="#14-与-nouveau-dmem-的关系" class="headerlink" title="14. 与 nouveau_dmem 的关系"></a>14. 与 nouveau_dmem 的关系</h2><p>回顾《第4篇》，<code>nouveau_dmem_chunk_alloc</code> 调用 <code>nouveau_bo_new_pin</code> → 这实际上是用 TTM 在 <code>TTM_PL_VRAM</code> 中分配一个 pinned BO：</p>
+<figure class="highlight reasonml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs reasonml">nouveau<span class="hljs-constructor">_dmem_chunk_alloc()</span><br>    → nouveau<span class="hljs-constructor">_bo_new_pin(NOUVEAU_GEM_DOMAIN_VRAM, DMEM_CHUNK_SIZE, &amp;<span class="hljs-params">chunk</span>-&gt;<span class="hljs-params">bo</span>)</span><br>        → ttm<span class="hljs-constructor">_bo_init_reserved(<span class="hljs-operator">...</span>)</span><br>            → ttm<span class="hljs-constructor">_bo_validate(<span class="hljs-params">placement</span>=&#123;TTM_PL_VRAM&#125;)</span><br>                → VRAM 资源分配<br>        → ttm<span class="hljs-constructor">_bo_pin(<span class="hljs-params">chunk</span>-&gt;<span class="hljs-params">bo</span>)</span>     ← 固定，永不驱逐<br></code></pre></td></tr></table></figure>
+
+<p>这就是为什么 DMEM chunk 的 VRAM 是”稳定的”——TTM 的 pin 机制保证它不会被驱逐。</p>
+<h2 id="15-总结"><a href="#15-总结" class="headerlink" title="15. 总结"></a>15. 总结</h2><p>TTM 框架是 GPU 多内存类型管理的基石：</p>
+<ol>
+<li><strong>Placement 决策</strong>：<code>ttm_bo_validate()</code> 根据 placement 数组决定 BO 在哪个内存域</li>
+<li><strong>驱逐机制</strong>：<code>ttm_bo_evict()</code> 通过 LRU walk 释放空间，支持 MULTIHOP 中转</li>
+<li><strong>Pin&#x2F;Unpin</strong>：<code>pin_count</code> 保护关键 BO 不被驱逐</li>
+<li><strong>Bulk Move</strong>：优化多 BO 同时移动的 LRU 开销</li>
+<li><strong>延迟删除</strong>：GPU 忙时暂缓释放，通过 fence 等待后清理</li>
+<li><strong>Swap-out</strong>：内存压力时换出后备页到 shmem</li>
+</ol>
+<p>下一篇文章将深入 GPU 显存的具体分配算法——GPU Buddy 分配器。</p>
+<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="06-gpu-buddy.md">第6篇：GPU 显存 Buddy 分配器</a></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/nvidia-svm/" class="category-chain-item">nvidia-svm</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/drivers/">#drivers</a>
+      
+        <a href="/tags/fs/">#fs</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/gpu/">#gpu</a>
+      
+        <a href="/tags/kernel/">#kernel</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/virt/">#virt</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/struct/">#struct</a>
+      
+        <a href="/tags/sync/">#sync</a>
+      
+        <a href="/tags/container/">#container</a>
+      
+        <a href="/tags/tick/">#tick</a>
+      
+        <a href="/tags/nvidia-svm/">#nvidia-svm</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>第5篇：GPU 多内存类型管理 — TTM 框架</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/05-ttm/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年5月21日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/04-nouveau-dmem/" title="第4篇：NVIDIA 设备显存管理 — nouveau_dmem.c">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">第4篇：NVIDIA 设备显存管理 — nouveau_dmem.c</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/06-gpu-buddy/" title="第6篇：GPU 显存 Buddy 分配器">
+                        <span class="hidden-mobile">第6篇：GPU 显存 Buddy 分配器</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: 'f4bbde58a3e876cfacebd1f322d55e7e'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

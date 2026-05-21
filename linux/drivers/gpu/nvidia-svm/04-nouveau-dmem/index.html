@@ -1,0 +1,989 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, bcache, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, mcu, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, nvidia-svm, openclaw, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="第4篇：NVIDIA 设备显存管理 — nouveau_dmem.c 源码：drivers&#x2F;gpu&#x2F;drm&#x2F;nouveau&#x2F;nouveau_dmem.c | 头文件：drivers&#x2F;gpu&#x2F;drm&#x2F;nouveau&#x2F;nouveau_dmem.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. 本篇位置上一篇 nouveau_svm.c 通过 hmm_range_fault() 镜像">
+<meta property="og:type" content="article">
+<meta property="og:title" content="第4篇：NVIDIA 设备显存管理 — nouveau_dmem.c">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/04-nouveau-dmem/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="第4篇：NVIDIA 设备显存管理 — nouveau_dmem.c 源码：drivers&#x2F;gpu&#x2F;drm&#x2F;nouveau&#x2F;nouveau_dmem.c | 头文件：drivers&#x2F;gpu&#x2F;drm&#x2F;nouveau&#x2F;nouveau_dmem.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. 本篇位置上一篇 nouveau_svm.c 通过 hmm_range_fault() 镜像">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:modified_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="drivers">
+<meta property="article:tag" content="fs">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="gpu">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="virt">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="struct">
+<meta property="article:tag" content="sync">
+<meta property="article:tag" content="mutex">
+<meta property="article:tag" content="container">
+<meta property="article:tag" content="nvidia-svm">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>第4篇：NVIDIA 设备显存管理 — nouveau_dmem.c - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="第4篇：NVIDIA 设备显存管理 — nouveau_dmem.c"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-05-21 12:01" pubdate>
+          2026年5月21日 中午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          15k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          124 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">第4篇：NVIDIA 设备显存管理 — nouveau_dmem.c</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="第4篇：NVIDIA-设备显存管理-—-nouveau-dmem-c"><a href="#第4篇：NVIDIA-设备显存管理-—-nouveau-dmem-c" class="headerlink" title="第4篇：NVIDIA 设备显存管理 — nouveau_dmem.c"></a>第4篇：NVIDIA 设备显存管理 — nouveau_dmem.c</h1><blockquote>
+<p>源码：<code>drivers/gpu/drm/nouveau/nouveau_dmem.c</code> | 头文件：<code>drivers/gpu/drm/nouveau/nouveau_dmem.h</code><br>系列目录：<a target="_blank" rel="noopener" href="https://github.com/realwujing/realwujing.github.io/blob/main/linux/drivers/gpu/nvidia-svm/README.md">NVIDIA AI Infra 内核源码深度解析</a></p>
+</blockquote>
+<h2 id="1-本篇位置"><a href="#1-本篇位置" class="headerlink" title="1. 本篇位置"></a>1. 本篇位置</h2><p>上一篇 <code>nouveau_svm.c</code> 通过 <code>hmm_range_fault()</code> 镜像了 CPU 页表——但 GPU 故障时，如果对应物理页在系统内存，直接映射即可。问题是：<strong>GPU 想把自己的显存 (VRAM) 也纳入统一内存系统</strong>。</p>
+<p>这就是 <code>nouveau_dmem.c</code> 的职责：将 GPU VRAM 暴露为 Linux 内核的 <code>DEVICE_PRIVATE</code> 内存，让内核像管理普通内存一样管理显存——缺页时自动迁移、空闲时回收。</p>
+<figure class="highlight reasonml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs reasonml">应用: cuda<span class="hljs-constructor">MallocManaged(<span class="hljs-params">p</span>, <span class="hljs-params">size</span>)</span> → GPU 访问 p<span class="hljs-literal">[<span class="hljs-number">0</span>]</span><br>    ↓<br>nouveau_svm.c: hmm<span class="hljs-constructor">_range_fault()</span><br>    ├─ 页在系统内存 → 映射系统物理地址<br>    └─ 页在 VRAM?    → 查 ZONE_DEVICE page → nouveau<span class="hljs-constructor">_dmem_page_addr()</span><br>    ↓<br>CPU 访问 p<span class="hljs-literal">[<span class="hljs-number">0</span>]</span> (页在 VRAM)<br>    ↓<br>CPU 缺页 → ZONE_DEVICE → .migrate_to_ram = nouveau<span class="hljs-constructor">_dmem_migrate_to_ram()</span><br>    ↓                                                 ← 本篇核心!<br>VRAM → DMA copy → RAM → 重新映射 PTE<br></code></pre></td></tr></table></figure>
+
+<h2 id="2-核心数据结构"><a href="#2-核心数据结构" class="headerlink" title="2. 核心数据结构"></a>2. 核心数据结构</h2><h3 id="2-1-struct-nouveau-dmem-—-设备内存管理器"><a href="#2-1-struct-nouveau-dmem-—-设备内存管理器" class="headerlink" title="2.1 struct nouveau_dmem — 设备内存管理器"></a>2.1 <code>struct nouveau_dmem</code> — 设备内存管理器</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:81-89</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nouveau_dmem</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nouveau_drm</span> *<span class="hljs-title">drm</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nouveau_dmem_migrate</span> <span class="hljs-title">migrate</span>;</span>   <span class="hljs-comment">// DMA 迁移引擎</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_head</span> <span class="hljs-title">chunks</span>;</span>               <span class="hljs-comment">// VRAM chunk 链表</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mutex</span> <span class="hljs-title">mutex</span>;</span>                    <span class="hljs-comment">// chunk 列表锁</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">page</span> *<span class="hljs-title">free_pages</span>;</span>               <span class="hljs-comment">// 空闲单页链表头</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">folio</span> *<span class="hljs-title">free_folios</span>;</span>             <span class="hljs-comment">// 空闲大页链表头</span><br>    <span class="hljs-type">spinlock_t</span> lock;                       <span class="hljs-comment">// 空闲列表锁</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p>每个 GPU 设备有且仅有一个 <code>nouveau_dmem</code> 实例，管理该设备所有用于 SVM 的 VRAM 块。</p>
+<h3 id="2-2-struct-nouveau-dmem-chunk-—-VRAM-块"><a href="#2-2-struct-nouveau-dmem-chunk-—-VRAM-块" class="headerlink" title="2.2 struct nouveau_dmem_chunk — VRAM 块"></a>2.2 <code>struct nouveau_dmem_chunk</code> — VRAM 块</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:67-73</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nouveau_dmem_chunk</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_head</span> <span class="hljs-title">list</span>;</span>                 <span class="hljs-comment">// 链接到 dmem-&gt;chunks</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nouveau_bo</span> *<span class="hljs-title">bo</span>;</span>                 <span class="hljs-comment">// TTM BO（固定的 VRAM 分配）</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nouveau_drm</span> *<span class="hljs-title">drm</span>;</span><br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> callocated;              <span class="hljs-comment">// 已分配的页数</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dev_pagemap</span> <span class="hljs-title">pagemap</span>;</span>            <span class="hljs-comment">// ZONE_DEVICE 的 pagemap</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p>每个 chunk 代表一块连续 VRAM。关键设计：</p>
+<ul>
+<li><code>bo</code> 是一个 <strong>pinned</strong> TTM Buffer Object，保证 VRAM 不会被驱逐</li>
+<li><code>pagemap</code> 将这块 VRAM 注册为 ZONE_DEVICE 内存</li>
+<li>chunk 大小 &#x3D; <code>DMEM_CHUNK_SIZE * NR_CHUNKS</code> &#x3D; <strong><code>2MB × 128 = 256MB</code></strong></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:51-53</span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> DMEM_CHUNK_SIZE    (2UL &lt;&lt; 20)    <span class="hljs-comment">// 2MB</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> DMEM_CHUNK_NPAGES  (DMEM_CHUNK_SIZE &gt;&gt; PAGE_SHIFT)  <span class="hljs-comment">// 512 pages</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> NR_CHUNKS          (128)          <span class="hljs-comment">// 128 个子块</span></span><br></code></pre></td></tr></table></figure>
+
+<h3 id="2-3-struct-nouveau-dmem-migrate-—-迁移引擎"><a href="#2-3-struct-nouveau-dmem-migrate-—-迁移引擎" class="headerlink" title="2.3 struct nouveau_dmem_migrate — 迁移引擎"></a>2.3 <code>struct nouveau_dmem_migrate</code> — 迁移引擎</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:75-79</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nouveau_dmem_migrate</span> &#123;</span><br>    <span class="hljs-type">nouveau_migrate_copy_t</span> copy_func;     <span class="hljs-comment">// DMA 拷贝函数</span><br>    <span class="hljs-type">nouveau_clear_page_t</span> clear_func;      <span class="hljs-comment">// DMA 清零函数</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nouveau_channel</span> *<span class="hljs-title">chan</span>;</span>         <span class="hljs-comment">// GPU 命令通道</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p>拷贝&#x2F;清零函数指针（line 61-65）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">typedef</span> <span class="hljs-title function_">int</span> <span class="hljs-params">(*<span class="hljs-type">nouveau_migrate_copy_t</span>)</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> nouveau_drm *drm, u64 npages,</span><br><span class="hljs-params">    <span class="hljs-keyword">enum</span> nouveau_aper dst_aper, u64 dst_addr,</span><br><span class="hljs-params">    <span class="hljs-keyword">enum</span> nouveau_aper src_aper, u64 src_addr)</span>;<br><span class="hljs-keyword">typedef</span> <span class="hljs-title function_">int</span> <span class="hljs-params">(*<span class="hljs-type">nouveau_clear_page_t</span>)</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> nouveau_drm *drm, u32 length,</span><br><span class="hljs-params">    <span class="hljs-keyword">enum</span> nouveau_aper dst_aper, u64 dst_addr)</span>;<br></code></pre></td></tr></table></figure>
+
+<p>地址空间枚举（line 55-59）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">enum</span> <span class="hljs-title">nouveau_aper</span> &#123;</span><br>    NOUVEAU_APER_VIRT,   <span class="hljs-comment">// 虚拟地址</span><br>    NOUVEAU_APER_VRAM,   <span class="hljs-comment">// 显存</span><br>    NOUVEAU_APER_HOST,   <span class="hljs-comment">// 系统内存</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<h2 id="3-初始化-—-nouveau-dmem-init"><a href="#3-初始化-—-nouveau-dmem-init" class="headerlink" title="3. 初始化 — nouveau_dmem_init"></a>3. 初始化 — <code>nouveau_dmem_init</code></h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:702-725</span><br><span class="hljs-type">void</span> <span class="hljs-title function_">nouveau_dmem_init</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> nouveau_drm *drm)</span><br>&#123;<br>    <span class="hljs-comment">// 仅 Pascal 及以上支持</span><br>    <span class="hljs-keyword">if</span> (drm-&gt;client.device.info.family &lt; NV_DEVICE_INFO_V0_PASCAL)<br>        <span class="hljs-keyword">return</span>;<br><br>    drm-&gt;dmem = kzalloc_obj(*drm-&gt;dmem);    <span class="hljs-comment">// 分配 dmem 结构</span><br>    drm-&gt;dmem-&gt;drm = drm;<br>    mutex_init(&amp;drm-&gt;dmem-&gt;mutex);<br>    INIT_LIST_HEAD(&amp;drm-&gt;dmem-&gt;chunks);<br>    spin_lock_init(&amp;drm-&gt;dmem-&gt;lock);<br><br>    <span class="hljs-comment">// 初始化迁移引擎</span><br>    ret = nouveau_dmem_migrate_init(drm);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><code>nouveau_dmem_migrate_init</code>（line 684-699）根据 GPU 代选择 DMA 拷贝引擎：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:684-699</span><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">nouveau_dmem_migrate_init</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> nouveau_drm *drm)</span><br>&#123;<br>    <span class="hljs-keyword">switch</span> (drm-&gt;ttm.copy.oclass) &#123;<br>    <span class="hljs-keyword">case</span> PASCAL_DMA_COPY_A:<br>    <span class="hljs-keyword">case</span> PASCAL_DMA_COPY_B:<br>    <span class="hljs-keyword">case</span>  VOLTA_DMA_COPY_A:<br>    <span class="hljs-keyword">case</span> TURING_DMA_COPY_A:<br>        drm-&gt;dmem-&gt;migrate.copy_func = nvc0b5_migrate_copy;<br>        drm-&gt;dmem-&gt;migrate.clear_func = nvc0b5_migrate_clear;<br>        drm-&gt;dmem-&gt;migrate.chan = drm-&gt;ttm.chan;<br>        <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>    &#125;<br>    <span class="hljs-keyword">return</span> -ENODEV;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>注意：初始化时只设置了函数指针，<strong>没有预先分配 VRAM</strong>。VRAM 按需分配（lazy allocation），在第一次迁移请求时才调用 <code>nouveau_dmem_chunk_alloc</code>。</p>
+<h2 id="4-VRAM-分配-—-nouveau-dmem-chunk-alloc"><a href="#4-VRAM-分配-—-nouveau-dmem-chunk-alloc" class="headerlink" title="4. VRAM 分配 — nouveau_dmem_chunk_alloc"></a>4. VRAM 分配 — <code>nouveau_dmem_chunk_alloc</code></h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:296-391</span><br><span class="hljs-type">static</span> <span class="hljs-type">int</span><br><span class="hljs-title function_">nouveau_dmem_chunk_alloc</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> nouveau_drm *drm, <span class="hljs-keyword">struct</span> page **ppage,</span><br><span class="hljs-params">                         <span class="hljs-type">bool</span> is_large)</span><br></code></pre></td></tr></table></figure>
+
+<p>这个函数是 ZONE_DEVICE 化的核心，流程如下：</p>
+<h3 id="4-1-分配物理地址空间"><a href="#4-1-分配物理地址空间" class="headerlink" title="4.1 分配物理地址空间"></a>4.1 分配物理地址空间</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// line 313-318</span><br>res = request_free_mem_region(&amp;iomem_resource, DMEM_CHUNK_SIZE * NR_CHUNKS,<br>                              <span class="hljs-string">&quot;nouveau_dmem&quot;</span>);<br></code></pre></td></tr></table></figure>
+
+<p>关键！VRAM 的物理地址不是”真实的系统物理地址”，而是在 <code>iomem_resource</code> 中分配的<strong>虚拟物理地址区间</strong>。这是 <code>DEVICE_PRIVATE</code> 的设计——这些地址永远不会有真实的系统内存映射，它们只是一个”占位符”，用于创建 <code>struct page</code> 结构体。</p>
+<h3 id="4-2-设置-pagemap"><a href="#4-2-设置-pagemap" class="headerlink" title="4.2 设置 pagemap"></a>4.2 设置 pagemap</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// line 320-326</span><br>chunk-&gt;drm = drm;<br>chunk-&gt;pagemap.type = MEMORY_DEVICE_PRIVATE;  <span class="hljs-comment">// ← 标记为 DEVICE_PRIVATE</span><br>chunk-&gt;pagemap.range.start = res-&gt;start;<br>chunk-&gt;pagemap.range.end = res-&gt;end;<br>chunk-&gt;pagemap.nr_range = <span class="hljs-number">1</span>;<br>chunk-&gt;pagemap.ops = &amp;nouveau_dmem_pagemap_ops; <span class="hljs-comment">// ← 回调函数集</span><br>chunk-&gt;pagemap.owner = drm-&gt;dev;<br></code></pre></td></tr></table></figure>
+
+<p><code>MEMORY_DEVICE_PRIVATE</code> 是关键类型。内核的 MM 子系统会特殊对待这种内存——CPU 无法直接访问，缺页时调用 <code>.migrate_to_ram</code> 回调。</p>
+<h3 id="4-3-分配真实-VRAM"><a href="#4-3-分配真实-VRAM" class="headerlink" title="4.3 分配真实 VRAM"></a>4.3 分配真实 VRAM</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// line 328-331</span><br>ret = nouveau_bo_new_pin(&amp;drm-&gt;client, NOUVEAU_GEM_DOMAIN_VRAM,<br>                         DMEM_CHUNK_SIZE, &amp;chunk-&gt;bo);<br></code></pre></td></tr></table></figure>
+
+<p>通过 TTM 在 VRAM 中分配一个 <strong>pinned</strong> BO（2MB）。pinned 意味着这个 BO 永远不会被 TTM 驱逐。</p>
+<h3 id="4-4-创建-struct-pages"><a href="#4-4-创建-struct-pages" class="headerlink" title="4.4 创建 struct pages"></a>4.4 创建 struct pages</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// line 333</span><br>ptr = memremap_pages(&amp;chunk-&gt;pagemap, numa_node_id());<br></code></pre></td></tr></table></figure>
+
+<p><code>memremap_pages()</code> 是为物理地址区间批量创建 <code>struct page</code> 的神奇函数。它使用 <code>pagemap</code> 中的 ops 回调集合来管理这些页的生命周期。</p>
+<h3 id="4-5-初始化空闲列表"><a href="#4-5-初始化空闲列表" class="headerlink" title="4.5 初始化空闲列表"></a>4.5 初始化空闲列表</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// line 343-375</span><br>pfn_first = chunk-&gt;pagemap.range.start &gt;&gt; PAGE_SHIFT;<br>page = pfn_to_page(pfn_first);<br><br><span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; NR_CHUNKS; i++) &#123;<br>    <span class="hljs-keyword">if</span> (!IS_ENABLED(CONFIG_TRANSPARENT_HUGEPAGE) || !is_large) &#123;<br>        <span class="hljs-comment">// 512 个 4K 单页</span><br>        <span class="hljs-keyword">for</span> (j = <span class="hljs-number">0</span>; j &lt; DMEM_CHUNK_NPAGES - <span class="hljs-number">1</span>; j++, pfn++) &#123;<br>            page = pfn_to_page(pfn);<br>            page-&gt;zone_device_data = drm-&gt;dmem-&gt;free_pages;  <span class="hljs-comment">// 链到空闲列表头</span><br>            drm-&gt;dmem-&gt;free_pages = page;<br>        &#125;<br>    &#125; <span class="hljs-keyword">else</span> &#123;<br>        <span class="hljs-comment">// 1 个 2MB 大页 (folio)</span><br>        page = pfn_to_page(pfn);<br>        page-&gt;zone_device_data = drm-&gt;dmem-&gt;free_folios;<br>        drm-&gt;dmem-&gt;free_folios = page_folio(page);<br>        pfn += DMEM_CHUNK_NPAGES;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>空闲页通过 <code>zone_device_data</code> 字段形成单向链表——这是一个精巧的复用设计，无需额外分配链表结构。支持两种分配粒度：</p>
+<ul>
+<li><strong>单页模式</strong>：512 个独立的 4K 页</li>
+<li><strong>大页模式</strong>：1 个 2MB folio（当 <code>CONFIG_TRANSPARENT_HUGEPAGE</code> 启用时）</li>
+</ul>
+<h3 id="4-6-Chunk-设计的物理意义"><a href="#4-6-Chunk-设计的物理意义" class="headerlink" title="4.6 Chunk 设计的物理意义"></a>4.6 Chunk 设计的物理意义</h3><figure class="highlight mathematica"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs mathematica">┌──────────────────────────────────────────────────────┐<br>│                  <span class="hljs-type">nouveau_dmem</span>                         │<br>│                                                       │<br>│  <span class="hljs-variable">chunk</span><span class="hljs-punctuation">[</span><span class="hljs-number">0</span><span class="hljs-punctuation">]</span><span class="hljs-operator">:</span> <span class="hljs-number">256</span><span class="hljs-variable">MB</span> <span class="hljs-variable">VRAM</span> 块                              │<br>│  ┌─────────────────────────────────────────────────┐ │<br>│  │ <span class="hljs-type">iomem_resource</span> <span class="hljs-punctuation">[</span><span class="hljs-number">0</span><span class="hljs-variable">x</span><span class="hljs-operator">???,</span> <span class="hljs-number">0</span><span class="hljs-variable">x</span><span class="hljs-operator">???+</span><span class="hljs-number">256</span><span class="hljs-variable">MB</span><span class="hljs-punctuation">)</span>             │ │<br>│  │           ↕ <span class="hljs-punctuation">(</span>虚拟物理地址 ↔ <span class="hljs-variable">VRAM</span> 偏移<span class="hljs-punctuation">)</span>           │ │<br>│  │ <span class="hljs-type">nouveau_bo</span> <span class="hljs-punctuation">(</span><span class="hljs-number">2</span><span class="hljs-variable">MB</span> <span class="hljs-variable">pinned</span> <span class="hljs-variable">VRAM</span><span class="hljs-punctuation">)</span>                     │ │<br>│  │           → <span class="hljs-number">128</span> 个子块，每块 <span class="hljs-number">2</span><span class="hljs-variable">MB</span>                 │ │<br>│  │  ┌────┐ ┌────┐ ┌────┐     ┌────┐               │ │<br>│  │  │<span class="hljs-number">2</span><span class="hljs-variable">MB</span> │ │<span class="hljs-number">2</span><span class="hljs-variable">MB</span> │ │<span class="hljs-number">2</span><span class="hljs-variable">MB</span> │ <span class="hljs-operator">...</span> │<span class="hljs-number">2</span><span class="hljs-variable">MB</span> │               │ │<br>│  │  │<span class="hljs-variable">folio</span>│ │<span class="hljs-number">512</span> │ │<span class="hljs-number">512</span> │     │<span class="hljs-number">512</span> │               │ │<br>│  │  │    │ │<span class="hljs-number">4</span><span class="hljs-built_in">K</span>页│ │<span class="hljs-number">4</span><span class="hljs-built_in">K</span>页│     │<span class="hljs-number">4</span><span class="hljs-built_in">K</span>页│               │ │<br>│  │  └────┘ └────┘ └────┘     └────┘               │ │<br>│  └─────────────────────────────────────────────────┘ │<br>│                                                       │<br>│  <span class="hljs-variable">chunk</span><span class="hljs-punctuation">[</span><span class="hljs-number">1</span><span class="hljs-punctuation">]</span><span class="hljs-operator">:</span> <span class="hljs-number">256</span><span class="hljs-variable">MB</span> <span class="hljs-variable">VRAM</span> 块 <span class="hljs-punctuation">(</span>按需分配<span class="hljs-punctuation">)</span>                   │<br>│  <span class="hljs-operator">...</span>                                                  │<br>└──────────────────────────────────────────────────────┘<br></code></pre></td></tr></table></figure>
+
+<h2 id="5-VRAM→RAM-迁移-—-nouveau-dmem-migrate-to-ram"><a href="#5-VRAM→RAM-迁移-—-nouveau-dmem-migrate-to-ram" class="headerlink" title="5. VRAM→RAM 迁移 — nouveau_dmem_migrate_to_ram"></a>5. VRAM→RAM 迁移 — <code>nouveau_dmem_migrate_to_ram</code></h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:183-278</span><br><span class="hljs-type">static</span> <span class="hljs-type">vm_fault_t</span> <span class="hljs-title function_">nouveau_dmem_migrate_to_ram</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> vm_fault *vmf)</span><br></code></pre></td></tr></table></figure>
+
+<p>这是 CPU 缺页处理的核心——当 CPU 访问一个在 VRAM 中的页时：</p>
+<figure class="highlight isbl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs isbl"><span class="hljs-variable">CPU</span> 访问地址 <span class="hljs-variable">A</span><br>    ↓<br>缺页处理程序查找页表 → <span class="hljs-variable">PTE</span> 指向 <span class="hljs-variable">ZONE_DEVICE</span> 页<br>    ↓<br>内核调用 <span class="hljs-variable">dev_pagemap_ops</span>-&gt;<span class="hljs-variable">migrate_to_ram</span><br>    = <span class="hljs-function"><span class="hljs-title">nouveau_dmem_migrate_to_ram</span>(<span class="hljs-variable">vmf</span>)</span><br>    ↓<br></code></pre></td></tr></table></figure>
+
+<p>内部流程：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// 第1步: 准备 migrate_vma</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">migrate_vma</span> <span class="hljs-title">args</span> =</span> &#123;<br>    .vma          = vmf-&gt;vma,<br>    .pgmap_owner  = drm-&gt;dev,<br>    .fault_page   = vmf-&gt;page,<br>    .flags        = MIGRATE_VMA_SELECT_DEVICE_PRIVATE |<br>                    MIGRATE_VMA_SELECT_COMPOUND,<br>&#125;;<br><br><span class="hljs-comment">// 第2步: 确定页大小 (支持大页)</span><br>sfolio = page_folio(vmf-&gt;page);<br>order = folio_order(sfolio);<br>nr = <span class="hljs-number">1</span> &lt;&lt; order;<br><br><span class="hljs-comment">// 如果 pte 级别不是大页，降级为单页</span><br><span class="hljs-keyword">if</span> (vmf-&gt;pte) &#123;<br>    order = <span class="hljs-number">0</span>;<br>    nr = <span class="hljs-number">1</span>;<br>&#125;<br><br><span class="hljs-comment">// 第3步: migrate_vma_setup() — 准备迁移</span><br>args.start = ALIGN_DOWN(vmf-&gt;address, (PAGE_SIZE &lt;&lt; order));<br>args.end = args.start + (PAGE_SIZE &lt;&lt; order);<br>args.src = kcalloc(nr, <span class="hljs-keyword">sizeof</span>(*args.src), GFP_KERNEL);<br>args.dst = kcalloc(nr, <span class="hljs-keyword">sizeof</span>(*args.dst), GFP_KERNEL);<br>migrate_vma_setup(&amp;args);<br><span class="hljs-comment">// → args.cpages &gt; 0 表示有页需要迁移</span><br><br><span class="hljs-comment">// 第4步: 在系统内存分配目标页</span><br><span class="hljs-keyword">if</span> (order)<br>    dpage = folio_page(vma_alloc_folio(GFP_HIGHUSER | __GFP_ZERO,<br>                order, vmf-&gt;vma, vmf-&gt;address), <span class="hljs-number">0</span>);<br><span class="hljs-keyword">else</span><br>    dpage = alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vmf-&gt;vma, vmf-&gt;address);<br><br>args.dst[<span class="hljs-number">0</span>] = migrate_pfn(page_to_pfn(dpage));<br><span class="hljs-keyword">if</span> (order)<br>    args.dst[<span class="hljs-number">0</span>] |= MIGRATE_PFN_COMPOUND;<br><br><span class="hljs-comment">// 第5步: DMA 拷贝 — VRAM → RAM</span><br>svmm = folio_zone_device_data(sfolio);<br>mutex_lock(&amp;svmm-&gt;mutex);<br>nouveau_svmm_invalidate(svmm, args.start, args.end);     <span class="hljs-comment">// 失效 GPU 页表</span><br>nouveau_dmem_copy_folio(drm, sfolio, dfolio, &amp;dma_info); <span class="hljs-comment">// ← DMA COPY!</span><br>mutex_unlock(&amp;svmm-&gt;mutex);<br><br><span class="hljs-comment">// 第6步: 提交迁移</span><br>nouveau_fence_new(&amp;fence, dmem-&gt;migrate.chan);<br>migrate_vma_pages(&amp;args);      <span class="hljs-comment">// 更新 PTE，让 CPU 指向新 RAM 页</span><br>nouveau_dmem_fence_done(&amp;fence); <span class="hljs-comment">// 等待 GPU DMA 完成</span><br>dma_unmap_page(drm-&gt;dev-&gt;dev, dma_info.dma_addr, PAGE_SIZE, DMA_BIDIRECTIONAL);<br><br><span class="hljs-comment">// 第7步: 最终化</span><br>migrate_vma_finalize(&amp;args);   <span class="hljs-comment">// 释放源页（放回 VRAM 空闲列表）</span><br></code></pre></td></tr></table></figure>
+
+<h3 id="5-1-DMA-拷贝细节-—-nouveau-dmem-copy-folio"><a href="#5-1-DMA-拷贝细节-—-nouveau-dmem-copy-folio" class="headerlink" title="5.1 DMA 拷贝细节 — nouveau_dmem_copy_folio"></a>5.1 DMA 拷贝细节 — <code>nouveau_dmem_copy_folio</code></h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:155-181</span><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">nouveau_dmem_copy_folio</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> nouveau_drm *drm,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> folio *sfolio, <span class="hljs-keyword">struct</span> folio *dfolio,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> nouveau_dmem_dma_info *dma_info)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">device</span> *<span class="hljs-title">dev</span> =</span> drm-&gt;dev-&gt;dev;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">page</span> *<span class="hljs-title">dpage</span> =</span> folio_page(dfolio, <span class="hljs-number">0</span>);<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">page</span> *<span class="hljs-title">spage</span> =</span> folio_page(sfolio, <span class="hljs-number">0</span>);<br><br>    folio_lock(dfolio);<br><br>    <span class="hljs-comment">// 对目标页做 DMA 映射（目标 = HOST 内存）</span><br>    dma_info-&gt;dma_addr = dma_map_page(dev, dpage, <span class="hljs-number">0</span>, page_size(dpage),<br>                                      DMA_BIDIRECTIONAL);<br><br>    <span class="hljs-comment">// 调用 GPU DMA 拷贝引擎：VRAM → HOST</span><br>    drm-&gt;dmem-&gt;migrate.copy_func(drm, folio_nr_pages(sfolio),<br>        NOUVEAU_APER_HOST, dma_info-&gt;dma_addr,   <span class="hljs-comment">// 目标 = 系统内存</span><br>        NOUVEAU_APER_VRAM,                        <span class="hljs-comment">// 源 = VRAM</span><br>        nouveau_dmem_page_addr(spage));           <span class="hljs-comment">// VRAM 物理地址</span><br><br>    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>注意拷贝方向：<strong>源是 VRAM，目标是系统内存</strong>。<code>copy_func</code> 是 GPU 的 DMA 拷贝引擎（<code>nvc0b5_migrate_copy</code>），方向编码为 <code>NOUVEAU_APER_VRAM</code> → <code>NOUVEAU_APER_HOST</code>。</p>
+<h3 id="5-2-nouveau-dmem-page-addr-—-从-page-获取-VRAM-地址"><a href="#5-2-nouveau-dmem-page-addr-—-从-page-获取-VRAM-地址" class="headerlink" title="5.2 nouveau_dmem_page_addr — 从 page 获取 VRAM 地址"></a>5.2 <code>nouveau_dmem_page_addr</code> — 从 page 获取 VRAM 地址</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:109-116</span><br><span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> <span class="hljs-title function_">nouveau_dmem_page_addr</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> page *page)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">nouveau_dmem_chunk</span> *<span class="hljs-title">chunk</span> =</span> nouveau_page_to_chunk(page);<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> off = (page_to_pfn(page) &lt;&lt; PAGE_SHIFT) -<br>                        chunk-&gt;pagemap.range.start;<br>    <span class="hljs-keyword">return</span> chunk-&gt;bo-&gt;offset + off;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<figure class="highlight nsis"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs nsis"><span class="hljs-keyword">page</span> → chunk (via page_pgmap → container_of → chunk)<br><span class="hljs-literal">off</span>  = <span class="hljs-keyword">page</span> 的 iomem PFN - chunk 的 iomem 起始<br>VRAM 地址 = BO 的 VRAM 偏移 + <span class="hljs-literal">off</span><br></code></pre></td></tr></table></figure>
+
+<h2 id="6-RAM→VRAM-迁移-—-nouveau-dmem-migrate-vma"><a href="#6-RAM→VRAM-迁移-—-nouveau-dmem-migrate-vma" class="headerlink" title="6. RAM→VRAM 迁移 — nouveau_dmem_migrate_vma"></a>6. RAM→VRAM 迁移 — <code>nouveau_dmem_migrate_vma</code></h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:821-893</span><br><span class="hljs-type">int</span><br><span class="hljs-title function_">nouveau_dmem_migrate_vma</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> nouveau_drm *drm,</span><br><span class="hljs-params">                         <span class="hljs-keyword">struct</span> nouveau_svmm *svmm,</span><br><span class="hljs-params">                         <span class="hljs-keyword">struct</span> vm_area_struct *vma,</span><br><span class="hljs-params">                         <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> start,</span><br><span class="hljs-params">                         <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> end)</span><br></code></pre></td></tr></table></figure>
+
+<p>这是反向迁移——将系统内存迁移到 VRAM。由用户空间 ioctl 触发（<code>nouveau_svmm_bind</code>）或内核迁移策略触发。</p>
+<figure class="highlight reasonml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs reasonml"><span class="hljs-comment">// MIGRATE_VMA_SELECT_SYSTEM → 选择系统内存页迁移</span><br><span class="hljs-keyword">struct</span> migrate_vma args = &#123;<br>    .vma          = vma,<br>    .start        = start,<br>    .pgmap_owner  = drm-&gt;dev,<br>    .flags        = MIGRATE_VMA_SELECT_SYSTEM <span class="hljs-pattern-match">|</span><br><span class="hljs-pattern-match">                    <span class="hljs-constructor">MIGRATE_VMA_SELECT_COMPOUND</span>,</span><br><span class="hljs-pattern-match">&#125;;</span><br><span class="hljs-pattern-match"></span><br><span class="hljs-pattern-match"><span class="hljs-operator">/</span><span class="hljs-operator">/</span> 批量迁移，每次最多 <span class="hljs-constructor">HPAGE_PMD_NR</span>（512）页</span><br><span class="hljs-pattern-match"><span class="hljs-keyword">if</span> (<span class="hljs-constructor">IS_ENABLED(CONFIG_TRANSPARENT_HUGEPAGE)</span>)</span><br><span class="hljs-pattern-match">    <span class="hljs-keyword">if</span> (max &gt; (unsigned long)<span class="hljs-constructor">HPAGE_PMD_NR</span>)</span><br><span class="hljs-pattern-match">        max = (unsigned long)<span class="hljs-constructor">HPAGE_PMD_NR</span>;</span><br><span class="hljs-pattern-match"></span><br><span class="hljs-pattern-match"><span class="hljs-keyword">for</span> (i = 0; i &lt; npages; i += max) &#123;</span><br><span class="hljs-pattern-match">    migrate<span class="hljs-constructor">_vma_setup(&amp;<span class="hljs-params">args</span>)</span>;</span><br><span class="hljs-pattern-match">    <span class="hljs-keyword">if</span> (args.cpages)</span><br><span class="hljs-pattern-match">        nouveau<span class="hljs-constructor">_dmem_migrate_chunk(<span class="hljs-params">drm</span>, <span class="hljs-params">svmm</span>, &amp;<span class="hljs-params">args</span>, <span class="hljs-params">dma_info</span>, <span class="hljs-params">pfns</span>)</span>;</span><br><span class="hljs-pattern-match">    args.start = args.<span class="hljs-keyword">end</span>;</span><br><span class="hljs-pattern-match">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<h3 id="6-1-逐页拷贝-—-nouveau-dmem-migrate-copy-one"><a href="#6-1-逐页拷贝-—-nouveau-dmem-migrate-copy-one" class="headerlink" title="6.1 逐页拷贝 — nouveau_dmem_migrate_copy_one"></a>6.1 逐页拷贝 — <code>nouveau_dmem_migrate_copy_one</code></h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:727-781</span><br><span class="hljs-type">static</span> <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> <span class="hljs-title function_">nouveau_dmem_migrate_copy_one</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> nouveau_drm *drm,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> nouveau_svmm *svmm, <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> src,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> nouveau_dmem_dma_info *dma_info, u64 *pfn)</span><br>&#123;<br>    spage = migrate_pfn_to_page(src);     <span class="hljs-comment">// 源：系统内存页</span><br><br>    <span class="hljs-comment">// 在 VRAM 中分配目标页</span><br>    dpage = nouveau_dmem_page_alloc_locked(drm, is_large);<br>    paddr = nouveau_dmem_page_addr(dpage);<br><br>    <span class="hljs-keyword">if</span> (spage) &#123;<br>        <span class="hljs-comment">// 有数据：DMA 拷贝 HOST → VRAM</span><br>        dma_map_page(dev, spage, <span class="hljs-number">0</span>, page_size(spage), DMA_BIDIRECTIONAL);<br>        drm-&gt;dmem-&gt;migrate.copy_func(drm, ...,<br>            NOUVEAU_APER_VRAM, paddr,          <span class="hljs-comment">// 目标 = VRAM</span><br>            NOUVEAU_APER_HOST, dma_info-&gt;dma_addr); <span class="hljs-comment">// 源 = 系统内存</span><br>    &#125; <span class="hljs-keyword">else</span> &#123;<br>        <span class="hljs-comment">// 无数据（零页）：DMA 清零 VRAM</span><br>        drm-&gt;dmem-&gt;migrate.clear_func(drm, page_size(dpage),<br>            NOUVEAU_APER_VRAM, paddr);<br>    &#125;<br><br>    <span class="hljs-comment">// 设置 zone_device_data 指向 svmm，用于后续迁移回 RAM 时查找</span><br>    dpage-&gt;zone_device_data = svmm;<br><br>    <span class="hljs-comment">// 构造 GPU PFN（包含 VRAM 地址）</span><br>    *pfn = NVIF_VMM_PFNMAP_V0_V | NVIF_VMM_PFNMAP_V0_VRAM |<br>           ((paddr &gt;&gt; PAGE_SHIFT) &lt;&lt; NVIF_VMM_PFNMAP_V0_ADDR_SHIFT);<br>    <span class="hljs-keyword">if</span> (src &amp; MIGRATE_PFN_WRITE)<br>        *pfn |= NVIF_VMM_PFNMAP_V0_W;<br><br>    <span class="hljs-keyword">return</span> migrate_pfn(page_to_pfn(dpage));    <span class="hljs-comment">// 返回 migrate PFN</span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>注意 <code>dpage-&gt;zone_device_data = svmm</code>——这个字段在迁移回 RAM 时被 <code>nouveau_dmem_migrate_to_ram</code> 用来查找 <code>svmm</code> 并失效 GPU 页表。</p>
+<h3 id="6-2-Chunk-级迁移提交-—-nouveau-dmem-migrate-chunk"><a href="#6-2-Chunk-级迁移提交-—-nouveau-dmem-migrate-chunk" class="headerlink" title="6.2 Chunk 级迁移提交 — nouveau_dmem_migrate_chunk"></a>6.2 Chunk 级迁移提交 — <code>nouveau_dmem_migrate_chunk</code></h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:783-818</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">nouveau_dmem_migrate_chunk</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> nouveau_drm *drm,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> nouveau_svmm *svmm, <span class="hljs-keyword">struct</span> migrate_vma *args,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> nouveau_dmem_dma_info *dma_info, u64 *pfns)</span><br>&#123;<br>    <span class="hljs-comment">// 逐个拷贝页</span><br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; addr &lt; args-&gt;end; ) &#123;<br>        args-&gt;dst[i] = nouveau_dmem_migrate_copy_one(drm, svmm,<br>            args-&gt;src[i], dma_info + nr_dma, pfns + i);<br>        <span class="hljs-comment">// 跳过失败和零页</span><br>        <span class="hljs-keyword">if</span> (!args-&gt;dst[i]) &#123; i++; addr += PAGE_SIZE; <span class="hljs-keyword">continue</span>; &#125;<br>        <span class="hljs-keyword">if</span> (!dma_mapping_error(..., dma_info[nr_dma].dma_addr))<br>            nr_dma++;<br>        <span class="hljs-comment">// 大页跳过多个 PFN</span><br>        folio = page_folio(migrate_pfn_to_page(args-&gt;dst[i]));<br>        order = folio_order(folio);<br>        i += <span class="hljs-number">1</span> &lt;&lt; order;<br>        addr += (<span class="hljs-number">1</span> &lt;&lt; order) * PAGE_SIZE;<br>    &#125;<br><br>    <span class="hljs-comment">// 提交迁移</span><br>    nouveau_fence_new(&amp;fence, drm-&gt;dmem-&gt;migrate.chan);<br>    migrate_vma_pages(args);          <span class="hljs-comment">// 更新 PTE，让源页指向 VRAM</span><br>    nouveau_dmem_fence_done(&amp;fence);  <span class="hljs-comment">// 等待 GPU DMA</span><br><br>    <span class="hljs-comment">// 映射 GPU 页表 (关键!)</span><br>    nouveau_pfns_map(svmm, args-&gt;vma-&gt;vm_mm, args-&gt;start, pfns, i, order);<br><br>    <span class="hljs-comment">// 清理 DMA 映射</span><br>    <span class="hljs-keyword">while</span> (nr_dma--)<br>        dma_unmap_page(...);<br><br>    migrate_vma_finalize(args);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>注意 <code>nouveau_pfns_map</code> 调用——迁移完成后，需要立即更新 GPU 页表，让 GPU 知道这些页现在在 VRAM 中。</p>
+<h2 id="7-DMA-拷贝引擎-—-nvc0b5-migrate-copy"><a href="#7-DMA-拷贝引擎-—-nvc0b5-migrate-copy" class="headerlink" title="7. DMA 拷贝引擎 — nvc0b5_migrate_copy"></a>7. DMA 拷贝引擎 — <code>nvc0b5_migrate_copy</code></h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:553-625</span><br><span class="hljs-type">static</span> <span class="hljs-type">int</span><br><span class="hljs-title function_">nvc0b5_migrate_copy</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> nouveau_drm *drm, u64 npages,</span><br><span class="hljs-params">    <span class="hljs-keyword">enum</span> nouveau_aper dst_aper, u64 dst_addr,</span><br><span class="hljs-params">    <span class="hljs-keyword">enum</span> nouveau_aper src_aper, u64 src_addr)</span><br></code></pre></td></tr></table></figure>
+
+<p>这是 GPU DMA 拷贝引擎的命令构造——通过 <code>nvif_push</code> 写入 GPU 命令流：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">1. SET_SRC_PHYS_MODE:</span> <span class="hljs-string">LOCAL_FB</span> <span class="hljs-string">(VRAM)</span> <span class="hljs-string">或</span> <span class="hljs-string">COHERENT_SYSMEM</span> <span class="hljs-string">(系统内存)</span><br><span class="hljs-attr">2. SET_DST_PHYS_MODE:</span> <span class="hljs-string">LOCAL_FB</span> <span class="hljs-string">或</span> <span class="hljs-string">COHERENT_SYSMEM</span><br><span class="hljs-attr">3. OFFSET_IN:</span>  <span class="hljs-string">源地址</span> <span class="hljs-string">(64位)</span><br><span class="hljs-attr">4. OFFSET_OUT:</span> <span class="hljs-string">目标地址</span> <span class="hljs-string">(64位)</span><br><span class="hljs-attr">5. PITCH_IN/PITCH_OUT:</span> <span class="hljs-string">PAGE_SIZE</span><br><span class="hljs-attr">6. LINE_LENGTH_IN:</span> <span class="hljs-string">PAGE_SIZE</span><br><span class="hljs-attr">7. LINE_COUNT:</span> <span class="hljs-string">npages</span> <span class="hljs-string">(行数)</span><br><span class="hljs-attr">8. LAUNCH_DMA:</span> <br>   <span class="hljs-bullet">-</span> <span class="hljs-attr">DATA_TRANSFER_TYPE:</span> <span class="hljs-string">NON_PIPELINED</span><br>   <span class="hljs-bullet">-</span> <span class="hljs-attr">SRC_TYPE/DST_TYPE:</span> <span class="hljs-string">PHYSICAL</span><br>   <span class="hljs-bullet">-</span> <span class="hljs-attr">FLUSH_ENABLE:</span> <span class="hljs-literal">TRUE</span><br>   <span class="hljs-bullet">-</span> <span class="hljs-attr">MULTI_LINE_ENABLE:</span> <span class="hljs-literal">TRUE</span><br>   <span class="hljs-bullet">-</span> <span class="hljs-attr">SRC/DST_MEMORY_LAYOUT:</span> <span class="hljs-string">PITCH</span><br></code></pre></td></tr></table></figure>
+
+<p>GPU 收到 <code>LAUNCH_DMA</code> 命令后，硬件 DMA 引擎执行 VRAM←→系统内存的实际数据搬移。</p>
+<p><code>nvc0b5_migrate_clear</code>（line 627-681）用于清零 VRAM（使用 REMAP 功能，将目标映射为常量 0）。</p>
+<h2 id="8-Chunk-驱逐-—-nouveau-dmem-evict-chunk"><a href="#8-Chunk-驱逐-—-nouveau-dmem-evict-chunk" class="headerlink" title="8. Chunk 驱逐 — nouveau_dmem_evict_chunk"></a>8. Chunk 驱逐 — <code>nouveau_dmem_evict_chunk</code></h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:474-527</span><br><span class="hljs-type">static</span> <span class="hljs-type">void</span><br><span class="hljs-title function_">nouveau_dmem_evict_chunk</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> nouveau_dmem_chunk *chunk)</span><br>&#123;<br>    <span class="hljs-comment">// 在设备关闭时，将所有仍映射的 VRAM 页迁回系统内存</span><br>    migrate_device_range(src_pfns, chunk-&gt;pagemap.range.start &gt;&gt; PAGE_SHIFT,<br>                         npages);<br><br>    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; npages; i++) &#123;<br>        <span class="hljs-keyword">if</span> (src_pfns[i] &amp; MIGRATE_PFN_MIGRATE) &#123;<br>            <span class="hljs-comment">// 分配系统内存目标页</span><br>            dpage = alloc_page(GFP_HIGHUSER | __GFP_NOFAIL);<br>            dst_pfns[i] = migrate_pfn(page_to_pfn(dpage));<br><br>            <span class="hljs-comment">// DMA 拷贝 VRAM → RAM</span><br>            nouveau_dmem_copy_folio(chunk-&gt;drm,<br>                page_folio(migrate_pfn_to_page(src_pfns[i])),<br>                page_folio(dpage), &amp;dma_info[i]);<br>        &#125;<br>    &#125;<br><br>    migrate_device_pages(src_pfns, dst_pfns, npages);<br>    migrate_device_finalize(src_pfns, dst_pfns, npages);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>与常规的 <code>migrate_vma_*</code> 不同，驱逐使用 <code>migrate_device_*</code> API——因为此时没有进程上下文（设备正在关闭）。</p>
+<h2 id="9-pagemap-ops-—-生命周期回调"><a href="#9-pagemap-ops-—-生命周期回调" class="headerlink" title="9. pagemap ops — 生命周期回调"></a>9. pagemap ops — 生命周期回调</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// nouveau_dmem.c:289-293</span><br><span class="hljs-type">static</span> <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dev_pagemap_ops</span> <span class="hljs-title">nouveau_dmem_pagemap_ops</span> =</span> &#123;<br>    .folio_free      = nouveau_dmem_folio_free,      <span class="hljs-comment">// 页释放</span><br>    .migrate_to_ram  = nouveau_dmem_migrate_to_ram,  <span class="hljs-comment">// 迁移回 RAM</span><br>    .folio_split     = nouveau_dmem_folio_split,      <span class="hljs-comment">// 大页分裂</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<ul>
+<li><code>folio_free</code>（line 118-140）：页被释放时，放回 chunk 的空闲链表。支持大页和单页两种路径</li>
+<li><code>migrate_to_ram</code>（line 183-278）：CPU 缺页时自动调用，完成 VRAM→RAM 迁移</li>
+<li><code>folio_split</code>（line 280-287）：大页分裂时，子页继承 <code>pgmap</code> 和 <code>zone_device_data</code></li>
+</ul>
+<h2 id="10-完整迁移状态机"><a href="#10-完整迁移状态机" class="headerlink" title="10. 完整迁移状态机"></a>10. 完整迁移状态机</h2><figure class="highlight scss"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><code class="hljs scss">           CPU 访问                      GPU 访问<br>              │                             │<br>      ┌───────▼────────┐          ┌────────▼────────┐<br>      │ 页在 VRAM 吗?   │          │ 页在 VRAM 吗?    │<br>      └───────┬────────┘          └────────┬────────┘<br>              │ YES                         │ YES<br>              ▼                             ▼<br>┌─────────────────────────┐    ┌──────────────────────────┐<br>│ nouveau_dmem_           │    │ 直接访问 VRAM             │<br>│ <span class="hljs-built_in">migrate_to_ram</span>()        │    │ (通过 GPU 页表映射)       │<br>│ ├─ DMA copy VRAM→RAM    │    └──────────────────────────┘<br>│ ├─ <span class="hljs-built_in">migrate_vma_pages</span>()  │<br>│ └─ PTE → RAM            │<br>└───────────┬─────────────┘<br>            │                             NO<br>            ▼                             ▼<br>   页现在在 RAM 中                 ┌──────────────────────────┐<br>                                  │ nouveau_svm<span class="hljs-selector-class">.c</span>:           │<br>                                  │ <span class="hljs-built_in">hmm_range_fault</span>()        │<br>                                  │ ├─ 页在 RAM → 映射        │<br>                                  │ └─ 页在 VRAM →           │<br>                                  │    nouveau_dmem_page_addr│<br>                                  └──────────────────────────┘<br><br>            用户: <span class="hljs-built_in">cudaMemPrefetchAsync</span>(p, size, GPU)<br>                    ↓<br>       ┌────────────────────────────┐<br>       │ <span class="hljs-built_in">nouveau_dmem_migrate_vma</span>() │<br>       │ ├─ <span class="hljs-built_in">migrate_vma_setup</span>()      │<br>       │ ├─ DMA copy RAM→VRAM        │<br>       │ ├─ <span class="hljs-built_in">migrate_vma_pages</span>()      │<br>       │ ├─ <span class="hljs-built_in">nouveau_pfns_map</span>()       │ ← 更新 GPU 页表<br>       │ └─ 页现在在 VRAM 中         │<br>       └────────────────────────────┘<br></code></pre></td></tr></table></figure>
+
+<h2 id="11-总结"><a href="#11-总结" class="headerlink" title="11. 总结"></a>11. 总结</h2><p><code>nouveau_dmem.c</code> 实现了 GPU 显存的 ZONE_DEVICE 化，核心要点：</p>
+<ol>
+<li><strong>DEVICE_PRIVATE 内存</strong>：VRAM 通过 <code>memremap_pages(MEMORY_DEVICE_PRIVATE)</code> 获得 <code>struct page</code>，但 CPU 不可直接访问</li>
+<li><strong>缺页自动迁移</strong>：CPU 缺页 → <code>nouveau_dmem_migrate_to_ram</code> → DMA 拷贝 → 重新映射</li>
+<li><strong>主动迁移</strong>：用户&#x2F;驱动调用 <code>nouveau_dmem_migrate_vma</code> → DMA 拷贝 → 更新 GPU 页表</li>
+<li><strong>DMA 引擎</strong>：<code>nvc0b5_migrate_copy/clear</code> 通过 GPU push buffer 命令 DMA 引擎搬数据</li>
+<li><strong>Chunk 管理</strong>：256MB 的 chunk，内部 128 个 2MB 子块，按需分配，空闲链表回收</li>
+</ol>
+<p>下一篇文章将深入 TTM 框架，看 GPU 如何在 VRAM、GTT、SYSTEM 三种内存类型之间管理 BO placement。</p>
+<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="05-ttm.md">第5篇：GPU 多内存类型管理：TTM 框架</a></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/nvidia-svm/" class="category-chain-item">nvidia-svm</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/drivers/">#drivers</a>
+      
+        <a href="/tags/fs/">#fs</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/gpu/">#gpu</a>
+      
+        <a href="/tags/kernel/">#kernel</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/virt/">#virt</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/struct/">#struct</a>
+      
+        <a href="/tags/sync/">#sync</a>
+      
+        <a href="/tags/mutex/">#mutex</a>
+      
+        <a href="/tags/container/">#container</a>
+      
+        <a href="/tags/nvidia-svm/">#nvidia-svm</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>第4篇：NVIDIA 设备显存管理 — nouveau_dmem.c</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/04-nouveau-dmem/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年5月21日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/03-nouveau-svm/" title="第3篇：NVIDIA HMM 调用者 — nouveau_svm.c">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">第3篇：NVIDIA HMM 调用者 — nouveau_svm.c</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/05-ttm/" title="第5篇：GPU 多内存类型管理 — TTM 框架">
+                        <span class="hidden-mobile">第5篇：GPU 多内存类型管理 — TTM 框架</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: 'f8736f963f9689f3d2dc7378ffd17d05'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

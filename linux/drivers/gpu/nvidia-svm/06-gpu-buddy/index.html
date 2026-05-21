@@ -1,0 +1,1076 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, bcache, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, mcu, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, nvidia-svm, openclaw, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="第6篇：GPU 显存 Buddy 分配器 源码：drivers&#x2F;gpu&#x2F;buddy.c | 头文件：include&#x2F;linux&#x2F;gpu_buddy.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. 为什么 GPU 需要自己的 Buddy 分配器内核已经有了经典的 mm&#x2F;page_alloc.c  buddy 分配器，为什么还要在 drivers&#x2F;gpu&#x2F; 下再写一个？因为 GP">
+<meta property="og:type" content="article">
+<meta property="og:title" content="第6篇：GPU 显存 Buddy 分配器">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/06-gpu-buddy/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="第6篇：GPU 显存 Buddy 分配器 源码：drivers&#x2F;gpu&#x2F;buddy.c | 头文件：include&#x2F;linux&#x2F;gpu_buddy.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. 为什么 GPU 需要自己的 Buddy 分配器内核已经有了经典的 mm&#x2F;page_alloc.c  buddy 分配器，为什么还要在 drivers&#x2F;gpu&#x2F; 下再写一个？因为 GP">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:modified_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="drivers">
+<meta property="article:tag" content="fs">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="gpu">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="log">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="struct">
+<meta property="article:tag" content="power">
+<meta property="article:tag" content="nvidia-svm">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>第6篇：GPU 显存 Buddy 分配器 - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="第6篇：GPU 显存 Buddy 分配器"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-05-21 12:01" pubdate>
+          2026年5月21日 中午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          10k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          85 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">第6篇：GPU 显存 Buddy 分配器</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="第6篇：GPU-显存-Buddy-分配器"><a href="#第6篇：GPU-显存-Buddy-分配器" class="headerlink" title="第6篇：GPU 显存 Buddy 分配器"></a>第6篇：GPU 显存 Buddy 分配器</h1><blockquote>
+<p>源码：<code>drivers/gpu/buddy.c</code> | 头文件：<code>include/linux/gpu_buddy.h</code><br>系列目录：<a target="_blank" rel="noopener" href="https://github.com/realwujing/realwujing.github.io/blob/main/linux/drivers/gpu/nvidia-svm/README.md">NVIDIA AI Infra 内核源码深度解析</a></p>
+</blockquote>
+<h2 id="1-为什么-GPU-需要自己的-Buddy-分配器"><a href="#1-为什么-GPU-需要自己的-Buddy-分配器" class="headerlink" title="1. 为什么 GPU 需要自己的 Buddy 分配器"></a>1. 为什么 GPU 需要自己的 Buddy 分配器</h2><p>内核已经有了经典的 <code>mm/page_alloc.c</code>  buddy 分配器，为什么还要在 <code>drivers/gpu/</code> 下再写一个？因为 GPU 和 CPU 对内存分配器的需求有本质区别：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>内核 buddy (mm&#x2F;page_alloc.c)</th>
+<th>GPU buddy (drivers&#x2F;gpu&#x2F;buddy.c)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>管理对象</td>
+<td><code>struct page</code> (物理页)</td>
+<td><code>gpu_buddy_block</code> (显存块)</td>
+</tr>
+<tr>
+<td>最小粒度</td>
+<td>PAGE_SIZE (4K)</td>
+<td>chunk_size (可配置，最少 4K)</td>
+</tr>
+<tr>
+<td>地址空间</td>
+<td>物理地址</td>
+<td>GPU 虚拟地址空间</td>
+</tr>
+<tr>
+<td>对齐要求</td>
+<td>普通</td>
+<td>严格（alignment-sensitive）</td>
+</tr>
+<tr>
+<td>清零追踪</td>
+<td>无</td>
+<td>两棵树分开管理（clear&#x2F;dirty）</td>
+</tr>
+<tr>
+<td>范围分配</td>
+<td>不支持</td>
+<td>支持 range allocation</td>
+</tr>
+<tr>
+<td>顺序</td>
+<td>自底向上</td>
+<td>top-down 可选</td>
+</tr>
+<tr>
+<td>数据结构</td>
+<td>链表 free_area</td>
+<td>增广红黑树（子树最大对齐）+ 链表</td>
+</tr>
+</tbody></table>
+<p>GPU 显存不仅有普通的分配需求，还需要满足 GPU 硬件对<strong>地址对齐</strong>的严格要求。例如，某些纹理缓冲区需要 64KB 对齐，而帧缓冲区可能需要 256 字节对齐即可。</p>
+<h2 id="2-核心数据结构"><a href="#2-核心数据结构" class="headerlink" title="2. 核心数据结构"></a>2. 核心数据结构</h2><h3 id="2-1-gpu-buddy-block-—-一个-64-位的”瑞士军刀”"><a href="#2-1-gpu-buddy-block-—-一个-64-位的”瑞士军刀”" class="headerlink" title="2.1 gpu_buddy_block — 一个 64 位的”瑞士军刀”"></a>2.1 gpu_buddy_block — 一个 64 位的”瑞士军刀”</h3><p><code>include/linux/gpu_buddy.h:91-133</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">gpu_buddy_block</span> &#123;</span><br>    <span class="hljs-comment">/*</span><br><span class="hljs-comment">     * Header bit layout:</span><br><span class="hljs-comment">     * - Bits 63:12: block offset within the address space</span><br><span class="hljs-comment">     * - Bits 11:10: state (ALLOCATED, FREE, or SPLIT)</span><br><span class="hljs-comment">     * - Bit 9: clear bit (1 if memory is zeroed)</span><br><span class="hljs-comment">     * - Bits 8:6: reserved</span><br><span class="hljs-comment">     * - Bits 5:0: order (log2 of size relative to chunk_size)</span><br><span class="hljs-comment">     */</span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> GPU_BUDDY_HEADER_OFFSET GENMASK_ULL(63, 12)</span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> GPU_BUDDY_HEADER_STATE  GENMASK_ULL(11, 10)</span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span>   GPU_BUDDY_ALLOCATED   (1 &lt;&lt; 10)</span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span>   GPU_BUDDY_FREE        (2 &lt;&lt; 10)</span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span>   GPU_BUDDY_SPLIT       (3 &lt;&lt; 10)</span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> GPU_BUDDY_HEADER_CLEAR  GENMASK_ULL(9, 9)</span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> GPU_BUDDY_HEADER_ORDER  GENMASK_ULL(5, 0)</span><br>    u64 header;<br><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">gpu_buddy_block</span> *<span class="hljs-title">left</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">gpu_buddy_block</span> *<span class="hljs-title">right</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">gpu_buddy_block</span> *<span class="hljs-title">parent</span>;</span><br><br>    <span class="hljs-type">void</span> *private; <span class="hljs-comment">/* owned by creator */</span><br><br>    <span class="hljs-class"><span class="hljs-keyword">union</span> &#123;</span><br>        <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rb_node</span> <span class="hljs-title">rb</span>;</span>       <span class="hljs-comment">/* 在 RB 树中时使用 */</span><br>        <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_head</span> <span class="hljs-title">link</span>;</span>   <span class="hljs-comment">/* 用户分配后使用 */</span><br>    &#125;;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_head</span> <span class="hljs-title">tmp_link</span>;</span>   <span class="hljs-comment">/* DFS 临时链表 */</span><br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> subtree_max_alignment; <span class="hljs-comment">/* 子树中最大对齐值 */</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p><strong>64-bit header 的位布局图解</strong>：</p>
+<figure class="highlight tap"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs tap"><span class="hljs-number"> 63 </span>                              <span class="hljs-number"> 12 </span>11 <span class="hljs-number"> 10 </span> <span class="hljs-number"> 9 </span> <span class="hljs-number"> 8 </span><span class="hljs-number"> 6 </span><span class="hljs-number"> 5 </span>   0<br>┌──────────────────────────────────┬─┬─┬─┬───┬───────┬───────┐<br>│       offset (52 bits)           │S│S│C│ R │U N U S│ORDER  │<br>│                                  │1│0│ │ E │  E  D │ (6bit)│<br>└──────────────────────────────────┴─┴─┴─┴───┴───────┴───────┘<br>                                     │  │  │<br>                                     │  │  └─ CLEAR: 内存是否已清零<br>                                     │  └──── STATE: 00=ALLOCATED, 01=FREE, 11=SPLIT<br>                                     └─────── STATE 高位<br></code></pre></td></tr></table></figure>
+
+<p><strong>三个状态位</strong>（<code>include/linux/gpu_buddy.h:103-105</code>）：</p>
+<table>
+<thead>
+<tr>
+<th>宏</th>
+<th>值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>GPU_BUDDY_ALLOCATED</code></td>
+<td><code>1 &lt;&lt; 10</code></td>
+<td>已分配（不属于自由树）</td>
+</tr>
+<tr>
+<td><code>GPU_BUDDY_FREE</code></td>
+<td><code>2 &lt;&lt; 10</code></td>
+<td>空闲（在 RB 树中等待分配）</td>
+</tr>
+<tr>
+<td><code>GPU_BUDDY_SPLIT</code></td>
+<td><code>3 &lt;&lt; 10</code></td>
+<td>已分裂（有左右子块）</td>
+</tr>
+</tbody></table>
+<p><strong>关键设计</strong>：state 占 2 位（bits 11:10），三个值足够了。<code>MAX_ORDER</code> 定义为 <code>63 - 12 = 51</code>（<code>include/linux/gpu_buddy.h:136</code>），因为 63 位可用，其中 12 位被 header 保留，offset 占 52 位（bits 63:12），最大寻址 2^52 × 4K &#x3D; 16PB。</p>
+<p><strong>树结构</strong>：每个 block 包含 <code>parent</code>、<code>left</code>、<code>right</code> 指针，形成一棵<strong>二叉树</strong>。<code>rb</code> 和 <code>link</code> 用 union 共用内存——block 在自由树中时用 <code>rb</code>，被用户分配出去后用 <code>link</code> 挂到用户链表。</p>
+<h3 id="2-2-gpu-buddy-—-全局管理器"><a href="#2-2-gpu-buddy-—-全局管理器" class="headerlink" title="2.2 gpu_buddy — 全局管理器"></a>2.2 gpu_buddy — 全局管理器</h3><p><code>include/linux/gpu_buddy.h:158-182</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">gpu_buddy</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rb_root</span> **<span class="hljs-title">free_trees</span>;</span>   <span class="hljs-comment">/* [CLEAR/DIRTY][order] = RB root */</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">gpu_buddy_block</span> **<span class="hljs-title">roots</span>;</span> <span class="hljs-comment">/* 顶层块数组（size 非 2 的幂时多个根） */</span><br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> n_roots;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> max_order;<br>    u64 chunk_size;                  <span class="hljs-comment">/* 最小分配粒度 */</span><br>    u64 size;                        <span class="hljs-comment">/* 管理的总地址空间 */</span><br>    u64 avail;                       <span class="hljs-comment">/* 可用字节数 */</span><br>    u64 clear_avail;                 <span class="hljs-comment">/* 清零块可用字节数（avail 子集） */</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<h3 id="2-3-两棵树：CLEAR-vs-DIRTY"><a href="#2-3-两棵树：CLEAR-vs-DIRTY" class="headerlink" title="2.3 两棵树：CLEAR vs DIRTY"></a>2.3 两棵树：CLEAR vs DIRTY</h3><p>这是 GPU buddy 相比内核 buddy 的<strong>创新之一</strong>。内核 buddy 只管”空闲&#x2F;已分配”二分，GPU buddy 对空闲块还区分是否需要清零：</p>
+<figure class="highlight css"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs css">free_trees<span class="hljs-selector-attr">[GPU_BUDDY_CLEAR_TREE]</span><span class="hljs-selector-attr">[order]</span>  ← 已清零的空闲块 (<span class="hljs-attribute">order</span> 层级)<br>free_trees<span class="hljs-selector-attr">[GPU_BUDDY_DIRTY_TREE]</span><span class="hljs-selector-attr">[order]</span>  ← 未清零的空闲块 (<span class="hljs-attribute">order</span> 层级)<br></code></pre></td></tr></table></figure>
+
+<p><code>include/linux/gpu_buddy.h:70-77</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">enum</span> <span class="hljs-title">gpu_buddy_free_tree</span> &#123;</span><br>    GPU_BUDDY_CLEAR_TREE = <span class="hljs-number">0</span>,<br>    GPU_BUDDY_DIRTY_TREE,<br>    GPU_BUDDY_MAX_FREE_TREES,<br>&#125;;<br><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> for_each_free_tree(tree) \</span><br><span class="hljs-meta">    for ((tree) = 0; (tree) &lt; GPU_BUDDY_MAX_FREE_TREES; (tree)++)</span><br></code></pre></td></tr></table></figure>
+
+<p>这样 GPU 驱动可以用 <code>GPU_BUDDY_CLEAR_ALLOCATION</code> 标志（行 50）优先从 CLEAR 树分配，避免显式做 GPU memset 清零操作。</p>
+<h2 id="3-初始化和销毁"><a href="#3-初始化和销毁" class="headerlink" title="3. 初始化和销毁"></a>3. 初始化和销毁</h2><h3 id="3-1-gpu-buddy-init"><a href="#3-1-gpu-buddy-init" class="headerlink" title="3.1 gpu_buddy_init"></a>3.1 gpu_buddy_init</h3><p><code>drivers/gpu/buddy.c:363-424</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">gpu_buddy_init</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> gpu_buddy *mm, u64 size, u64 chunk_size)</span><br>&#123;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> i, j, root_count = <span class="hljs-number">0</span>;<br>    u64 offset = <span class="hljs-number">0</span>;<br><br>    <span class="hljs-keyword">if</span> (size &lt; chunk_size)<br>        <span class="hljs-keyword">return</span> -EINVAL;<br>    <span class="hljs-keyword">if</span> (chunk_size &lt; SZ_4K)<br>        <span class="hljs-keyword">return</span> -EINVAL;<br>    <span class="hljs-keyword">if</span> (!is_power_of_2(chunk_size))<br>        <span class="hljs-keyword">return</span> -EINVAL;<br><br>    size = round_down(size, chunk_size);<br>    mm-&gt;size = size;<br>    mm-&gt;avail = size;<br>    mm-&gt;clear_avail = <span class="hljs-number">0</span>;<br>    mm-&gt;chunk_size = chunk_size;<br>    mm-&gt;max_order = ilog2(size) - ilog2(chunk_size);<br></code></pre></td></tr></table></figure>
+
+<p>初始化流程（行 377-430）：</p>
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs apache"><span class="hljs-attribute">1</span>. 参数校验: chunk_size &gt;= <span class="hljs-number">4</span>K, <span class="hljs-number">2</span> 的幂, size &gt;= chunk_size<br><span class="hljs-attribute">2</span>. size 向下对齐到 chunk_size<br><span class="hljs-attribute">3</span>. max_order = ilog2(size) - ilog2(chunk_size)<br><span class="hljs-attribute">4</span>. 分配 free_trees[<span class="hljs-number">2</span>][max_order+<span class="hljs-number">1</span>]：kmalloc_array 二维索引<br><span class="hljs-attribute">5</span>. 初始化每个 RB_ROOT<br><span class="hljs-attribute">6</span>. n_roots = hweight64(size)（size 的二进制 <span class="hljs-number">1</span> 的个数）<br><span class="hljs-attribute">7</span>. kmalloc_array 分配 roots[]<br><span class="hljs-attribute">8</span>. 将 size 按 <span class="hljs-number">2</span> 的幂拆成多个根块<br></code></pre></td></tr></table></figure>
+
+<p><strong>为什么需要多个根</strong>？假设 size &#x3D; 6GB（不是 2 的幂），分配器会将其拆为：</p>
+<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs routeros">┌──────────────────┬──────────┐<br>│   root[0]: 4GB   │ root[1]: │<br>│   (<span class="hljs-attribute">order</span>=20)     │  2GB     │<br>│                  │ (<span class="hljs-attribute">order</span>=19)│<br>└──────────────────┴──────────┘<br>      6GB 总显存 = 4GB + 2GB (两个 2 的幂)<br></code></pre></td></tr></table></figure>
+
+<p><strong>元数据分配</strong>（行 387-408）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs c">mm-&gt;free_trees = kmalloc_array(GPU_BUDDY_MAX_FREE_TREES,<br>                               <span class="hljs-keyword">sizeof</span>(*mm-&gt;free_trees), GFP_KERNEL);<br><br>for_each_free_tree(i) &#123;<br>    mm-&gt;free_trees[i] = kmalloc_array(mm-&gt;max_order + <span class="hljs-number">1</span>,<br>                                      <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> rb_root), GFP_KERNEL);<br>    <span class="hljs-keyword">for</span> (j = <span class="hljs-number">0</span>; j &lt;= mm-&gt;max_order; ++j)<br>        mm-&gt;free_trees[i][j] = RB_ROOT;<br>&#125;<br><br>mm-&gt;n_roots = hweight64(size);<br>mm-&gt;roots = kmalloc_array(mm-&gt;n_roots,<br>                          <span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> gpu_buddy_block *), GFP_KERNEL);<br></code></pre></td></tr></table></figure>
+
+<p><strong>Slab 缓存</strong>（行 36, 1514）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">kmem_cache</span> *<span class="hljs-title">slab_blocks</span>;</span><br><br><span class="hljs-type">static</span> <span class="hljs-type">int</span> __init <span class="hljs-title function_">gpu_buddy_module_init</span><span class="hljs-params">(<span class="hljs-type">void</span>)</span><br>&#123;<br>    slab_blocks = KMEM_CACHE(gpu_buddy_block, <span class="hljs-number">0</span>);<br>    <span class="hljs-comment">// ...</span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>所有 <code>gpu_buddy_block</code> 对象从同一个 <code>kmem_cache</code> 分配，避免通用 <code>kmalloc</code> 的碎片和额外开销。</p>
+<h3 id="3-2-gpu-buddy-fini"><a href="#3-2-gpu-buddy-fini" class="headerlink" title="3.2 gpu_buddy_fini"></a>3.2 gpu_buddy_fini</h3><p><code>drivers/gpu/buddy.c:465-488</code> — 释放所有树和根数组，确认 <code>mm-&gt;avail == mm-&gt;size</code>（所有内存已归还）。</p>
+<h2 id="4-核心操作"><a href="#4-核心操作" class="headerlink" title="4. 核心操作"></a>4. 核心操作</h2><h3 id="4-1-split-block-—-分裂一个块"><a href="#4-1-split-block-—-分裂一个块" class="headerlink" title="4.1 split_block — 分裂一个块"></a>4.1 split_block — 分裂一个块</h3><p><code>drivers/gpu/buddy.c:491-519</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">split_block</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> gpu_buddy *mm,</span><br><span class="hljs-params">                       <span class="hljs-keyword">struct</span> gpu_buddy_block *block)</span><br>&#123;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> block_order = gpu_buddy_block_order(block) - <span class="hljs-number">1</span>;<br>    u64 offset = gpu_buddy_block_offset(block);<br><br>    BUG_ON(!gpu_buddy_block_is_free(block));<br>    BUG_ON(!gpu_buddy_block_order(block));<br><br>    block-&gt;left = gpu_block_alloc(mm, block, block_order, offset);<br>    <span class="hljs-keyword">if</span> (!block-&gt;left)<br>        <span class="hljs-keyword">return</span> -ENOMEM;<br><br>    block-&gt;right = gpu_block_alloc(mm, block, block_order,<br>                                   offset + (mm-&gt;chunk_size &lt;&lt; block_order));<br>    <span class="hljs-keyword">if</span> (!block-&gt;right) &#123;<br>        gpu_block_free(mm, block-&gt;left);<br>        <span class="hljs-keyword">return</span> -ENOMEM;<br>    &#125;<br><br>    mark_split(mm, block);      <span class="hljs-comment">// 父块状态 → SPLIT</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>图解</strong>：一个 order&#x3D;N 的块分裂成两个 order&#x3D;N-1 的 buddy 块：</p>
+<figure class="highlight excel"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs excel">    ┌─────────────┐<br>    │  parent     │  order=<span class="hljs-built_in">N</span><br>    │  SPLIT      │<br>    └──┬───────┬──┘<br>       │       │<br>┌──────┴┐  ┌───┴──────┐<br>│ <span class="hljs-built_in">left</span>  │  │  <span class="hljs-built_in">right</span>   │  order=<span class="hljs-built_in">N</span>-<span class="hljs-number">1</span><br>│ FREE  │  │  FREE    │  <span class="hljs-built_in">offset</span> + chunk_size * <span class="hljs-number">2</span>^(<span class="hljs-built_in">N</span>-<span class="hljs-number">1</span>)<br>└───────┘  └──────────┘<br> <span class="hljs-built_in">offset</span>      <span class="hljs-built_in">offset</span> + chunk_size * <span class="hljs-number">2</span>^(<span class="hljs-built_in">N</span>-<span class="hljs-number">1</span>)<br></code></pre></td></tr></table></figure>
+
+<p><strong>Clear 属性继承</strong>：如果父块是 cleared，子块也标记为 cleared（行 513-517）——清零过的块分裂后，子块内容自然也是零。</p>
+<h3 id="4-2-合并（buddy-coalescing）"><a href="#4-2-合并（buddy-coalescing）" class="headerlink" title="4.2 合并（buddy coalescing）"></a>4.2 合并（buddy coalescing）</h3><h4 id="free-block-内部合并"><a href="#free-block-内部合并" class="headerlink" title="free_block 内部合并"></a>free_block 内部合并</h4><p><code>drivers/gpu/buddy.c:580-589</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">void</span> <span class="hljs-title function_">gpu_buddy_free_block</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> gpu_buddy *mm,</span><br><span class="hljs-params">                          <span class="hljs-keyword">struct</span> gpu_buddy_block *block)</span><br>&#123;<br>    BUG_ON(!gpu_buddy_block_is_allocated(block));<br>    mm-&gt;avail += gpu_buddy_block_size(mm, block);<br>    <span class="hljs-keyword">if</span> (gpu_buddy_block_is_clear(block))<br>        mm-&gt;clear_avail += gpu_buddy_block_size(mm, block);<br><br>    __gpu_buddy_free(mm, block, <span class="hljs-literal">false</span>);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>内部的 <code>__gpu_buddy_free</code> 会反复尝试向上合并：检查当前块的 buddy 是否也是 FREE，如果是则从 RB 树摘除，合并到父块，直到不能继续。</p>
+<h4 id="free-list-批量释放"><a href="#free-list-批量释放" class="headerlink" title="free_list 批量释放"></a>free_list 批量释放</h4><p><code>drivers/gpu/buddy.c:630-637</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">void</span> <span class="hljs-title function_">gpu_buddy_free_list</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> gpu_buddy *mm,</span><br><span class="hljs-params">                         <span class="hljs-keyword">struct</span> list_head *objects,</span><br><span class="hljs-params">                         <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> flags)</span><br>&#123;<br>    <span class="hljs-type">bool</span> mark_clear = flags &amp; GPU_BUDDY_CLEARED;<br>    __gpu_buddy_free_list(mm, objects, mark_clear, !mark_clear);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>批量释放时通过 <code>tmp_link</code> 做 DFS 后序遍历，确保子块先于父块释放。</p>
+<h3 id="4-3-gpu-buddy-alloc-blocks-—-带有对齐感知的分配"><a href="#4-3-gpu-buddy-alloc-blocks-—-带有对齐感知的分配" class="headerlink" title="4.3 gpu_buddy_alloc_blocks — 带有对齐感知的分配"></a>4.3 gpu_buddy_alloc_blocks — 带有对齐感知的分配</h3><p><code>drivers/gpu/buddy.c:1277-1299</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">gpu_buddy_alloc_blocks</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> gpu_buddy *mm,</span><br><span class="hljs-params">                           u64 start, u64 end, u64 size,</span><br><span class="hljs-params">                           u64 min_block_size,</span><br><span class="hljs-params">                           <span class="hljs-keyword">struct</span> list_head *blocks,</span><br><span class="hljs-params">                           <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> flags)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">gpu_buddy_block</span> *<span class="hljs-title">block</span> =</span> <span class="hljs-literal">NULL</span>;<br>    u64 original_size, original_min_size;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> min_order, order;<br>    LIST_HEAD(allocated);<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> pages;<br>    <span class="hljs-type">int</span> err;<br><br>    <span class="hljs-keyword">if</span> (size &lt; mm-&gt;chunk_size)<br>        <span class="hljs-keyword">return</span> -EINVAL;<br>    <span class="hljs-keyword">if</span> (min_block_size &lt; mm-&gt;chunk_size)<br>        <span class="hljs-keyword">return</span> -EINVAL;<br>    <span class="hljs-keyword">if</span> (!is_power_of_2(min_block_size))<br>        <span class="hljs-keyword">return</span> -EINVAL;<br>    <span class="hljs-keyword">if</span> (!IS_ALIGNED(start | end | size, mm-&gt;chunk_size))<br>        <span class="hljs-comment">// ...</span><br></code></pre></td></tr></table></figure>
+
+<p>分配 flag（<code>include/linux/gpu_buddy.h:23-68</code>）：</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>位</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>GPU_BUDDY_RANGE_ALLOCATION</code></td>
+<td>BIT(0)</td>
+<td>在 <code>[start, end)</code> 范围内分配</td>
+</tr>
+<tr>
+<td><code>GPU_BUDDY_TOPDOWN_ALLOCATION</code></td>
+<td>BIT(1)</td>
+<td>从高地址往低地址分配</td>
+</tr>
+<tr>
+<td><code>GPU_BUDDY_CONTIGUOUS_ALLOCATION</code></td>
+<td>BIT(2)</td>
+<td>必须返回一个连续块</td>
+</tr>
+<tr>
+<td><code>GPU_BUDDY_CLEAR_ALLOCATION</code></td>
+<td>BIT(3)</td>
+<td>优先从 CLEAR 树分配</td>
+</tr>
+<tr>
+<td><code>GPU_BUDDY_TRIM_DISABLE</code></td>
+<td>BIT(5)</td>
+<td>不裁剪多余空间</td>
+</tr>
+</tbody></table>
+<p><strong>分配流程简化</strong>：</p>
+<figure class="highlight markdown"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs markdown"><span class="hljs-bullet">1.</span> 参数校验 (size &gt;= chunk<span class="hljs-emphasis">_size, 对齐检查)</span><br><span class="hljs-emphasis">2. 如果有 RANGE_</span>ALLOCATION:<br>   → 遍历所有根块，找到与 [start,end) 有交集的根<br>   → 在增广红黑树中搜索满足对齐+大小+范围的块<br><span class="hljs-bullet">3.</span> 如果无范围限制:<br>   → 直接从 free<span class="hljs-emphasis">_trees 中取最小 fit 的块</span><br><span class="hljs-emphasis">4. 如果找到的块太大，用 split_</span>block 不断分裂<br><span class="hljs-bullet">5.</span> 如果需要 CLEAR 但块是 DIRTY，尝试从 CLEAR 树分配<br><span class="hljs-bullet">6.</span> GPU<span class="hljs-emphasis">_BUDDY_</span>TRIM<span class="hljs-emphasis">_DISABLE 未设置时，裁剪多余尾部</span><br></code></pre></td></tr></table></figure>
+
+<h3 id="4-4-gpu-buddy-block-trim-—-裁剪溢出空间"><a href="#4-4-gpu-buddy-block-trim-—-裁剪溢出空间" class="headerlink" title="4.4 gpu_buddy_block_trim — 裁剪溢出空间"></a>4.4 gpu_buddy_block_trim — 裁剪溢出空间</h3><p><code>drivers/gpu/buddy.c:1163-1184</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">gpu_buddy_block_trim</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> gpu_buddy *mm,</span><br><span class="hljs-params">                         u64 *start,</span><br><span class="hljs-params">                         u64 new_size,</span><br><span class="hljs-params">                         <span class="hljs-keyword">struct</span> list_head *blocks)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">gpu_buddy_block</span> *<span class="hljs-title">parent</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">gpu_buddy_block</span> *<span class="hljs-title">block</span>;</span><br>    u64 block_start, block_end;<br>    LIST_HEAD(dfs);<br>    u64 new_start;<br>    <span class="hljs-type">int</span> err;<br><br>    <span class="hljs-keyword">if</span> (!list_is_singular(blocks))<br>        <span class="hljs-keyword">return</span> -EINVAL;<br>    block = list_first_entry(blocks, <span class="hljs-keyword">struct</span> gpu_buddy_block, link);<br>    block_start = gpu_buddy_block_offset(block);<br>    block_end = block_start + gpu_buddy_block_size(mm, block);<br></code></pre></td></tr></table></figure>
+
+<p>例如：分配 3MB 但实际只需要 2MB。alloc 返回了一个 4MB 的块（2 的幂）。trim 函数将多余的 2MB 释放回 allocator。</p>
+<h2 id="5-增广红黑树：O-log-n-对齐搜索"><a href="#5-增广红黑树：O-log-n-对齐搜索" class="headerlink" title="5. 增广红黑树：O(log n) 对齐搜索"></a>5. 增广红黑树：O(log n) 对齐搜索</h2><p>这是 GPU buddy 最精妙的设计。普通的 buddy 分配器在限制地址范围时，需要遍历整棵树，复杂度 O(n)。GPU buddy 使用<strong>增广红黑树</strong>（augmented RB tree），在每个节点存储 <code>subtree_max_alignment</code>，实现 O(log n) 的 aligned range 搜索。</p>
+<h3 id="增广节点定义"><a href="#增广节点定义" class="headerlink" title="增广节点定义"></a>增广节点定义</h3><p><code>include/linux/gpu_buddy.h:132</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> subtree_max_alignment;  <span class="hljs-comment">/* 子树中最大对齐值 */</span><br></code></pre></td></tr></table></figure>
+
+<p>当向 RB 树插入一个块时，更新整条路径上所有祖先的 <code>subtree_max_alignment</code>。搜索时：</p>
+<figure class="highlight excel"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs excel">┌─────────────────────────────────┐<br>│ 在节点 <span class="hljs-built_in">N</span> 的子树中搜索            │<br>│ 条件<span class="hljs-symbol">:</span> 合适的 <span class="hljs-built_in">offset</span>且对齐≥请求  │<br>│ 剪枝<span class="hljs-symbol">:</span> N.subtree_max_alignment &lt;  │<br>│       请求对齐 → 跳过整棵子树    │<br>└─────────────────────────────────┘<br></code></pre></td></tr></table></figure>
+
+<h3 id="force-merge-—-紧急合并"><a href="#force-merge-—-紧急合并" class="headerlink" title="__force_merge — 紧急合并"></a>__force_merge — 紧急合并</h3><p><code>drivers/gpu/buddy.c:289-297</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> __force_merge(<span class="hljs-keyword">struct</span> gpu_buddy *mm,<br>                         u64 start,<br>                         u64 end,<br>                         <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> min_order)<br>&#123;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> tree, order;<br>    <span class="hljs-type">int</span> i;<br><br>    <span class="hljs-keyword">if</span> (!min_order)<br>        <span class="hljs-keyword">return</span> -ENOMEM;<br></code></pre></td></tr></table></figure>
+
+<p>当常规分配失败时，<code>__force_merge</code> 打破 <strong>clear&#x2F;dirty 隔离</strong>，将 CLEAR 树和 DIRTY 树中的小块强制合并成大块。这是 “最后的手段”——内存碎片已经严重到无法满足请求时启用。</p>
+<h2 id="6-完整分配流程示例"><a href="#6-完整分配流程示例" class="headerlink" title="6. 完整分配流程示例"></a>6. 完整分配流程示例</h2><p>假设 GPU 有 16GB 显存，chunk_size &#x3D; 4KB（order 0），请求：</p>
+<ul>
+<li>size &#x3D; 64MB</li>
+<li>flags &#x3D; <code>GPU_BUDDY_CONTIGUOUS_ALLOCATION | GPU_BUDDY_CLEAR_ALLOCATION</code></li>
+</ul>
+<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs routeros">初始状态:<br>  root[0]: <span class="hljs-attribute">order</span>=22 (16GB), FREE, DIRTY<br><br>步骤 1: 在 CLEAR_TREE 中搜索<br>  → CLEAR 树为空，进入 DIRTY 树<br><br>步骤 2: 在 DIRTY_TREE[22] 中找到 root[0]<br>  → order 22 (16GB) 太大，需要分裂<br><br>步骤 3: 连续分裂 4 次 (22→21→20→19→18)<br>   <span class="hljs-attribute">order</span>=22  ─split→  <span class="hljs-attribute">order</span>=21 + <span class="hljs-attribute">order</span>=21<br>   <span class="hljs-attribute">order</span>=21  ─split→  <span class="hljs-attribute">order</span>=20 + <span class="hljs-attribute">order</span>=20<br>   <span class="hljs-built_in">..</span>.<br>   <span class="hljs-attribute">order</span>=18  ─split→  <span class="hljs-attribute">order</span>=17 + <span class="hljs-attribute">order</span>=17<br>   <span class="hljs-attribute">order</span>=17 → 128MB, 仍太大<br>   <span class="hljs-attribute">order</span>=17  ─split→  <span class="hljs-attribute">order</span>=16 + <span class="hljs-attribute">order</span>=16<br>   <span class="hljs-attribute">order</span>=16 → 64MB = 刚好! <br><br>步骤 4: mark_allocated(<span class="hljs-attribute">order</span>=16 块)<br>   → mm-&gt;avail -= 64MB<br>   → 用户拿到 64MB 连续显存<br>   → 兄弟 <span class="hljs-attribute">order</span>=16 块留在 DIRTY_TREE[16]<br></code></pre></td></tr></table></figure>
+
+<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs routeros">分裂后的树结构:<br>               root (<span class="hljs-attribute">order</span>=22)                    ← 顶层<br>              /              \<br>        <span class="hljs-attribute">order</span>=21           <span class="hljs-attribute">order</span>=21<br>       /        \          /       \<br>   <span class="hljs-attribute">order</span>=20    <span class="hljs-attribute">order</span>=20  <span class="hljs-built_in">..</span>.      <span class="hljs-built_in">..</span>.<br>   /       \<br><span class="hljs-attribute">order</span>=19  <span class="hljs-attribute">order</span>=19<br>   |<br><span class="hljs-attribute">order</span>=18  ← 所有中间节点标记为 SPLIT<br>   |<br>┌───────────────────────────┐<br>│ <span class="hljs-attribute">order</span>=16 (ALLOCATED)     │  ← 返回给用户<br>│ <span class="hljs-attribute">size</span>=64MB                │<br>└───────────────────────────┘<br></code></pre></td></tr></table></figure>
+
+<h2 id="7-与内核-buddy-对比"><a href="#7-与内核-buddy-对比" class="headerlink" title="7. 与内核 buddy 对比"></a>7. 与内核 buddy 对比</h2><p>内核 <code>mm/page_alloc.c</code> buddy 是<strong>最先出现</strong>的 buddy 实现，但它为管理物理页而设计：</p>
+<ol>
+<li><strong>free_area 是链表数组</strong>，GPU buddy 用<strong>红黑树+链表</strong>实现对齐搜索</li>
+<li>内核 buddy 的 free_block 内嵌在 <code>struct zone</code> 中，GPU buddy 独立抽象</li>
+<li>内核 buddy 支持 watermark 和 GFP 标志（<code>GFP_ATOMIC</code>、<code>GFP_KERNEL</code>等），GPU buddy 只做块管理</li>
+<li>GPU buddy 的 CLEAR&#x2F;DIRTY 双树是独有特性——GPU 显存清零是昂贵的硬件操作</li>
+</ol>
+<h2 id="8-在内核中的使用者"><a href="#8-在内核中的使用者" class="headerlink" title="8. 在内核中的使用者"></a>8. 在内核中的使用者</h2><p>GPU buddy allocator 被多个 GPU 驱动使用，最常见的是通过 DRM buddy allocator 包装层调用。Intel i915、AMD amdgpu、NVIDIA nouveau 的显存管理器都依赖它。</p>
+<p>NVIDIA AI Infra 场景中，当 GPU 驱动需要管理大块连续显存（如 CUDA 的 <code>cudaMalloc</code> 的大块分配、RDMA 超大 MR 的 GPU buffer），底层就是 buddy allocator 在切分和回收显存。</p>
+<hr>
+<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="07-gpu-scheduler.md">第7篇：GPU 命令提交调度：DRM Scheduler</a></p>
+<p>简介：<code>drivers/gpu/drm/scheduler/</code> 中基于信用的优先级调度系统，控制 GPU 命令队列的流控、超时检测和并发提交。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/nvidia-svm/" class="category-chain-item">nvidia-svm</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/drivers/">#drivers</a>
+      
+        <a href="/tags/fs/">#fs</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/gpu/">#gpu</a>
+      
+        <a href="/tags/kernel/">#kernel</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/log/">#log</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/struct/">#struct</a>
+      
+        <a href="/tags/power/">#power</a>
+      
+        <a href="/tags/nvidia-svm/">#nvidia-svm</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>第6篇：GPU 显存 Buddy 分配器</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/06-gpu-buddy/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年5月21日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/05-ttm/" title="第5篇：GPU 多内存类型管理 — TTM 框架">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">第5篇：GPU 多内存类型管理 — TTM 框架</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/07-gpu-scheduler/" title="第7篇：GPU 命令提交调度：DRM Scheduler">
+                        <span class="hidden-mobile">第7篇：GPU 命令提交调度：DRM Scheduler</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '02044cfa315628e75b86a3c8bb40b4f6'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

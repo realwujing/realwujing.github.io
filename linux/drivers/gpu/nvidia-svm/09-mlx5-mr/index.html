@@ -1,0 +1,990 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, bcache, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, mcu, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, nvidia-svm, openclaw, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="第9篇：RDMA 硬件侧 MR 注册：mlx5&#x2F;mr.c 源码：drivers&#x2F;infiniband&#x2F;hw&#x2F;mlx5&#x2F;mr.c | 头文件：drivers&#x2F;infiniband&#x2F;hw&#x2F;mlx5&#x2F;mlx5_ib.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. MKey 是什么MKey（Memory Key）是 InfiniBand&#x2F;RoCE 协议中最核心的内">
+<meta property="og:type" content="article">
+<meta property="og:title" content="第9篇：RDMA 硬件侧 MR 注册：mlx5&#x2F;mr.c">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/09-mlx5-mr/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="第9篇：RDMA 硬件侧 MR 注册：mlx5&#x2F;mr.c 源码：drivers&#x2F;infiniband&#x2F;hw&#x2F;mlx5&#x2F;mr.c | 头文件：drivers&#x2F;infiniband&#x2F;hw&#x2F;mlx5&#x2F;mlx5_ib.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. MKey 是什么MKey（Memory Key）是 InfiniBand&#x2F;RoCE 协议中最核心的内">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:modified_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="drivers">
+<meta property="article:tag" content="fs">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="gpu">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="log">
+<meta property="article:tag" content="virt">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="struct">
+<meta property="article:tag" content="mutex">
+<meta property="article:tag" content="nvidia-svm">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>第9篇：RDMA 硬件侧 MR 注册：mlx5/mr.c - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="第9篇：RDMA 硬件侧 MR 注册：mlx5/mr.c"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-05-21 12:01" pubdate>
+          2026年5月21日 中午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          13k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          105 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">第9篇：RDMA 硬件侧 MR 注册：mlx5/mr.c</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="第9篇：RDMA-硬件侧-MR-注册：mlx5-mr-c"><a href="#第9篇：RDMA-硬件侧-MR-注册：mlx5-mr-c" class="headerlink" title="第9篇：RDMA 硬件侧 MR 注册：mlx5&#x2F;mr.c"></a>第9篇：RDMA 硬件侧 MR 注册：mlx5&#x2F;mr.c</h1><blockquote>
+<p>源码：<code>drivers/infiniband/hw/mlx5/mr.c</code> | 头文件：<code>drivers/infiniband/hw/mlx5/mlx5_ib.h</code><br>系列目录：<a target="_blank" rel="noopener" href="https://github.com/realwujing/realwujing.github.io/blob/main/linux/drivers/gpu/nvidia-svm/README.md">NVIDIA AI Infra 内核源码深度解析</a></p>
+</blockquote>
+<h2 id="1-MKey-是什么"><a href="#1-MKey-是什么" class="headerlink" title="1. MKey 是什么"></a>1. MKey 是什么</h2><p>MKey（Memory Key）是 InfiniBand&#x2F;RoCE 协议中最核心的内存管理概念。每个远程 DMA 操作（RDMA Read&#x2F;Write&#x2F;Atomic）都需要携带一个有效的 MKey，HCA（Host Channel Adapter，如 ConnectX-7）用 MKey 来：</p>
+<ol>
+<li><strong>查 IOMMU 页表</strong>：将虚拟地址翻译为物理总线地址</li>
+<li><strong>权限检查</strong>：remote read&#x2F;write&#x2F;atomic 是否允许</li>
+<li><strong>地址空间隔离</strong>：进程 A 的 MKey 无法访问进程 B 的内存</li>
+</ol>
+<p>MKey 的创建需要<strong>固件命令</strong>（CREATE_MKEY），这在 RDMA 中是开销最大的操作之一。mlx5&#x2F;mr.c（2197 行）是整个 ConnectX 系列内存注册的枢纽。</p>
+<h2 id="2-架构总览"><a href="#2-架构总览" class="headerlink" title="2. 架构总览"></a>2. 架构总览</h2><p>MR 注册的三条路径：</p>
+<figure class="highlight gcode"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs gcode">        mlx<span class="hljs-number">5</span>_ib_reg_user_mr <span class="hljs-comment">(854)</span><br>                │<br>        ┌───────┼──────────┐<br>        │       │          │<br>ODP 流程  UMR 快速路径   reg_create 慢路径<br><span class="hljs-comment">(874)</span>    <span class="hljs-comment">(755)</span>           <span class="hljs-comment">(532)</span><br></code></pre></td></tr></table></figure>
+
+<figure class="highlight css"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs css">寄存器路径决策:<br>  ┌─────────────────────────────────────────────────────┐<br>  │ access_flags &amp; IB_ACCESS_ON_DEMAND?                  │<br>  │   YES → <span class="hljs-built_in">create_user_odp_mr</span>()  [ODP 按需分页]        │<br>  │   NO  → 继续                                        │<br>  │                                                      │<br>  │ 用户内存: <span class="hljs-built_in">ib_umem_get</span>() 获取 SG table                │<br>  │   → <span class="hljs-built_in">create_real_mr</span>()                                 │<br>  │                                                      │<br>  │ dmabuf 内存: <span class="hljs-built_in">reg_user_mr_dmabuf</span>()                    │<br>  │   → <span class="hljs-built_in">alloc_cacheable_mr</span>() [UMR 快速路径]              │<br>  └─────────────────────────────────────────────────────┘<br></code></pre></td></tr></table></figure>
+
+<h2 id="3-核心函数"><a href="#3-核心函数" class="headerlink" title="3. 核心函数"></a>3. 核心函数</h2><h3 id="3-1-mlx5-ib-reg-user-mr-—-公共入口"><a href="#3-1-mlx5-ib-reg-user-mr-—-公共入口" class="headerlink" title="3.1 mlx5_ib_reg_user_mr — 公共入口"></a>3.1 mlx5_ib_reg_user_mr — 公共入口</h3><p><code>drivers/infiniband/hw/mlx5/mr.c:854-880</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">struct</span> ib_mr *<span class="hljs-title function_">mlx5_ib_reg_user_mr</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ib_pd *pd, u64 start, u64 length,</span><br><span class="hljs-params">                                  u64 iova, <span class="hljs-type">int</span> access_flags,</span><br><span class="hljs-params">                                  <span class="hljs-keyword">struct</span> ib_dmah *dmah,</span><br><span class="hljs-params">                                  <span class="hljs-keyword">struct</span> ib_udata *udata)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mlx5_ib_dev</span> *<span class="hljs-title">dev</span> =</span> to_mdev(pd-&gt;device);<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ib_umem</span> *<span class="hljs-title">umem</span>;</span><br>    <span class="hljs-type">int</span> err;<br><br>    <span class="hljs-keyword">if</span> (!IS_ENABLED(CONFIG_INFINIBAND_USER_MEM) ||<br>        ((access_flags &amp; IB_ACCESS_ON_DEMAND) &amp;&amp; dmah))<br>        <span class="hljs-keyword">return</span> ERR_PTR(-EOPNOTSUPP);<br><br>    mlx5_ib_dbg(dev,<br>        <span class="hljs-string">&quot;start 0x%llx, iova 0x%llx, length 0x%llx, access_flags 0x%x\n&quot;</span>,<br>        start, iova, length, access_flags);<br><br>    err = mlx5r_umr_resource_init(dev);  <span class="hljs-comment">// 初始化 UMR 资源</span><br>    <span class="hljs-keyword">if</span> (err)<br>        <span class="hljs-keyword">return</span> ERR_PTR(err);<br><br>    <span class="hljs-keyword">if</span> (access_flags &amp; IB_ACCESS_ON_DEMAND)<br>        <span class="hljs-keyword">return</span> create_user_odp_mr(pd, start, length, iova, access_flags, udata);<br><br>    umem = ib_umem_get(&amp;dev-&gt;ib_dev, start, length, access_flags);<br>    <span class="hljs-keyword">if</span> (IS_ERR(umem))<br>        <span class="hljs-keyword">return</span> ERR_CAST(umem);<br><br>    <span class="hljs-keyword">return</span> create_real_mr(pd, umem, iova, access_flags, dmah);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>三路分发</strong>：</p>
+<ul>
+<li>ODP（On-Demand Paging）：用户启用了 <code>IB_ACCESS_ON_DEMAND</code></li>
+<li>非 ODP 用户内存：<code>ib_umem_get</code> → <code>create_real_mr</code></li>
+<li>dmabuf 内存：走 <code>mlx5_ib_reg_user_mr_dmabuf</code></li>
+</ul>
+<h3 id="3-2-create-real-mr-—-UMR-vs-慢路径决策"><a href="#3-2-create-real-mr-—-UMR-vs-慢路径决策" class="headerlink" title="3.2 create_real_mr — UMR vs 慢路径决策"></a>3.2 create_real_mr — UMR vs 慢路径决策</h3><p><code>drivers/infiniband/hw/mlx5/mr.c:735-769</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> ib_mr *<span class="hljs-title function_">create_real_mr</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ib_pd *pd, <span class="hljs-keyword">struct</span> ib_umem *umem,</span><br><span class="hljs-params">                                    u64 iova, <span class="hljs-type">int</span> access_flags,</span><br><span class="hljs-params">                                    <span class="hljs-keyword">struct</span> ib_dmah *dmah)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mlx5_ib_dev</span> *<span class="hljs-title">dev</span> =</span> to_mdev(pd-&gt;device);<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mlx5_ib_mr</span> *<span class="hljs-title">mr</span> =</span> <span class="hljs-literal">NULL</span>;<br>    <span class="hljs-type">bool</span> xlt_with_umr;<br>    u16 st_index = MLX5_MKC_PCIE_TPH_NO_STEERING_TAG_INDEX;<br>    u8 ph = MLX5_IB_NO_PH;<br>    <span class="hljs-type">int</span> err;<br><br>    xlt_with_umr = mlx5r_umr_can_load_pas(dev, umem-&gt;length);<br>    <span class="hljs-keyword">if</span> (xlt_with_umr) &#123;<br>        mr = alloc_cacheable_mr(pd, umem, iova, access_flags,<br>                                MLX5_MKC_ACCESS_MODE_MTT,<br>                                st_index, ph);<br>    &#125; <span class="hljs-keyword">else</span> &#123;<br>        <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> page_size = mlx5_umem_mkc_find_best_pgsz(<br>            dev, umem, iova, MLX5_MKC_ACCESS_MODE_MTT);<br><br>        mutex_lock(&amp;dev-&gt;slow_path_mutex);<br>        mr = reg_create(pd, umem, iova, access_flags, page_size,<br>                        <span class="hljs-literal">true</span>, MLX5_MKC_ACCESS_MODE_MTT,<br>                        st_index, ph);<br>        mutex_unlock(&amp;dev-&gt;slow_path_mutex);<br>    &#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>关键决策</strong>（行 754）：<code>mlx5r_umr_can_load_pas</code> 判断 PAS（Physical Address Segment）是否能在单个 UMR WQE 中装下。</p>
+<figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">┌─────────────────────────────────────────────────────────┐</span><br><span class="hljs-attribute">│  UMR (User Mode Registration) 快速路径</span><span class="hljs-punctuation">:</span> <span class="hljs-string">                 │</span><br><span class="hljs-attribute">│  条件</span><span class="hljs-punctuation">:</span> <span class="hljs-string">PAS entries 数量 ≤ UMR WQE 容量                  │</span><br><span class="hljs-attribute">│  流程</span><span class="hljs-punctuation">:</span> <span class="hljs-string">alloc_cacheable_mr → 从 FRMR pool 获取预分配 MKey │</span><br><span class="hljs-attribute">│        → mlx5r_umr_update_mr_pas 修改 MKey 的 PAS       │</span><br><span class="hljs-attribute">│  优点</span><span class="hljs-punctuation">:</span> <span class="hljs-string">无需固件命令，只写 WQE，延迟 ~1μs                │</span><br><span class="hljs-attribute">│                                                         │</span><br><span class="hljs-attribute">│  reg_create 慢路径</span><span class="hljs-punctuation">:</span> <span class="hljs-string">                                    │</span><br><span class="hljs-attribute">│  条件</span><span class="hljs-punctuation">:</span> <span class="hljs-string">PAS 数量 &gt; UMR WQE 容量，或超大内存              │</span><br><span class="hljs-attribute">│  流程</span><span class="hljs-punctuation">:</span> <span class="hljs-string">构建 CREATE_MKEY 固件命令 → kvzalloc 命令缓冲区   │</span><br><span class="hljs-attribute">│        → 填充 PAS/MKC 字段 → 发送固件命令               │</span><br><span class="hljs-attribute">│  缺点</span><span class="hljs-punctuation">:</span> <span class="hljs-string">固件 RPC 延迟 ~50-100μs                          │</span><br>└─────────────────────────────────────────────────────────┘<br></code></pre></td></tr></table></figure>
+
+<h3 id="3-3-reg-create-—-CREATE-MKEY-固件命令"><a href="#3-3-reg-create-—-CREATE-MKEY-固件命令" class="headerlink" title="3.3 reg_create — CREATE_MKEY 固件命令"></a>3.3 reg_create — CREATE_MKEY 固件命令</h3><p><code>drivers/infiniband/hw/mlx5/mr.c:532-601</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> mlx5_ib_mr *<span class="hljs-title function_">reg_create</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ib_pd *pd, <span class="hljs-keyword">struct</span> ib_umem *umem,</span><br><span class="hljs-params">                                     u64 iova, <span class="hljs-type">int</span> access_flags,</span><br><span class="hljs-params">                                     <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> page_size, <span class="hljs-type">bool</span> populate,</span><br><span class="hljs-params">                                     <span class="hljs-type">int</span> access_mode, u16 st_index, u8 ph)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mlx5_ib_dev</span> *<span class="hljs-title">dev</span> =</span> to_mdev(pd-&gt;device);<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mlx5_ib_mr</span> *<span class="hljs-title">mr</span>;</span><br>    __be64 *pas;<br>    <span class="hljs-type">void</span> *mkc;<br>    <span class="hljs-type">int</span> inlen;<br>    u32 *in;<br>    <span class="hljs-type">int</span> err;<br>    <span class="hljs-type">bool</span> pg_cap = !!(MLX5_CAP_GEN(dev-&gt;mdev, pg)) &amp;&amp;<br>        (access_mode == MLX5_MKC_ACCESS_MODE_MTT) &amp;&amp;<br>        (ph == MLX5_IB_NO_PH);<br>    <span class="hljs-type">bool</span> ksm_mode = (access_mode == MLX5_MKC_ACCESS_MODE_KSM);<br><br>    <span class="hljs-keyword">if</span> (!page_size)<br>        <span class="hljs-keyword">return</span> ERR_PTR(-EINVAL);<br>    mr = kzalloc_obj(*mr);<br>    <span class="hljs-keyword">if</span> (!mr)<br>        <span class="hljs-keyword">return</span> ERR_PTR(-ENOMEM);<br><br>    mr-&gt;ibmr.pd = pd;<br>    mr-&gt;access_flags = access_flags;<br>    mr-&gt;page_shift = order_base_2(page_size);<br><br>    inlen = MLX5_ST_SZ_BYTES(create_mkey_in);<br>    <span class="hljs-keyword">if</span> (populate)<br>        inlen += <span class="hljs-keyword">sizeof</span>(*pas) *<br>                 roundup(ib_umem_num_dma_blocks(umem, page_size), <span class="hljs-number">2</span>);<br>    in = kvzalloc(inlen, GFP_KERNEL);<br>    <span class="hljs-comment">// ...</span><br>    pas = (__be64 *)MLX5_ADDR_OF(create_mkey_in, in, klm_pas_mtt);<br>    <span class="hljs-keyword">if</span> (populate) &#123;<br>        <span class="hljs-keyword">if</span> (WARN_ON(access_flags &amp; IB_ACCESS_ON_DEMAND || ksm_mode)) &#123;<br>            err = -EINVAL;<br>            <span class="hljs-keyword">goto</span> err_2;<br>        &#125;<br>        mlx5_ib_populate_pas(umem, <span class="hljs-number">1UL</span> &lt;&lt; mr-&gt;page_shift, pas,<br>                             pg_cap ? MLX5_IB_MTT_PRESENT : <span class="hljs-number">0</span>);<br>    &#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>命令布局</strong>：</p>
+<figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">┌─────────────────────────────────────────────────────────┐</span><br><span class="hljs-attribute">│              CREATE_MKEY firmware command                │</span><br><span class="hljs-attribute">│                                                         │</span><br><span class="hljs-attribute">│  ┌─────────────────────────────────────────────────────┐│</span><br><span class="hljs-attribute">│  │  MKC (Memory Key Context)                           ││</span><br><span class="hljs-attribute">│  │  - access_mode</span><span class="hljs-punctuation">:</span> <span class="hljs-string">MTT/KSM/SW_ICM/INTERLEAVED         ││</span><br><span class="hljs-attribute">│  │  - iova</span><span class="hljs-punctuation">:</span> <span class="hljs-string">起始虚拟地址                               ││</span><br><span class="hljs-attribute">│  │  - len</span><span class="hljs-punctuation">:</span> <span class="hljs-string">内存区域长度                                ││</span><br><span class="hljs-attribute">│  │  - log_page_size</span><span class="hljs-punctuation">:</span> <span class="hljs-string">页大小 (log2)                     ││</span><br><span class="hljs-attribute">│  │  - bsf_octword_size</span><span class="hljs-punctuation">:</span> <span class="hljs-string">0 (不启用 bank separated format)││</span><br><span class="hljs-attribute">│  │  - translations_octword_size</span><span class="hljs-punctuation">:</span> <span class="hljs-string">PAS 数组大小          ││</span><br><span class="hljs-attribute">│  │  - access_flags</span><span class="hljs-punctuation">:</span> <span class="hljs-string">local/remote read/write/atomic     ││</span><br><span class="hljs-attribute">│  │  - pd</span><span class="hljs-punctuation">:</span> <span class="hljs-string">protection domain                           ││</span><br><span class="hljs-attribute">│  │  - free</span><span class="hljs-punctuation">:</span> <span class="hljs-string">0 (MTT 模式不掉就释放)                     ││</span><br><span class="hljs-attribute">│  │  - umr_en</span><span class="hljs-punctuation">:</span> <span class="hljs-string">1 (允许后续 UMR 重编程)                  ││</span><br>│  ├─────────────────────────────────────────────────────┤│<br>│  │  PAS (Physical Address Segments)                    ││<br>│  │  ┌─────────────────────┬───────────────────────────┐││<br>│  │  │ PAS[0] = BUS_ADDR_0 │ PAS[1] = BUS_ADDR_1 │ ... │││<br>│  │  └─────────────────────┴───────────────────────────┘││<br>│  │  每个 PAS 是一个 64-bit PCIe 总线地址                 ││<br>│  └─────────────────────────────────────────────────────┘│<br>└─────────────────────────────────────────────────────────┘<br></code></pre></td></tr></table></figure>
+
+<p><strong>MKC 字段设置</strong>（行 583-604）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c">mkc = MLX5_ADDR_OF(create_mkey_in, in, memory_key_mkey_entry);<br>set_mkc_access_pd_addr_fields(mkc, access_flags, iova, ...);<br>MLX5_SET(mkc, mkc, <span class="hljs-built_in">free</span>, !populate);<br>MLX5_SET(mkc, mkc, access_mode_1_0, access_mode);<br>MLX5_SET(mkc, mkc, umr_en, <span class="hljs-number">1</span>);          <span class="hljs-comment">// 允许后续 UMR 更新</span><br>MLX5_SET64(mkc, mkc, len, umem-&gt;length);<br>MLX5_SET(mkc, mkc, bsf_octword_size, <span class="hljs-number">0</span>);<br>MLX5_SET(mkc, mkc, log_page_size, mr-&gt;page_shift);<br></code></pre></td></tr></table></figure>
+
+<h3 id="3-4-alloc-cacheable-mr-—-FRMR-池分配（UMR-快速路径）"><a href="#3-4-alloc-cacheable-mr-—-FRMR-池分配（UMR-快速路径）" class="headerlink" title="3.4 alloc_cacheable_mr — FRMR 池分配（UMR 快速路径）"></a>3.4 alloc_cacheable_mr — FRMR 池分配（UMR 快速路径）</h3><p><code>drivers/infiniband/hw/mlx5/mr.c:440-469</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> mlx5_ib_mr *<span class="hljs-title function_">alloc_cacheable_mr</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ib_pd *pd,</span><br><span class="hljs-params">                                             <span class="hljs-keyword">struct</span> ib_umem *umem, u64 iova,</span><br><span class="hljs-params">                                             <span class="hljs-type">int</span> access_flags, <span class="hljs-type">int</span> access_mode,</span><br><span class="hljs-params">                                             u16 st_index, u8 ph)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mlx5_ib_dev</span> *<span class="hljs-title">dev</span> =</span> to_mdev(pd-&gt;device);<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mlx5_ib_mr</span> *<span class="hljs-title">mr</span>;</span><br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> page_size;<br><br>    <span class="hljs-keyword">if</span> (umem-&gt;is_dmabuf)<br>        page_size = mlx5_umem_dmabuf_default_pgsz(umem, iova);<br>    <span class="hljs-keyword">else</span><br>        page_size = mlx5_umem_mkc_find_best_pgsz(dev, umem, iova,<br>                                                 access_mode);<br>    <span class="hljs-keyword">if</span> (WARN_ON(!page_size))<br>        <span class="hljs-keyword">return</span> ERR_PTR(-EINVAL);<br><br>    mr = _mlx5_frmr_pool_alloc(dev, umem, access_flags, access_mode,<br>                               page_size, st_index, ph);<br>    <span class="hljs-keyword">if</span> (IS_ERR(mr))<br>        <span class="hljs-keyword">return</span> mr;<br><br>    mr-&gt;mmkey.type = MLX5_MKEY_MR;<br>    mr-&gt;ibmr.pd = pd;<br>    mr-&gt;umem = umem;<br>    mr-&gt;page_shift = order_base_2(page_size);<br>    set_mr_fields(dev, mr, umem-&gt;length, access_flags, iova);<br><br>    <span class="hljs-keyword">return</span> mr;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>FRMR（Fast Register Memory Region）pool 预分配了一组 MKey，可以从池中获取而<strong>不需要固件命令</strong>。获取后通过 <code>mlx5r_umr_update_mr_pas</code> 用 UMR WQE 设置 PAS。</p>
+<h3 id="3-5-mlx5-ib-populate-pas-—-构建-PAS-数组"><a href="#3-5-mlx5-ib-populate-pas-—-构建-PAS-数组" class="headerlink" title="3.5 mlx5_ib_populate_pas — 构建 PAS 数组"></a>3.5 mlx5_ib_populate_pas — 构建 PAS 数组</h3><p><code>drivers/infiniband/hw/mlx5/mem.c:41-51</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">void</span> <span class="hljs-title function_">mlx5_ib_populate_pas</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ib_umem *umem, <span class="hljs-type">size_t</span> page_size, __be64 *pas,</span><br><span class="hljs-params">                          u64 access_flags)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ib_block_iter</span> <span class="hljs-title">biter</span>;</span><br><br>    rdma_umem_for_each_dma_block (umem, &amp;biter, page_size) &#123;<br>        *pas = cpu_to_be64(rdma_block_iter_dma_address(&amp;biter) |<br>                           access_flags);<br>        pas++;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>核心循环</strong>：遍历 <code>ib_umem</code> 的 DMA 块（由 <code>dma_buf_map_attachment</code> 返回的 SG table），将每个 DMA 块的物理地址以<strong>大端序</strong>（<code>cpu_to_be64</code>）写入 PAS 数组。</p>
+<figure class="highlight nestedtext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs nestedtext"><span class="hljs-attribute">PAS 数组填充示意</span><span class="hljs-punctuation">:</span><br>  <span class="hljs-attribute">umem SG table</span><span class="hljs-punctuation">:</span> <span class="hljs-string">             生成的 PAS 数组:</span><br>  <span class="hljs-attribute">┌──────────────┐            ┌────────────────────────┐</span><br><span class="hljs-attribute">  │ sg[0]</span><span class="hljs-punctuation">:</span> <span class="hljs-string">0x1A000│           │ PAS[0]: 0x00000001A000 │</span><br>  <span class="hljs-attribute">│ len</span><span class="hljs-punctuation">:</span> <span class="hljs-string">4096    │    ──→     │ (大端, 可能带 access)  │</span><br>  <span class="hljs-attribute">├──────────────┤            ├────────────────────────┤</span><br><span class="hljs-attribute">  │ sg[1]</span><span class="hljs-punctuation">:</span> <span class="hljs-string">0x2B000│           │ PAS[1]: 0x00000002B000 │</span><br>  <span class="hljs-attribute">│ len</span><span class="hljs-punctuation">:</span> <span class="hljs-string">4096    │            ├────────────────────────┤</span><br>  <span class="hljs-attribute">├──────────────┤            │ PAS[2]</span><span class="hljs-punctuation">:</span> <span class="hljs-string">0x00000003C000 │</span><br>  <span class="hljs-attribute">│ sg[2]</span><span class="hljs-punctuation">:</span> <span class="hljs-string">0x3C000│            └────────────────────────┘</span><br>  <span class="hljs-attribute">│ len</span><span class="hljs-punctuation">:</span> <span class="hljs-string">4096    │</span><br>  └──────────────┘<br></code></pre></td></tr></table></figure>
+
+<h2 id="4-GPUDirect-RDMA-路径：dmabuf-MR-注册"><a href="#4-GPUDirect-RDMA-路径：dmabuf-MR-注册" class="headerlink" title="4. GPUDirect RDMA 路径：dmabuf MR 注册"></a>4. GPUDirect RDMA 路径：dmabuf MR 注册</h2><h3 id="4-1-mlx5-ib-reg-user-mr-dmabuf-—-公共入口"><a href="#4-1-mlx5-ib-reg-user-mr-dmabuf-—-公共入口" class="headerlink" title="4.1 mlx5_ib_reg_user_mr_dmabuf — 公共入口"></a>4.1 mlx5_ib_reg_user_mr_dmabuf — 公共入口</h3><p><code>drivers/infiniband/hw/mlx5/mr.c:1030-1066</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">struct</span> ib_mr *<span class="hljs-title function_">mlx5_ib_reg_user_mr_dmabuf</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ib_pd *pd, u64 offset,</span><br><span class="hljs-params">                                         u64 length, u64 virt_addr,</span><br><span class="hljs-params">                                         <span class="hljs-type">int</span> fd, <span class="hljs-type">int</span> access_flags,</span><br><span class="hljs-params">                                         <span class="hljs-keyword">struct</span> ib_dmah *dmah,</span><br><span class="hljs-params">                                         <span class="hljs-keyword">struct</span> uverbs_attr_bundle *attrs)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mlx5_ib_dev</span> *<span class="hljs-title">dev</span> =</span> to_mdev(pd-&gt;device);<br>    <span class="hljs-type">int</span> mlx5_access_flags = <span class="hljs-number">0</span>;<br>    <span class="hljs-type">int</span> err;<br><br>    <span class="hljs-keyword">if</span> (!IS_ENABLED(CONFIG_INFINIBAND_USER_MEM) ||<br>        !IS_ENABLED(CONFIG_INFINIBAND_ON_DEMAND_PAGING))<br>        <span class="hljs-keyword">return</span> ERR_PTR(-EOPNOTSUPP);<br><br>    <span class="hljs-comment">// ...</span><br><br>    <span class="hljs-comment">/* dmabuf requires xlt update via umr to work. */</span><br>    <span class="hljs-keyword">if</span> (!mlx5r_umr_can_load_pas(dev, length))<br>        <span class="hljs-keyword">return</span> ERR_PTR(-EINVAL);<br><br>    <span class="hljs-keyword">if</span> (mlx5_access_flags &amp; MLX5_IB_UAPI_REG_DMABUF_ACCESS_DATA_DIRECT)<br>        <span class="hljs-keyword">return</span> reg_user_mr_dmabuf_by_data_direct(pd, offset, length,<br>                                                 virt_addr, fd, access_flags);<br><br>    <span class="hljs-keyword">return</span> reg_user_mr_dmabuf(pd, <span class="hljs-literal">NULL</span>, offset, length, virt_addr, fd,<br>                              access_flags, MLX5_MKC_ACCESS_MODE_MTT, dmah);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>约束</strong>（行 1057）：dmabuf MR 注册<strong>必须能用 UMR</strong>——这是硬性要求。如果内存区域太大，无法在 UMR WQE 中容纳全部 PAS，直接返回 <code>-EINVAL</code>。</p>
+<h3 id="4-2-reg-user-mr-dmabuf-—-核心转换"><a href="#4-2-reg-user-mr-dmabuf-—-核心转换" class="headerlink" title="4.2 reg_user_mr_dmabuf — 核心转换"></a>4.2 reg_user_mr_dmabuf — 核心转换</h3><p><code>drivers/infiniband/hw/mlx5/mr.c:902-974</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> ib_mr *<br><span class="hljs-title function_">reg_user_mr_dmabuf</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ib_pd *pd, <span class="hljs-keyword">struct</span> device *dma_device,</span><br><span class="hljs-params">                   u64 offset, u64 length, u64 virt_addr,</span><br><span class="hljs-params">                   <span class="hljs-type">int</span> fd, <span class="hljs-type">int</span> access_flags, <span class="hljs-type">int</span> access_mode,</span><br><span class="hljs-params">                   <span class="hljs-keyword">struct</span> ib_dmah *dmah)</span><br>&#123;<br>    <span class="hljs-type">bool</span> pinned_mode = (access_mode == MLX5_MKC_ACCESS_MODE_KSM);<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mlx5_ib_dev</span> *<span class="hljs-title">dev</span> =</span> to_mdev(pd-&gt;device);<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mlx5_ib_mr</span> *<span class="hljs-title">mr</span> =</span> <span class="hljs-literal">NULL</span>;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ib_umem_dmabuf</span> *<span class="hljs-title">umem_dmabuf</span>;</span><br>    <span class="hljs-comment">// ...</span><br>    <span class="hljs-type">int</span> err;<br><br>    err = mlx5r_umr_resource_init(dev);<br>    <span class="hljs-keyword">if</span> (err)<br>        <span class="hljs-keyword">return</span> ERR_PTR(err);<br><br>    <span class="hljs-keyword">if</span> (!pinned_mode)<br>        umem_dmabuf = ib_umem_dmabuf_get(&amp;dev-&gt;ib_dev,<br>                                         offset, length, fd, access_flags,<br>                                         &amp;mlx5_ib_dmabuf_attach_ops);<br>    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (dma_device)<br>        umem_dmabuf = ib_umem_dmabuf_get_pinned_with_dma_device(<br>            &amp;dev-&gt;ib_dev, dma_device, offset, length, fd, access_flags);<br>    <span class="hljs-keyword">else</span><br>        umem_dmabuf = ib_umem_dmabuf_get_pinned(<br>            &amp;dev-&gt;ib_dev, offset, length, fd, access_flags);<br>    <span class="hljs-comment">// ...</span><br><br>    mr = alloc_cacheable_mr(pd, &amp;umem_dmabuf-&gt;umem, virt_addr,<br>                            access_flags, access_mode, st_index, ph);<br>    <span class="hljs-comment">// ...</span><br><br>    umem_dmabuf-&gt;private = mr;<br>    <span class="hljs-keyword">if</span> (!pinned_mode) &#123;<br>        err = mlx5r_store_odp_mkey(dev, &amp;mr-&gt;mmkey);<br>        <span class="hljs-comment">// ...</span><br>    &#125; <span class="hljs-keyword">else</span> &#123;<br>        mr-&gt;data_direct = <span class="hljs-literal">true</span>;          <span class="hljs-comment">// GPUDirect RDMA!</span><br>    &#125;<br><br>    err = mlx5_ib_init_dmabuf_mr(mr);  <span class="hljs-comment">// 初始化 dmabuf MR</span><br>    <span class="hljs-comment">// ...</span><br>    <span class="hljs-keyword">return</span> &amp;mr-&gt;ibmr;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>流程图</strong>：</p>
+<figure class="highlight reasonml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs reasonml">reg<span class="hljs-constructor">_user_mr_dmabuf()</span><br>  │<br>  ├─ 【步骤 <span class="hljs-number">1</span>】mlx5r<span class="hljs-constructor">_umr_resource_init(<span class="hljs-params">dev</span>)</span><br>  │   初始化 UMR 资源（WQE buffer、固件上下文）<br>  │<br>  ├─ 【步骤 <span class="hljs-number">2</span>】ib<span class="hljs-constructor">_umem_dmabuf_get_pinned(<span class="hljs-params">fd</span>)</span><br>  │   → dma<span class="hljs-constructor">_buf_get(<span class="hljs-params">fd</span>)</span><br>  │   → dma<span class="hljs-constructor">_buf_pin(<span class="hljs-params">attach</span>)</span><br>  │   → dma<span class="hljs-constructor">_buf_map_attachment()</span> → GPU VRAM bus addresses (SG table)<br>  │<br>  ├─ 【步骤 <span class="hljs-number">3</span>】alloc<span class="hljs-constructor">_cacheable_mr()</span><br>  │   从 FRMR pool 获取预分配的 MKey<br>  │<br>  ├─ 【步骤 <span class="hljs-number">4</span>】mlx5r<span class="hljs-constructor">_umr_update_mr_pas()</span><br>  │   用 UMR WQE 更新 MKey 的 PAS<br>  │   PAS 条目 = GPU VRAM 的 PCIe 总线地址<br>  │<br>  ├─ 【步骤 <span class="hljs-number">5</span>】标记 data_direct = <span class="hljs-literal">true</span><br>  │   告诉内核: 这个 MKey 的 PAS 指向 GPU 显存<br>  │<br>  └─ 【步骤 <span class="hljs-number">6</span>】返回 ib_mr<br>      用户态拿到 lkey/rkey, 可以做 RDMA<br></code></pre></td></tr></table></figure>
+
+<h2 id="5-dmabuf-撤销回调"><a href="#5-dmabuf-撤销回调" class="headerlink" title="5. dmabuf 撤销回调"></a>5. dmabuf 撤销回调</h2><p><code>drivers/infiniband/hw/mlx5/mr.c:883-900</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">mlx5_ib_dmabuf_invalidate_cb</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> dma_buf_attachment *attach)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ib_umem_dmabuf</span> *<span class="hljs-title">umem_dmabuf</span> =</span> attach-&gt;importer_priv;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">mlx5_ib_mr</span> *<span class="hljs-title">mr</span> =</span> umem_dmabuf-&gt;private;<br><br>    dma_resv_assert_held(umem_dmabuf-&gt;attach-&gt;dmabuf-&gt;resv);<br><br>    <span class="hljs-keyword">if</span> (!umem_dmabuf-&gt;sgt || !mr)<br>        <span class="hljs-keyword">return</span>;<br><br>    mlx5r_umr_update_mr_pas(mr, MLX5_IB_UPD_XLT_ZAP);<br>    ib_umem_dmabuf_unmap_pages(umem_dmabuf);<br>&#125;<br><br><span class="hljs-type">static</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dma_buf_attach_ops</span> <span class="hljs-title">mlx5_ib_dmabuf_attach_ops</span> =</span> &#123;<br>    .allow_peer2peer = <span class="hljs-number">1</span>,                              <span class="hljs-comment">// 支持 PCIe P2P</span><br>    .invalidate_mappings = mlx5_ib_dmabuf_invalidate_cb, <span class="hljs-comment">// 撤销回调</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p>当 GPU 驱动异步撤销 dmabuf 时（例如 VRAM 被迁移回系统内存），<code>invalidate_cb</code> 通过 <code>MLX5_IB_UPD_XLT_ZAP</code> 使 MKey 的 PAS 失效。后续任何通过该 MKey 的 RDMA 操作都会收到 <strong>Access Error</strong>。</p>
+<h2 id="6-ODP（On-Demand-Paging）分支"><a href="#6-ODP（On-Demand-Paging）分支" class="headerlink" title="6. ODP（On-Demand Paging）分支"></a>6. ODP（On-Demand Paging）分支</h2><p><code>drivers/infiniband/hw/mlx5/mr.c:874</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">if</span> (access_flags &amp; IB_ACCESS_ON_DEMAND)<br>    <span class="hljs-keyword">return</span> create_user_odp_mr(pd, start, length, iova, access_flags, udata);<br></code></pre></td></tr></table></figure>
+
+<p>ODP 模式下，MKey 创建时<strong>不填充 PAS</strong>——HCA 在 DMA 时自己处理缺页。页故障由 <code>mlx5_ib_page_fault_resume</code> 处理，自动从系统内存或 GPU 显存获取页。</p>
+<h2 id="7-访问模式对比"><a href="#7-访问模式对比" class="headerlink" title="7. 访问模式对比"></a>7. 访问模式对比</h2><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>宏</th>
+<th>含义</th>
+<th>典型场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>MTT</td>
+<td><code>MLX5_MKC_ACCESS_MODE_MTT</code></td>
+<td>标准页表翻译</td>
+<td>常规用户内存 MR</td>
+</tr>
+<tr>
+<td>KSM</td>
+<td><code>MLX5_MKC_ACCESS_MODE_KSM</code></td>
+<td>Key Segment Mode</td>
+<td>NIC 内部内存（如 Striding RQ）</td>
+</tr>
+<tr>
+<td>SW ICM</td>
+<td><code>MLX5_MKC_ACCESS_MODE_SW_ICM</code></td>
+<td>软件管理 ICM</td>
+<td>Header modify pattern</td>
+</tr>
+<tr>
+<td>INTERLEAVED</td>
+<td>交错模式</td>
+<td>多通道交错访问</td>
+<td>某些 HPC 场景</td>
+</tr>
+</tbody></table>
+<h2 id="8-端到端-GPUDirect-RDMA-时序"><a href="#8-端到端-GPUDirect-RDMA-时序" class="headerlink" title="8. 端到端 GPUDirect RDMA 时序"></a>8. 端到端 GPUDirect RDMA 时序</h2><figure class="highlight autohotkey"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs autohotkey">                           时间轴 →<br>用户态    ┌─ibv_reg_dmabuf_mr────┐                ┌─ibv_post_send(RDM<span class="hljs-built_in">A_WRITE</span>)─┐<br>          │                       │                │                          │<br>内核      │ dm<span class="hljs-built_in">a_buf</span>_get(fd)       │                │                          │<br>          │ dm<span class="hljs-built_in">a_buf</span>_pin           │                │                          │<br>          │ dm<span class="hljs-built_in">a_buf</span>_map_attachment│                │                          │<br>          │ alloc_cacheable_mr    │                │                          │<br>          │ UMR update PAS ──────→│  MKey created  │                          │<br>          │     (GPU VRAM bus)    │  PAS = GPU     │                          │<br>          │                       │  addrs         │                          │<br>HCA 固件  │                       │  CREATE_MKEY   │                          │<br>          │                       │  (如果走慢路径) │                          │<br>          │                       │                │                          │<br>HCA 硬件  │                       │                │ DMA read GPU VRAM → 网络 │<br>          │                       │                │  (PCIe P2P, 零 CPU 参与)   │<br>          └───────────────────────┴────────────────┴──────────────────────────┘<br>           ~<span class="hljs-number">100</span>μs (UMR fast)       MKey ready!       <span class="hljs-number">0</span>-copy DMA!<br>           ~<span class="hljs-number">200</span>μs (reg_create)<br></code></pre></td></tr></table></figure>
+
+<h2 id="9-系列结语"><a href="#9-系列结语" class="headerlink" title="9. 系列结语"></a>9. 系列结语</h2><p>至此，我们已经完成了从 <strong>HMM 内存镜像</strong> 到 <strong>GPUDirect RDMA 硬件 DMA</strong> 的完整内核路径：</p>
+<figure class="highlight arduino"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs arduino">第<span class="hljs-number">1</span>篇 HMM          │ CPU↔GPU 页表镜像基础<br>第<span class="hljs-number">2</span>篇 DRM GPUSVM   │ GPU 共享虚拟内存框架<br>第<span class="hljs-number">3</span>篇 nouveau_svm  │ NVIDIA 的 HMM 调用者<br>第<span class="hljs-number">4</span>篇 nouveau_dmem │ GPU VRAM 作为 DEVICE_PRIVATE 内存<br>第<span class="hljs-number">5</span>篇 TTM          │ 多内存类型管理的 BO 框架<br>第<span class="hljs-number">6</span>篇 GPU Buddy    │ 增广红黑树显存块分配器<br>第<span class="hljs-number">7</span>篇 DRM <span class="hljs-built_in">Scheduler</span>│ 信用制 GPU 命令调度<br>第<span class="hljs-number">8</span>篇 umem_dmabuf  │ GPU dmabuf → RDMA MR 桥梁<br>第<span class="hljs-number">9</span>篇 mlx5/mr      │ HCA 硬件侧 MKey 创建与 IOMMU 编程<br></code></pre></td></tr></table></figure>
+
+<p>这 9 篇文章覆盖了 NVIDIA AI Infra 的三个维度：</p>
+<ul>
+<li><strong>统一内存</strong>（文章 1→4）：CUDA Unified Memory 的内核实现</li>
+<li><strong>显存管理</strong>（文章 5→6）：GPU VRAM 的分配、迁移与回收</li>
+<li><strong>零拷贝通信</strong>（文章 8→9）：GPUDirect RDMA 的全链路</li>
+</ul>
+<p>AI 训练中的 <code>ncclAllReduce(data, ...)</code> 一行调用，背后是这数千行内核代码在协作：<code>hmm_range_fault</code> 确保 GPU 能访问 CPU 页 → <code>gpu_buddy_alloc_blocks</code> 在 VRAM 中分配 buffer → <code>drm_sched_entity_push_job</code> 提交计算命令 → <code>ib_umem_dmabuf_get_pinned</code> 将 VRAM 映射为 RDMA 可 DMA 的地址 → <code>mlx5_ib_reg_user_mr_dmabuf</code> 编程 HCA IOMMU → HCA 通过 PCIe P2P 直接读写 GPU VRAM。</p>
+<p><strong>0 次 CPU 拷贝</strong>，不是魔法——是精心设计的 Linux 内核子系统协同工作的结果。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/nvidia-svm/" class="category-chain-item">nvidia-svm</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/drivers/">#drivers</a>
+      
+        <a href="/tags/fs/">#fs</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/go/">#go</a>
+      
+        <a href="/tags/gpu/">#gpu</a>
+      
+        <a href="/tags/kernel/">#kernel</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/log/">#log</a>
+      
+        <a href="/tags/virt/">#virt</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/struct/">#struct</a>
+      
+        <a href="/tags/mutex/">#mutex</a>
+      
+        <a href="/tags/nvidia-svm/">#nvidia-svm</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>第9篇：RDMA 硬件侧 MR 注册：mlx5/mr.c</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/09-mlx5-mr/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年5月21日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/07-gpu-scheduler/" title="第7篇：GPU 命令提交调度：DRM Scheduler">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">第7篇：GPU 命令提交调度：DRM Scheduler</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/README/" title="NVIDIA AI Infra 内核源码深度解析系列">
+                        <span class="hidden-mobile">NVIDIA AI Infra 内核源码深度解析系列</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: 'afdee7747534a5655ca1c293b7f305d4'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

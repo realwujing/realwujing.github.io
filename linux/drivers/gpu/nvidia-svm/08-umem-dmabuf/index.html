@@ -1,0 +1,972 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, bcache, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, mcu, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, nvidia-svm, openclaw, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c 源码：drivers&#x2F;infiniband&#x2F;core&#x2F;umem_dmabuf.c | 头文件：include&#x2F;rdma&#x2F;ib_umem.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. 问题：GPU 内存如何被 RDMA 网卡直接访问机器学习训练中，一张 8×H100 GPU 节点在做 all-reduce 时，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/08-umem-dmabuf/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c 源码：drivers&#x2F;infiniband&#x2F;core&#x2F;umem_dmabuf.c | 头文件：include&#x2F;rdma&#x2F;ib_umem.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. 问题：GPU 内存如何被 RDMA 网卡直接访问机器学习训练中，一张 8×H100 GPU 节点在做 all-reduce 时，">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:modified_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="drivers">
+<meta property="article:tag" content="fs">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="gpu">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="virt">
+<meta property="article:tag" content="mm">
+<meta property="article:tag" content="struct">
+<meta property="article:tag" content="nvidia-svm">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-05-21 12:01" pubdate>
+          2026年5月21日 中午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          9.1k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          77 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="第8篇：GPU→RDMA-零拷贝桥梁：umem-dmabuf-c"><a href="#第8篇：GPU→RDMA-零拷贝桥梁：umem-dmabuf-c" class="headerlink" title="第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c"></a>第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c</h1><blockquote>
+<p>源码：<code>drivers/infiniband/core/umem_dmabuf.c</code> | 头文件：<code>include/rdma/ib_umem.h</code><br>系列目录：<a target="_blank" rel="noopener" href="https://github.com/realwujing/realwujing.github.io/blob/main/linux/drivers/gpu/nvidia-svm/README.md">NVIDIA AI Infra 内核源码深度解析</a></p>
+</blockquote>
+<h2 id="1-问题：GPU-内存如何被-RDMA-网卡直接访问"><a href="#1-问题：GPU-内存如何被-RDMA-网卡直接访问" class="headerlink" title="1. 问题：GPU 内存如何被 RDMA 网卡直接访问"></a>1. 问题：GPU 内存如何被 RDMA 网卡直接访问</h2><p>机器学习训练中，一张 8×H100 GPU 节点在做 all-reduce 时，每个 GPU 需要把本地梯度发给其他 7 张 GPU。传统路径：</p>
+<figure class="highlight gcode"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs gcode">GPU VRAM → CPU 内存 <span class="hljs-comment">(cudaMemcpy)</span> → RDMA 网卡 DMA → 网络<br>                                     ↑<br>                                   <span class="hljs-number">3</span> 次拷贝<br></code></pre></td></tr></table></figure>
+
+<p>GPUDirect RDMA 优化后的路径：</p>
+<figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs nginx"><span class="hljs-attribute">GPU</span> VRAM ────────────→ RDMA 网卡 DMA → 网络<br>        PCIe P2P                      ↑<br>                                    <span class="hljs-number">0</span> 次拷贝<br></code></pre></td></tr></table></figure>
+
+<p>这要求 RDMA 网卡的 IOMMU 直接映射到 GPU VRAM 的 PCIe 总线地址。<code>umem_dmabuf.c</code> 就是实现这个映射的<strong>桥梁代码</strong>。</p>
+<h2 id="2-整体数据流"><a href="#2-整体数据流" class="headerlink" title="2. 整体数据流"></a>2. 整体数据流</h2><figure class="highlight smali"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><code class="hljs smali">GPU 驱动                umem_dmabuf.c               mlx5 驱动<br>   │                        │                          │<br>   ├─ export dmabuf fd      │                          │<br>   │  (GPU VRAM 地址空间)    │                          │<br>   │                        │                          │<br>用户态 ioctl ──────────→   │                          │<br>   │  (传入 dmabuf fd)      │                          │<br>   │                   ┌────┴────┐                     │<br>   │                   │ ib_umem │                     │<br>   │                   │ _dmabuf │                     │<br>   │                   │ _get    │                     │<br>   │                   │ (174)   │                     │<br>   │                   └────┬────┘                     │<br>   │                        │                          │<br>   │                   ┌────┴─────┐                    │<br>   │                   │ dma_buf  │                    │<br>   │                   │ _get(fd) │ ← import dmabuf    │<br>   │                   └────┬─────┘                    │<br>   │                        │                          │<br>   │                   ┌────┴──────────┐               │<br>   │                   │ dma_buf       │               │<br>   │                   │ _dynamic      │               │<br>   │                   │ _attach       │ ← 绑定设备     │<br>   │                   └────┬──────────┘               │<br>   │                        │                          │<br>用户态 MR 注册 ─────────────────────────────────→     │<br>   │                   ┌────┴──────────┐   reg_usr    │<br>   │                   │ dma_buf_pin   │ ← 钉住 VRAM  │<br>   │                   └────┬──────────┘               │<br>   │                   ┌────┴──────────┐               │<br>   │                   │ map_pages     │ ← 获取 SG    │<br>   │                   │  (15)         │   table       │<br>   │                   └────┬──────────┘               │<br>   │                        │                          │<br>   │                        │  SG table (GPU BUS addr) │<br>   │                        ├────────────────────────→ │<br>   │                        │                    ┌─────┴──────┐<br>   │                        │                    │  populate  │<br>   │                        │                    │  PAS<span class="hljs-built_in"> array </span>│<br>   │                        │                    │  →CREATE   │<br>   │                        │                    │  _MKEY fw  │<br>   │                        │                    └────────────┘<br>   │                        │                          │<br>   │                        │   RDMA HCA ←── DMA ───→ GPU VRAM<br>   │                        │          PCIe P2P<br></code></pre></td></tr></table></figure>
+
+<h3 id="关键转换：dmabuf-fd-→-RDMA-MR"><a href="#关键转换：dmabuf-fd-→-RDMA-MR" class="headerlink" title="关键转换：dmabuf fd → RDMA MR"></a>关键转换：dmabuf fd → RDMA MR</h3><figure class="highlight scss"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs scss">dmabuf fd (用户态文件描述符)<br>     │<br>     ▼<br>dma_buf (内核 dmabuf 对象，由 GPU 驱动导出)<br>     │<br>     ▼<br>dma_buf_attachment (IB 设备与 dmabuf 的绑定)<br>     │<br>     ▼<br>dma_buf_map_attachment → sg_table (scatter-gather list)<br>     │ 每个 sg 条目是一个 GPU VRAM 物理页的 DVA (Device Virtual Address)<br>     │ 在 x86 上即 PCIe 总线地址<br>     ▼<br>RDMA MR (mem region) → 网卡 IOMMU 可 DMA 到 GPU VRAM<br></code></pre></td></tr></table></figure>
+
+<h2 id="3-核心数据结构"><a href="#3-核心数据结构" class="headerlink" title="3. 核心数据结构"></a>3. 核心数据结构</h2><h3 id="3-1-ib-umem-dmabuf"><a href="#3-1-ib-umem-dmabuf" class="headerlink" title="3.1 ib_umem_dmabuf"></a>3.1 ib_umem_dmabuf</h3><p><code>include/rdma/ib_umem.h</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ib_umem_dmabuf</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ib_umem</span>           <span class="hljs-title">umem</span>;</span>         <span class="hljs-comment">// 嵌入的通用 umem</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dma_buf_attachment</span> *<span class="hljs-title">attach</span>;</span>      <span class="hljs-comment">// dmabuf attach 句柄</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sg_table</span>          *<span class="hljs-title">sgt</span>;</span>          <span class="hljs-comment">// 完整的 SG table</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">scatterlist</span>       *<span class="hljs-title">first_sg</span>;</span>     <span class="hljs-comment">// 裁剪后的首个 SG</span><br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span>             first_sg_offset; <span class="hljs-comment">// 首 SG 偏移</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">scatterlist</span>       *<span class="hljs-title">last_sg</span>;</span>      <span class="hljs-comment">// 裁剪后的末 SG</span><br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span>             last_sg_trim;  <span class="hljs-comment">// 末 SG 尾部裁剪量</span><br>    <span class="hljs-type">bool</span>                     pinned : <span class="hljs-number">1</span>;    <span class="hljs-comment">// 是否已 dma_buf_pin</span><br>    <span class="hljs-type">bool</span>                     revoked : <span class="hljs-number">1</span>;   <span class="hljs-comment">// 是否已被撤销</span><br>    <span class="hljs-type">void</span>                     (*pinned_revoke)(<span class="hljs-type">void</span> *priv); <span class="hljs-comment">// 撤销回调</span><br>    <span class="hljs-type">void</span>                     *private;      <span class="hljs-comment">// 回调私有数据</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p><strong>字段解析</strong>：</p>
+<ul>
+<li><code>umem</code>：内嵌 <code>ib_umem</code>，存储 ibdev、length、address（offset）、writable、is_dmabuf&#x3D;1</li>
+<li><code>attach</code>：通过 <code>dma_buf_dynamic_attach()</code> 建立 IB 设备 → dmabuf 的绑定</li>
+<li><code>sgt</code>：<code>dma_buf_map_attachment()</code> 返回的完整 SG table（所有 GPU VRAM 页）</li>
+<li><code>first_sg / first_sg_offset / last_sg / last_sg_trim</code>：因为用户可能只需要 VRAM 的一部分（<code>[offset, offset+length)</code>），对完整 SG table 做<strong>头尾截断</strong></li>
+<li><code>pinned</code>：<code>dma_buf_pin()</code> 防止 GPU 驱动迁移&#x2F;回收 VRAM</li>
+<li><code>revoked</code>：异步撤销标记（GPU 驱动回收 VRAM 时置位）</li>
+</ul>
+<h2 id="4-核心函数解析"><a href="#4-核心函数解析" class="headerlink" title="4. 核心函数解析"></a>4. 核心函数解析</h2><h3 id="4-1-ib-umem-dmabuf-get-—-导入-dmabuf-fd"><a href="#4-1-ib-umem-dmabuf-get-—-导入-dmabuf-fd" class="headerlink" title="4.1 ib_umem_dmabuf_get — 导入 dmabuf fd"></a>4.1 ib_umem_dmabuf_get — 导入 dmabuf fd</h3><p><code>drivers/infiniband/core/umem_dmabuf.c:174-181</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">struct</span> ib_umem_dmabuf *<span class="hljs-title function_">ib_umem_dmabuf_get</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ib_device *device,</span><br><span class="hljs-params">                                          <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> offset, <span class="hljs-type">size_t</span> size,</span><br><span class="hljs-params">                                          <span class="hljs-type">int</span> fd, <span class="hljs-type">int</span> access,</span><br><span class="hljs-params">                                          <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> dma_buf_attach_ops *ops)</span><br>&#123;<br>    <span class="hljs-keyword">return</span> ib_umem_dmabuf_get_with_dma_device(device, device-&gt;dma_device,<br>                                              offset, size, fd, access, ops);<br>&#125;<br>EXPORT_SYMBOL(ib_umem_dmabuf_get);<br></code></pre></td></tr></table></figure>
+
+<p>实际工作委托给 <code>ib_umem_dmabuf_get_with_dma_device</code>（行 116-172）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> ib_umem_dmabuf *<br><span class="hljs-title function_">ib_umem_dmabuf_get_with_dma_device</span><span class="hljs-params">(</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ib_device *device,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> device *dma_device,</span><br><span class="hljs-params">    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> offset, <span class="hljs-type">size_t</span> size,</span><br><span class="hljs-params">    <span class="hljs-type">int</span> fd, <span class="hljs-type">int</span> access,</span><br><span class="hljs-params">    <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> dma_buf_attach_ops *ops)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dma_buf</span> *<span class="hljs-title">dmabuf</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ib_umem_dmabuf</span> *<span class="hljs-title">umem_dmabuf</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ib_umem</span> *<span class="hljs-title">umem</span>;</span><br>    <span class="hljs-comment">// ...</span><br><br>    dmabuf = dma_buf_get(fd);                    <span class="hljs-comment">// 1. 通过 fd 获取 dmabuf</span><br>    <span class="hljs-keyword">if</span> (IS_ERR(dmabuf))<br>        <span class="hljs-keyword">return</span> ERR_CAST(dmabuf);<br><br>    <span class="hljs-keyword">if</span> (dmabuf-&gt;size &lt; end)<br>        <span class="hljs-keyword">goto</span> out_release_dmabuf;                 <span class="hljs-comment">// 2. 大小校验</span><br><br>    umem_dmabuf = kzalloc_obj(*umem_dmabuf);     <span class="hljs-comment">// 3. 分配 umem_dmabuf</span><br>    <span class="hljs-comment">// ...</span><br><br>    umem = &amp;umem_dmabuf-&gt;umem;<br>    umem-&gt;ibdev = device;<br>    umem-&gt;length = size;<br>    umem-&gt;address = offset;                       <span class="hljs-comment">// 4. 填充 ib_umem</span><br>    umem-&gt;writable = ib_access_writable(access);<br>    umem-&gt;is_dmabuf = <span class="hljs-number">1</span>;<br><br>    umem_dmabuf-&gt;attach = dma_buf_dynamic_attach( <span class="hljs-comment">// 5. 绑定 dmabuf</span><br>        dmabuf, dma_device, ops, umem_dmabuf);<br>    <span class="hljs-comment">// ...</span><br>    <span class="hljs-keyword">return</span> umem_dmabuf;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h3 id="4-2-ib-umem-dmabuf-map-pages-—-获取-SG-table"><a href="#4-2-ib-umem-dmabuf-map-pages-—-获取-SG-table" class="headerlink" title="4.2 ib_umem_dmabuf_map_pages — 获取 SG table"></a>4.2 ib_umem_dmabuf_map_pages — 获取 SG table</h3><p><code>drivers/infiniband/core/umem_dmabuf.c:15-83</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">ib_umem_dmabuf_map_pages</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ib_umem_dmabuf *umem_dmabuf)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">sg_table</span> *<span class="hljs-title">sgt</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">scatterlist</span> *<span class="hljs-title">sg</span>;</span><br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> start, end, cur = <span class="hljs-number">0</span>;<br>    <span class="hljs-type">unsigned</span> <span class="hljs-type">int</span> nmap = <span class="hljs-number">0</span>;<br>    <span class="hljs-type">long</span> ret;<br>    <span class="hljs-type">int</span> i;<br><br>    dma_resv_assert_held(umem_dmabuf-&gt;attach-&gt;dmabuf-&gt;resv);<br><br>    <span class="hljs-keyword">if</span> (umem_dmabuf-&gt;revoked)<br>        <span class="hljs-keyword">return</span> -EINVAL;                        <span class="hljs-comment">// 已被撤销，拒绝</span><br><br>    <span class="hljs-keyword">if</span> (umem_dmabuf-&gt;sgt)<br>        <span class="hljs-keyword">goto</span> wait_fence;                       <span class="hljs-comment">// 已 map，跳至 fence 等待</span><br><br>    sgt = dma_buf_map_attachment(              <span class="hljs-comment">// 获取 GPU VRAM DMA 地址</span><br>        umem_dmabuf-&gt;attach, DMA_BIDIRECTIONAL);<br>    <span class="hljs-keyword">if</span> (IS_ERR(sgt))<br>        <span class="hljs-keyword">return</span> PTR_ERR(sgt);<br><br>    <span class="hljs-comment">/* modify the sg list in-place to match umem address and length */</span><br>    start = ALIGN_DOWN(umem_dmabuf-&gt;umem.address, PAGE_SIZE);<br>    end = ALIGN(umem_dmabuf-&gt;umem.address + umem_dmabuf-&gt;umem.length,<br>                PAGE_SIZE);<br></code></pre></td></tr></table></figure>
+
+<p><strong>SG table 裁剪逻辑</strong>（行 37-63）：</p>
+<figure class="highlight inform7"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs inform7">完整 SG table（GPU 导出的全部 VRAM 地址）:<br> ┌─────────┬─────────┬─────────┬─────────┬─────────┐<br> │  sg<span class="hljs-comment">[0]</span>  │  sg<span class="hljs-comment">[1]</span>  │  sg<span class="hljs-comment">[2]</span>  │  sg<span class="hljs-comment">[3]</span>  │  sg<span class="hljs-comment">[4]</span>  │<br> └─────────┴─────────┴─────────┴─────────┴─────────┘<br>                     ↑                   ↑<br>                  offset              offset+length<br>                  (start)              (end)<br><br> 裁剪后:<br>                  ┌─────────┬─────────┐<br>                  │  sg<span class="hljs-comment">[1]</span>  │  sg<span class="hljs-comment">[2]</span>  │   ← nmap=2<br>                  └─────────┴─────────┘<br>              first_sg_offset ↑      ↑ last_sg_trim<br>                 (截去前半)          (截去后半)<br></code></pre></td></tr></table></figure>
+
+<p><strong>fence 等待</strong>（行 69-82）：即使 SG table 已就绪，页内容可能还未迁移到位。调用 <code>dma_resv_wait_timeout</code> 等待 GPU 驱动完成迁移。</p>
+<h3 id="4-3-ib-umem-dmabuf-unmap-pages-—-恢复-SG-table"><a href="#4-3-ib-umem-dmabuf-unmap-pages-—-恢复-SG-table" class="headerlink" title="4.3 ib_umem_dmabuf_unmap_pages — 恢复 SG table"></a>4.3 ib_umem_dmabuf_unmap_pages — 恢复 SG table</h3><p><code>drivers/infiniband/core/umem_dmabuf.c:86-113</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">void</span> <span class="hljs-title function_">ib_umem_dmabuf_unmap_pages</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> ib_umem_dmabuf *umem_dmabuf)</span><br>&#123;<br>    dma_resv_assert_held(umem_dmabuf-&gt;attach-&gt;dmabuf-&gt;resv);<br><br>    <span class="hljs-keyword">if</span> (!umem_dmabuf-&gt;sgt)<br>        <span class="hljs-keyword">return</span>;<br><br>    <span class="hljs-comment">/* restore the original sg list */</span><br>    <span class="hljs-keyword">if</span> (umem_dmabuf-&gt;first_sg) &#123;<br>        sg_dma_address(umem_dmabuf-&gt;first_sg) -=<br>            umem_dmabuf-&gt;first_sg_offset;<br>        sg_dma_len(umem_dmabuf-&gt;first_sg) +=<br>            umem_dmabuf-&gt;first_sg_offset;<br>        umem_dmabuf-&gt;first_sg = <span class="hljs-literal">NULL</span>;<br>        umem_dmabuf-&gt;first_sg_offset = <span class="hljs-number">0</span>;<br>    &#125;<br>    <span class="hljs-keyword">if</span> (umem_dmabuf-&gt;last_sg) &#123;<br>        sg_dma_len(umem_dmabuf-&gt;last_sg) +=<br>            umem_dmabuf-&gt;last_sg_trim;<br>        umem_dmabuf-&gt;last_sg = <span class="hljs-literal">NULL</span>;<br>        umem_dmabuf-&gt;last_sg_trim = <span class="hljs-number">0</span>;<br>    &#125;<br><br>    dma_buf_unmap_attachment(umem_dmabuf-&gt;attach, umem_dmabuf-&gt;sgt,<br>                             DMA_BIDIRECTIONAL);<br>    umem_dmabuf-&gt;sgt = <span class="hljs-literal">NULL</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>关键细节</strong>：因为 map 时做了<strong>就地修改</strong>（in-place modification），unmap 时必须<strong>恢复</strong>原本的 SG 值。否则 <code>dma_buf_unmap_attachment</code> 传入的 SG table 与返回时不匹配。</p>
+<h3 id="4-4-ib-umem-dmabuf-get-pinned-—-钉住-映射"><a href="#4-4-ib-umem-dmabuf-get-pinned-—-钉住-映射" class="headerlink" title="4.4 ib_umem_dmabuf_get_pinned — 钉住 + 映射"></a>4.4 ib_umem_dmabuf_get_pinned — 钉住 + 映射</h3><p><code>drivers/infiniband/core/umem_dmabuf.c:317-325</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">struct</span> ib_umem_dmabuf *<span class="hljs-title function_">ib_umem_dmabuf_get_pinned</span><span class="hljs-params">(</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ib_device *device,</span><br><span class="hljs-params">    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> offset, <span class="hljs-type">size_t</span> size, <span class="hljs-type">int</span> fd, <span class="hljs-type">int</span> access)</span><br>&#123;<br>    <span class="hljs-keyword">return</span> ib_umem_dmabuf_get_pinned_with_dma_device(<br>        device, device-&gt;dma_device, offset, size, fd, access);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>实际路径（<code>ib_umem_dmabuf_get_pinned_with_dma_device</code> → <code>ib_umem_dmabuf_get_pinned_and_lock</code>，行 213-245）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-keyword">struct</span> ib_umem_dmabuf *<br><span class="hljs-title function_">ib_umem_dmabuf_get_pinned_and_lock</span><span class="hljs-params">(</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ib_device *device,</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> device *dma_device,</span><br><span class="hljs-params">    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> offset, <span class="hljs-type">size_t</span> size, <span class="hljs-type">int</span> fd, <span class="hljs-type">int</span> access,</span><br><span class="hljs-params">    <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> dma_buf_attach_ops *ops)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ib_umem_dmabuf</span> *<span class="hljs-title">umem_dmabuf</span>;</span><br>    <span class="hljs-type">int</span> err;<br><br>    umem_dmabuf = ib_umem_dmabuf_get_with_dma_device( <span class="hljs-comment">// 1. import dmabuf</span><br>        device, dma_device, offset, size, fd, access, ops);<br>    <span class="hljs-keyword">if</span> (IS_ERR(umem_dmabuf))<br>        <span class="hljs-keyword">return</span> umem_dmabuf;<br><br>    dma_resv_lock(umem_dmabuf-&gt;attach-&gt;dmabuf-&gt;resv, <span class="hljs-literal">NULL</span>);<br>    err = dma_buf_pin(umem_dmabuf-&gt;attach);           <span class="hljs-comment">// 2. 钉住 VRAM</span><br>    <span class="hljs-keyword">if</span> (err)<br>        <span class="hljs-keyword">goto</span> err_release;<br>    umem_dmabuf-&gt;pinned = <span class="hljs-number">1</span>;<br><br>    err = ib_umem_dmabuf_map_pages(umem_dmabuf);      <span class="hljs-comment">// 3. 获取 SG table</span><br>    <span class="hljs-keyword">if</span> (err)<br>        <span class="hljs-keyword">goto</span> err_release;<br>    <span class="hljs-keyword">return</span> umem_dmabuf;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>三步走</strong>：</p>
+<ol>
+<li><code>dma_buf_get</code> → import dmabuf fd</li>
+<li><code>dma_buf_pin</code> → 通知 GPU 驱动：这块 VRAM <strong>不能被迁移&#x2F;换出</strong></li>
+<li><code>dma_buf_map_attachment</code> → 获取 PCIe 总线地址（SG table）</li>
+</ol>
+<h3 id="4-5-两种模式：Pinned-vs-Revocable"><a href="#4-5-两种模式：Pinned-vs-Revocable" class="headerlink" title="4.5 两种模式：Pinned vs Revocable"></a>4.5 两种模式：Pinned vs Revocable</h3><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>Pinned 模式</th>
+<th>Revocable 模式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>attach_ops</td>
+<td><code>ib_umem_dmabuf_attach_pinned_ops</code> (行 184)</td>
+<td><code>ib_umem_dmabuf_attach_pinned_revocable_ops</code> (行 208)</td>
+</tr>
+<tr>
+<td><code>dma_buf_pin</code></td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>invalidate 回调</td>
+<td>❌ 无</td>
+<td><code>ib_umem_dmabuf_revoke_locked</code> (行 188)</td>
+</tr>
+<tr>
+<td>GPU 可撤销访问</td>
+<td>❌ VRAM 被钉住</td>
+<td>✅ GPU 可异步回收 VRAM</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>GPUDirect RDMA（稳定 DMA）</td>
+<td>ODP（按需分页）</td>
+</tr>
+</tbody></table>
+<p><strong>Revocable 模式</strong>（行 293-305）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">struct</span> ib_umem_dmabuf *<br><span class="hljs-title function_">ib_umem_dmabuf_get_pinned_revocable_and_lock</span><span class="hljs-params">(</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> ib_device *device,</span><br><span class="hljs-params">    <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> offset, <span class="hljs-type">size_t</span> size, <span class="hljs-type">int</span> fd, <span class="hljs-type">int</span> access)</span><br>&#123;<br>    <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dma_buf_attach_ops</span> *<span class="hljs-title">ops</span> =</span><br>        &amp;ib_umem_dmabuf_attach_pinned_revocable_ops;<br>    <span class="hljs-keyword">return</span> ib_umem_dmabuf_get_pinned_and_lock(<br>        device, device-&gt;dma_device, offset, size, fd, access, ops);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>撤销回调</strong>（行 188-206）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">ib_umem_dmabuf_revoke_locked</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> dma_buf_attachment *attach)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">ib_umem_dmabuf</span> *<span class="hljs-title">umem_dmabuf</span> =</span> attach-&gt;importer_priv;<br><br>    <span class="hljs-keyword">if</span> (umem_dmabuf-&gt;revoked)<br>        <span class="hljs-keyword">return</span>;<br><br>    <span class="hljs-keyword">if</span> (umem_dmabuf-&gt;pinned_revoke)<br>        umem_dmabuf-&gt;pinned_revoke(umem_dmabuf-&gt;private);<br><br>    ib_umem_dmabuf_unmap_pages(umem_dmabuf);<br>    <span class="hljs-keyword">if</span> (umem_dmabuf-&gt;pinned) &#123;<br>        dma_buf_unpin(umem_dmabuf-&gt;attach);<br>        umem_dmabuf-&gt;pinned = <span class="hljs-number">0</span>;<br>    &#125;<br>    umem_dmabuf-&gt;revoked = <span class="hljs-number">1</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h2 id="5-dmabuf-代码集成点"><a href="#5-dmabuf-代码集成点" class="headerlink" title="5. dmabuf 代码集成点"></a>5. dmabuf 代码集成点</h2><p><code>drivers/infiniband/core/umem_dmabuf.c:6-13</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/dma-buf.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/dma-resv.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/dma-mapping.h&gt;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;linux/module.h&gt;</span></span><br><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&quot;uverbs.h&quot;</span></span><br><br>MODULE_IMPORT_NS(<span class="hljs-string">&quot;DMA_BUF&quot;</span>);<br></code></pre></td></tr></table></figure>
+
+<p>需要 <code>CONFIG_DMABUF</code> 和 <code>MODULE_IMPORT_NS(&quot;DMA_BUF&quot;)</code>——dmabuf 子系统使用内核符号命名空间隔离。</p>
+<h2 id="6-与-NVIDIA-AI-Infra-的关系"><a href="#6-与-NVIDIA-AI-Infra-的关系" class="headerlink" title="6. 与 NVIDIA AI Infra 的关系"></a>6. 与 NVIDIA AI Infra 的关系</h2><p>GPUDirect RDMA 完整数据流：</p>
+<figure class="highlight reasonml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs reasonml">┌──────────────────────────────────────────────────────────────┐<br>│                       GPUDirect RDMA 路径                     │<br>│                                                              │<br>│  训练框架 (PyTorch/Horovod):                                  │<br>│    <span class="hljs-number">1.</span> nccl<span class="hljs-constructor">AllReduce(<span class="hljs-params">sendbuff</span>, <span class="hljs-params">recvbuff</span>)</span>                      │<br>│       ↓                                                      │<br>│  NVIDIA GPU 驱动:                                             │<br>│    <span class="hljs-number">2.</span> 导出 VRAM buffer 为 dmabuf fd                          │<br>│       dma<span class="hljs-constructor">_buf_export(<span class="hljs-params">dmabuf</span>)</span>                                 │<br>│       ↓                                                      │<br>│  libibverbs (用户态 RDMA):                                    │<br>│    <span class="hljs-number">3.</span> ibv<span class="hljs-constructor">_reg_dmabuf_mr(<span class="hljs-params">pd</span>, <span class="hljs-params">dmabuf_fd</span>)</span>                      │<br>│       ↓ ioctl                                                │<br>│  umem_dmabuf.c (内核):                                       │<br>│    <span class="hljs-number">4.</span> ib<span class="hljs-constructor">_umem_dmabuf_get_pinned()</span> ← import dmabuf fd        │<br>│    <span class="hljs-number">5.</span> dma<span class="hljs-constructor">_buf_pin()</span>               ← 钉住 GPU VRAM            │<br>│    <span class="hljs-number">6.</span> dma<span class="hljs-constructor">_buf_map_attachment()</span>    ← 获取 GPU BUS 地址 (SG)   │<br>│       ↓                                                      │<br>│  mlx5/mr.c:                                                  │<br>│    <span class="hljs-number">7.</span> mlx5<span class="hljs-constructor">_ib_reg_user_mr_dmabuf()</span> ← 创建 HCA MKey           │<br>│    <span class="hljs-number">8.</span> mlx5<span class="hljs-constructor">_ib_populate_pas()</span>       ← 填充 PAS 数组           │<br>│    <span class="hljs-number">9.</span> CREATE_MKEY (firmware cmd)    ← 编程 IOMMU              │<br>│       ↓                                                      │<br>│  ConnectX HCA:                                               │<br>│   <span class="hljs-number">10.</span> DMA Read/Write ──── PCIe P2P ────→ GPU VRAM            │<br>│                                                              │<br>│  结果: <span class="hljs-number">0</span> 次 CPU 拷贝, HCA 直接读写 GPU 显存                   │<br>└──────────────────────────────────────────────────────────────┘<br></code></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="09-mlx5-mr.md">第9篇：RDMA 硬件侧 MR 注册：mlx5&#x2F;mr.c</a></p>
+<p>简介：Mellanox ConnectX HCA 的 MKey 创建流程，包括 UMR 快速路径、CREATE_MKEY 慢路径，以及 GPUDirect RDMA 的硬件 IOMMU 编程。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/nvidia-svm/" class="category-chain-item">nvidia-svm</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/drivers/">#drivers</a>
+      
+        <a href="/tags/fs/">#fs</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/go/">#go</a>
+      
+        <a href="/tags/gpu/">#gpu</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/virt/">#virt</a>
+      
+        <a href="/tags/mm/">#mm</a>
+      
+        <a href="/tags/struct/">#struct</a>
+      
+        <a href="/tags/nvidia-svm/">#nvidia-svm</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/08-umem-dmabuf/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年5月21日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/README/" title="NVIDIA AI Infra 内核源码深度解析系列">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">NVIDIA AI Infra 内核源码深度解析系列</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/kernel_ai_infra/" title="Linux 内核 AI Infra 全景：GPU、加速器、RDMA 与异构计算">
+                        <span class="hidden-mobile">Linux 内核 AI Infra 全景：GPU、加速器、RDMA 与异构计算</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: 'db9ab378306175b1416feff89b2a5ec9'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

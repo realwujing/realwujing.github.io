@@ -1,0 +1,1004 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, bcache, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, mcu, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, nvidia-svm, openclaw, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="第7篇：GPU 命令提交调度：DRM Scheduler 源码：drivers&#x2F;gpu&#x2F;drm&#x2F;scheduler&#x2F;sched_main.c + sched_entity.c | 头文件：include&#x2F;drm&#x2F;gpu_scheduler.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. 问题背景：GPU 作业调度为何复杂GPU 不像 CPU——它不是简单的”取指令→执行→写回">
+<meta property="og:type" content="article">
+<meta property="og:title" content="第7篇：GPU 命令提交调度：DRM Scheduler">
+<meta property="og:url" content="https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/07-gpu-scheduler/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="第7篇：GPU 命令提交调度：DRM Scheduler 源码：drivers&#x2F;gpu&#x2F;drm&#x2F;scheduler&#x2F;sched_main.c + sched_entity.c | 头文件：include&#x2F;drm&#x2F;gpu_scheduler.h系列目录：NVIDIA AI Infra 内核源码深度解析  1. 问题背景：GPU 作业调度为何复杂GPU 不像 CPU——它不是简单的”取指令→执行→写回">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:modified_time" content="2026-05-21T12:01:44.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="drivers">
+<meta property="article:tag" content="git">
+<meta property="article:tag" content="gpu">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="struct">
+<meta property="article:tag" content="sync">
+<meta property="article:tag" content="nvidia-svm">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>第7篇：GPU 命令提交调度：DRM Scheduler - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="第7篇：GPU 命令提交调度：DRM Scheduler"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-05-21 12:01" pubdate>
+          2026年5月21日 中午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          9.5k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          80 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">第7篇：GPU 命令提交调度：DRM Scheduler</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="第7篇：GPU-命令提交调度：DRM-Scheduler"><a href="#第7篇：GPU-命令提交调度：DRM-Scheduler" class="headerlink" title="第7篇：GPU 命令提交调度：DRM Scheduler"></a>第7篇：GPU 命令提交调度：DRM Scheduler</h1><blockquote>
+<p>源码：<code>drivers/gpu/drm/scheduler/sched_main.c</code> + <code>sched_entity.c</code> | 头文件：<code>include/drm/gpu_scheduler.h</code><br>系列目录：<a target="_blank" rel="noopener" href="https://github.com/realwujing/realwujing.github.io/blob/main/linux/drivers/gpu/nvidia-svm/README.md">NVIDIA AI Infra 内核源码深度解析</a></p>
+</blockquote>
+<h2 id="1-问题背景：GPU-作业调度为何复杂"><a href="#1-问题背景：GPU-作业调度为何复杂" class="headerlink" title="1. 问题背景：GPU 作业调度为何复杂"></a>1. 问题背景：GPU 作业调度为何复杂</h2><p>GPU 不像 CPU——它不是简单的”取指令→执行→写回”。GPU 同时运行数百个线程、数千个 wavefront，命令是<strong>异步提交</strong>的，执行延迟不可预测。内核需要：</p>
+<ol>
+<li><strong>流控</strong>：防止用户态无限提交作业耗尽内核资源</li>
+<li><strong>优先级</strong>：KERNEL 级命令优先于 USER 级命令</li>
+<li><strong>超时检测</strong>：GPU 挂死时踢出 offending job 恢复可用性</li>
+<li><strong>依赖管理</strong>：作业之间有依赖关系（fence）</li>
+<li><strong>多引擎调度</strong>：GFX（渲染）、Compute、DMA、Video 各自有独立调度器</li>
+</ol>
+<p>DRM Scheduler 是 Linux 内核中解决这些问题的通用框架。它不绑定特定硬件——amdgpu、nouveau、xe、panthor 以及所有 accel 子系统的驱动都在用它。</p>
+<h2 id="2-架构总览"><a href="#2-架构总览" class="headerlink" title="2. 架构总览"></a>2. 架构总览</h2><p><code>drivers/gpu/drm/scheduler/sched_main.c:25-49</code>（DOC 注释）：</p>
+<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs routeros">1. 每个硬件运行队列 → 一个 drm_gpu_scheduler<br>2. 每个<span class="hljs-built_in"> scheduler </span> → 多个 <span class="hljs-built_in">run</span> queue（HIGH_HW, HIGH_SW, KERNEL, NORMAL）<br>3. 每个 <span class="hljs-built_in">run</span><span class="hljs-built_in"> queue </span> → 多个 drm_sched_entity 排队<br>4. 每个 entity     → SPSC 队列存储 drm_sched_job<br></code></pre></td></tr></table></figure>
+
+<figure class="highlight perl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs perl">┌─────────────────────────────────────────────────────────┐<br>│                    drm_gpu_scheduler                    │<br>│  ops: backend_ops (prepare_job, run_job, timedout_job)  │<br>│  credit_limit: <span class="hljs-number">64</span>  credit_count: atomic_t              │<br>│                                                         │<br>│  ┌─────────────────────────────────────────────────────┐│<br>│  │  submit_wq: ordered_workqueue(<span class="hljs-string">&quot;amdgpu-submit&quot;</span>)      ││<br>│  │                                                      ││<br>│  │  sched_r<span class="hljs-string">q[DRM_SCHED_PRIORITY_HIGH_HW]</span>   ← 最高优先 ││<br>│  │  sched_r<span class="hljs-string">q[DRM_SCHED_PRIORITY_HIGH_SW]</span>              ││<br>│  │  sched_r<span class="hljs-string">q[DRM_SCHED_PRIORITY_KERNEL]</span>   ← 内核命令  ││<br>│  │  sched_r<span class="hljs-string">q[DRM_SCHED_PRIORITY_NORMAL]</span>   ← 用户命令  ││<br>│  │    ┌──────────┐ ┌──────────┐ ┌──────────┐          ││<br>│  │    │ entity A │ │ entity B │ │ entity C │    ...    ││<br>│  │    │ SPSC Q   │ │ SPSC Q   │ │ SPSC Q   │          ││<br>│  │    │ [job1][  │ │ [job3][  │ │ [job5]   │          ││<br>│  │    │  job2][  │ │  job4]   │ │          │          ││<br>│  │    └──────────┘ └──────────┘ └──────────┘          ││<br>│  └─────────────────────────────────────────────────────┘│<br>│                                                         │<br>│  delayed_work → timeout handler (TDR)                  │<br>└─────────────────────────────────────────────────────────┘<br></code></pre></td></tr></table></figure>
+
+<h2 id="3-核心数据结构"><a href="#3-核心数据结构" class="headerlink" title="3. 核心数据结构"></a>3. 核心数据结构</h2><h3 id="3-1-drm-sched-job-—-GPU-作业"><a href="#3-1-drm-sched-job-—-GPU-作业" class="headerlink" title="3.1 drm_sched_job — GPU 作业"></a>3.1 drm_sched_job — GPU 作业</h3><p>每个提交到硬件的 GPU 命令被打包成 <code>drm_sched_job</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// include/drm/gpu_scheduler.h</span><br><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_job</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dma_fence</span>          *<span class="hljs-title">s_fence</span>;</span>      <span class="hljs-comment">// 调度器信号量 fence</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dma_fence</span>          *<span class="hljs-title">hw_fence</span>;</span>     <span class="hljs-comment">// 硬件完成 fence（run_job 返回）</span><br>    u32                        credits;      <span class="hljs-comment">// 占用的信用额度</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_entity</span>   *<span class="hljs-title">entity</span>;</span>       <span class="hljs-comment">// 所属实体</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_head</span>           <span class="hljs-title">list</span>;</span>         <span class="hljs-comment">// 调度器内部链表</span><br>    <span class="hljs-comment">// ...</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p>关键字段：</p>
+<ul>
+<li><code>s_fence</code>：scheduled fence——作业被<strong>调度到硬件</strong>时 signal</li>
+<li><code>hw_fence</code>：hardware fence——硬件<strong>执行完成</strong>时 signal（由驱动的 <code>run_job</code> 回调返回）</li>
+<li><code>credits</code>：占用多少信用。复杂作业（大 buffer）可以占 2+ 信用点，简单作业占 1</li>
+</ul>
+<h3 id="3-2-drm-sched-entity-—-用户上下文"><a href="#3-2-drm-sched-entity-—-用户上下文" class="headerlink" title="3.2 drm_sched_entity — 用户上下文"></a>3.2 drm_sched_entity — 用户上下文</h3><p><code>drm_sched_entity</code> 代表一个<strong>用户态上下文</strong>（比如一个 OpenGL context 或 CUDA stream）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_entity</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_rq</span>       *<span class="hljs-title">rq</span>;</span>          <span class="hljs-comment">// 挂载的运行队列</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">spsc_queue</span>          <span class="hljs-title">job_queue</span>;</span>   <span class="hljs-comment">// SPSC 无锁作业队列</span><br>    u32                        priority;    <span class="hljs-comment">// 优先级</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">rb_node</span>             <span class="hljs-title">rb_tree_node</span>;</span> <span class="hljs-comment">// RB 树节点（挂到 run queue）</span><br>    <span class="hljs-comment">// ...</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p><strong>SPSC 队列</strong>（Single-Producer-Single-Consumer）：用户态只有一个 writer（push_job），内核调度器只有一个 reader（pop_job）。锁开销为零。</p>
+<h3 id="3-3-drm-sched-backend-ops-—-驱动回调"><a href="#3-3-drm-sched-backend-ops-—-驱动回调" class="headerlink" title="3.3 drm_sched_backend_ops — 驱动回调"></a>3.3 drm_sched_backend_ops — 驱动回调</h3><p><code>include/drm/gpu_scheduler.h</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_backend_ops</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dma_fence</span> *(*<span class="hljs-title">prepare_job</span>)(<span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_job</span> *<span class="hljs-title">job</span>,</span><br><span class="hljs-class">                                     <span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_entity</span> *<span class="hljs-title">entity</span>);</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">dma_fence</span> *(*<span class="hljs-title">run_job</span>)(<span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_job</span> *<span class="hljs-title">job</span>);</span><br>    <span class="hljs-type">void</span> (*timedout_job)(<span class="hljs-keyword">struct</span> drm_sched_job *job);<br>    <span class="hljs-type">void</span> (*free_job)(<span class="hljs-keyword">struct</span> drm_sched_job *job);<br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>回调</th>
+<th>调用时机</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>prepare_job</code></td>
+<td>job 从 entity 取出后</td>
+<td>准备依赖，做最后的 job 处理</td>
+</tr>
+<tr>
+<td><code>run_job</code></td>
+<td>硬件可以接纳新作业时</td>
+<td>真正提交到 GPU 硬件队列</td>
+</tr>
+<tr>
+<td><code>timedout_job</code></td>
+<td>job 超时</td>
+<td>该作业已挂死，驱动负责恢复</td>
+</tr>
+<tr>
+<td><code>free_job</code></td>
+<td>job 生命周期结束</td>
+<td>释放驱动私有数据</td>
+</tr>
+</tbody></table>
+<h3 id="3-4-drm-sched-init-args-—-初始化参数"><a href="#3-4-drm-sched-init-args-—-初始化参数" class="headerlink" title="3.4 drm_sched_init_args — 初始化参数"></a>3.4 drm_sched_init_args — 初始化参数</h3><p><code>include/drm/gpu_scheduler.h</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_init_args</span> &#123;</span><br>    <span class="hljs-type">const</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_backend_ops</span> *<span class="hljs-title">ops</span>;</span><br>    u32         credit_limit;    <span class="hljs-comment">// 最大并行作业数（典型 64）</span><br>    <span class="hljs-type">const</span> <span class="hljs-type">char</span> *name;            <span class="hljs-comment">// 调度器名称（如 &quot;amdgpu&quot;）</span><br>    <span class="hljs-type">unsigned</span>    num_rqs;         <span class="hljs-comment">// 运行队列数量</span><br>    u32         hang_limit;      <span class="hljs-comment">// TDR 容忍次数</span><br>    <span class="hljs-type">long</span>        timeout;         <span class="hljs-comment">// 超时时间（jiffies）</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">workqueue_struct</span> *<span class="hljs-title">timeout_wq</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">workqueue_struct</span> *<span class="hljs-title">submit_wq</span>;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">device</span> *<span class="hljs-title">dev</span>;</span><br>    <span class="hljs-comment">// ...</span><br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<h2 id="4-信用制流控"><a href="#4-信用制流控" class="headerlink" title="4. 信用制流控"></a>4. 信用制流控</h2><p>这是调度器最核心的<strong>反压机制</strong>。想象用户态疯狂提交作业——如果没有流控，内核会耗尽内存。</p>
+<h3 id="4-1-drm-sched-available-credits"><a href="#4-1-drm-sched-available-credits" class="headerlink" title="4.1 drm_sched_available_credits"></a>4.1 drm_sched_available_credits</h3><p><code>sched_main.c:96-105</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> u32 <span class="hljs-title function_">drm_sched_available_credits</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> drm_gpu_scheduler *sched)</span><br>&#123;<br>    u32 credits;<br>    WARN_ON(check_sub_overflow(sched-&gt;credit_limit,<br>                               <span class="hljs-type">atomic_read</span>(&amp;sched-&gt;credit_count),<br>                               &amp;credits));<br>    <span class="hljs-keyword">return</span> credits;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><code>credit_limit - credit_count = available_credits</code>。初始 <code>credit_count=0</code>，最大 64。</p>
+<h3 id="4-2-drm-sched-can-queue"><a href="#4-2-drm-sched-can-queue" class="headerlink" title="4.2 drm_sched_can_queue"></a>4.2 drm_sched_can_queue</h3><p><code>sched_main.c:115-134</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">bool</span> <span class="hljs-title function_">drm_sched_can_queue</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> drm_gpu_scheduler *sched,</span><br><span class="hljs-params">                                <span class="hljs-keyword">struct</span> drm_sched_entity *entity)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_job</span> *<span class="hljs-title">s_job</span>;</span><br>    s_job = drm_sched_entity_queue_peek(entity);<br>    <span class="hljs-keyword">if</span> (!s_job)<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;<br><br>    <span class="hljs-comment">/* If a job exceeds the credit limit, truncate it to the credit limit</span><br><span class="hljs-comment">     * itself to guarantee forward progress.</span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">if</span> (s_job-&gt;credits &gt; sched-&gt;credit_limit) &#123;<br>        dev_WARN(sched-&gt;dev,<br>                 <span class="hljs-string">&quot;Jobs may not exceed the credit limit, truncate.\n&quot;</span>);<br>        s_job-&gt;credits = sched-&gt;credit_limit;<br>    &#125;<br><br>    <span class="hljs-keyword">return</span> drm_sched_available_credits(sched) &gt;= s_job-&gt;credits;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>关键保护</strong>：即使某个 job 声称 credits 超过 credit_limit，调度器也将其截断为 limit。保证<strong>永远有前向进展</strong>——不会出现”需要 65 个 credit 但最多只有 64”的死锁。</p>
+<h3 id="4-3-信用流动"><a href="#4-3-信用流动" class="headerlink" title="4.3 信用流动"></a>4.3 信用流动</h3><figure class="highlight cos"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs cos">用户 push_job → entity SPSC 队列<br>    ↓<br>调度器 wake_up → 查看队首 <span class="hljs-keyword">job</span> 的 credits<br>    ↓<br>available_credits &gt;= credits? <br>    ├─ YES → 从 entity 弹出 <span class="hljs-keyword">job</span>，credit_count += credits<br>    │        调用 prepare_job → run_job → 提交给硬件<br>    │        硬件完成后 → credit_count -= credits（回收）<br>    └─ NO  → 等待（调度器休眠，某个 <span class="hljs-keyword">job</span> 完成时唤醒）<br></code></pre></td></tr></table></figure>
+
+<figure class="highlight tap"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs tap">信用水位:<br>  credit_limit (64)<br>  ┌────────────────────────────────────────┐<br>  │████████████████████████░░░░░░░░░░░░░░░░│ ← 已用<span class="hljs-number"> 30 </span>信用<br>  └────────────────────────────────────────┘<br>  credit_count = 30,  available = 34<br><br>  新 job 需要<span class="hljs-number"> 10 </span>credits → OK<br>  新 job 需要<span class="hljs-number"> 50 </span>credits → 等待<br></code></pre></td></tr></table></figure>
+
+<h2 id="5-优先级调度"><a href="#5-优先级调度" class="headerlink" title="5. 优先级调度"></a>5. 优先级调度</h2><h3 id="5-1-优先级定义"><a href="#5-1-优先级定义" class="headerlink" title="5.1 优先级定义"></a>5.1 优先级定义</h3><p>DRM scheduler 定义了多个优先级级别：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">enum</span> <span class="hljs-title">drm_sched_priority</span> &#123;</span><br>    DRM_SCHED_PRIORITY_MIN,<br>    DRM_SCHED_PRIORITY_NORMAL = DRM_SCHED_PRIORITY_MIN,<br>    DRM_SCHED_PRIORITY_HIGH_SW,<br>    DRM_SCHED_PRIORITY_KERNEL,<br>    DRM_SCHED_PRIORITY_HIGH_HW,<br>    DRM_SCHED_PRIORITY_COUNT<br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p>数字越大优先级越高：<code>HIGH_HW &gt; KERNEL &gt; HIGH_SW &gt; NORMAL</code>。</p>
+<h3 id="5-2-Round-Robin-同一优先级内调度"><a href="#5-2-Round-Robin-同一优先级内调度" class="headerlink" title="5.2 Round-Robin 同一优先级内调度"></a>5.2 Round-Robin 同一优先级内调度</h3><p><code>sched_main.c:136-139</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> __always_inline <span class="hljs-type">bool</span> <span class="hljs-title function_">drm_sched_entity_compare_before</span><span class="hljs-params">(</span><br><span class="hljs-params">    <span class="hljs-keyword">struct</span> rb_node *a, <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> rb_node *b)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_entity</span> *<span class="hljs-title">ent_a</span> =</span> rb_entry((a), <span class="hljs-keyword">struct</span> drm_sched_entity, rb_tree_node);<br>    <span class="hljs-comment">// ...</span><br></code></pre></td></tr></table></figure>
+
+<p>当多个 entity 在同一优先级 run queue 中时，调度器使用 RB 树实现 Round-Robin：每次从当前 entity 取一个 job，然后移动到下一个 entity。防止某个 entity 饿死其他 entity。</p>
+<h3 id="5-3-调度循环"><a href="#5-3-调度循环" class="headerlink" title="5.3 调度循环"></a>5.3 调度循环</h3><figure class="highlight perl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs perl"><span class="hljs-keyword">for</span> priority in [HIGH_HW, KERNEL, HIGH_SW, NORMAL]:<br>    <span class="hljs-keyword">if</span> sched_r<span class="hljs-string">q[priority]</span> 有 entity 且 can_queue:<br>        从当前 entity 取 job<br>        调用 run_job()<br>        <span class="hljs-keyword">return</span><br><br>如果所有优先级都无可提交的 job → 调度器睡眠<br></code></pre></td></tr></table></figure>
+
+<h2 id="6-Job-生命周期"><a href="#6-Job-生命周期" class="headerlink" title="6. Job 生命周期"></a>6. Job 生命周期</h2><h3 id="6-1-drm-sched-job-init-—-初始化"><a href="#6-1-drm-sched-job-init-—-初始化" class="headerlink" title="6.1 drm_sched_job_init — 初始化"></a>6.1 drm_sched_job_init — 初始化</h3><p><code>sched_main.c:800-829</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">drm_sched_job_init</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> drm_sched_job *job,</span><br><span class="hljs-params">                       <span class="hljs-keyword">struct</span> drm_sched_entity *entity,</span><br><span class="hljs-params">                       u32 credits, <span class="hljs-type">void</span> *owner,</span><br><span class="hljs-params">                       <span class="hljs-type">uint64_t</span> drm_client_id)</span><br>&#123;<br>    <span class="hljs-keyword">if</span> (!entity-&gt;rq) &#123;<br>        dev_err(job-&gt;sched-&gt;dev,<br>                <span class="hljs-string">&quot;%s: entity has no rq!\n&quot;</span>, __func__);<br>        <span class="hljs-keyword">return</span> -ENOENT;<br>    &#125;<br>    <span class="hljs-keyword">if</span> (unlikely(!credits)) &#123;<br>        pr_err(<span class="hljs-string">&quot;*ERROR* %s: credits cannot be 0!\n&quot;</span>, __func__);<br>        <span class="hljs-keyword">return</span> -EINVAL;<br>    &#125;<br><br>    <span class="hljs-built_in">memset</span>(job, <span class="hljs-number">0</span>, <span class="hljs-keyword">sizeof</span>(*job));    <span class="hljs-comment">// 关键安全性：全零</span><br>    job-&gt;entity = entity;<br>    job-&gt;credits = credits;<br>    job-&gt;s_fence = drm_sched_fence_alloc(entity, owner, drm_client_id);<br></code></pre></td></tr></table></figure>
+
+<p>初始化流程：</p>
+<ol>
+<li>检查 entity 是否有有效 run queue</li>
+<li>检查 credits 不为 0</li>
+<li><strong>memset 清零</strong>整个 job 结构体——这是防御性编程</li>
+<li>分配 <code>s_fence</code>（scheduled fence）和 <code>hw_fence</code></li>
+</ol>
+<h3 id="6-2-drm-sched-entity-push-job-—-提交"><a href="#6-2-drm-sched-entity-push-job-—-提交" class="headerlink" title="6.2 drm_sched_entity_push_job — 提交"></a>6.2 drm_sched_entity_push_job — 提交</h3><p><code>sched_entity.c:576</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">void</span> <span class="hljs-title function_">drm_sched_entity_push_job</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> drm_sched_job *sched_job)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">drm_sched_entity</span> *<span class="hljs-title">entity</span> =</span> sched_job-&gt;entity;<br>    <span class="hljs-type">bool</span> first;<br>    <span class="hljs-type">ktime_t</span> submit_ts;<br><br>    trace_drm_sched_job_queue(sched_job, entity);<br>    <span class="hljs-comment">// ...</span><br>    <span class="hljs-type">atomic_inc</span>(entity-&gt;rq-&gt;sched-&gt;score);<br>    WRITE_ONCE(entity-&gt;last_user, current-&gt;group_leader);<br></code></pre></td></tr></table></figure>
+
+<p><strong>关键</strong>: <code>push_job</code> 只是把 job 放入 entity 的 SPSC 队列。实际的 <code>run_job</code> 发生在调度器 workqueue 线程中。</p>
+<h3 id="6-3-run-job-—-硬件提交"><a href="#6-3-run-job-—-硬件提交" class="headerlink" title="6.3 run_job — 硬件提交"></a>6.3 run_job — 硬件提交</h3><p>驱动实现的 <code>run_job</code> 回调将 job 写入 GPU 寄存器&#x2F;命令环缓冲区（ring buffer）。返回一个 <code>dma_fence</code>，表示硬件完成信号。</p>
+<figure class="highlight scss"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs scss">用户态               内核态                         GPU 硬件<br>   │                   │                              │<br>   ├─ <span class="hljs-built_in">ioctl</span>(提交job) ──→│                              │<br>   │                   ├─ push_job → SPSC queue       │<br>   │                   ├─ wake_up scheduler           │<br>   │                   ├─ prepare_job                 │<br>   │                   ├─ run_job ──────────────────────→│<br>   │                   │   (写寄存器/ring buffer)       │<br>   │                   │                              ├─ 执行命令<br>   │                   │                              ├─ 完成!<br>   │   ← fence signal ─┤  ← hw_fence signal ───────────┤<br>   │                   ├─ free_job（释放资源）         │<br></code></pre></td></tr></table></figure>
+
+<h2 id="7-超时处理与-TDR"><a href="#7-超时处理与-TDR" class="headerlink" title="7. 超时处理与 TDR"></a>7. 超时处理与 TDR</h2><h3 id="7-1-Timeout-Detection-and-Recovery"><a href="#7-1-Timeout-Detection-and-Recovery" class="headerlink" title="7.1 Timeout Detection and Recovery"></a>7.1 Timeout Detection and Recovery</h3><p><code>sched_main.c:1317</code> — <code>drm_sched_init</code> 设置 <code>sched-&gt;timeout</code>（jiffies），然后启动一个延迟 workqueue：</p>
+<ol>
+<li>每个 job 提交后，记录 <code>job-&gt;submit_ts</code></li>
+<li>调度器定期检查 <code>pending_list</code> 中最老的 job</li>
+<li>如果 <code>now - submit_ts &gt; timeout</code> → 调用 <code>timedout_job</code> 回调</li>
+<li>驱动在 <code>timedout_job</code> 中重置 GPU 引擎或踢出 offending job</li>
+</ol>
+<h3 id="7-2-hang-limit"><a href="#7-2-hang-limit" class="headerlink" title="7.2 hang_limit"></a>7.2 hang_limit</h3><p><code>sched_main.c:1325</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c">sched-&gt;hang_limit = args-&gt;hang_limit;<br></code></pre></td></tr></table></figure>
+
+<p>如果连续多次挂死（超过 <code>hang_limit</code>），调度器认为硬件不可恢复，标记整个 scheduler 不可用。</p>
+<h2 id="8-drm-sched-init-和-drm-sched-fini"><a href="#8-drm-sched-init-和-drm-sched-fini" class="headerlink" title="8. drm_sched_init 和 drm_sched_fini"></a>8. drm_sched_init 和 drm_sched_fini</h2><h3 id="8-1-初始化"><a href="#8-1-初始化" class="headerlink" title="8.1 初始化"></a>8.1 初始化</h3><p><code>sched_main.c:1317-1359</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">int</span> <span class="hljs-title function_">drm_sched_init</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> drm_gpu_scheduler *sched,</span><br><span class="hljs-params">                   <span class="hljs-type">const</span> <span class="hljs-keyword">struct</span> drm_sched_init_args *args)</span><br>&#123;<br>    <span class="hljs-type">int</span> i;<br><br>    sched-&gt;ops = args-&gt;ops;<br>    sched-&gt;credit_limit = args-&gt;credit_limit;<br>    sched-&gt;name = args-&gt;name;<br>    sched-&gt;timeout = args-&gt;timeout;<br>    sched-&gt;hang_limit = args-&gt;hang_limit;<br>    sched-&gt;timeout_wq = args-&gt;timeout_wq ? args-&gt;timeout_wq : system_percpu_wq;<br>    sched-&gt;score = args-&gt;score ? args-&gt;score : &amp;sched-&gt;_score;<br>    sched-&gt;dev = args-&gt;dev;<br><br>    <span class="hljs-keyword">if</span> (args-&gt;num_rqs &gt; DRM_SCHED_PRIORITY_COUNT) &#123;<br>        dev_err(sched-&gt;dev,<br>                <span class="hljs-string">&quot;%s: num_rqs cannot be greater than DRM_SCHED_PRIORITY_COUNT\n&quot;</span>,<br>                __func__);<br>        <span class="hljs-keyword">return</span> -EINVAL;<br>    &#125;<br><br>    sched-&gt;sched_rq = kmalloc_objs(*sched-&gt;sched_rq, args-&gt;num_rqs,<br>                                   GFP_KERNEL | __GFP_ZERO);<br></code></pre></td></tr></table></figure>
+
+<p>关键步骤：</p>
+<ol>
+<li>从 <code>args</code> 复制所有参数</li>
+<li>校验 <code>num_rqs</code> 不超过 <code>DRM_SCHED_PRIORITY_COUNT</code></li>
+<li>分配 <code>sched_rq[]</code> 数组，每个 run queue 用 RB 树管理 entity</li>
+<li>分配 <code>submit_wq</code>：<code>alloc_ordered_workqueue</code>（行 1349），有序保证 FIFO</li>
+<li>启动 timeout delayed work</li>
+</ol>
+<h3 id="8-2-销毁"><a href="#8-2-销毁" class="headerlink" title="8.2 销毁"></a>8.2 销毁</h3><p><code>sched_main.c:1420-1448</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">void</span> <span class="hljs-title function_">drm_sched_fini</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> drm_gpu_scheduler *sched)</span><br>&#123;<br>    <span class="hljs-type">int</span> i;<br><br>    drm_sched_wqueue_stop(sched);              <span class="hljs-comment">// 停止调度 workqueue</span><br>    <span class="hljs-keyword">for</span> (i = DRM_SCHED_PRIORITY_KERNEL; i &lt; sched-&gt;num_rqs; i++)<br>        kfree(sched-&gt;sched_rq[i]);            <span class="hljs-comment">// 释放各优先级 run queue</span><br><br>    wake_up_all(&amp;sched-&gt;job_scheduled);        <span class="hljs-comment">// 唤醒等待者</span><br>    cancel_delayed_work_sync(&amp;sched-&gt;work_tdr); <span class="hljs-comment">// 取消超时 work</span><br><br>    <span class="hljs-keyword">if</span> (sched-&gt;ops-&gt;cancel_job)<br>        drm_sched_cancel_remaining_jobs(sched); <span class="hljs-comment">// 取消残留 job</span><br><br>    <span class="hljs-keyword">if</span> (sched-&gt;own_submit_wq)<br>        destroy_workqueue(sched-&gt;submit_wq);<br>    sched-&gt;ready = <span class="hljs-literal">false</span>;<br><br>    <span class="hljs-keyword">if</span> (!list_empty(&amp;sched-&gt;pending_list))<br>        dev_warn(sched-&gt;dev,<br>                 <span class="hljs-string">&quot;Tearing down scheduler while jobs are pending!\n&quot;</span>);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><strong>防御性警告</strong>（行 1445-1446）：如果销毁时 <code>pending_list</code> 非空，说明有 job 未完成——这通常是 bug。</p>
+<h2 id="9-NVIDIA-AI-Infra-中的角色"><a href="#9-NVIDIA-AI-Infra-中的角色" class="headerlink" title="9. NVIDIA AI Infra 中的角色"></a>9. NVIDIA AI Infra 中的角色</h2><p>在 NVIDIA AI Infra 场景中，DRM Scheduler 直接管理 CUDA kernel launch 和 GPU 计算命令：</p>
+<figure class="highlight reasonml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs reasonml">用户: cuda<span class="hljs-constructor">LaunchKernel(<span class="hljs-params">myKernel</span>, <span class="hljs-params">grid</span>, <span class="hljs-params">block</span>)</span><br>  ↓<br>libcuda.so → ioctl 到内核<br>  ↓<br>drm<span class="hljs-constructor">_sched_job_init(<span class="hljs-params">job</span>, <span class="hljs-params">entity</span>, <span class="hljs-params">credits</span>=1, <span class="hljs-operator">...</span>)</span><br>  ↓<br>drm<span class="hljs-constructor">_sched_entity_push_job(<span class="hljs-params">job</span>)</span>   ← 放入 SPSC 队列<br>  ↓<br>调度器 workqueue:<br>  prepare_job → 检查 fence 依赖<br>  run_job     → 写入 GPU 命令环缓冲区<br>  ↓<br>GPU 执行 kernel 计算<br>  ↓<br>hw_fence signal → job 释放 → credit 回收<br></code></pre></td></tr></table></figure>
+
+<p>AI 训练中，数千个 kernel 在多个 CUDA streams 上并发。DRM Scheduler 确保：</p>
+<ul>
+<li><strong>Compute 优先级</strong>高于 GFX 优先级</li>
+<li><strong>大 kernel</strong>（长运行时间）不会阻塞小 kernel</li>
+<li><strong>超时 kernel</strong>（死循环）被 TDR 踢出，不影响同一 GPU 上的其他进程</li>
+</ul>
+<hr>
+<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="08-umem-dmabuf.md">第8篇：GPU→RDMA 零拷贝桥梁：umem_dmabuf.c</a></p>
+<p>简介：<code>ib_umem_dmabuf_get_pinned</code> 如何接收 GPU 的 dmabuf fd 并转换为 RDMA MR 所需的 SG table。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/" class="category-chain-item">drivers</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/" class="category-chain-item">gpu</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/drivers/gpu/nvidia-svm/" class="category-chain-item">nvidia-svm</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/drivers/">#drivers</a>
+      
+        <a href="/tags/git/">#git</a>
+      
+        <a href="/tags/gpu/">#gpu</a>
+      
+        <a href="/tags/kernel/">#kernel</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/struct/">#struct</a>
+      
+        <a href="/tags/sync/">#sync</a>
+      
+        <a href="/tags/nvidia-svm/">#nvidia-svm</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>第7篇：GPU 命令提交调度：DRM Scheduler</div>
+      <div>https://realwujing.github.io/linux/drivers/gpu/nvidia-svm/07-gpu-scheduler/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年5月21日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/06-gpu-buddy/" title="第6篇：GPU 显存 Buddy 分配器">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">第6篇：GPU 显存 Buddy 分配器</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/09-mlx5-mr/" title="第9篇：RDMA 硬件侧 MR 注册：mlx5/mr.c">
+                        <span class="hidden-mobile">第9篇：RDMA 硬件侧 MR 注册：mlx5/mr.c</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: 'bc0f6accaa154321b9ad8ef2a74b991c'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
