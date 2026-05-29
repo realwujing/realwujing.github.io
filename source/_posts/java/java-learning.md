@@ -1,9 +1,10 @@
 ---
-date: 2023/04/21 15:49:27
-updated: 2023/04/21 15:49:27
+title: 'Java编程学习指南'
+date: '2023/04/21 15:49:27'
+updated: '2025/11/18 22:05:52'
 ---
 
-# Java
+# Java编程学习指南
 
 - <https://snailclimb.gitee.io/javaguide/#/>
 

@@ -1,9 +1,10 @@
 ---
-date: 2023/04/21 12:26:13
-updated: 2023/04/21 12:26:13
+title: 'Redis缓存数据库'
+date: '2023/04/21 12:26:13'
+updated: '2025/11/18 22:04:31'
 ---
 
-# Redis
+# Redis缓存数据库
 
 - [Redis常见面试题](https://www.cnblogs.com/jasontec/p/9699242.html)
 - [redis面试必问](https://www.cnblogs.com/telwanggs/p/10642382.html)

@@ -1,9 +1,10 @@
 ---
-date: 2022/09/07 19:28:20
-updated: 2023/04/17 14:06:59
+title: 'Flatpak应用打包与分发'
+date: '2023/04/17 14:06:59'
+updated: '2025/11/18 22:04:31'
 ---
 
-# flatpak
+# Flatpak应用打包与分发
 
 ```plantuml
 @startuml

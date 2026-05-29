@@ -1,9 +1,10 @@
 ---
-date: 2023/02/01 13:37:53
-updated: 2023/04/21 15:49:27
+title: 'Automake与Autoconf构建工具'
+date: '2023/04/21 15:49:27'
+updated: '2025/11/18 22:04:31'
 ---
 
-# automake
+# Automake与Autoconf构建工具
 
 - [首先要了解为什么要有autoconf，automake这类工具](https://www.cnblogs.com/seaspring/p/13905757.html)
 - [cmake与autoconf+automake的对比](https://blog.csdn.net/cnsword/article/details/7542696#commentBox)

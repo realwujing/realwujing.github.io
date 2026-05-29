@@ -1,9 +1,10 @@
 ---
-date: 2023/04/21 12:52:57
-updated: 2023/04/21 12:52:57
+title: 'Jenkins持续集成工具'
+date: '2023/04/21 12:52:57'
+updated: '2025/11/18 22:04:31'
 ---
 
-# jenkins
+# Jenkins持续集成工具
 
 ## Jenkins安装
 

@@ -1,6 +1,7 @@
 ---
-date: 2022/12/05 22:48:50
-updated: 2023/04/21 15:49:27
+title: 'git-learning'
+date: '2023/04/21 15:49:27'
+updated: '2026/02/06 04:05:32'
 ---
 
 # git-learning
@@ -32,6 +33,10 @@ git config --global core.editor vim
 ```
 
 - [修改Git默认编辑器](https://www.jianshu.com/p/86a7640705cd)
+
+## 使用 b4 管理 Linux 内核补丁
+
+- [b4 使用教程](b4-usage.md)
 
 ## 彻底替换https为ssh
 
