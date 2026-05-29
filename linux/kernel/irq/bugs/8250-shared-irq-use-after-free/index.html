@@ -1,0 +1,929 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/favicon.jpg">
+  <link rel="icon" href="/images/favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="Wu Jing">
+  <meta name="keywords" content="3d, Linux-0.11-yuan-xy, ThreadPool, acpi, algorithm, architect, assembly, baohua, bcache, binary-analysis, books, boot, bpf, bugs, ceph, cmake-objdump, console, container, cpp, dbus, deb, debug, deepin, develop, disk, distro, docker, drivers, extern, fluid, fs, gdb, git, go, gpu, grtrace, grub, hello_world, hexo, irq, java, javascript, jenkins, k8s, kdump, kernel, kickstart, kms, kvm, linux, linux-0.11-debug, log, ltp, markdown, mcu, minifs, mm, modules, monitoring, mutex, my-project, net, nginx, nvidia-svm, openclaw, patent, perf, perf-event, performance, phytium, pkg, port-forward, power, proc, protobuf, protobuf_example, proxy, pthread, pulseaudio, python, qemu, qprocess_wget, qt-learning, rcu, redis, rpm-ostree, runoob-vue3-test, security, shell, sound, sources, stanford-cs336, stap, struct, svn, sync, sysrq_trigger, task, testing, thread, tick, todolist, tools, udl, unixbench, uts_namespace, valgrind, vim, virsh, virt, xisai">
+  
+    <meta name="description" content="修复 8250 串口驱动共享 IRQ 竞态导致的 use-after-free背景Linux 8250 串口驱动在多个串口共享同一个 IRQ 中断线时，使用一个以 IRQ 号为 key 的哈希表 irq_lists 来管理共享同一个 IRQ 的所有端口，每个 IRQ 对应一个 irq_info 结构体，端口通过 list 成员链接到 irq_info-&gt;head 指向的链表上。    结构">
+<meta property="og:type" content="article">
+<meta property="og:title" content="修复 8250 串口驱动共享 IRQ 竞态导致的 use-after-free">
+<meta property="og:url" content="https://realwujing.github.io/linux/kernel/irq/bugs/8250-shared-irq-use-after-free/index.html">
+<meta property="og:site_name" content="WuJing&#39;s Blog">
+<meta property="og:description" content="修复 8250 串口驱动共享 IRQ 竞态导致的 use-after-free背景Linux 8250 串口驱动在多个串口共享同一个 IRQ 中断线时，使用一个以 IRQ 号为 key 的哈希表 irq_lists 来管理共享同一个 IRQ 的所有端口，每个 IRQ 对应一个 irq_info 结构体，端口通过 list 成员链接到 irq_info-&gt;head 指向的链表上。    结构">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-29T13:32:19.000Z">
+<meta property="article:modified_time" content="2026-05-29T13:32:19.000Z">
+<meta property="article:author" content="Wu Jing">
+<meta property="article:tag" content="3d">
+<meta property="article:tag" content="kernel">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="struct">
+<meta property="article:tag" content="mutex">
+<meta property="article:tag" content="thread">
+<meta property="article:tag" content="sync">
+<meta property="article:tag" content="irq">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>修复 8250 串口驱动共享 IRQ 竞态导致的 use-after-free - WuJing&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"realwujing.github.io","root":"/","version":"1.9.4","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":"6b5123e146041483d13bdfaeb6e42a76","google":"UA-265632133-1","gtag":"G-E7BV6T4RCW","tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+    <!-- Baidu Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?6b5123e146041483d13bdfaeb6e42a76";
+          var s = document.getElementsByTagName("script")[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+  
+
+  
+    <!-- Google Analytics -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.google-analytics.com/analytics.js', function() {
+          window.ga = window.ga || function() { (ga.q = ga.q || []).push(arguments) };
+          ga.l = +new Date;
+          ga('create', 'UA-265632133-1', 'auto');
+          ga('send', 'pageview');
+        });
+      }
+    </script>
+  
+
+  
+    <!-- Google gtag.js -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript('https://www.googletagmanager.com/gtag/js?id=G-E7BV6T4RCW', function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E7BV6T4RCW');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>WuJing&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="修复 8250 串口驱动共享 IRQ 竞态导致的 use-after-free"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-05-29 13:32" pubdate>
+          2026年5月29日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          6k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          51 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">修复 8250 串口驱动共享 IRQ 竞态导致的 use-after-free</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="修复-8250-串口驱动共享-IRQ-竞态导致的-use-after-free"><a href="#修复-8250-串口驱动共享-IRQ-竞态导致的-use-after-free" class="headerlink" title="修复 8250 串口驱动共享 IRQ 竞态导致的 use-after-free"></a>修复 8250 串口驱动共享 IRQ 竞态导致的 use-after-free</h1><h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>Linux 8250 串口驱动在多个串口共享同一个 IRQ 中断线时，使用一个以 IRQ 号为 key 的哈希表 <code>irq_lists</code> 来管理共享同一个 IRQ 的所有端口，每个 IRQ 对应一个 <code>irq_info</code> 结构体，端口通过 <code>list</code> 成员链接到 <code>irq_info-&gt;head</code> 指向的链表上。</p>
+<table>
+<thead>
+<tr>
+<th>结构</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>irq_lists</code></td>
+<td>全局哈希表，以 IRQ 号为 key</td>
+</tr>
+<tr>
+<td><code>irq_info</code></td>
+<td>每个 IRQ 一条记录，包含 <code>head</code>（端口链表头）、<code>lock</code>（自旋锁）</td>
+</tr>
+<tr>
+<td><code>hash_mutex</code></td>
+<td>全局互斥锁，保护哈希表查找&#x2F;插入&#x2F;删除</td>
+</tr>
+<tr>
+<td><code>i-&gt;lock</code></td>
+<td>每个 IRQ 的自旋锁，保护端口链表操作</td>
+</tr>
+</tbody></table>
+<p>关键函数：</p>
+<ul>
+<li><strong><code>serial_get_or_create_irq_info()</code></strong> — 根据 IRQ 号查找或创建 <code>irq_info</code></li>
+<li><strong><code>serial_link_irq_chain()</code></strong> — 将端口加入 IRQ 共享链表，首个端口调用 <code>request_irq()</code> 注册中断处理函数</li>
+<li><strong><code>serial_unlink_irq_chain()</code></strong> — 将端口从链表移除，链表中最后一个端口被移除时调用 <code>free_irq()</code> 并 <code>kfree(irq_info)</code></li>
+</ul>
+<h2 id="问题分析"><a href="#问题分析" class="headerlink" title="问题分析"></a>问题分析</h2><h3 id="现场现象"><a href="#现场现象" class="headerlink" title="现场现象"></a>现场现象</h3><p>Bugzilla <a target="_blank" rel="noopener" href="https://bugzilla.kernel.org/show_bug.cgi?id=221579">221579</a> 报告者 Wang Zhaolong 提供了一个竞态复现脚本：多个进程同时对 <code>/dev/ttyS1</code> 和 <code>/dev/ttyS3</code>（共享 IRQ 3）进行高频 <code>open/close</code> 操作，触发如下警告：</p>
+<figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs stylus"><span class="hljs-selector-attr">[   61.937561]</span><span class="hljs-selector-attr">[  T915]</span> ------------<span class="hljs-selector-attr">[ cut here ]</span>------------<br><span class="hljs-selector-attr">[   61.938276]</span><span class="hljs-selector-attr">[  T915]</span> Unbalanced enable <span class="hljs-keyword">for</span> IRQ <span class="hljs-number">3</span><br><span class="hljs-selector-attr">[   61.938828]</span><span class="hljs-selector-attr">[  T915]</span> WARNING: kernel/irq/manage<span class="hljs-selector-class">.c</span>:<span class="hljs-number">774</span> at __enable_irq+<span class="hljs-number">0</span>x33/<span class="hljs-number">0</span>x60<br><span class="hljs-selector-attr">[   61.940190]</span><span class="hljs-selector-attr">[  T915]</span> Call Trace:<br><span class="hljs-selector-attr">[   61.940190]</span><span class="hljs-selector-attr">[  T915]</span>  enable_irq+<span class="hljs-number">0</span>x7e/<span class="hljs-number">0</span>x100<br><span class="hljs-selector-attr">[   61.940190]</span><span class="hljs-selector-attr">[  T915]</span>  serial8250_do_startup+<span class="hljs-number">0</span>x7ce/<span class="hljs-number">0</span>xa80<br><span class="hljs-selector-attr">[   61.940190]</span><span class="hljs-selector-attr">[  T915]</span>  uart_port_startup+<span class="hljs-number">0</span>x13d/<span class="hljs-number">0</span>x440<br><span class="hljs-selector-attr">[   61.940190]</span><span class="hljs-selector-attr">[  T915]</span>  uart_port_activate+<span class="hljs-number">0</span>x5b/<span class="hljs-number">0</span>xb0<br><span class="hljs-selector-attr">[   61.940190]</span><span class="hljs-selector-attr">[  T915]</span>  tty_port_open+<span class="hljs-number">0</span>x90/<span class="hljs-number">0</span>x110<br><span class="hljs-selector-attr">[   61.940190]</span><span class="hljs-selector-attr">[  T915]</span>  uart_open+<span class="hljs-number">0</span>x1e/<span class="hljs-number">0</span>x30<br></code></pre></td></tr></table></figure>
+
+<h3 id="根因分析"><a href="#根因分析" class="headerlink" title="根因分析"></a>根因分析</h3><p>问题涉及两个并发路径之间的竞态：</p>
+<h4 id="路径-1：link-路径（端口-open）"><a href="#路径-1：link-路径（端口-open）" class="headerlink" title="路径 1：link 路径（端口 open）"></a>路径 1：link 路径（端口 open）</h4><p><code>serial_link_irq_chain()</code> 被 <code>serial8250_startup()</code> → <code>uart_port_startup()</code> 调用：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">int</span> <span class="hljs-title function_">serial_link_irq_chain</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> uart_8250_port *up)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">irq_info</span> *<span class="hljs-title">i</span>;</span><br>    <span class="hljs-type">int</span> ret;<br><br>    i = serial_get_or_create_irq_info(up);  <span class="hljs-comment">// 查找/创建 irq_info</span><br>    <span class="hljs-keyword">if</span> (IS_ERR(i))<br>        <span class="hljs-keyword">return</span> PTR_ERR(i);<br><br>    spin_lock_irq(&amp;i-&gt;lock);<br>    <span class="hljs-keyword">if</span> (i-&gt;head) &#123;<br>        <span class="hljs-comment">// 已有其他端口注册了该 IRQ，直接加入链表</span><br>        list_add(&amp;up-&gt;<span class="hljs-built_in">list</span>, i-&gt;head);<br>        spin_unlock_irq(&amp;i-&gt;lock);<br>        <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>    &#125;<br><br>    <span class="hljs-comment">// 这是第一个使用该 IRQ 的端口</span><br>    INIT_LIST_HEAD(&amp;up-&gt;<span class="hljs-built_in">list</span>);<br>    i-&gt;head = &amp;up-&gt;<span class="hljs-built_in">list</span>;<br>    spin_unlock_irq(&amp;i-&gt;lock);<br>    <span class="hljs-comment">// hash_mutex 在此处已经被释放</span><br>    ret = request_irq(up-&gt;port.irq, ...);   <span class="hljs-comment">// 注册中断处理函数</span><br>    ...<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="路径-2：unlink-路径（端口-close）"><a href="#路径-2：unlink-路径（端口-close）" class="headerlink" title="路径 2：unlink 路径（端口 close）"></a>路径 2：unlink 路径（端口 close）</h4><p><code>serial_unlink_irq_chain()</code> 被 <code>serial8250_shutdown()</code> → <code>uart_port_shutdown()</code> 调用：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title function_">serial_unlink_irq_chain</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> uart_8250_port *up)</span><br>&#123;<br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">irq_info</span> *<span class="hljs-title">i</span>;</span><br><br>    mutex_lock(&amp;hash_mutex);<br>    hash_for_each_possible(irq_lists, i, node, up-&gt;port.irq) &#123;<br>        <span class="hljs-keyword">if</span> (i-&gt;irq == up-&gt;port.irq) &#123;<br>            <span class="hljs-keyword">if</span> (list_empty(i-&gt;head))<br>                free_irq(up-&gt;port.irq, i);  <span class="hljs-comment">// 释放 IRQ + kfree(i)</span><br>            serial_do_unlink(i, up);        <span class="hljs-comment">// 从链表移除端口</span><br>            <span class="hljs-keyword">return</span>;<br>        &#125;<br>    &#125;<br>    mutex_unlock(&amp;hash_mutex);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="竞态窗口"><a href="#竞态窗口" class="headerlink" title="竞态窗口"></a>竞态窗口</h4><figure class="highlight reasonml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs reasonml">CPU0 (Port A <span class="hljs-keyword">open</span>, 首次)                 CPU1 (Port A close, 最后一个端口)<br>──────────────────────────────────────   ─────────────────────────────────────<br>serial<span class="hljs-constructor">_link_irq_chain()</span><br>  i = get<span class="hljs-constructor">_or_create()</span>  <span class="hljs-comment">// 新分配</span><br>  i-&gt;head = &amp;portA-&gt;<span class="hljs-built_in">list</span> <span class="hljs-comment">// 发布 i-&gt;head</span><br>  spin<span class="hljs-constructor">_unlock_irq(&amp;<span class="hljs-params">i</span>-&gt;<span class="hljs-params">lock</span>)</span><br>                                         serial<span class="hljs-constructor">_unlink_irq_chain()</span><br>                                           mutex<span class="hljs-constructor">_lock(&amp;<span class="hljs-params">hash_mutex</span>)</span><br>                                           <span class="hljs-comment">// 找到 i</span><br>                                           <span class="hljs-built_in">list</span><span class="hljs-constructor">_empty(<span class="hljs-params">i</span>-&gt;<span class="hljs-params">head</span>)</span> → TRUE<br>                                             free<span class="hljs-constructor">_irq()</span>        <span class="hljs-comment">// 释放在建的 IRQ！</span><br>                                             kfree(i)          <span class="hljs-comment">// 释放 i！</span><br>  request<span class="hljs-constructor">_irq(<span class="hljs-operator">...</span>, <span class="hljs-params">i</span>)</span>  <span class="hljs-comment">// ← i 已被 free！use-after-free!</span><br></code></pre></td></tr></table></figure>
+
+<p><strong>备注</strong>：本次修复之前的原始代码中，<code>hash_mutex</code> 在 <code>serial_get_or_create_irq_info()</code> 内部通过 <code>guard(mutex)(&amp;hash_mutex)</code> 持有，函数返回时自动释放，比 <code>i-&gt;head</code> 发布时间更早，并发 unlink 可直接在哈希表中找到 <code>i</code> 并 free 它。v1 已将锁提升到 <code>serial_link_irq_chain()</code> 入口。</p>
+<h4 id="为什么表现为-“Unbalanced-enable-for-IRQ”？"><a href="#为什么表现为-“Unbalanced-enable-for-IRQ”？" class="headerlink" title="为什么表现为 “Unbalanced enable for IRQ”？"></a>为什么表现为 “Unbalanced enable for IRQ”？</h4><ol>
+<li><code>free_irq()</code> → <code>__free_irq()</code> → <code>irq_shutdown()</code> 强制将 <code>desc-&gt;depth</code> 设为 1</li>
+<li>同时第一个端口通过 <code>serial8250_do_startup()</code> → <code>serial8250_THRE_test()</code> 执行 <code>disable_irq_nosync()</code> &#x2F; <code>enable_irq()</code> 配对</li>
+<li>由于 <code>desc-&gt;depth</code> 被 <code>irq_shutdown()</code> 硬设为 1，<code>enable_irq()</code> 调用 <code>__enable_irq()</code> 时发现 <code>depth == 1</code>，本应是 0 才能正常 enable，触发 <code>Unbalanced enable for IRQ</code> 警告</li>
+</ol>
+<p><code>kernel/irq/manage.c:774</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">void</span> __enable_irq(<span class="hljs-keyword">struct</span> irq_desc *desc)<br>&#123;<br>    <span class="hljs-keyword">switch</span> (desc-&gt;depth) &#123;<br>    <span class="hljs-keyword">case</span> <span class="hljs-number">0</span>:<br>        <span class="hljs-comment">// 正常 disable_irq/enable_irq 配对路径</span><br> err_out:<br>        WARN(<span class="hljs-number">1</span>, KERN_WARNING <span class="hljs-string">&quot;Unbalanced enable for IRQ %d\n&quot;</span>,<br>             irq_desc_get_irq(desc));<br>        <span class="hljs-keyword">break</span>;<br>    <span class="hljs-keyword">case</span> <span class="hljs-number">1</span>: &#123;<br>        <span class="hljs-comment">// irq_shutdown() 设置的 depth=1，走到这里</span><br>        ...<br>    &#125;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h2 id="修复方案"><a href="#修复方案" class="headerlink" title="修复方案"></a>修复方案</h2><h3 id="v1"><a href="#v1" class="headerlink" title="v1"></a>v1</h3><p>v1 是原始补丁，将 <code>hash_mutex</code> 的加锁从 <code>serial_get_or_create_irq_info()</code>（<code>guard(mutex)</code> 自动在函数返回时释放）提升到 <code>serial_link_irq_chain()</code> 入口，使其覆盖 <code>i-&gt;head</code> 检查和 <code>list_add/INIT_LIST_HEAD</code> 操作，防止并发 unlink 在此期间找到 <code>i</code> 并 free 它。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// v1: hash_mutex 覆盖 i-&gt;head 检查和链表操作</span><br>mutex_lock(&amp;hash_mutex);<br>i = serial_get_or_create_irq_info(up);<br><span class="hljs-comment">// ...</span><br>INIT_LIST_HEAD(&amp;up-&gt;<span class="hljs-built_in">list</span>);<br>i-&gt;head = &amp;up-&gt;<span class="hljs-built_in">list</span>;<br>spin_unlock_irq(&amp;i-&gt;lock);<br><br>mutex_unlock(&amp;hash_mutex);  <span class="hljs-comment">// ← request_irq() 之前释放</span><br><br>ret = request_irq(...);<br></code></pre></td></tr></table></figure>
+
+<h3 id="v1-→-v2"><a href="#v1-→-v2" class="headerlink" title="v1 → v2"></a>v1 → v2</h3><p>代码无变化，仅添加 <code>Reported-by: Wang Zhaolong &lt;wangzhaolong@fnnas.com&gt;</code> tag。</p>
+<h3 id="v2-→-v3（IRQ-初始化竞态）"><a href="#v2-→-v3（IRQ-初始化竞态）" class="headerlink" title="v2 → v3（IRQ 初始化竞态）"></a>v2 → v3（IRQ 初始化竞态）</h3><p>v2 虽然解决了 link&#x2F;unlink 之间的 use-after-free，但 Wang Zhaolong 实测仍然报告 <code>Unbalanced enable for IRQ</code>。</p>
+<p>根因在于 v2 在 <code>request_irq()</code> 前释放了 <code>hash_mutex</code>：</p>
+<figure class="highlight reasonml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><code class="hljs reasonml">CPU0 (Port A <span class="hljs-keyword">open</span>, 首个端口)             CPU1 (Port B <span class="hljs-keyword">open</span>, 共享同一个 IRQ)<br>──────────────────────────────────────   ─────────────────────────────────────<br>serial<span class="hljs-constructor">_link_irq_chain()</span><br>  mutex<span class="hljs-constructor">_lock(&amp;<span class="hljs-params">hash_mutex</span>)</span><br>  i = get<span class="hljs-constructor">_or_create()</span><br>  <span class="hljs-constructor">INIT_LIST_HEAD(&amp;<span class="hljs-params">up</span>-&gt;<span class="hljs-params">list</span>)</span><br>  i-&gt;head = &amp;portA-&gt;<span class="hljs-built_in">list</span>   <span class="hljs-comment">// 发布!</span><br>  spin<span class="hljs-constructor">_unlock_irq(&amp;<span class="hljs-params">i</span>-&gt;<span class="hljs-params">lock</span>)</span><br>  mutex<span class="hljs-constructor">_unlock(&amp;<span class="hljs-params">hash_mutex</span>)</span>  <span class="hljs-comment">// ← 释放!</span><br>                                         serial<span class="hljs-constructor">_link_irq_chain()</span><br>                                           mutex<span class="hljs-constructor">_lock(&amp;<span class="hljs-params">hash_mutex</span>)</span><br>                                           i = get<span class="hljs-constructor">_or_create()</span> <span class="hljs-comment">// 返回 i（已有）</span><br>                                           i-&gt;head != NULL → <span class="hljs-built_in">list</span><span class="hljs-constructor">_add()</span><br>                                           mutex<span class="hljs-constructor">_unlock(&amp;<span class="hljs-params">hash_mutex</span>)</span><br>                                           return <span class="hljs-number">0</span>;<br>                                         <span class="hljs-comment">// Port B 认为 IRQ 已就绪</span><br>                                         serial8250<span class="hljs-constructor">_do_startup()</span><br>                                           disable<span class="hljs-constructor">_irq_nosync()</span><span class="hljs-operator"></span><br><span class="hljs-operator">                                           ...</span><br><span class="hljs-operator">                                           </span>enable<span class="hljs-constructor">_irq()</span>    <span class="hljs-comment">// ← IRQ 还没建好！</span><br>                                           → WARN: Unbalanced enable<br><br>  request<span class="hljs-constructor">_irq(<span class="hljs-operator">...</span>)</span> ← 此时 IRQ 才真正注册<br></code></pre></td></tr></table></figure>
+
+<p><strong>v3 修复</strong>：将 <code>mutex_unlock(&amp;hash_mutex)</code> 移到 <code>request_irq()</code> <strong>返回之后</strong>，确保在首个 IRQ 完全初始化之前，其他共享端口的 link 操作被阻塞：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">// v3: hash_mutex 覆盖到首个 request_irq() 完成</span><br>INIT_LIST_HEAD(&amp;up-&gt;<span class="hljs-built_in">list</span>);<br>i-&gt;head = &amp;up-&gt;<span class="hljs-built_in">list</span>;<br>spin_unlock_irq(&amp;i-&gt;lock);<br><br>ret = request_irq(up-&gt;port.irq, serial8250_interrupt,<br>                  up-&gt;port.irqflags, up-&gt;port.name, i);<br><br>mutex_unlock(&amp;hash_mutex);  <span class="hljs-comment">// ← request_irq() 之后才释放</span><br></code></pre></td></tr></table></figure>
+
+<h3 id="hash-mutex-跨过-request-irq-不会死锁"><a href="#hash-mutex-跨过-request-irq-不会死锁" class="headerlink" title="hash_mutex 跨过 request_irq() 不会死锁"></a><code>hash_mutex</code> 跨过 <code>request_irq()</code> 不会死锁</h3><p><code>request_irq()</code> 内部锁链为：</p>
+<figure class="highlight perl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs perl">request_ir<span class="hljs-string">q()</span><br>  → request_threaded_ir<span class="hljs-string">q()</span><br>    → __setup_ir<span class="hljs-string">q()</span><br>      → mutex_lock(&amp;desc-&gt;request_mutex)<br>      → chip_bus_lock(desc)<br>      → raw_spin_lock_irqsave(&amp;desc-&gt;lock)<br></code></pre></td></tr></table></figure>
+
+<p>link 路径：<code>hash_mutex</code> → <code>desc-&gt;request_mutex</code> → <code>desc-&gt;lock</code><br>unlink 路径（已有代码）：<code>hash_mutex</code> → <code>desc-&gt;request_mutex</code> → <code>desc-&gt;lock</code></p>
+<p>两路径锁顺序一致，无 ABBA 死锁风险。</p>
+<h2 id="补丁链接"><a href="#补丁链接" class="headerlink" title="补丁链接"></a>补丁链接</h2><ul>
+<li>v1: <a target="_blank" rel="noopener" href="https://lore.kernel.org/r/20260528-bug-221579-8250-shared-irq-race-v1-1-30980cca02f3@gmail.com">https://lore.kernel.org/r/20260528-bug-221579-8250-shared-irq-race-v1-1-30980cca02f3@gmail.com</a></li>
+<li>v2: <a target="_blank" rel="noopener" href="https://lore.kernel.org/r/20260528-bug-221579-8250-shared-irq-race-v2-1-06531202e54d@gmail.com">https://lore.kernel.org/r/20260528-bug-221579-8250-shared-irq-race-v2-1-06531202e54d@gmail.com</a></li>
+<li>v3: <a target="_blank" rel="noopener" href="https://lore.kernel.org/r/20260529-bug-221579-8250-shared-irq-race-v3-1-fe4d430862a9@gmail.com">https://lore.kernel.org/r/20260529-bug-221579-8250-shared-irq-race-v3-1-fe4d430862a9@gmail.com</a></li>
+</ul>
+<p>Fixes: 768aec0b5bcc (“serial: 8250: fix shared interrupts issues with SMP and RT kernels”)<br>Closes: <a target="_blank" rel="noopener" href="https://bugzilla.kernel.org/show_bug.cgi?id=221579">https://bugzilla.kernel.org/show_bug.cgi?id=221579</a><br>Reported-by: Wang Zhaolong <a href="mailto:&#x77;&#97;&#110;&#103;&#x7a;&#104;&#x61;&#x6f;&#x6c;&#x6f;&#x6e;&#103;&#x40;&#x66;&#110;&#110;&#x61;&#x73;&#46;&#99;&#x6f;&#x6d;">&#x77;&#97;&#110;&#103;&#x7a;&#104;&#x61;&#x6f;&#x6c;&#x6f;&#x6e;&#103;&#x40;&#x66;&#110;&#110;&#x61;&#x73;&#46;&#99;&#x6f;&#x6d;</a></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/linux/" class="category-chain-item">linux</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/" class="category-chain-item">kernel</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/irq/" class="category-chain-item">irq</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/linux/kernel/irq/bugs/" class="category-chain-item">bugs</a>
+  
+  
+
+  
+
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/3d/">#3d</a>
+      
+        <a href="/tags/kernel/">#kernel</a>
+      
+        <a href="/tags/linux/">#linux</a>
+      
+        <a href="/tags/struct/">#struct</a>
+      
+        <a href="/tags/mutex/">#mutex</a>
+      
+        <a href="/tags/thread/">#thread</a>
+      
+        <a href="/tags/sync/">#sync</a>
+      
+        <a href="/tags/irq/">#irq</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>修复 8250 串口驱动共享 IRQ 竞态导致的 use-after-free</div>
+      <div>https://realwujing.github.io/linux/kernel/irq/bugs/8250-shared-irq-use-after-free/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>Wu Jing</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年5月29日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/linux/drivers/gpu/nvidia-svm/01-hmm/" title="第 1 篇：CPU↔GPU 内存镜像基础 — HMM 深度解析">
+                        <span class="hidden-mobile">第 1 篇：CPU↔GPU 内存镜像基础 — HMM 深度解析</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="gitalk-container"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#gitalk-container', function() {
+      Fluid.utils.createCssLink('/css/gitalk.css')
+      Fluid.utils.createScript('https://lib.baomitu.com/gitalk/1.8.0/gitalk.min.js', function() {
+        var options = Object.assign(
+          {"clientID":"c11f8471a6ae4d3eea12","clientSecret":"87bfa232882af2b005f4c3352132dd418bf6d113","repo":"realwujing.github.io","owner":"realwujing","admin":["realwujing"],"language":"zh-CN","labels":["Gitalk"],"perPage":10,"pagerDirection":"last","distractionFreeMode":false,"createIssueManually":false,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token"},
+          {
+            id: '654609ca624ffdd698225372365cc9da'
+          }
+        )
+        var gitalk = new Gitalk(options);
+        gitalk.render('gitalk-container');
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+  
+  
+
+
+
+
+
+  <script>
+  Fluid.utils.createScript('https://lib.baomitu.com/mermaid/8.14.0/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('mermaid' in window) {
+        mermaid.init();
+      }
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.0/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.18.2/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  
+      <script>
+        if (!window.MathJax) {
+          window.MathJax = {
+            tex    : {
+              inlineMath: { '[+]': [['$', '$']] }
+            },
+            loader : {
+              load: ['ui/lazy']
+            },
+            options: {
+              renderActions: {
+                insertedScript: [200, () => {
+                  document.querySelectorAll('mjx-container').forEach(node => {
+                    let target = node.parentNode;
+                    if (target.nodeName.toLowerCase() === 'li') {
+                      target.parentNode.classList.add('has-jax');
+                    }
+                  });
+                }, '', false]
+              }
+            }
+          };
+        } else {
+          MathJax.startup.document.state(0);
+          MathJax.texReset();
+          MathJax.typeset();
+          MathJax.typesetPromise();
+        }
+
+        Fluid.events.registerRefreshCallback(function() {
+          if ('MathJax' in window && MathJax.startup.document && typeof MathJax.startup.document.state === 'function') {
+            MathJax.startup.document.state(0);
+            MathJax.texReset();
+            MathJax.typeset();
+            MathJax.typesetPromise();
+          }
+        });
+      </script>
+    
+
+  <script  src="https://lib.baomitu.com/mathjax/3.2.2/es5/tex-mml-chtml.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
