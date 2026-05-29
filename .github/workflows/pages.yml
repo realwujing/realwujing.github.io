@@ -3,8 +3,7 @@ name: Pages
 on:
   push:
     branches:
-      - main # default branch
-      - hexo
+      - main
 
 jobs:
   pages:
@@ -13,129 +12,38 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-      - name: Set up Git
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x' # Replace with your desired Python version
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge branch
-        run: |
-          set -aex
-          git config --global user.email "178955347@qq.com"
-          git config --global user.name "bot"
-          git fetch origin
-          git checkout main
-          git pull origin main
-          pwd
-          ls -lah
-          git log --reverse --pretty=format:"%cd" --date=format:"%Y/%m/%d %H:%M:%S" README.md
-          # 从 hexo 分支获取 front_matter.sh
-          git show origin/hexo:front_matter.sh > front_matter.sh
-          chmod +x front_matter.sh
-          # 为所有 markdown 文件添加 front matter
-          find . -name "*.md" -type f -exec bash front_matter.sh {} \;
-          
-          # 生成动态标签
-          # 扫描git追踪的markdown文件生成标签（前三级目录，过滤隐藏目录、纯数字目录、包含空格的目录、长度>20的目录、包含特殊字符的目录）
-          TAGS=$(git ls-files "*.md" | while read file; do 
-            dirname "$file" | cut -d'/' -f1-4 | tr '/' '\n'
-          done | sort -u | grep -v "^\.$" | grep -v "^$" | grep -v "^\." | grep -v "^[0-9]*$" | grep -v " " | grep -v '"' | awk 'length<=20' | paste -sd ',' - | sed 's/,/, /g')
-          
-          # 清理临时文件
-          rm -f front_matter.sh
-          rm -rf ../hexo-site
-          mkdir ../hexo-site
-          cp -r ./* ../hexo-site
-          git checkout -- .
-          git checkout -b hexo origin/hexo
-          
-          # 替换 _config.yml 中的 keywords 和 tags
-          if [ -n "$TAGS" ]; then
-            sed -i "s/^keywords:.*/keywords: $TAGS/" _config.yml
-            sed -i "s/^tags:.*/tags: $TAGS/" _config.yml
-          fi
-          # 同步markdown文件到 hexo 分支
-          rsync -avP --delete \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='node_modules' \
-            --exclude='public' \
-            --exclude='source' \
-            --exclude='scaffolds' \
-            --exclude='themes' \
-            --include='*/' \
-            --include='*.md' \
-            --exclude='*' \
-            ../hexo-site/ ./source/_posts/
-          
-          # 同步图片文件到 source/images (Hexo会自动复制到public)
-          rsync -avP --delete \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='node_modules' \
-            --exclude='public' \
-            --exclude='source' \
-            --exclude='scaffolds' \
-            --exclude='themes' \
-            --include='*/' \
-            --include='*.png' \
-            --include='*.jpg' \
-            --include='*.jpeg' \
-            --include='*.gif' \
-            --include='*.svg' \
-            --include='*.webp' \
-            --exclude='*' \
-            ../hexo-site/ ./source/images/
-          
-          rsync -avP ../hexo-site/README.md source/about/index.md
-          
-          # 修复所有markdown文件中的相对链接
-          # - 图片链接转换为/images/路径
-          # - 文档链接转换为GitHub绝对链接
-          python3 ./fix_relative_links.py
-          pwd
-          git status
-          git add -A .
-          find source -name '*.md'
-          git commit -m "feat: bot auto commit"
-          git push origin HEAD:bot -u -f
-      - name: Use Node.js 20.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Cache NPM dependencies
+          python-version: '3.x'
+
+      - name: Cache pip
         uses: actions/cache@v4
         with:
-          path: node_modules
-          key: ${{ runner.OS }}-npm-cache
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            ${{ runner.OS }}-npm-cache
-      - name: Install Dependencies
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Prepare docs
         run: |
-          set -aex
-          pwd
-          npm install
-          npm install hexo-renderer-marked --save
-          npm install hexo-filter-plantuml --save
-          find source -name '*.md'
-      - name: Build
+          mkdir -p docs
+          rsync -a --exclude='.git' --exclude='.github' --exclude='docs' \
+            --exclude='site' --exclude='__pycache__' --exclude='node_modules' \
+            --exclude='README.md' ./ docs/
+          cp README.md docs/
+
+      - name: Build site
         run: |
-          set -aex
-          pwd
-          git branch
-          find source -name '*.md'
-          pwd
-          npm run clean
-          pwd
-          npm run build
-          ls -la
-          tree public
+          export PYTHONPATH=.
+          mkdocs build
+
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
+          publish_dir: ./site
