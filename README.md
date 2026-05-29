@@ -13,7 +13,7 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 - **[kernel](./linux/kernel/)** - Linux内核开发与源码分析
 - **[performance](./linux/performance/)** - 性能分析工具 (perf, BPF, stap)
 - **[debug](./linux/debug/)** - 调试工具与技术 (GDB, kdump, assembly)
-- **[virtualization](./linux/virtualization/)** - 虚拟化技术 (KVM, Docker, K8s)
+- **[virt](./linux/virt/)** - 虚拟化技术 (KVM, Docker, K8s)
 - **[drivers](./linux/drivers/)** - 设备驱动开发 (GPU, 声卡, 字符设备等)
 - **[boot](./linux/boot/)** - 系统启动与GRUB
 - **[monitoring](./linux/monitoring/)** - 系统监控与日志分析
@@ -61,7 +61,7 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 
 - [Linux内核开发](./linux/kernel/) - 内核源码分析、驱动开发、内存管理
 - [性能分析利器](./linux/performance/bpf/) - BPF/eBPF追踪与性能调优
-- [虚拟化技术](./linux/virtualization/) - KVM、QEMU、Docker、K8s实战
+- [虚拟化技术](./linux/virt/) - KVM、QEMU、Docker、K8s实战
 
 ### 调试与分析
 
@@ -98,12 +98,12 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 - [ACPI高级配置与电源接口](./linux/kernel/books/ACPI高级配置与电源接口.pdf)
 - [UEFI原理与编程](./linux/kernel/books/UEFI原理与编程_戴正华(著)%20机械工业出版社_完整版.pdf)
 - [INTEL开发手册卷3(中文版)](./linux/kernel/books/INTEL开发手册卷3(中文版).pdf)
-- [Linux音频驱动](./linux/kernel/drivers/sound/linux音频驱动.pptx)
-- [音频调试工具介绍](./linux/kernel/drivers/sound/音频调试工具介绍.pptx)
+- [Linux音频驱动](./linux/drivers/sound/linux音频驱动.pptx)
+- [音频调试工具介绍](./linux/drivers/sound/音频调试工具介绍.pptx)
 
 #### 网络
 
-- [Linux开源网络全栈详解：从DPDK到OpenFlow](./linux/kernel/books/Linux开源网络全栈详解：从DPDK到OpenFlow%20-%20英特尔亚太研发有限公司(2019).pdf)
+- [Linux开源网络全栈详解：从DPDK到OpenFlow](./linux/kernel/books/Linux开源网络全栈详解：从DPDK到OpenFlow+-+英特尔亚太研发有限公司(2019).pdf)
 - [深入浅出DPDK](./linux/kernel/books/深入浅出DPDK.pdf)
 
 #### 安全
@@ -119,7 +119,7 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 - [Debugging with gdb 手册](http://sourceware.org/gdb/current/onlinedocs/gdb/)
 - [100个gdb小技巧](https://wizardforcel.gitbooks.io/100-gdb-tips/content/index.html)
 - [BPF Performance Tools](./linux/performance/bpf/BPF.Performance.Tools.2019.12.pdf)
-- [BPF之巅 洞悉Linux系统和应用性能](./linux/performance/bpf/BPF之巅%20洞悉Linux系统和应用性能.pdf)
+- [BPF之巅 洞悉Linux系统和应用性能](./linux/performance/bpf/BPF之巅%20洞悉Linux系统和应用性能.pdf.tar.gz)
 
 ### 汇编与底层分析
 
@@ -128,8 +128,8 @@ Linux系统技术文档，包含内核开发、性能调优、虚拟化等内容
 
 ### 虚拟化技术
 
-- [QEMU-KVM源码分析与应用](./linux/virtualization/kvm/books/QEMU-KVM源码分析与应用.pdf)
-- [KVM虚拟化技术：实战与原理解析](./linux/virtualization/kvm/books/kvm虚拟化技术：实战与原理解析.pdf)
+- [QEMU-KVM源码分析与应用](./linux/virt/kvm/books/QEMU-KVM源码分析与应用.pdf)
+- [KVM虚拟化技术：实战与原理解析](./linux/virt/kvm/books/kvm虚拟化技术：实战与原理解析.pdf)
 
 ### GPU、AI与机器学习
 
