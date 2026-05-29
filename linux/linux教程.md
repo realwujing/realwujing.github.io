@@ -666,6 +666,124 @@ kill -9 `lsof -t -u daniel`
   ps -eLo pid,psr,command | sed -ne '/^\W\+[0-9]\+\W\+43\W\+/p'
   ```
 
+### pstree
+
+`pstree` 以树状结构显示进程间的父子关系，比 `ps` 更直观。常用于追踪进程的启动链、判断某个进程是如何被启动的。
+
+#### 基本用法
+
+查看特定 PID 的进程树：
+
+```bash
+pstree -p <PID>
+```
+
+查看进程链（包含父进程、子进程）：
+
+```bash
+pstree -a -s -p <PID>
+```
+
+#### 常用选项
+
+| 选项 | 说明 |
+|------|------|
+| `-a` | 显示完整命令行参数 |
+| `-p` | 显示每个进程的 PID |
+| `-s` | 显示指定进程的父进程链 |
+| `-u` | 当进程用户与父进程用户不同时，显示用户名 |
+| `-h` | 高亮当前进程及其祖先 |
+| `-n` | 按 PID 排序（默认按名称排序） |
+| `-c` | 不压缩相同子树（禁用 compact 模式） |
+| `-l` | 使用长行格式，不截断 |
+
+#### 查看进程的用户
+
+`pstree` 默认不显示用户信息，可通过以下方式确认进程用户：
+
+**1. 直接查看进程用户：**
+
+```bash
+ps -o user= -p <PID>
+```
+
+或
+
+```bash
+ps -fp <PID>
+```
+
+**2. 让 `pstree` 显示用户名：**
+
+使用 `-u` 选项可以在进程名旁显示用户切换（只有与父进程用户不同时才显示）：
+
+```bash
+pstree -u -p <PID>
+```
+
+要强制显示每个进程的用户，可以：
+
+```bash
+pstree -a -p -u <PID>
+```
+
+括号里的用户名表示该进程由该用户运行。
+
+**3. 从 tmux 会话推断：**
+
+如果进程在 tmux 会话中启动，可查看该 tmux 会话属于谁：
+
+```bash
+ps -o user= -p <tmux-session-pid>
+```
+
+#### 实战示例
+
+假设有一个后台服务通过如下方式启动：
+
+```bash
+tmux new-session -d -s myproject
+# 在 tmux 中启动 node 服务
+node server.js
+```
+
+使用 `pstree` 追踪进程启动链：
+
+```bash
+pstree -a -s -p 2427849
+```
+
+`pstree -a -s -p 2427849` 的输出中看不到用户信息：
+
+```
+systemd,1 splash
+  └─tmux: server,2009815 new-session -d -s myproject
+      └─bash,2038825
+          └─bash,2427848
+              └─node,2427849 server.js
+```
+
+加上 `-u` 选项后，会在用户与父进程不同时显示用户名：
+
+```bash
+pstree -a -s -p -u 2427849
+```
+
+输出：
+
+```
+systemd,1 splash
+  └─tmux: server,2009815 new-session -d -s myproject(wujing)
+      └─bash,2038825
+          └─bash,2427848
+              └─node,2427849 server.js
+```
+
+- **进程 2427849 的用户：`wujing`**
+- 启动链：`systemd(1)` → `tmux(2009815, wujing)` → `bash(2038825, wujing)` → `bash(2427848, wujing)` → `node(2427849, wujing)`
+
+括号里的 `(wujing)` 表示该进程的用户。由于整个进程链只有 `systemd` 是 `root`，而 `tmux` 开始都是 `wujing` 用户，`-u` 只在 `tmux` 处显示用户名切换，后续相同用户的进程不再重复标注。
+
 ## 系统状态
 
 - [<font color=Red>第10章统计和查看Linux的系统状态</font>](https://www.cnblogs.com/f-ck-need-u/p/7059074.html)
