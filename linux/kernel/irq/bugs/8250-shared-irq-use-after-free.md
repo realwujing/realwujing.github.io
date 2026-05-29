@@ -115,9 +115,9 @@ serial_link_irq_chain()
 
 #### 为什么表现为 "Unbalanced enable for IRQ"？
 
-1. `free_irq()` → `__free_irq()` → `irq_shutdown()` 强制将 `desc->depth` 设为 1
+1. `free_irq()` → `__free_irq()` → `irq_shutdown()` 将 `desc->depth` 递增
 2. 同时第一个端口通过 `serial8250_do_startup()` → `serial8250_THRE_test()` 执行 `disable_irq_nosync()` / `enable_irq()` 配对
-3. 由于 `desc->depth` 被 `irq_shutdown()` 硬设为 1，`enable_irq()` 调用 `__enable_irq()` 时发现 `depth == 1`，本应是 0 才能正常 enable，触发 `Unbalanced enable for IRQ` 警告
+3. 由于 `desc->depth` 被 `irq_shutdown()` 递增到 1，`enable_irq()` 调用 `__enable_irq()` 时发现 `depth == 1`，本应是 0 才能正常 enable，触发 `Unbalanced enable for IRQ` 警告
 
 `kernel/irq/manage.c:774`：
 ```c
@@ -208,6 +208,35 @@ ret = request_irq(up->port.irq, serial8250_interrupt,
 mutex_unlock(&hash_mutex);  // ← request_irq() 之后才释放
 ```
 
+### v3 → v4（错误路径竞态 + changelog 措辞修正）
+
+v3 修复了正常路径的竞态，但 Wang Zhaolong 指出 `request_irq()` **失败时的错误路径**仍然有竞态窗口：
+
+```c
+// v3: 错误路径 — hash_mutex 在清理前释放
+ret = request_irq(...);
+mutex_unlock(&hash_mutex);     // ← 先放锁
+if (ret < 0)
+    serial_do_unlink(i, up);  // ← 再清理（无保护！）
+```
+
+此时 `i` 仍在 `irq_lists` 中，`i->head` 已发布，另一个端口可能在 `serial_do_unlink()` 完成前 join 进来，看到非空的 `i->head` 就返回成功——但实际没有安装 IRQ handler。
+
+**v4 修复**：错误路径中 `serial_do_unlink()` 必须在 `mutex_unlock()` **之前**执行：
+
+```c
+// v4: 清理在 hash_mutex 保护下完成
+ret = request_irq(...);
+if (ret < 0) {
+    serial_do_unlink(i, up);  // ← 先清理（锁保护）
+    mutex_unlock(&hash_mutex);
+    return ret;
+}
+mutex_unlock(&hash_mutex);
+```
+
+同时修正了 commit message 中关于 `irq_shutdown()` 的不准确描述：原为 "hard-sets desc->depth to 1"，改为 "increments desc->depth"。
+
 ### `hash_mutex` 跨过 `request_irq()` 不会死锁
 
 `request_irq()` 内部锁链为：
@@ -231,6 +260,7 @@ unlink 路径（已有代码）：`hash_mutex` → `desc->request_mutex` → `de
 - v1: https://lore.kernel.org/r/20260528-bug-221579-8250-shared-irq-race-v1-1-30980cca02f3@gmail.com
 - v2: https://lore.kernel.org/r/20260528-bug-221579-8250-shared-irq-race-v2-1-06531202e54d@gmail.com
 - v3: https://lore.kernel.org/r/20260529-bug-221579-8250-shared-irq-race-v3-1-fe4d430862a9@gmail.com
+- v4: https://lore.kernel.org/r/20260529-bug-221579-8250-shared-irq-race-v4-1-cfda63b4420f@gmail.com
 
 Fixes: 768aec0b5bcc ("serial: 8250: fix shared interrupts issues with SMP and RT kernels")
 Closes: https://bugzilla.kernel.org/show_bug.cgi?id=221579
