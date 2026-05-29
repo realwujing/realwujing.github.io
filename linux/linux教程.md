@@ -701,7 +701,7 @@ pstree -a -s -p <PID>
 
 `pstree` 默认不显示用户信息，可通过以下方式确认进程用户：
 
-**1. 直接查看进程用户：**
+**1. 直接查看进程的用户：**
 
 ```bash
 ps -o user= -p <PID>
@@ -715,13 +715,13 @@ ps -fp <PID>
 
 **2. 让 `pstree` 显示用户名：**
 
-使用 `-u` 选项可以在进程名旁显示用户切换（只有与父进程用户不同时才显示）：
+使用 `-u` 选项可以在进程名旁显示**用户切换**（只有与父进程用户不同时才显示）：
 
 ```bash
 pstree -u -p <PID>
 ```
 
-要强制显示每个进程的用户，可以：
+要强制显示每个进程的用户，可以结合 `grep` 过滤（虽然 `-u` 的逻辑是显示切换点）：
 
 ```bash
 pstree -a -p -u <PID>
@@ -729,60 +729,49 @@ pstree -a -p -u <PID>
 
 括号里的用户名表示该进程由该用户运行。
 
-**3. 从 tmux 会话推断：**
+**3. 从 tmux 会话推导：**
 
-如果进程在 tmux 会话中启动，可查看该 tmux 会话属于谁：
-
-```bash
-ps -o user= -p <tmux-session-pid>
-```
-
-#### 实战示例
-
-假设有一个后台服务通过如下方式启动：
+如果进程在 tmux 会话中启动，可通过查看该 tmux server 的拥有者来推断：
 
 ```bash
-tmux new-session -d -s myproject
-# 在 tmux 中启动 node 服务
-node server.js
+ps -o user= -p <tmux-server-pid>
 ```
 
-使用 `pstree` 追踪进程启动链：
+#### 实战案例：追踪进程启动链
 
-```bash
-pstree -a -s -p 2427849
-```
+假设我们有一个进程 PID 为 `2427849`，想知道它是谁启动的，以及属于哪个用户。
 
-`pstree -a -s -p 2427849` 的输出中看不到用户信息：
+1. **查看启动链**:
+   ```bash
+   pstree -a -s -p 2427849
+   ```
+   输出如下（看不到用户信息）：
+   ```
+   systemd,1 splash
+     └─tmux: server,2009815 new-session -d -s project-x
+         └─bash,2038825
+             └─bash,2427848
+                 └─python3,2427849 -m fastapi run app.py
+   ```
 
-```
-systemd,1 splash
-  └─tmux: server,2009815 new-session -d -s myproject
-      └─bash,2038825
-          └─bash,2427848
-              └─node,2427849 server.js
-```
+2. **显示用户信息**:
+   ```bash
+   pstree -a -s -p -u 2427849
+   ```
+   输出如下：
+   ```
+   systemd,1 splash
+     └─tmux: server,2009815 new-session -d -s project-x(wujing)
+         └─bash,2038825
+             └─bash,2427848
+                 └─python3,2427849 -m fastapi run app.py
+   ```
+   括号里的 `(wujing)` 表示从 `tmux` 开始，进程的用户切换到了 `wujing`。
 
-加上 `-u` 选项后，会在用户与父进程不同时显示用户名：
+**总结：**
+- **当前进程 (2427849) 的用户**：`wujing`
+- **启动链**：`systemd(1)` (root) → `tmux(2009815, wujing)` → `bash(2038825, wujing)` → `bash(2427848, wujing)` → `python3(2427849, wujing)`
 
-```bash
-pstree -a -s -p -u 2427849
-```
-
-输出：
-
-```
-systemd,1 splash
-  └─tmux: server,2009815 new-session -d -s myproject(wujing)
-      └─bash,2038825
-          └─bash,2427848
-              └─node,2427849 server.js
-```
-
-- **进程 2427849 的用户：`wujing`**
-- 启动链：`systemd(1)` → `tmux(2009815, wujing)` → `bash(2038825, wujing)` → `bash(2427848, wujing)` → `node(2427849, wujing)`
-
-括号里的 `(wujing)` 表示该进程的用户。由于整个进程链只有 `systemd` 是 `root`，而 `tmux` 开始都是 `wujing` 用户，`-u` 只在 `tmux` 处显示用户名切换，后续相同用户的进程不再重复标注。
 
 ## 系统状态
 
