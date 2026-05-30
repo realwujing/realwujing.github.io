@@ -29,7 +29,7 @@
     
     
       
-        <title>网络 上游补丁 - WuJing's Blog</title>
+        <title>netns: optimize netns cleaning by batching unhash_nsid calls - WuJing's Blog</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#_1" class="md-skip">
+        <a href="#netns-optimize-netns-cleaning-by-batching-unhash_nsid-calls" class="md-skip">
           跳转至
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              网络 上游补丁
+              netns: optimize netns cleaning by batching unhash_nsid calls
             
           </span>
         </div>
@@ -10324,7 +10324,7 @@
   <span class="md-ellipsis">
     
   
-    文件系统 上游补丁
+    fs/file: optimize close_range() complexity from O(N) to O(Sparse)
   
 
     
@@ -12830,7 +12830,7 @@
   <span class="md-ellipsis">
     
   
-    BPF 上游补丁
+    bpf/verifier: Optimize ID mapping reset in states_equal
   
 
     
@@ -13091,7 +13091,7 @@
   <span class="md-ellipsis">
     
   
-    内核看门狗 上游补丁
+    watchdog/hardlockup: simplify perf event probe and remove per-cpu dependency
   
 
     
@@ -16215,7 +16215,7 @@
   <span class="md-ellipsis">
     
   
-    网络 上游补丁
+    netns: optimize netns cleaning by batching unhash_nsid calls
   
 
     
@@ -16233,7 +16233,7 @@
   <span class="md-ellipsis">
     
   
-    网络 上游补丁
+    netns: optimize netns cleaning by batching unhash_nsid calls
   
 
     
@@ -16259,10 +16259,43 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        问题背景
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        详情
+        优化方案
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        代码变更
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        上游状态
       
     </span>
   </a>
@@ -21458,10 +21491,43 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        问题背景
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        详情
+        优化方案
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        代码变更
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        上游状态
       
     </span>
   </a>
@@ -21488,30 +21554,57 @@
   
 
 
-<h1 id="_1">网络 上游补丁<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
+<h1 id="netns-optimize-netns-cleaning-by-batching-unhash_nsid-calls">netns: optimize netns cleaning by batching unhash_nsid calls<a class="headerlink" href="#netns-optimize-netns-cleaning-by-batching-unhash_nsid-calls" title="Permanent link">&para;</a></h1>
+<h2 id="_1">问题背景<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<p>当多个网络命名空间同时被销毁时，<code>cleanup_net()</code> 对每个即将消亡的 netns 调用 <code>unhash_nsid(net, last)</code>。该函数遍历所有存活的命名空间，通过 <code>__peernet2id()</code> 在每个存活 netns 的 IDR 中线性搜索消亡 netns 的 ID：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1">// 原有流程 (per-dying-netns)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">for</span><span class="w"> </span><span class="n">each</span><span class="w"> </span><span class="n">dying</span><span class="w"> </span><span class="n">netns</span><span class="o">:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">each</span><span class="w"> </span><span class="n">alive</span><span class="w"> </span><span class="n">netns</span><span class="o">:</span><span class="w">       </span><span class="c1">// O(M_alive)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">each</span><span class="w"> </span><span class="n">nsid</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="n">IDR</span><span class="o">:</span><span class="w">   </span><span class="c1">// O(N_id) — __peernet2id() is linear</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="n">nsid</span><span class="w"> </span><span class="n">points</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">dying</span><span class="o">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">                </span><span class="n">idr_remove</span><span class="p">(</span><span class="o">&amp;</span><span class="n">tmp</span><span class="o">-&gt;</span><span class="n">netns_ids</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">)</span>
+</code></pre></div>
+<p>复杂度：<strong>O(L_dying_net ⨉ M_alive_net ⨉ N_id)</strong></p>
+<p>在大量 netns 并发销毁的场景（如容器密集销毁），这导致显著的延迟。</p>
+<h2 id="_2">优化方案<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<p><strong>批量化 unhashing：</strong> 将 <code>unhash_nsid()</code> 从逐 netns 循环中提出来，改为单次遍历：</p>
+<ol>
+<li>在 <code>cleanup_net()</code> 中，先标记所有消亡 netns 为 <code>is_dying</code>（在 <code>net_rwsem</code> 写锁保护下）</li>
+<li>调用一次 <code>unhash_nsid(last)</code>，遍历所有存活 netns：</li>
+<li>用 <code>idr_get_next()</code> 遍历每个存活 netns 的 IDR</li>
+<li>遇到 <code>peer-&gt;is_dying == true</code> 的条目则删除</li>
+<li>每个消亡 netns 只销毁自己的 IDR（<code>idr_destroy</code>），不再遍历其他 namespace</li>
+</ol>
+<p><strong><code>is_dying</code> 标记：</strong> 在 <code>struct net</code> 的 <code>hash_mix</code> 字段后的空洞位置新增 <code>bool is_dying</code>，不增加结构体大小。</p>
+<p><strong><code>idr_get_next()</code> vs <code>idr_for_each()</code>：</strong> 使用可重启的 <code>idr_get_next()</code> 替代回调式的 <code>idr_for_each()</code>：
+- <code>idr_for_each()</code> 回调内不允许释放锁
+- <code>idr_get_next()</code> 可以在锁外安全调用 <code>rtnl_net_notifyid()</code>（sleepy 调用），然后重新获取锁继续迭代</p>
+<h2 id="_3">代码变更<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>#</th>
-<th>提交日期</th>
-<th>Subject</th>
-<th>Patch</th>
+<th>文件</th>
+<th>变更</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>1</td>
-<td>2026-02-04</td>
-<td>netns: optimize netns cleaning by batching unhash_nsid calls</td>
-<td><a href="./0001-netns-optimize-netns-cleaning-by-batching-unhash_nsi.patch">0001-netns-optimize-netns-cleaning-by-batching-unhash_nsi.patch</a></td>
+<td><code>include/net/net_namespace.h</code></td>
+<td><code>struct net</code> 新增 <code>bool is_dying</code> 字段</td>
+</tr>
+<tr>
+<td><code>net/core/net_namespace.c</code></td>
+<td><code>unhash_nsid()</code> 改为批量化实现；<code>cleanup_net()</code> 先标记 is_dying 再统一 unhash</td>
 </tr>
 </tbody>
 </table>
-<h3 id="_2">详情<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h3>
-<p>优化 netns 清理流程，将 <code>unhash_nsid()</code> 从逐 netns 循环中提出来，改为单次遍历存活的命名空间。通过 <code>is_dying</code> 标记识别正在销毁的 netns，消除 O(L_dying * M_alive) 的乘法复杂度，降至 O(M_alive)。同时将 <code>idr_for_each()</code> 替换为可重启的 <code>idr_get_next()</code> 循环以安全调用 <code>rtnl_net_notifyid()</code>。</p>
-<p>Signed-off-by: Qiliang Yuan <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#114;&#101;&#97;&#108;&#119;&#117;&#106;&#105;&#110;&#103;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;">&#114;&#101;&#97;&#108;&#119;&#117;&#106;&#105;&#110;&#103;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;</a>
-Reviewed-by: Kuniyuki Iwashima <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#107;&#117;&#110;&#105;&#121;&#117;&#64;&#103;&#111;&#111;&#103;&#108;&#101;&#46;&#99;&#111;&#109;">&#107;&#117;&#110;&#105;&#121;&#117;&#64;&#103;&#111;&#111;&#103;&#108;&#101;&#46;&#99;&#111;&#109;</a>
-Merged by: Jakub Kicinski <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#107;&#117;&#98;&#97;&#64;&#107;&#101;&#114;&#110;&#101;&#108;&#46;&#111;&#114;&#103;">&#107;&#117;&#98;&#97;&#64;&#107;&#101;&#114;&#110;&#101;&#108;&#46;&#111;&#114;&#103;</a></p>
+<h2 id="_4">上游状态<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Lore</strong>: https://patch.msgid.link/20260204074854.3506916-1-realwujing@gmail.com</li>
+<li><strong>合入</strong>: torvalds/master <code>7acee67a6bce</code></li>
+<li><strong>合入者</strong>: Jakub Kicinski <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#107;&#117;&#98;&#97;&#64;&#107;&#101;&#114;&#110;&#101;&#108;&#46;&#111;&#114;&#103;">&#107;&#117;&#98;&#97;&#64;&#107;&#101;&#114;&#110;&#101;&#108;&#46;&#111;&#114;&#103;</a></li>
+<li><strong>Reviewed-by</strong>: Kuniyuki Iwashima <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#107;&#117;&#110;&#105;&#121;&#117;&#64;&#103;&#111;&#111;&#103;&#108;&#101;&#46;&#99;&#111;&#109;">&#107;&#117;&#110;&#105;&#121;&#117;&#64;&#103;&#111;&#111;&#103;&#108;&#101;&#46;&#99;&#111;&#109;</a></li>
+</ul>
 
 
 

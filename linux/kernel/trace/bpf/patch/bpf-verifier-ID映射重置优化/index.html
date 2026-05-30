@@ -29,7 +29,7 @@
     
     
       
-        <title>BPF 上游补丁 - WuJing's Blog</title>
+        <title>bpf/verifier: Optimize ID mapping reset in states_equal - WuJing's Blog</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#bpf" class="md-skip">
+        <a href="#bpfverifier-optimize-id-mapping-reset-in-states_equal" class="md-skip">
           跳转至
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              BPF 上游补丁
+              bpf/verifier: Optimize ID mapping reset in states_equal
             
           </span>
         </div>
@@ -10324,7 +10324,7 @@
   <span class="md-ellipsis">
     
   
-    文件系统 上游补丁
+    fs/file: optimize close_range() complexity from O(N) to O(Sparse)
   
 
     
@@ -12847,7 +12847,7 @@
   <span class="md-ellipsis">
     
   
-    BPF 上游补丁
+    bpf/verifier: Optimize ID mapping reset in states_equal
   
 
     
@@ -12865,7 +12865,7 @@
   <span class="md-ellipsis">
     
   
-    BPF 上游补丁
+    bpf/verifier: Optimize ID mapping reset in states_equal
   
 
     
@@ -12894,7 +12894,40 @@
   <a href="#_1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        详情
+        问题背景
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        优化方案
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        代码变更
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        上游状态
       
     </span>
   </a>
@@ -13157,7 +13190,7 @@
   <span class="md-ellipsis">
     
   
-    内核看门狗 上游补丁
+    watchdog/hardlockup: simplify perf event probe and remove per-cpu dependency
   
 
     
@@ -16268,7 +16301,7 @@
   <span class="md-ellipsis">
     
   
-    网络 上游补丁
+    netns: optimize netns cleaning by batching unhash_nsid calls
   
 
     
@@ -21465,7 +21498,40 @@
   <a href="#_1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        详情
+        问题背景
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        优化方案
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        代码变更
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        上游状态
       
     </span>
   </a>
@@ -21492,30 +21558,60 @@
   
 
 
-<h1 id="bpf">BPF 上游补丁<a class="headerlink" href="#bpf" title="Permanent link">&para;</a></h1>
+<h1 id="bpfverifier-optimize-id-mapping-reset-in-states_equal">bpf/verifier: Optimize ID mapping reset in states_equal<a class="headerlink" href="#bpfverifier-optimize-id-mapping-reset-in-states_equal" title="Permanent link">&para;</a></h1>
+<h2 id="_1">问题背景<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<p>BPF verifier 在进行状态等价性比较 (<code>states_equal()</code>) 时，需要维护一个 ID 映射表 (<code>bpf_idmap</code>) 来跟踪两个状态中的寄存器 ID 对应关系。每次调用 <code>states_equal()</code> 时，<code>reset_idmap_scratch()</code> 会对整个 4.7KB 的映射表执行 <code>memset()</code> 清零操作。</p>
+<p>在高频路径中（例如程序包含大量分支和循环），<code>states_equal()</code> 可能被调用数万甚至数十万次，每次 4.7KB 的 memset 累积起来成为 verifier 的主要性能瓶颈之一。</p>
+<h2 id="_2">优化方案<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<p>引入 <code>cnt</code> 计数器追踪 idmap 中已使用的槽位数：</p>
+<p><strong><code>check_ids()</code> 优化：</strong>
+- 原来：固定遍历 <code>BPF_ID_MAP_SIZE</code>（1024）个槽位
+- 现在：只遍历 <code>idmap-&gt;cnt</code> 个已使用的槽位
+- 新 ID 对直接追加到 <code>map[idmap-&gt;cnt]</code>，然后 <code>cnt++</code></p>
+<p><strong><code>reset_idmap_scratch()</code> 优化：</strong>
+- 原来：<code>memset(&amp;env-&gt;idmap_scratch.map, 0, 4.7KB)</code>
+- 现在：<code>idmap-&gt;cnt = 0</code> （O(1) 重置）</p>
+<h2 id="_3">代码变更<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>#</th>
-<th>提交日期</th>
-<th>Subject</th>
-<th>Patch</th>
+<th>文件</th>
+<th>变更</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>1</td>
-<td>2026-01-20</td>
-<td>bpf/verifier: Optimize ID mapping reset in states_equal</td>
-<td><a href="./0001-bpf-verifier-Optimize-ID-mapping-reset-in-states_equ.patch">0001-bpf-verifier-Optimize-ID-mapping-reset-in-states_equ.patch</a></td>
+<td><code>include/linux/bpf_verifier.h</code></td>
+<td><code>struct bpf_idmap</code> 新增 <code>u32 cnt</code> 字段</td>
+</tr>
+<tr>
+<td><code>kernel/bpf/verifier.c</code></td>
+<td><code>check_ids()</code> 搜索循环受限于 <code>cnt</code>；<code>reset_idmap_scratch()</code> 用 <code>cnt=0</code> 替代 <code>memset()</code></td>
 </tr>
 </tbody>
 </table>
-<h3 id="_1">详情<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h3>
-<p>优化 BPF verifier 中 <code>states_equal()</code> 的 ID 映射重置。原实现每次调用 <code>states_equal()</code> 时都对 4.7KB 的 idmap 做 <code>memset()</code>，改用计数器跟踪已用映射，将 O(N) 的 memset 替换为 O(1) 的重置，并限制 <code>check_ids()</code> 中的搜索循环范围。</p>
-<p>Signed-off-by: Qiliang Yuan <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#114;&#101;&#97;&#108;&#119;&#117;&#106;&#105;&#110;&#103;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;">&#114;&#101;&#97;&#108;&#119;&#117;&#106;&#105;&#110;&#103;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;</a>
-Acked-by: Eduard Zingerman <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#101;&#100;&#100;&#121;&#122;&#56;&#55;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;">&#101;&#100;&#100;&#121;&#122;&#56;&#55;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;</a>
-Merged by: Andrii Nakryiko <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#97;&#110;&#100;&#114;&#105;&#105;&#64;&#107;&#101;&#114;&#110;&#101;&#108;&#46;&#111;&#114;&#103;">&#97;&#110;&#100;&#114;&#105;&#105;&#64;&#107;&#101;&#114;&#110;&#101;&#108;&#46;&#111;&#114;&#103;</a></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1">// 优化前</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">reset_idmap_scratch</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">bpf_verifier_env</span><span class="w"> </span><span class="o">*</span><span class="n">env</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">{</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="n">env</span><span class="o">-&gt;</span><span class="n">idmap_scratch</span><span class="p">.</span><span class="n">tmp_id_gen</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">env</span><span class="o">-&gt;</span><span class="n">id_gen</span><span class="p">;</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">env</span><span class="o">-&gt;</span><span class="n">idmap_scratch</span><span class="p">.</span><span class="n">map</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">env</span><span class="o">-&gt;</span><span class="n">idmap_scratch</span><span class="p">.</span><span class="n">map</span><span class="p">));</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">}</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1">// 优化后</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">reset_idmap_scratch</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">bpf_verifier_env</span><span class="w"> </span><span class="o">*</span><span class="n">env</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">{</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">bpf_idmap</span><span class="w"> </span><span class="o">*</span><span class="n">idmap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">env</span><span class="o">-&gt;</span><span class="n">idmap_scratch</span><span class="p">;</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="n">idmap</span><span class="o">-&gt;</span><span class="n">tmp_id_gen</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">env</span><span class="o">-&gt;</span><span class="n">id_gen</span><span class="p">;</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="n">idmap</span><span class="o">-&gt;</span><span class="n">cnt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">}</span>
+</code></pre></div>
+<h2 id="_4">上游状态<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Lore</strong>: https://lore.kernel.org/bpf/20260120023234.77673-1-realwujing@gmail.com</li>
+<li><strong>合入</strong>: torvalds/master <code>f81c07a6e98e</code></li>
+<li><strong>合入者</strong>: Andrii Nakryiko <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#97;&#110;&#100;&#114;&#105;&#105;&#64;&#107;&#101;&#114;&#110;&#101;&#108;&#46;&#111;&#114;&#103;">&#97;&#110;&#100;&#114;&#105;&#105;&#64;&#107;&#101;&#114;&#110;&#101;&#108;&#46;&#111;&#114;&#103;</a></li>
+<li><strong>Acked-by</strong>: Eduard Zingerman <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#101;&#100;&#100;&#121;&#122;&#56;&#55;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;">&#101;&#100;&#100;&#121;&#122;&#56;&#55;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;</a></li>
+</ul>
 
 
 
