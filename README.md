@@ -6,42 +6,133 @@
 
 对标 Linux 内核源码树结构，按子系统组织。
 
-### 核心子系统
-
-| 目录 | 内容 |
-|---|---|
-| [kernel/](linux/kernel/) | 内核核心 — [sched](linux/kernel/sched/) 调度、[locking](linux/kernel/locking/) 锁机制、[rcu](linux/kernel/rcu/) RCU、[irq](linux/kernel/irq/) 中断 |
-| [mm/](linux/mm/) | 内存管理 — page alloc、slab、ksm、kmemleak 分析 |
-| [fs/](linux/fs/) | 文件系统 — ext4、procfs、kernfs、minifs、fuse |
-| [net/](linux/net/) | 网络栈 — 收包、vxlan、vhost-user、ovs-dpdk |
-| [security/](linux/security/) | 内核安全 |
-| [drivers/](linux/drivers/) | 设备驱动 — GPU、声卡、串口、console、block |
-| [virt/](linux/virt/) | 虚拟化 — KVM、QEMU、Docker、K8s、容器 |
-
-### 性能追踪
-
-| 目录 | 内容 |
-|---|---|
-| [kernel/trace/](linux/kernel/trace/) | 追踪 & 性能 — [bpf](linux/kernel/trace/bpf/) BPF、[events](linux/kernel/trace/events/) perf_event、[stap](linux/kernel/trace/stap/) SystemTap、性能调优 |
-| [kernel/trace/events/](linux/kernel/trace/events/) | perf 事件 — CVE 分析、UnixBench 基准测试、perf 脚本 |
-
-### 调试 & 汇编
-
-| 目录 | 内容 |
-|---|---|
-| [gdb/](linux/gdb/) | GDB 内核/应用调试 |
-| [kdump/](linux/kdump/) | kdump 内核 crash dump 分析 |
-| [assembly/](linux/assembly/) | 汇编语言学习、二进制分析 |
-| [books/](linux/books/) | 内核书籍 PDF |
-
-### 其他
-
-| 目录 | 内容 |
-|---|---|
-| [tools/](linux/tools/) | 开发工具配置 — shell, vim, tmux, ssh |
-| [boot/](linux/boot/) | 系统启动 — GRUB 配置 |
-| [tools/distro/](linux/tools/distro/) | 发行版 — deb/rpm 打包 |
-| [linux教程.md](linux/linux教程.md) | Linux 学习资源索引 |
+```
+linux/
+├── kernel/                              # 内核核心子系统
+│   ├── sched/                           # 进程调度 (CFS、isolcpus)
+│   │   └── bugs/                        # 调度 bug 分析
+│   ├── locking/                         # 锁机制 (spin_lock、hard lockup)
+│   │   └── reboot/
+│   ├── rcu/                             # RCU
+│   │   ├── bugs/                        # RCU stall 分析
+│   │   └── demo/
+│   ├── irq/                             # 中断子系统
+│   │   ├── bugs/                        # 8250 UAF、SDEI hard lockup
+│   │   └── tick/
+│   ├── trace/                           # 追踪与性能
+│   │   ├── bpf/                         # BPF/BCC/bpftrace
+│   │   ├── events/                      # perf 事件、CVE、UnixBench
+│   │   ├── stap/                        # SystemTap
+│   │   └── bugs/                        # ftrace 损坏
+│   ├── sources/                         # Linux 0.11 源码
+│   ├── kernel.md                        # 内核学习资源索引
+│   └── Linux Kernel Quick Guide.md
+│
+├── mm/                                  # 内存管理
+│   ├── bugs/
+│   │   ├── 238303/                      # kmemleak 系列
+│   │   ├── ksmd/                        # KSM 隔离核延迟
+│   │   ├── insert_vmap_area_augment/
+│   │   ├── deferred_split_scan/         # 虚拟机 Oops
+│   │   ├── kernel-dynamic-memory/
+│   │   └── si_mem_available/
+│   ├── min_free_kbytes_gfp_atomic.md
+│   └── 内存管理.md
+│
+├── fs/                                  # 文件系统
+│   ├── bugs/
+│   │   ├── ext4/                        # ext4 inode double free
+│   │   ├── kernfs/                      # kernfs slab 膨胀
+│   │   ├── dcache/                      # dcache 非法地址访问
+│   │   ├── fuse/                        # alluxio-fuse EIO
+│   │   └── ...
+│   ├── minifs/                          # 手写 mini 文件系统 v1~v3
+│   └── 文件系统.md
+│
+├── net/                                 # 网络栈
+│   ├── bugs/
+│   │   ├── ovs-veth-peer/               # netdev_pick_tx soft lockup
+│   │   ├── vhost-user-vring/            # OVS-DPDK 丢包
+│   │   ├── netstamp_clear/              # text_poke soft lockup
+│   │   ├── bandwidth/                   # VM 带宽分析
+│   │   └── ...
+│   ├── port-forward/
+│   ├── proxy/mihomo/
+│   ├── Linux网络收包与epoll协作机制.md
+│   ├── network.md
+│   └── vxlan入门.md
+│
+├── security/                            # 内核安全
+│   └── 系统安全.md
+│
+├── drivers/                             # 设备驱动
+│   ├── gpu/
+│   │   ├── nvidia-svm/                  # HMM → DRM GPUSVM → 显存管理
+│   │   ├── stanford-cs336/              # Stanford 大模型课程笔记
+│   │   ├── grtrace/docs/                # GPU Ring Buffer 追踪
+│   │   ├── bugs/                        # GPU freeze bug 分析
+│   │   ├── virtio/                      # virtio_gpu TTM 分析
+│   │   └── openclaw/
+│   ├── sound/
+│   │   ├── bugs/                        # HDMI 声卡 bug
+│   │   ├── pulseaudio/                  # PulseAudio 源码
+│   │   └── phytium/                     # 飞腾声卡补丁
+│   ├── console/bugs/console_unlock/
+│   ├── modules/
+│   │   ├── bugs/insmod/                 # insmod panic
+│   │   └── README.md
+│   ├── block/bugs/ceph/
+│   ├── proc/                            # seq_open vs single_open
+│   ├── power/bugs/
+│   ├── mcu/
+│   ├── udl/
+│   └── 设备驱动.md
+│
+├── virt/                                # 虚拟化
+│   ├── kvm/
+│   │   ├── kickstart/                   # kickstart 无人值守安装
+│   │   ├── qemu/                        # QEMU 编译调试
+│   │   ├── virsh/
+│   │   └── books/
+│   └── container/
+│       ├── docker/                      # Dockerfile 集合
+│       ├── k8s/                         # K8s 集群部署
+│       └── uts_namespace/
+│
+├── gdb/                                 # GDB 调试
+│   ├── gdb/
+│   │   ├── README.md
+│   │   ├── .gdbinit
+│   │   └── Debugging.with.gdb 中文.pdf
+│   └── debug.md
+│
+├── kdump/                               # kdump 崩溃分析
+│   └── kdump/sysrq_trigger/             # kgdb + sysrq 触发
+│
+├── assembly/                            # 汇编 & 二进制分析
+│   ├── binary-analysis/
+│   ├── 16位汇编语言.md
+│   └── assembly.md
+│
+├── books/                               # 内核书籍 PDF
+│   ├── UEFI编程实践/
+│   └── Linux内核设计与实现(第三版).pdf ...
+│
+├── boot/                                # 系统启动
+│   ├── grub/                            # GRUB 配置
+│   └── monitoring/                      # 监控日志
+│
+├── tools/                               # 开发工具
+│   ├── shell/                           # 编译脚本
+│   ├── vim/                             # Vim 配置
+│   ├── tmux/
+│   ├── ssh/
+│   ├── distro/                          # 发行版打包 (deb/rpm)
+│   └── testing/ltp/
+│
+├── README.md
+└── linux教程.md
+```
 
 ---
 
@@ -51,7 +142,7 @@
 |---|---|
 | [cpp/](cpp/) | C/C++ — 语法、多线程、Qt、cmake、面试 |
 | [python/](python/) | Python |
-| [go/](go/) | Go 语言 |
+| [go/](go/) | Go |
 | [rust/](rust/) | Rust |
 | [java/](java/) | Java |
 | [javascript/](javascript/) | JavaScript / Vue |
@@ -61,34 +152,23 @@
 | 目录 | 内容 |
 |---|---|
 | [architect/](architect/) | 系统架构师 — OS、网络、数据库、计组 |
-| [algorithm/](algorithm/) | 算法 & 数据结构、Transformer、LeetCode |
+| [algorithm/](algorithm/) | 算法、Transformer、LeetCode |
 
 ## 🔧 工具
 
 | 目录 | 内容 |
 |---|---|
-| [git/](git/) | Git 版本控制 |
+| [git/](git/) | Git |
 | [jenkins/](jenkins/) | CI/CD |
 | [nginx/](nginx/) | Nginx |
 | [markdown/](markdown/) | Markdown、LaTeX、UML |
 
-## 💾 存储
+## 💾 存储 & 其他
 
 | 目录 | 内容 |
 |---|---|
 | [sql/](sql/) | SQL / MySQL |
 | [redis/](redis/) | Redis |
-
-## 📐 其他
-
-| 目录 | 内容 |
-|---|---|
 | [3d/](3d/) | 3D 建模 |
-| [patent/](patent/) | 专利文档 |
+| [patent/](patent/) | 专利 |
 | [svn/](svn/) | SVN |
-
-## 📖 外部资源
-
-- [Linux 内核源码](https://github.com/torvalds/linux)
-- [计算机经典电子书](https://github.com/GrindGold/pdf)
-- [Linux 内核文档](https://www.kernel.org/doc/html/v5.10/)
