@@ -1,5 +1,7 @@
 # 📚 技术笔记与资源库
 
+> Stay hungry. Stay foolish. - Steve Jobs
+
 ## 🐧 Linux 内核
 
 对标 Linux 内核源码树，按子系统组织。
