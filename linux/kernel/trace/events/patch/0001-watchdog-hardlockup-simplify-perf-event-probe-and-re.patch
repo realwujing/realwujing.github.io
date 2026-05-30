@@ -1,0 +1,140 @@
+From 0dddf20b4fd4afd59767acc144ad4da60259f21f Mon Sep 17 00:00:00 2001
+From: Qiliang Yuan <realwujing@gmail.com>
+Date: Wed, 28 Jan 2026 21:26:14 -0500
+Subject: [PATCH] watchdog/hardlockup: simplify perf event probe and remove
+ per-cpu dependency
+
+Simplify the hardlockup detector's probe path and remove its implicit
+dependency on pinned per-cpu execution.
+
+Refactor hardlockup_detector_event_create() to be stateless.  Return the
+created perf_event pointer to the caller instead of directly modifying the
+per-cpu 'watchdog_ev' variable.  This allows the probe path to safely
+manage a temporary event without the risk of leaving stale pointers should
+task migration occur.
+
+Link: https://lkml.kernel.org/r/20260129022629.2201331-1-realwujing@gmail.com
+Signed-off-by: Shouxin Sun <sunshx@chinatelecom.cn>
+Signed-off-by: Junnan Zhang <zhangjn11@chinatelecom.cn>
+Signed-off-by: Qiliang Yuan <yuanql9@chinatelecom.cn>
+Signed-off-by: Qiliang Yuan <realwujing@gmail.com>
+Reviewed-by: Douglas Anderson <dianders@chromium.org>
+Cc: Jinchao Wang <wangjinchao600@gmail.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Li Huafei <lihuafei1@huawei.com>
+Cc: Song Liu <song@kernel.org>
+Cc: Thorsten Blum <thorsten.blum@linux.dev>
+Cc: Wang Jinchao <wangjinchao600@gmail.com>
+Cc: Yicong Yang <yangyicong@hisilicon.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+ kernel/watchdog_perf.c | 50 +++++++++++++++++++++++-------------------
+ 1 file changed, 28 insertions(+), 22 deletions(-)
+
+diff --git a/kernel/watchdog_perf.c b/kernel/watchdog_perf.c
+index d3ca70e3c256a..cf05775a96d33 100644
+--- a/kernel/watchdog_perf.c
++++ b/kernel/watchdog_perf.c
+@@ -118,18 +118,11 @@ static void watchdog_overflow_callback(struct perf_event *event,
+ 	watchdog_hardlockup_check(smp_processor_id(), regs);
+ }
+ 
+-static int hardlockup_detector_event_create(void)
++static struct perf_event *hardlockup_detector_event_create(unsigned int cpu)
+ {
+-	unsigned int cpu;
+ 	struct perf_event_attr *wd_attr;
+ 	struct perf_event *evt;
+ 
+-	/*
+-	 * Preemption is not disabled because memory will be allocated.
+-	 * Ensure CPU-locality by calling this in per-CPU kthread.
+-	 */
+-	WARN_ON(!is_percpu_thread());
+-	cpu = raw_smp_processor_id();
+ 	wd_attr = &wd_hw_attr;
+ 	wd_attr->sample_period = hw_nmi_get_sample_period(watchdog_thresh);
+ 
+@@ -143,14 +136,7 @@ static int hardlockup_detector_event_create(void)
+ 						       watchdog_overflow_callback, NULL);
+ 	}
+ 
+-	if (IS_ERR(evt)) {
+-		pr_debug("Perf event create on CPU %d failed with %ld\n", cpu,
+-			 PTR_ERR(evt));
+-		return PTR_ERR(evt);
+-	}
+-	WARN_ONCE(this_cpu_read(watchdog_ev), "unexpected watchdog_ev leak");
+-	this_cpu_write(watchdog_ev, evt);
+-	return 0;
++	return evt;
+ }
+ 
+ /**
+@@ -159,17 +145,26 @@ static int hardlockup_detector_event_create(void)
+  */
+ void watchdog_hardlockup_enable(unsigned int cpu)
+ {
++	struct perf_event *evt;
++
+ 	WARN_ON_ONCE(cpu != smp_processor_id());
+ 
+-	if (hardlockup_detector_event_create())
++	evt = hardlockup_detector_event_create(cpu);
++	if (IS_ERR(evt)) {
++		pr_debug("Perf event create on CPU %d failed with %ld\n", cpu,
++			 PTR_ERR(evt));
+ 		return;
++	}
+ 
+ 	/* use original value for check */
+ 	if (!atomic_fetch_inc(&watchdog_cpus))
+ 		pr_info("Enabled. Permanently consumes one hw-PMU counter.\n");
+ 
++	WARN_ONCE(this_cpu_read(watchdog_ev), "unexpected watchdog_ev leak");
++	this_cpu_write(watchdog_ev, evt);
++
+ 	watchdog_init_timestamp();
+-	perf_event_enable(this_cpu_read(watchdog_ev));
++	perf_event_enable(evt);
+ }
+ 
+ /**
+@@ -263,19 +258,30 @@ bool __weak __init arch_perf_nmi_is_available(void)
+  */
+ int __init watchdog_hardlockup_probe(void)
+ {
++	struct perf_event *evt;
++	unsigned int cpu;
+ 	int ret;
+ 
+ 	if (!arch_perf_nmi_is_available())
+ 		return -ENODEV;
+ 
+-	ret = hardlockup_detector_event_create();
++	if (!hw_nmi_get_sample_period(watchdog_thresh))
++		return -EINVAL;
+ 
+-	if (ret) {
++	/*
++	 * Test hardware PMU availability by creating a temporary perf event.
++	 * The event is released immediately.
++	 */
++	cpu = raw_smp_processor_id();
++	evt = hardlockup_detector_event_create(cpu);
++	if (IS_ERR(evt)) {
+ 		pr_info("Perf NMI watchdog permanently disabled\n");
++		ret = PTR_ERR(evt);
+ 	} else {
+-		perf_event_release_kernel(this_cpu_read(watchdog_ev));
+-		this_cpu_write(watchdog_ev, NULL);
++		perf_event_release_kernel(evt);
++		ret = 0;
+ 	}
++
+ 	return ret;
+ }
+ 
+-- 
+2.53.0
+

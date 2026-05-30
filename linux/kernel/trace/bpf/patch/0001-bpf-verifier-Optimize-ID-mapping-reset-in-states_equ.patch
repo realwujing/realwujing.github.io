@@ -1,0 +1,80 @@
+From f81c07a6e98e3171d0c4c5ab79f5aeff71b42c44 Mon Sep 17 00:00:00 2001
+From: Qiliang Yuan <realwujing@gmail.com>
+Date: Tue, 20 Jan 2026 10:32:34 +0800
+Subject: [PATCH] bpf/verifier: Optimize ID mapping reset in states_equal
+
+Currently, reset_idmap_scratch() performs a 4.7KB memset() in every
+states_equal() call. Optimize this by using a counter to track used
+ID mappings, replacing the O(N) memset() with an O(1) reset and
+bounding the search loop in check_ids().
+
+Signed-off-by: Qiliang Yuan <realwujing@gmail.com>
+Signed-off-by: Andrii Nakryiko <andrii@kernel.org>
+Acked-by: Eduard Zingerman <eddyz87@gmail.com>
+Link: https://lore.kernel.org/bpf/20260120023234.77673-1-realwujing@gmail.com
+---
+ include/linux/bpf_verifier.h |  1 +
+ kernel/bpf/verifier.c        | 23 ++++++++++++++---------
+ 2 files changed, 15 insertions(+), 9 deletions(-)
+
+diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+index 130bcbd66f606..8355b585cd187 100644
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -692,6 +692,7 @@ struct bpf_id_pair {
+ 
+ struct bpf_idmap {
+ 	u32 tmp_id_gen;
++	u32 cnt;
+ 	struct bpf_id_pair map[BPF_ID_MAP_SIZE];
+ };
+ 
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 76e02e13890f5..b67d8981b0587 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -19000,18 +19000,21 @@ static bool check_ids(u32 old_id, u32 cur_id, struct bpf_idmap *idmap)
+ 	if (old_id == 0) /* cur_id == 0 as well */
+ 		return true;
+ 
+-	for (i = 0; i < BPF_ID_MAP_SIZE; i++) {
+-		if (!map[i].old) {
+-			/* Reached an empty slot; haven't seen this id before */
+-			map[i].old = old_id;
+-			map[i].cur = cur_id;
+-			return true;
+-		}
++	for (i = 0; i < idmap->cnt; i++) {
+ 		if (map[i].old == old_id)
+ 			return map[i].cur == cur_id;
+ 		if (map[i].cur == cur_id)
+ 			return false;
+ 	}
++
++	/* Reached the end of known mappings; haven't seen this id before */
++	if (idmap->cnt < BPF_ID_MAP_SIZE) {
++		map[idmap->cnt].old = old_id;
++		map[idmap->cnt].cur = cur_id;
++		idmap->cnt++;
++		return true;
++	}
++
+ 	/* We ran out of idmap slots, which should be impossible */
+ 	WARN_ON_ONCE(1);
+ 	return false;
+@@ -19520,8 +19523,10 @@ static bool func_states_equal(struct bpf_verifier_env *env, struct bpf_func_stat
+ 
+ static void reset_idmap_scratch(struct bpf_verifier_env *env)
+ {
+-	env->idmap_scratch.tmp_id_gen = env->id_gen;
+-	memset(&env->idmap_scratch.map, 0, sizeof(env->idmap_scratch.map));
++	struct bpf_idmap *idmap = &env->idmap_scratch;
++
++	idmap->tmp_id_gen = env->id_gen;
++	idmap->cnt = 0;
+ }
+ 
+ static bool states_equal(struct bpf_verifier_env *env,
+-- 
+2.53.0
+

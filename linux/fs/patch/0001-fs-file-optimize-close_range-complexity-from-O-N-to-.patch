@@ -1,0 +1,63 @@
+From fc94368bcee555b2cc44c2f4e7c4fcbb50404cd3 Mon Sep 17 00:00:00 2001
+From: Qiliang Yuan <realwujing@gmail.com>
+Date: Fri, 23 Jan 2026 03:12:21 -0500
+Subject: [PATCH] fs/file: optimize close_range() complexity from O(N) to
+ O(Sparse)
+
+In close_range(), the kernel traditionally performs a linear scan over the
+[fd, max_fd] range, resulting in O(N) complexity where N is the range size.
+For processes with sparse FD tables, this is inefficient as it checks many
+unallocated slots.
+
+This patch optimizes __range_close() by using find_next_bit() on the
+open_fds bitmap to skip holes. This shifts the algorithmic complexity from
+O(Range Size) to O(Active FDs), providing a significant performance boost
+for large-range close operations on sparse file descriptor tables.
+
+Signed-off-by: Qiliang Yuan <realwujing@gmail.com>
+Signed-off-by: Qiliang Yuan <yuanql9@chinatelecom.cn>
+Link: https://patch.msgid.link/20260123081221.659125-1-realwujing@gmail.com
+Signed-off-by: Christian Brauner <brauner@kernel.org>
+---
+ fs/file.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/fs/file.c b/fs/file.c
+index 0a4f3bdb2dec6..51ddcff0081a6 100644
+--- a/fs/file.c
++++ b/fs/file.c
+@@ -777,23 +777,29 @@ static inline void __range_close(struct files_struct *files, unsigned int fd,
+ 				 unsigned int max_fd)
+ {
+ 	struct file *file;
++	struct fdtable *fdt;
+ 	unsigned n;
+ 
+ 	spin_lock(&files->file_lock);
+-	n = last_fd(files_fdtable(files));
++	fdt = files_fdtable(files);
++	n = last_fd(fdt);
+ 	max_fd = min(max_fd, n);
+ 
+-	for (; fd <= max_fd; fd++) {
++	for (fd = find_next_bit(fdt->open_fds, max_fd + 1, fd);
++	     fd <= max_fd;
++	     fd = find_next_bit(fdt->open_fds, max_fd + 1, fd + 1)) {
+ 		file = file_close_fd_locked(files, fd);
+ 		if (file) {
+ 			spin_unlock(&files->file_lock);
+ 			filp_close(file, files);
+ 			cond_resched();
+ 			spin_lock(&files->file_lock);
++			fdt = files_fdtable(files);
+ 		} else if (need_resched()) {
+ 			spin_unlock(&files->file_lock);
+ 			cond_resched();
+ 			spin_lock(&files->file_lock);
++			fdt = files_fdtable(files);
+ 		}
+ 	}
+ 	spin_unlock(&files->file_lock);
+-- 
+2.53.0
+

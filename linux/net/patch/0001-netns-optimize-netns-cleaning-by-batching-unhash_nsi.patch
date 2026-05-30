@@ -1,0 +1,125 @@
+From 7acee67a6bce02e0af8a4bf7b412e2164d5a48e9 Mon Sep 17 00:00:00 2001
+From: Qiliang Yuan <realwujing@gmail.com>
+Date: Wed, 4 Feb 2026 02:48:42 -0500
+Subject: [PATCH] netns: optimize netns cleaning by batching unhash_nsid calls
+
+Currently, unhash_nsid() scans the entire system for each netns being
+killed, leading to O(L_dying_net * M_alive_net * N_id) complexity, as
+__peernet2id() also performs a linear search in the IDR.
+
+Optimize this to O(M_alive_net * N_id) by batching unhash operations. Move
+unhash_nsid() out of the per-netns loop in cleanup_net() to perform a
+single-pass traversal over survivor namespaces.
+
+Identify dying peers by an 'is_dying' flag, which is set under net_rwsem
+write lock after the netns is removed from the global list. This batches
+the unhashing work and eliminates the O(L_dying_net) multiplier.
+
+To minimize the impact on struct net size, 'is_dying' is placed in an
+existing hole after 'hash_mix' in struct net.
+
+Use a restartable idr_get_next() loop for iteration. This avoids the
+unsafe modification issue inherent to idr_for_each() callbacks and allows
+dropping the nsid_lock to safely call sleepy rtnl_net_notifyid().
+
+Clean up redundant nsid_lock and simplify the destruction loop now that
+unhashing is centralized.
+
+Signed-off-by: Qiliang Yuan <yuanql9@chinatelecom.cn>
+Reviewed-by: Kuniyuki Iwashima <kuniyu@google.com>
+Link: https://patch.msgid.link/20260204074854.3506916-1-realwujing@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+---
+ include/net/net_namespace.h |  1 +
+ net/core/net_namespace.c    | 34 +++++++++++++++++++++-------------
+ 2 files changed, 22 insertions(+), 13 deletions(-)
+
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 66d3de1d935fd..d7bec49ee9ea9 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -121,6 +121,7 @@ struct net {
+ 	 * it is critical that it is on a read_mostly cache line.
+ 	 */
+ 	u32			hash_mix;
++	bool			is_dying;
+ 
+ 	struct net_device       *loopback_dev;          /* The loopback */
+ 
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index a6e6a964a2876..aef44e6173619 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -624,9 +624,10 @@ void net_ns_get_ownership(const struct net *net, kuid_t *uid, kgid_t *gid)
+ }
+ EXPORT_SYMBOL_GPL(net_ns_get_ownership);
+ 
+-static void unhash_nsid(struct net *net, struct net *last)
++static void unhash_nsid(struct net *last)
+ {
+-	struct net *tmp;
++	struct net *tmp, *peer;
++
+ 	/* This function is only called from cleanup_net() work,
+ 	 * and this work is the only process, that may delete
+ 	 * a net from net_namespace_list. So, when the below
+@@ -634,22 +635,26 @@ static void unhash_nsid(struct net *net, struct net *last)
+ 	 * use for_each_net_rcu() or net_rwsem.
+ 	 */
+ 	for_each_net(tmp) {
+-		int id;
++		int id = 0;
+ 
+ 		spin_lock(&tmp->nsid_lock);
+-		id = __peernet2id(tmp, net);
+-		if (id >= 0)
+-			idr_remove(&tmp->netns_ids, id);
+-		spin_unlock(&tmp->nsid_lock);
+-		if (id >= 0)
+-			rtnl_net_notifyid(tmp, RTM_DELNSID, id, 0, NULL,
++		while ((peer = idr_get_next(&tmp->netns_ids, &id))) {
++			int curr_id = id;
++
++			id++;
++			if (!peer->is_dying)
++				continue;
++
++			idr_remove(&tmp->netns_ids, curr_id);
++			spin_unlock(&tmp->nsid_lock);
++			rtnl_net_notifyid(tmp, RTM_DELNSID, curr_id, 0, NULL,
+ 					  GFP_KERNEL);
++			spin_lock(&tmp->nsid_lock);
++		}
++		spin_unlock(&tmp->nsid_lock);
+ 		if (tmp == last)
+ 			break;
+ 	}
+-	spin_lock(&net->nsid_lock);
+-	idr_destroy(&net->netns_ids);
+-	spin_unlock(&net->nsid_lock);
+ }
+ 
+ static LLIST_HEAD(cleanup_list);
+@@ -674,6 +679,7 @@ static void cleanup_net(struct work_struct *work)
+ 	llist_for_each_entry(net, net_kill_list, cleanup_list) {
+ 		ns_tree_remove(net);
+ 		list_del_rcu(&net->list);
++		net->is_dying = true;
+ 	}
+ 	/* Cache last net. After we unlock rtnl, no one new net
+ 	 * added to net_namespace_list can assign nsid pointer
+@@ -688,8 +694,10 @@ static void cleanup_net(struct work_struct *work)
+ 	last = list_last_entry(&net_namespace_list, struct net, list);
+ 	up_write(&net_rwsem);
+ 
++	unhash_nsid(last);
++
+ 	llist_for_each_entry(net, net_kill_list, cleanup_list) {
+-		unhash_nsid(net, last);
++		idr_destroy(&net->netns_ids);
+ 		list_add_tail(&net->exit_list, &net_exit_list);
+ 	}
+ 
+-- 
+2.53.0
+
