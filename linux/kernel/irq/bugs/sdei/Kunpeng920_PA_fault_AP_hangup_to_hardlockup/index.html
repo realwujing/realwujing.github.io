@@ -11356,6 +11356,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#pa-protocol-agent-kunpeng-920-die" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PA (Protocol Agent) 与 Kunpeng 920 多 die 架构
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -21656,6 +21667,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#pa-protocol-agent-kunpeng-920-die" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PA (Protocol Agent) 与 Kunpeng 920 多 die 架构
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -22005,11 +22027,47 @@
 <h3 id="_5">关键技术要点<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h3>
 <ol>
 <li><strong>AP hang up</strong> 是 BIOS/固件通过 NoC 侧信道心跳检测确认的硬件级诊断，不等同于 Linux 内核的 soft/hard lockup</li>
-<li><strong>PA (Protocol Agent)</strong> 是 Kunpeng 920 多 die 间缓存一致性协议的中枢，PA 故障直接导致互联 fabric 断裂</li>
-<li><strong>Linux 看到的 spinlock "死锁"</strong> 本质是持锁的 CPU 硬件挂死后，其他 CPU 在等锁时永远无法进展</li>
 <li><strong>Hard LOCKUP</strong> 由 SDEI watchdog (<code>sdei_watchdog_callback</code>) 检测，非 NMI watchdog</li>
+<li><strong>Linux 看到的 spinlock "死锁"</strong> 本质是持锁的 CPU 硬件挂死后，其他 CPU 在等锁时永远无法进展</li>
 <li><strong>IMU 和 OS 使用两套独立时钟</strong>，无法通过绝对时间戳对齐，但事件因果关系和各自时钟的内部间隔是确定的</li>
 </ol>
+<h3 id="pa-protocol-agent-kunpeng-920-die">PA (Protocol Agent) 与 Kunpeng 920 多 die 架构<a class="headerlink" href="#pa-protocol-agent-kunpeng-920-die" title="Permanent link">&para;</a></h3>
+<p>在 Kunpeng 920 多 die 架构中，PA 是 die 间互联的核心枢纽：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>┌──────────────────────────────────────────────────┐
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>│  Kunpeng 920 2P 拓扑 (MK222 服务器)                │
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>│                                                  │
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>│  Socket 0                        Socket 1        │
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>│  ┌─────┬─────┐                   ┌─────┬─────┐   │
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>│  │Die 1│Die 3│  ←── PA 互联 ──→  │Die 1│Die 3│   │
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>│  │ 32C │ 32C │      NoC /        │ 32C │ 32C │   │
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>│  └─────┴─────┘    Coherent Bus   └─────┴─────┘   │
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>│       ↕              ↕              ↕              │
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>│    Die 0          Die 2          Die 0          Die 2
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>│    (I/O Die)      (I/O Die)      (I/O Die)      (I/O Die)
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>│                                                  │
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>│  PA = Protocol Agent: 维护 die 间和 socket 间     │
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>│       缓存一致性协议、地址翻译、数据路由              │
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>└──────────────────────────────────────────────────┘
+</code></pre></div>
+<p><strong>PA (Protocol Agent)</strong> 负责处理 chip 内部 die 之间以及跨 Socket 的缓存一致性协议（cache coherence protocol）、地址翻译和数据路由。所有核心的内存访问、缓存行迁移、原子操作等都依赖 PA 在 NoC (Network on Chip) 上协调传输事务（Transaction, TXREQ）。</p>
+<p><strong>故障链路</strong>：</p>
+<p>```
+Socket 1 PA 硬件错误 (ERR_STATUS=0x64100214)
+      │
+      ▼
+PA TXREQ 队列超时 (queue_idx=0x02)
+PA 发出的一致性/访存请求得不到对端 die 或远端 socket 的响应
+      │
+      ▼
+NoC 互联 fabric 协议层阻塞
+依赖该 PA 的所有核心在等待事务应答时硬件死锁
+      │
+      ▼
+核心逐步挂死: skt[1] die[3] → skt[1] die[1] → skt[0] die[3]
+故障通过互联网络向其他 Socket/Die 传播
+      │
+      ▼
+"AP hang up!" — 所有应用处理器硬件不可达</p>
 <hr />
 <h2 id="_6">建议<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
 <ul>
