@@ -1,0 +1,34 @@
+From 2f7444e38b7bd8bee9e452ffb59ea14046746efc Mon Sep 17 00:00:00 2001
+From: ZhangLiang <zhangliang5@huawei.com>
+Date: Sun, 26 Jan 2025 15:39:48 +0800
+Subject: [PATCH] kvm: fixup the bug introduced by sva patches
+ 
+fixup the bug introduced by
+https://jpbrucker.net/git/linux/commit/?h=sva/2021-03-01&id=d32d8baaf293aaefef8a1c9b8a4508ab2ec46c61.
+When two vcpus access passthrough device's BAR address concurrently,
+this patch may cause KVM stage2 pagetable to become ReadOnly cacheable.
+This is unacceptable for BAR space.
+ 
+Signed-off-by: ZhangLiang <zhangliang5@huawei.com>
+---
+ arch/arm64/kvm/mmu.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+ 
+diff --git a/arch/arm64/kvm/mmu.c b/arch/arm64/kvm/mmu.c
+index 0a8e74b77..f7a8270aa 100644
+--- a/arch/arm64/kvm/mmu.c
++++ b/arch/arm64/kvm/mmu.c
+@@ -1662,6 +1662,11 @@ int kvm_set_spte_hva(struct kvm *kvm, unsigned long hva, pte_t pte)
+         if (!kvm->arch.mmu.pgt)
+                 return 0;
+ 
++#ifdef CONFIG_EULEROS_VIRTUAL
++        if (kvm_is_device_pfn(pfn))
++                return 0;
++#endif
++
+         trace_kvm_set_spte_hva(hva);
+ 
+         /*
+-- 
+2.33.0
