@@ -19,6 +19,42 @@ HUAKUN MK222 服务器（Kunpeng 920, 2P, 256 核）频繁发生 soft/hard locku
 
 ---
 
+## 背景知识
+
+### BMC 中的 RAS 日志（imu_log）
+
+RAS = **Reliability, Availability, Serviceability**（可靠性、可用性、可服务性）。
+
+在 BMC 一键收集日志中，RAS 日志来自 **IMU (In-band Management Unit)**，即 Kunpeng 920 芯片内置的 **M7 固件**。M7 是一个独立于主 CPU 的微控制器（类似 BMC 的 CPU 内置 companion core），周期扫描芯片内部各模块（PA、NoC、DDR 等）的硬件错误寄存器。工作流程：
+
+1. 硬件模块发生异常 → 通过 **RAS 中断**（如 `Receive ras int[491]`）通知 M7 固件
+2. M7 读取各模块的 **ERR_STATUS / ERR_FR / ERR_CTRL / ERR_MISC** 等硬件错误寄存器，记录到 `imu_log`
+3. M7 通过 **NoC 心跳**（`nocmt` 寄存器）检测各 die 上每个核心的运行状态，若核心长时间无进展则标记 **`core hangs`**
+4. 检测到大规模 core hangs 后，M7 触发 **DFX 寄存器全面采集**（`DFX DEBUG START`），遍历所有 Socket/Die/Module 的寄存器
+5. 最终做出 **`AP hang up!`** 的硬件级诊断结论
+
+本次分析中的 `imu_log` 就是 M7 固件的 RAS 日志文件，位于 BMC 收集日志的 `dump_info/AppDump/fault_diagnosis/imu_log` 路径下。
+
+### KVM Stage2 页表
+
+在 ARM 虚拟化架构中，KVM 为 guest VM 管理**两级地址翻译**：
+
+```
+Guest 虚拟地址 (VA)
+       │
+       ▼  Stage1 翻译 (guest OS 页表, 由 guest 控制)
+Guest 物理地址 (IPA, Intermediate Physical Address)
+       │
+       ▼  Stage2 翻译 (KVM 页表, 由 Hypervisor 控制)
+Host 物理地址 (PA, Physical Address)
+```
+
+**Stage2 页表** 由 KVM/Hypervisor 管理，它不仅仅是物理页面映射，还决定了每个内存页的**内存类型属性**（Device-nGnRE、Normal Cacheable、Read-Only 等）。当 KVM 在 `kvm_set_spte_hva()` 中修改 Stage2 映射时，错误的属性设置会导致 guest 对该地址的访问在 NoC 上产生**非法的事务类型**（例如对设备 MMIO 空间发出 cache-coherent 请求），触发 PA (Protocol Agent) 模块的硬件故障。
+
+目录名 `kvm_stage2` 代表本分析涉及的 KVM Stage2 页表相关 bug。
+
+---
+
 ## 五份 BMC 日志汇总
 
 | 文件 | 机器 S/N | 采集日期 | `core hangs` in imu_log | systemcom Call trace | Livepatch |
