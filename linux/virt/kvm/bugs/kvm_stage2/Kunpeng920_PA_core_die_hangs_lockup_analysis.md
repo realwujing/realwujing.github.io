@@ -82,6 +82,50 @@ core hangs → AP hang up!
 
 目录名 `kvm_stage2` 代表本分析涉及的 KVM Stage2 页表相关 bug。
 
+### Caterr 与 ERR_STATUS=0x64100214 的关系
+
+BMC 收集的 `fdm_output`（在每个 tar.gz 中的路径均为 `dump_info/AppDump/fault_diagnosis/fdm_output`）中的 **`Caterr Signal Assert`** 是故障链条的**结果信号**，不是起始原因。
+
+各 tar.gz 中 `Caterr` 出现情况：
+
+| tar.gz | Caterr 次数 | 说明 |
+|--------|-------------|------|
+| `MK222_2102315FAB10R2100045_20260529-0906.tar.gz` | 2 | 有 PA 故障 + core hangs，Caterr 作为结果信号 |
+| `MK222_2106114652FSQC000033_20260604-0116.tar.gz` | 6 | 有 PA 故障 + core hangs，多次 Caterr |
+| `MK222_2102315FAB10R2100044_20260104-1149.tar.gz` | 1 | 有 PA 故障 + core hangs |
+| `MK222_2106114652FSQC000030_20260114-1419.tar.gz` | 1 | 有 PA 故障 + core hangs |
+| `MK222_2102315FAB10R2100045_20260513-0949.tar.gz` | **0** | 无 PA 故障，无 core hangs，无 Caterr |
+
+以 `20260529-0906` 为例，完整故障链路：
+
+```
+PA 协议状态机死锁
+    │  imu_log:127   [37.11.28.841] Receive ras int[491]
+    │  imu_log:139   ERR_STATUS=0x0000000064100214
+    │  imu_log:150   PA TXREQ 超时 (queue_idx=0x02)
+    ▼
+多 die core hangs
+    │  imu_log:157,159   skt[1] die[3] core hangs!
+    │  imu_log:231,233   skt[1] die[1] core hangs!
+    │  imu_log:242,244   skt[0] die[3] core hangs! (跨Socket)
+    │  imu_log:230       Crash task collects nothing!
+    ▼
+固件判定 "AP hang up!"
+    │  imu_log:283   [37.12.07.201] AP hang up!
+    ▼
+芯片级 Caterr Signal Assert（灾难性错误信号）
+    │  fdm_output    Caterr Signal Assert.
+    ▼
+BMC 触发 OOB 采集 → DFX 寄存器全面收集
+    │  fdm_output    IMU triggered OOB collection and report start.
+    │  fdm_output    BMC begin to collect DFX registers.
+    │  imu_log:235   [37.11.56.500] DFX DEBUG START
+    │  imu_log:616   [37.16.15.396] DFX DEBUG END
+    │  fdm_output    BMC collect DFX registers success.
+```
+
+**关键**: `Caterr` 不是被某个软件动作直接触发的，而是 PA 协议死锁后芯片内部逐步升级出来的灾难性错误信号。读日志时要先说 `imu_log` 里的 `ERR_STATUS`/`core hangs`，再补 `fdm_output` 的 Caterr 作为验证。反过来理解（"触发 Caterr → CPU hang → ..."）会丢失最重要的中间链。`20260513` 无 Caterr 也印证了它没有 PA 故障。
+
 ---
 
 ## 五份 BMC 日志汇总
@@ -332,13 +376,13 @@ imu_log:616                                  systemcom.dat:28407,28414
 
 ### 20260529-0906 — FDM 诊断输出 (fdm_output)
 
-| 时间（墙钟） | 内容 |
-|-------------|------|
-| `2026-05-29 01:08:07` | IMU triggered OOB collection and report start |
-| `2026-05-29 01:08:08` | Caterr Signal Assert — CATERR 信号触发 |
-| `2026-05-29 01:08:08` | IMU collection finish but no data |
-| `2026-05-29 01:08:08` | BMC begin to collect DFX registers |
-| `2026-05-29 01:12:28` | BMC collect DFX registers success |
+| 时间（墙钟） | 内容 | 对应故障链环节 |
+|-------------|------|---------------|
+| `2026-05-29 01:08:07` | IMU triggered OOB collection and report start | BMC 采集入口 |
+| `2026-05-29 01:08:08` | **Caterr Signal Assert** — CATERR 信号触发 | ← **结果信号**，原因在 imu_log 中的 ERR_STATUS/TXREQ 超时 |
+| `2026-05-29 01:08:08` | IMU collection finish but no data | — |
+| `2026-05-29 01:08:08` | BMC begin to collect DFX registers | DFX 采集开始 |
+| `2026-05-29 01:12:28` | BMC collect DFX registers success | DFX 采集完成 |
 
 ---
 
