@@ -51,6 +51,35 @@ Host 物理地址 (PA, Physical Address)
 
 **Stage2 页表** 由 KVM/Hypervisor 管理，它不仅仅是物理页面映射，还决定了每个内存页的**内存类型属性**（Device-nGnRE、Normal Cacheable、Read-Only 等）。当 KVM 在 `kvm_set_spte_hva()` 中修改 Stage2 映射时，错误的属性设置会导致 guest 对该地址的访问在 NoC 上产生**非法的事务类型**（例如对设备 MMIO 空间发出 cache-coherent 请求），触发 PA (Protocol Agent) 模块的硬件故障。
 
+**为什么不是 Page Fault 而是 Core Hangs** — Stage2 PTE 中有两类独立的属性：
+
+| 属性 | 字段 | 出错后果 |
+|------|------|---------|
+| **权限** | S2AP[1:0] (Read/Write) | CPU MMU 产生 **page fault**（如 `do_translation_fault`），OS 可以捕获处理，可恢复 |
+| **内存类型** | MemAttr[3:0] (Normal/Device/Cacheable) | 地址翻译成功、权限也允许，CPU 直接发出 load/store，**但在 NoC 上产生了错误类型的总线事务** |
+
+```
+Stage2 PTE 的 MemAttr 被错误设为 Normal Cacheable (而非 Device-nGnRE)
+         │
+         ▼
+CPU load/store 对该地址发出 cache-coherent 探测 (ReadShared/ReadUnique)
+         │
+         ▼
+探测到达 PA — PA 按一致性协议向 target die/device 转发
+         │
+         ▼
+Target 是 PCIe root port / MMIO 设备 — 不理解一致性协议，不应答
+         │
+         ▼
+PA TXREQ 超时 (imu_log 中 queue_idx 各不相同)
+PA 协议状态机卡死，连锁阻塞后续所有 NoC 事务
+         │
+         ▼
+core hangs → AP hang up!
+```
+
+**TLB/MMU 不拦截内存类型** — 只要 PTE valid=1 且权限允许，CPU 就直接发出访存指令，事务类型由 MemAttr 控制。错误的内存类型不会产生 page fault，CPU 看到的是"指令已发出"，但实际上 NoC 层面的协议交互已经崩溃。这就是为什么 Crash 日志中的调用栈有 `do_translation_fault`（那是后来其他路径触发的），而非通过 MMU 故障机制报告。
+
 目录名 `kvm_stage2` 代表本分析涉及的 KVM Stage2 页表相关 bug。
 
 ---
