@@ -49,8 +49,10 @@ userspace (QEMU / Cloud Hypervisor / crosvm)
 | 第1篇 | [KVM 核心 — VM 生命周期、内存槽与 vCPU 调度](./01-core.md) | /dev/kvm、KVM_CREATE_VM/VCPU/RUN、memslot、ioeventfd/irqfd |
 | 第2篇 | [x86 虚拟化 — VMX/VMCS 与 SVM/VMCB，VM-Entry/Exit 全解析](./02-vmx-svm.md) | struct kvm_x86_ops、VMCS/VMCB、世界切换、nested、SEV/TDX |
 | 第3篇 | [MMU 虚拟化 — EPT/NPT、影子页表与 TDP MMU](./03-mmu.md) | GPA→HPA 两步转换、TDP MMU 锁设计、page fault 处理 |
-| 第4篇 | 设备直通 — VFIO、IOMMU 与中断重映射 | VFIO 框架、IOMMU DMA 重映射、INTx/MSI/MSI-X 直通、IRTE |
-| 第5篇 | 半虚拟化 — pvclock、steal time、Hyper-V 启蒙 | kvmclock、pvclock 协议、steal time、Hyper-V synic/stimer |
+| 第3.1篇 | [**KVM Stage 1 vs Stage 2 页表 — 两级地址转换深度解析**](./03a-stage1-stage2.md) | ARM64 Stage-2 (VTTBR_EL2) vs x86 EPT/NPT、缺页处理全链路对比 |
+| 第3.2篇 | [**ARM64 KVM 虚拟化全景 — VHE/nVHE、vGIC 与系统寄存器**](./03b-arm64-kvm.md) | VHE/nVHE 双路径、arm_exit_handlers 分发、sys_regs.c (5869行)、vGIC、HVC |
+| 第4篇 | [设备直通 — VFIO、IOMMU 与中断重映射](./04-vfio.md) | VFIO 框架、IOMMU DMA 重映射、INTx/MSI/MSI-X 直通、IRTE |
+| 第5篇 | [半虚拟化 — pvclock、steal time、Hyper-V 启蒙](./05-pv.md) | kvmclock、pvclock 协议、steal time、Hyper-V synic/stimer |
 
 ## 源码版本
 
