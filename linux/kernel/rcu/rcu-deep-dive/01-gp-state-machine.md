@@ -795,6 +795,55 @@ NO_CB callback          卸载到 rcuog kthread           tree_nocb.h
 
 **核心思想**：NO_HZ_FULL 下的 RCU QS 不再依赖"每个 tick 都检查一次"，而是依赖**状态切换的边界**。只要 CPU 3 从用户态进过内核、或从内核退出到用户态、或收到过中断、或被子 GP kthread 的 IPI 打扰，RCU 就能检测到它度过了静默期。
 
+##### 8.2.7.1 补：如果进程一直在用户态运行？
+
+用户态本身就是静默态——`rcu_read_lock()` 是内核态机制（`preempt_disable()`），用户态进程不可能持有它。进程切回用户态时，`preempt_enable()` 已经释放，context tracking 通过 `rcu_user_enter()` 把 `CT_RCU_WATCHING` 位清零。
+
+GP kthread 在 FQS 阶段**直接利用这个位**，一次快照裁决：
+
+```c
+// tree.c:819-833 — GP kthread 快照每个 CPU 的 watching 状态
+static int rcu_watching_snap_save(struct rcu_data *rdp)
+{
+    rdp->watching_snap = ct_rcu_watching_cpu_acquire(rdp->cpu);   // line 832
+    if (rcu_watching_snap_in_eqs(rdp->watching_snap)) {            // line 833
+        // ★ CT_RCU_WATCHING 位未置 → CPU 在扩展静默态
+        // → 直接标记 QS 完成，不需要等、不需要 IPI、不需要恢复 tick
+    }
+}
+
+// tree.c:294 — 判断是否在静默态
+static bool rcu_watching_snap_in_eqs(int snap)
+{
+    return !(snap & CT_RCU_WATCHING);  // bit 未置 = 在静默态
+}
+```
+
+**完整时序**：
+
+```
+CPU 3 用户态进程运行中 (tick OFF, NO_HZ_FULL)
+  │
+  │ GP kthread: rcu_gp_init() 启动新 GP
+  │   → rnp->qsmask = rnp->qsmaskinit    // CPU 3 在"需要等待"集合中
+  │
+  │ GP kthread: rcu_gp_fqs_loop() 进入 FQS 循环
+  │   → force_qs_rnp(rcu_watching_snap_save)    // tree.c:2048
+  │     → rcu_watching_snap_save(CPU3)
+  │       → snap = ct_rcu_watching_cpu_acquire(cpu)
+  │       → CT_RCU_WATCHING = 0  (因为 CPU 3 在用户态!)
+  │       → rcu_watching_snap_in_eqs → true
+  │         → ★★ CPU 3 直接标记为 QS 已完成 ★★
+  │         → rcu_node[leaf].qsmask &= ~CPU3_mask
+  │         → 沿树上溯，清除 mask...
+  │
+  │ GP 等其余 CPU 也都完成 → root qsmask==0 → GP 结束
+  ▼
+CPU 3 全程在用户态跑，完全不知道上面的 GP 存在
+```
+
+这是 RCU **最快**通过的路径：一次快照读取就判了，零等待、零 IPI、零 tick 恢复。和内核态死循环形成鲜明对比——后者需要 `nohz_full_patience_delay`（默认 5 个 jiffy）后 GP kthread 才会发 resched IPI 逼迫。
+
 ## 9. QS 上报 — rcu_report_qs_rnp()
 
 **定义位置**：`tree.c:2339`
