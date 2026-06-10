@@ -7222,6 +7222,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="7. 为什么这对 NVIDIA+MTK+MS 笔记本很重要">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cold-miss-vs-hot-hit-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cold Miss vs Hot Hit — GPU 访问性能差异
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tlb-shootdown-gpu-atc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TLB Shootdown — GPU ATC 同步难题
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nvidiamtk-soc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        对 NVIDIA+MTK SoC 的启示
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -22180,6 +22219,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="7. 为什么这对 NVIDIA+MTK+MS 笔记本很重要">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cold-miss-vs-hot-hit-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cold Miss vs Hot Hit — GPU 访问性能差异
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tlb-shootdown-gpu-atc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TLB Shootdown — GPU ATC 同步难题
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nvidiamtk-soc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        对 NVIDIA+MTK SoC 的启示
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -22650,6 +22728,56 @@
 <li><strong>Linux 内核已经提供了完整栈</strong>：HMM（读取 CPU 页表）+ SMMU（IOMMU 翻译）+ ATS/PRI（硬件缓存与缺页请求）+ IOPF（软件缺页框架），这四个组件串起来就是完整的 SoC 统一内存</li>
 <li><strong>性能优势</strong>：少了一层页表管理，少了一条内存迁移路径，延迟更低</li>
 </ol>
+<h3 id="cold-miss-vs-hot-hit-gpu">Cold Miss vs Hot Hit — GPU 访问性能差异<a class="headerlink" href="#cold-miss-vs-hot-hit-gpu" title="Permanent link">&para;</a></h3>
+<p>理解 ATS/PRI 的价值需要区分两种情况的延迟：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>路径</th>
+<th>延迟（量级）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Hot Hit</strong></td>
+<td>GPU ATC 命中 → 直接 DMA</td>
+<td>~100ns（GPU 本地 TLB）</td>
+</tr>
+<tr>
+<td><strong>Warm Miss</strong></td>
+<td>ATC miss → ATS Translation Request → SMMU 页表命中 → 返回</td>
+<td>~2-5µs（SMMU 查页表）</td>
+</tr>
+<tr>
+<td><strong>Cold Miss</strong></td>
+<td>ATC miss → Translation Req miss → PRI Page Req → IOPF → HMM → map_pages → Response → Retry</td>
+<td>~20-200µs（软件路径）</td>
+</tr>
+</tbody>
+</table>
+<p>首次访问一个未映射的 IOVA（Cold Miss）走完整的 PRI + IOPF + HMM 路径，延迟远高于 SMMU 页表命中（Warm Miss）。但后续访问因为 ATC 缓存（Hot Hit），完全不走 SMMU，延迟回到纳秒级。</p>
+<h3 id="tlb-shootdown-gpu-atc">TLB Shootdown — GPU ATC 同步难题<a class="headerlink" href="#tlb-shootdown-gpu-atc" title="Permanent link">&para;</a></h3>
+<p>当 CPU 侧修改页表（如 <code>madvise DONTNEED</code>、<code>munmap</code>、<code>mprotect</code>），需要通知 GPU 刷新其 ATC：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>CPU munmap(p, size)
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>  → mmu_notifier callback (arm_smmu_mm_notifier)
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>  → arm_smmu_atc_inv_domain(smmu_domain)
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    → for each master with ats_enabled:
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>        → arm_smmu_cmdq_issue_cmd(CMD_ATC_INV)
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>          → PASID=0 表示 flush 该 master 全部 ATC
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>          → 或指定 PASID flush 对应进程的 ATC 条目
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>  → arm_smmu_iotlb_sync()  → 等待 ATC_INV 完成
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>  → [SMMU TLBI + sync 清 IOTLB]
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>  → 返回 → CPU 安全释放页面
+</code></pre></div>
+<p><code>arm_smmu_mmu_notifier</code>（<code>arm-smmu-v3.h:979</code>）注册为 CPU mm_struct 的 <code>mmu_notifier</code>，当 CPU 修改页表时 SMMU 收到回调，通过 CMDQ 发送 ATC_INV + TLBI 命令同步刷新 GPU 侧的所有缓存和 TLB。这是 SoC 统一内存性能的关键开销——比 discrete GPU 的本地 TLB shootdown 延迟更高（需要通过 CMDQ 跨设备通信）。</p>
+<h3 id="nvidiamtk-soc">对 NVIDIA+MTK SoC 的启示<a class="headerlink" href="#nvidiamtk-soc" title="Permanent link">&para;</a></h3>
+<p>当 nova/tyr 这类下一代开源 GPU 驱动在 ARM SoC 上运行时：
+1. <strong>不需要 <code>nouveau_dmem</code> 层</strong>——没有独立 VRAM，直接用 HMM 读 CPU 页表
+2. <strong>不需要 <code>migrate_vma</code></strong>——物理上是同一内存，不需要迁移
+3. <strong>ATS 是必需项</strong>——没有 ATC 缓存，GPU 每次访问都要经过 SMMU 页表遍历，性能不可接受
+4. <strong>PRI 是必需项</strong>——用于冷缺页路径，替代 discrete GPU 的 fault buffer + work handler
+5. <strong>IOPF handler = drm_gpusvm 驱动回调</strong>——<code>domain-&gt;iopf_handler</code> 内部调用 <code>hmm_range_fault</code> + <code>arm_smmu_map_pages</code></p>
 <hr />
 <h2 id="8">8. 系列结语<a class="headerlink" href="#8" title="Permanent link">&para;</a></h2>
 <p>通过这五篇文章，我们走完了 SoC 统一内存架构的完整纵深：</p>

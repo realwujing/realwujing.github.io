@@ -6939,6 +6939,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="HMM PFN 标志位">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hmm_pfns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hmm_pfns[] 输出格式详解
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hmm-mmu_interval_notifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HMM 调用前提 — mmu_interval_notifier
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -21932,6 +21960,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="HMM PFN 标志位">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hmm_pfns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hmm_pfns[] 输出格式详解
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hmm-mmu_interval_notifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HMM 调用前提 — mmu_interval_notifier
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -22160,235 +22216,270 @@
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="p">};</span>
 </code></pre></div>
 <p>关键设计：输入标志 <code>HMM_PFN_REQ_FAULT</code> 复用 <code>HMM_PFN_VALID</code> 的位值。调用者在 <code>pfns[i]</code> 中设置请求位，HMM 遍历后覆盖为结果位。<code>HMM_PFN_ORDER_SHIFT</code> 预留 10 位用于存储大页的 order（<code>hmm.c:181-184</code>）。</p>
+<h3 id="hmm_pfns">hmm_pfns[] 输出格式详解<a class="headerlink" href="#hmm_pfns" title="Permanent link">&para;</a></h3>
+<p>每个 <code>hmm_pfns[i]</code> 的位布局（64-bit）：
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Bit:  63       62       61       60..53   52..0
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    ┌────────┬────────┬────────┬───────┬─────────┐
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    │ VALID  │ WRITE  │ ERROR  │ order │   PFN   │
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    ├────────┼────────┼────────┼───────┼─────────┤
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    │输入复用│输入复用│  输出  │ 输出  │  输出   │
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    └────────┴────────┴────────┴───────┴─────────┘
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>     VALID/REQ_FAULT   WRITE/REQ_WRITE
+</code></pre></div></p>
+<ul>
+<li>bits 63,62：输入/输出双向复用——调用者设置表示请求，HMM 输出时覆盖为结果</li>
+<li>bit 61：ERROR，硬件无法访问（有毒内存、无 VMA 等场景）</li>
+<li>bits 60:53：page order（大页编码），通过 <code>hmm_pfn_to_map_order()</code> 恢复</li>
+<li>bits 52:0：物理页帧号（PFN），通过 <code>hmm_pfn_to_page()</code> / <code>hmm_pfn_to_phys()</code> 转换</li>
+</ul>
+<h3 id="hmm-mmu_interval_notifier">HMM 调用前提 — mmu_interval_notifier<a class="headerlink" href="#hmm-mmu_interval_notifier" title="Permanent link">&para;</a></h3>
+<p>HMM 遍历 CPU 页表前必须注册一个 <code>mmu_interval_notifier</code>，否则无法感知 CPU 侧页表变更：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// include/linux/hmm.h:112-117</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">hmm_range</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">mmu_interval_notifier</span><span class="w"> </span><span class="o">*</span><span class="n">notifier</span><span class="p">;</span><span class="w">   </span><span class="c1">// 必须预先注册</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">notifier_seq</span><span class="p">;</span><span class="w">               </span><span class="c1">// mmu_interval_read_begin() 的返回值</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="p">...</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">};</span>
+</code></pre></div>
+<p>调用流程：
+1. <code>mmu_interval_notifier_insert()</code> — 注册区间通知器
+2. <code>mmu_interval_read_begin()</code> → 存入 <code>notifier_seq</code> — 获取当前页表版本号
+3. <code>hmm_range_fault()</code> — 遍历页表
+4. <code>mmu_interval_check_retry(notifier, notifier_seq)</code> — 检查版本号是否变了（页表被其他线程改写）</p>
+<p><code>hmm.c:672</code> 在每次 walk_page_range 之前都检查：
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">mmu_interval_check_retry</span><span class="p">(</span><span class="n">range</span><span class="o">-&gt;</span><span class="n">notifier</span><span class="p">,</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">notifier_seq</span><span class="p">))</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span><span class="w">  </span><span class="c1">// 页表已被改写，通知调用者重试</span>
+</code></pre></div></p>
+<p>还有一个超时常量：<code>HMM_RANGE_DEFAULT_TIMEOUT 1000</code>（<code>hmm.h:134</code>），单位 ms，用于 <code>hmm_range_fault</code> 调用者等待 mmu notifier 超时。</p>
 <hr />
 <h2 id="walk_ops">walk_ops 注册<a class="headerlink" href="#walk_ops" title="Permanent link">&para;</a></h2>
 <p>HMM 使用内核的 <code>walk_page_range()</code> 框架进行页表遍历，通过 <code>mm_walk_ops</code> 结构体注册各级回调。定义在 <code>mm/hmm.c:631-638</code>：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// mm/hmm.c:631-638</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">mm_walk_ops</span><span class="w"> </span><span class="n">hmm_walk_ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p">.</span><span class="n">pud_entry</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_walk_pud</span><span class="p">,</span><span class="w">            </span><span class="c1">// line 632 — PUD 大页处理</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="p">.</span><span class="n">pmd_entry</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_walk_pmd</span><span class="p">,</span><span class="w">            </span><span class="c1">// line 633 — 主路径</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="p">.</span><span class="n">pte_hole</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_walk_hole</span><span class="p">,</span><span class="w">           </span><span class="c1">// line 634 — 空洞处理</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="p">.</span><span class="n">hugetlb_entry</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_walk_hugetlb_entry</span><span class="p">,</span><span class="w">   </span><span class="c1">// line 635 — HugeTLB</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="p">.</span><span class="n">test_walk</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_walk_test</span><span class="p">,</span><span class="w">            </span><span class="c1">// line 636 — VMA 过滤</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="p">.</span><span class="n">walk_lock</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">PGWALK_RDLOCK</span><span class="p">,</span><span class="w">                </span><span class="c1">// line 637 — 只读锁</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">};</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1">// mm/hmm.c:631-638</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">mm_walk_ops</span><span class="w"> </span><span class="n">hmm_walk_ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="p">.</span><span class="n">pud_entry</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_walk_pud</span><span class="p">,</span><span class="w">            </span><span class="c1">// line 632 — PUD 大页处理</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="p">.</span><span class="n">pmd_entry</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_walk_pmd</span><span class="p">,</span><span class="w">            </span><span class="c1">// line 633 — 主路径</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="p">.</span><span class="n">pte_hole</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_walk_hole</span><span class="p">,</span><span class="w">           </span><span class="c1">// line 634 — 空洞处理</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="p">.</span><span class="n">hugetlb_entry</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_walk_hugetlb_entry</span><span class="p">,</span><span class="w">   </span><span class="c1">// line 635 — HugeTLB</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="p">.</span><span class="n">test_walk</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_walk_test</span><span class="p">,</span><span class="w">            </span><span class="c1">// line 636 — VMA 过滤</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="p">.</span><span class="n">walk_lock</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">PGWALK_RDLOCK</span><span class="p">,</span><span class="w">                </span><span class="c1">// line 637 — 只读锁</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">};</span>
 </code></pre></div>
 <h3 id="test_walk">test_walk 过滤<a class="headerlink" href="#test_walk" title="Permanent link">&para;</a></h3>
 <p><code>hmm_vma_walk_test</code>（<code>hmm.c:597-629</code>）在每个 VMA 开始遍历前被调用：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// hmm.c:597-606</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">hmm_vma_walk_test</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">start</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">end</span><span class="p">,</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">                             </span><span class="k">struct</span><span class="w"> </span><span class="nc">mm_walk</span><span class="w"> </span><span class="o">*</span><span class="n">walk</span><span class="p">)</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">{</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="c1">// line 604: 合格条件 — 非 IO/非 PFNMAP 且可读</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">vma</span><span class="o">-&gt;</span><span class="n">vm_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">VM_IO</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">VM_PFNMAP</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;&amp;</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">        </span><span class="n">vma</span><span class="o">-&gt;</span><span class="n">vm_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">VM_READ</span><span class="p">)</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w">     </span><span class="c1">// 通过，继续遍历</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="c1">// line 619-623: 不合格 — 如果请求了 fault 则 -EFAULT</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">hmm_range_need_fault</span><span class="p">(...))</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EFAULT</span><span class="p">;</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">    </span><span class="c1">// line 625: 否则填 HMM_PFN_ERROR 并跳过此 VMA</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="n">hmm_pfns_fill</span><span class="p">(</span><span class="n">start</span><span class="p">,</span><span class="w"> </span><span class="n">end</span><span class="p">,</span><span class="w"> </span><span class="n">range</span><span class="p">,</span><span class="w"> </span><span class="n">HMM_PFN_ERROR</span><span class="p">);</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">         </span><span class="c1">// 跳过该 VMA，继续下一个</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1">// hmm.c:597-606</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">hmm_vma_walk_test</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">start</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">end</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">                             </span><span class="k">struct</span><span class="w"> </span><span class="nc">mm_walk</span><span class="w"> </span><span class="o">*</span><span class="n">walk</span><span class="p">)</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="p">{</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="c1">// line 604: 合格条件 — 非 IO/非 PFNMAP 且可读</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">vma</span><span class="o">-&gt;</span><span class="n">vm_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">VM_IO</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">VM_PFNMAP</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">        </span><span class="n">vma</span><span class="o">-&gt;</span><span class="n">vm_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">VM_READ</span><span class="p">)</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w">     </span><span class="c1">// 通过，继续遍历</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="c1">// line 619-623: 不合格 — 如果请求了 fault 则 -EFAULT</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">hmm_range_need_fault</span><span class="p">(...))</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EFAULT</span><span class="p">;</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">    </span><span class="c1">// line 625: 否则填 HMM_PFN_ERROR 并跳过此 VMA</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">    </span><span class="n">hmm_pfns_fill</span><span class="p">(</span><span class="n">start</span><span class="p">,</span><span class="w"> </span><span class="n">end</span><span class="p">,</span><span class="w"> </span><span class="n">range</span><span class="p">,</span><span class="w"> </span><span class="n">HMM_PFN_ERROR</span><span class="p">);</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">         </span><span class="c1">// 跳过该 VMA，继续下一个</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="p">}</span>
 </code></pre></div>
 <p>返回值 1 表示 "跳过该 VMA"，返回值 0 表示 "正常遍历该 VMA"。<code>VM_IO</code> 和 <code>VM_PFNMAP</code> 的 VMA 没有 <code>struct page</code> 支撑，HMM 无法从中提取 PFN。</p>
 <hr />
 <h2 id="hmm_range_fault">hmm_range_fault 入口<a class="headerlink" href="#hmm_range_fault" title="Permanent link">&para;</a></h2>
 <p><code>mm/hmm.c:659-685</code>：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1">// hmm.c:659-685</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kt">int</span><span class="w"> </span><span class="nf">hmm_range_fault</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">hmm_range</span><span class="w"> </span><span class="o">*</span><span class="n">range</span><span class="p">)</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p">{</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">hmm_vma_walk</span><span class="w"> </span><span class="n">hmm_vma_walk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">        </span><span class="p">.</span><span class="n">range</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">range</span><span class="p">,</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">        </span><span class="p">.</span><span class="n">last</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">start</span><span class="p">,</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="p">};</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">mm_struct</span><span class="w"> </span><span class="o">*</span><span class="n">mm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">notifier</span><span class="o">-&gt;</span><span class="n">mm</span><span class="p">;</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="n">mmap_assert_locked</span><span class="p">(</span><span class="n">mm</span><span class="p">);</span><span class="w">               </span><span class="c1">// line 668 — 必须持有 mmap_lock</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">    </span><span class="k">do</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">        </span><span class="c1">// line 672-673: 检查 invalidation sequence</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">mmu_interval_check_retry</span><span class="p">(</span><span class="n">range</span><span class="o">-&gt;</span><span class="n">notifier</span><span class="p">,</span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">                                     </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">notifier_seq</span><span class="p">))</span>
-<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span>
-<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>
-<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">        </span><span class="c1">// line 675-676: 用 mm_walk_ops 遍历页表</span>
-<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">walk_page_range</span><span class="p">(</span><span class="n">mm</span><span class="p">,</span><span class="w"> </span><span class="n">hmm_vma_walk</span><span class="p">.</span><span class="n">last</span><span class="p">,</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">,</span>
-<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">                              </span><span class="o">&amp;</span><span class="n">hmm_walk_ops</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">hmm_vma_walk</span><span class="p">);</span>
-<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="w">        </span><span class="c1">// -EBUSY 时 hmm_vma_walk.last 指向未处理地址，重新开始</span>
-<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">);</span>
-<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>
-<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
-<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// hmm.c:659-685</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kt">int</span><span class="w"> </span><span class="nf">hmm_range_fault</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">hmm_range</span><span class="w"> </span><span class="o">*</span><span class="n">range</span><span class="p">)</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="p">{</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">hmm_vma_walk</span><span class="w"> </span><span class="n">hmm_vma_walk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">        </span><span class="p">.</span><span class="n">range</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">range</span><span class="p">,</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">        </span><span class="p">.</span><span class="n">last</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">start</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="p">};</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">mm_struct</span><span class="w"> </span><span class="o">*</span><span class="n">mm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">notifier</span><span class="o">-&gt;</span><span class="n">mm</span><span class="p">;</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="n">mmap_assert_locked</span><span class="p">(</span><span class="n">mm</span><span class="p">);</span><span class="w">               </span><span class="c1">// line 668 — 必须持有 mmap_lock</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">    </span><span class="k">do</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">        </span><span class="c1">// line 672-673: 检查 invalidation sequence</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">mmu_interval_check_retry</span><span class="p">(</span><span class="n">range</span><span class="o">-&gt;</span><span class="n">notifier</span><span class="p">,</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">                                     </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">notifier_seq</span><span class="p">))</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">        </span><span class="c1">// line 675-676: 用 mm_walk_ops 遍历页表</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">walk_page_range</span><span class="p">(</span><span class="n">mm</span><span class="p">,</span><span class="w"> </span><span class="n">hmm_vma_walk</span><span class="p">.</span><span class="n">last</span><span class="p">,</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">,</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">                              </span><span class="o">&amp;</span><span class="n">hmm_walk_ops</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">hmm_vma_walk</span><span class="p">);</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="w">        </span><span class="c1">// -EBUSY 时 hmm_vma_walk.last 指向未处理地址，重新开始</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">);</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="p">}</span>
 </code></pre></div>
 <p>关键循环：<code>walk_page_range()</code> 返回 <code>-EBUSY</code> 表示发生了 fault-in（触发 <code>handle_mm_fault</code>）或遇到了迁移中的 PTE，此时 <code>hmm_vma_walk.last</code> 指向尚未处理的地址，do-while 循环重启遍历。<code>mmu_interval_check_retry</code> 检测是否有并发的 mmu notifier invalidation 发生（如页面被 swap out）。三者共同保证遍历结果的一致性和正确性。</p>
 <hr />
 <h2 id="pmd">PMD 级遍历 — 主路径<a class="headerlink" href="#pmd" title="Permanent link">&para;</a></h2>
 <p><code>hmm_vma_walk_pmd</code>（<code>hmm.c:396-471</code>）是 HMM 最核心的函数，处理 PMD 级别的所有情况：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>hmm_vma_walk_pmd(start, end, walk)
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    │
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    ├── pmd_none → hmm_vma_walk_hole()             // line 412-413
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    │     └── need_fault? → hmm_vma_fault()         // line 73-94
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    │         └── handle_mm_fault() × N pages       // line 90
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    │         └── 返回 -EBUSY 触发重走
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    │
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    ├── pmd_is_migration_entry                     // line 415-422
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    │     └── need_fault? → pmd_migration_entry_wait() → -EBUSY
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    │
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    ├── !pmd_present → hmm_vma_handle_absent_pmd() // line 424-426
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    │     └── DEVICE_PRIVATE? → 直接返回 PFN (不迁移!)
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>    │     └── 否则: need_fault? → fault 或 -EFAULT
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    │
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    ├── pmd_trans_huge → hmm_vma_handle_pmd()      // line 428-442
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>    │     └── 大页: 提取 PFN + order 标志
-<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>    │     └── need_fault? → 返回 -EFAULT (THP 不拆分)
-<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>    │
-<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    ├── pmd_bad → -EFAULT 或 ERROR                  // line 451-455
-<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>    │
-<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>    └── 正常 PTE 表 → 逐条遍历 PTE                  // line 457-468
-<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>          │
-<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>          └── for each PTE:
-<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>                hmm_vma_handle_pte(walk, addr, end, pmdp, ptep, hmm_pfn)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>hmm_vma_walk_pmd(start, end, walk)
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    │
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    ├── pmd_none → hmm_vma_walk_hole()             // line 412-413
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    │     └── need_fault? → hmm_vma_fault()         // line 73-94
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    │         └── handle_mm_fault() × N pages       // line 90
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    │         └── 返回 -EBUSY 触发重走
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    │
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    ├── pmd_is_migration_entry                     // line 415-422
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    │     └── need_fault? → pmd_migration_entry_wait() → -EBUSY
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    │
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    ├── !pmd_present → hmm_vma_handle_absent_pmd() // line 424-426
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    │     └── DEVICE_PRIVATE? → 直接返回 PFN (不迁移!)
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    │     └── 否则: need_fault? → fault 或 -EFAULT
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    │
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    ├── pmd_trans_huge → hmm_vma_handle_pmd()      // line 428-442
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    │     └── 大页: 提取 PFN + order 标志
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>    │     └── need_fault? → 返回 -EFAULT (THP 不拆分)
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>    │
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>    ├── pmd_bad → -EFAULT 或 ERROR                  // line 451-455
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>    │
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>    └── 正常 PTE 表 → 逐条遍历 PTE                  // line 457-468
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>          │
+<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>          └── for each PTE:
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>                hmm_vma_handle_pte(walk, addr, end, pmdp, ptep, hmm_pfn)
 </code></pre></div>
 <p>遍历 PMD 的核心代码（<code>hmm.c:457-468</code>）：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1">// hmm.c:457-468</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">ptep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pte_offset_map</span><span class="p">(</span><span class="n">pmdp</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">);</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">ptep</span><span class="p">)</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="k">goto</span><span class="w"> </span><span class="n">again</span><span class="p">;</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end</span><span class="p">;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">ptep</span><span class="o">++</span><span class="p">,</span><span class="w"> </span><span class="n">hmm_pfns</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">r</span><span class="p">;</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_handle_pte</span><span class="p">(</span><span class="n">walk</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">end</span><span class="p">,</span><span class="w"> </span><span class="n">pmdp</span><span class="p">,</span><span class="w"> </span><span class="n">ptep</span><span class="p">,</span><span class="w"> </span><span class="n">hmm_pfns</span><span class="p">);</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">        </span><span class="cm">/* hmm_vma_handle_pte() did pte_unmap() */</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">r</span><span class="p">;</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="p">}</span>
-<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="n">pte_unmap</span><span class="p">(</span><span class="n">ptep</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
-<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">// hmm.c:457-468</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">ptep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pte_offset_map</span><span class="p">(</span><span class="n">pmdp</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">);</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">ptep</span><span class="p">)</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="k">goto</span><span class="w"> </span><span class="n">again</span><span class="p">;</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end</span><span class="p">;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">ptep</span><span class="o">++</span><span class="p">,</span><span class="w"> </span><span class="n">hmm_pfns</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">r</span><span class="p">;</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_vma_handle_pte</span><span class="p">(</span><span class="n">walk</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">end</span><span class="p">,</span><span class="w"> </span><span class="n">pmdp</span><span class="p">,</span><span class="w"> </span><span class="n">ptep</span><span class="p">,</span><span class="w"> </span><span class="n">hmm_pfns</span><span class="p">);</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">        </span><span class="cm">/* hmm_vma_handle_pte() did pte_unmap() */</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">r</span><span class="p">;</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="p">}</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="n">pte_unmap</span><span class="p">(</span><span class="n">ptep</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
 </code></pre></div>
 <hr />
 <h2 id="pte">PTE 级处理<a class="headerlink" href="#pte" title="Permanent link">&para;</a></h2>
 <p><code>hmm_vma_handle_pte</code>（<code>hmm.c:235-332</code>）处理单个 PTE：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// hmm.c:235-332</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">hmm_vma_handle_pte</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">mm_walk</span><span class="w"> </span><span class="o">*</span><span class="n">walk</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">                              </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">end</span><span class="p">,</span><span class="w"> </span><span class="n">pmd_t</span><span class="w"> </span><span class="o">*</span><span class="n">pmdp</span><span class="p">,</span><span class="w"> </span><span class="n">pte_t</span><span class="w"> </span><span class="o">*</span><span class="n">ptep</span><span class="p">,</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">                              </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="o">*</span><span class="n">hmm_pfn</span><span class="p">)</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="p">{</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="n">pte_t</span><span class="w"> </span><span class="n">pte</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ptep_get</span><span class="p">(</span><span class="n">ptep</span><span class="p">);</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="kt">uint64_t</span><span class="w"> </span><span class="n">pfn_req_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">hmm_pfn</span><span class="p">;</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="c1">// Case 1: pte_none — 无映射 (line 252)</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pte_none</span><span class="p">(</span><span class="n">pte</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">pte_is_uffd_wp_marker</span><span class="p">(</span><span class="n">pte</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">        </span><span class="n">required_fault</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_pte_need_fault</span><span class="p">(...);</span><span class="w">  </span><span class="c1">// 检查是否请求 fault</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">required_fault</span><span class="p">)</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">fault</span><span class="p">;</span><span class="w">    </span><span class="c1">// → hmm_vma_fault → handle_mm_fault</span>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">out</span><span class="p">;</span><span class="w">          </span><span class="c1">// 不请求 fault，返回 0</span>
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>
-<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="c1">// Case 2: !pte_present — swap/migration/device (line 260)</span>
-<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">pte_present</span><span class="p">(</span><span class="n">pte</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">        </span><span class="n">softleaf_t</span><span class="w"> </span><span class="n">entry</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">softleaf_from_pte</span><span class="p">(</span><span class="n">pte</span><span class="p">);</span>
-<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>
-<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">        </span><span class="c1">// ★ 关键: DEVICE_PRIVATE 检查 (line 267-275)</span>
-<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_device_private</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
-<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">            </span><span class="n">page_pgmap</span><span class="p">(</span><span class="n">softleaf_to_page</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span><span class="o">-&gt;</span><span class="n">owner</span><span class="w"> </span><span class="o">==</span>
-<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="w">            </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">dev_private_owner</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="w">            </span><span class="c1">// 属于调用者自己的设备内存 → 直接返回 PFN，不迁移!</span>
-<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="w">            </span><span class="n">new_pfn_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">softleaf_to_pfn</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">HMM_PFN_VALID</span><span class="p">;</span>
-<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a><span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">out</span><span class="p">;</span>
-<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="w">        </span><span class="p">}</span>
-<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>
-<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="w">        </span><span class="c1">// 别人的 DEVICE_PRIVATE → fault (line 285-286)</span>
-<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_device_private</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span>
-<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">fault</span><span class="p">;</span>
-<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>
-<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a><span class="w">        </span><span class="c1">// migration entry → wait (line 291-295)</span>
-<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_migration</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a><span class="w">            </span><span class="n">migration_entry_wait</span><span class="p">(</span><span class="n">walk</span><span class="o">-&gt;</span><span class="n">mm</span><span class="p">,</span><span class="w"> </span><span class="n">pmdp</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">);</span>
-<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span>
-<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a><span class="w">        </span><span class="p">}</span>
-<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a>
-<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a><span class="w">        </span><span class="c1">// swap entry → fault (line 282-283)</span>
-<a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_swap</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span>
-<a id="__codelineno-7-42" name="__codelineno-7-42" href="#__codelineno-7-42"></a><span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">fault</span><span class="p">;</span>
-<a id="__codelineno-7-43" name="__codelineno-7-43" href="#__codelineno-7-43"></a>
-<a id="__codelineno-7-44" name="__codelineno-7-44" href="#__codelineno-7-44"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EFAULT</span><span class="p">;</span>
-<a id="__codelineno-7-45" name="__codelineno-7-45" href="#__codelineno-7-45"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-7-46" name="__codelineno-7-46" href="#__codelineno-7-46"></a>
-<a id="__codelineno-7-47" name="__codelineno-7-47" href="#__codelineno-7-47"></a><span class="w">    </span><span class="c1">// Case 3: normal present PTE (line 303)</span>
-<a id="__codelineno-7-48" name="__codelineno-7-48" href="#__codelineno-7-48"></a><span class="w">    </span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pte_to_hmm_pfn_flags</span><span class="p">(</span><span class="n">range</span><span class="p">,</span><span class="w"> </span><span class="n">pte</span><span class="p">);</span>
-<a id="__codelineno-7-49" name="__codelineno-7-49" href="#__codelineno-7-49"></a><span class="w">    </span><span class="n">required_fault</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_pte_need_fault</span><span class="p">(...);</span>
-<a id="__codelineno-7-50" name="__codelineno-7-50" href="#__codelineno-7-50"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">required_fault</span><span class="p">)</span>
-<a id="__codelineno-7-51" name="__codelineno-7-51" href="#__codelineno-7-51"></a><span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">fault</span><span class="p">;</span><span class="w">    </span><span class="c1">// 需要写但不可写 → fault</span>
-<a id="__codelineno-7-52" name="__codelineno-7-52" href="#__codelineno-7-52"></a>
-<a id="__codelineno-7-53" name="__codelineno-7-53" href="#__codelineno-7-53"></a><span class="w">    </span><span class="c1">// 非 struct page 内存检查 (line 313)</span>
-<a id="__codelineno-7-54" name="__codelineno-7-54" href="#__codelineno-7-54"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">vm_normal_page</span><span class="p">(</span><span class="n">walk</span><span class="o">-&gt;</span><span class="n">vma</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">pte</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">is_zero_pfn</span><span class="p">(...))</span>
-<a id="__codelineno-7-55" name="__codelineno-7-55" href="#__codelineno-7-55"></a><span class="w">        </span><span class="n">new_pfn_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HMM_PFN_ERROR</span><span class="p">;</span>
-<a id="__codelineno-7-56" name="__codelineno-7-56" href="#__codelineno-7-56"></a><span class="w">    </span><span class="k">else</span>
-<a id="__codelineno-7-57" name="__codelineno-7-57" href="#__codelineno-7-57"></a><span class="w">        </span><span class="n">new_pfn_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pte_pfn</span><span class="p">(</span><span class="n">pte</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">cpu_flags</span><span class="p">;</span>
-<a id="__codelineno-7-58" name="__codelineno-7-58" href="#__codelineno-7-58"></a>
-<a id="__codelineno-7-59" name="__codelineno-7-59" href="#__codelineno-7-59"></a><span class="nl">out</span><span class="p">:</span>
-<a id="__codelineno-7-60" name="__codelineno-7-60" href="#__codelineno-7-60"></a><span class="w">    </span><span class="o">*</span><span class="n">hmm_pfn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">hmm_pfn</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_PFN_INOUT_FLAGS</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">new_pfn_flags</span><span class="p">;</span>
-<a id="__codelineno-7-61" name="__codelineno-7-61" href="#__codelineno-7-61"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-7-62" name="__codelineno-7-62" href="#__codelineno-7-62"></a>
-<a id="__codelineno-7-63" name="__codelineno-7-63" href="#__codelineno-7-63"></a><span class="nl">fault</span><span class="p">:</span>
-<a id="__codelineno-7-64" name="__codelineno-7-64" href="#__codelineno-7-64"></a><span class="w">    </span><span class="n">pte_unmap</span><span class="p">(</span><span class="n">ptep</span><span class="p">);</span>
-<a id="__codelineno-7-65" name="__codelineno-7-65" href="#__codelineno-7-65"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">hmm_vma_fault</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">end</span><span class="p">,</span><span class="w"> </span><span class="n">required_fault</span><span class="p">,</span><span class="w"> </span><span class="n">walk</span><span class="p">);</span><span class="w">  </span><span class="c1">// → -EBUSY</span>
-<a id="__codelineno-7-66" name="__codelineno-7-66" href="#__codelineno-7-66"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1">// hmm.c:235-332</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">hmm_vma_handle_pte</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">mm_walk</span><span class="w"> </span><span class="o">*</span><span class="n">walk</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">                              </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">end</span><span class="p">,</span><span class="w"> </span><span class="n">pmd_t</span><span class="w"> </span><span class="o">*</span><span class="n">pmdp</span><span class="p">,</span><span class="w"> </span><span class="n">pte_t</span><span class="w"> </span><span class="o">*</span><span class="n">ptep</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">                              </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="o">*</span><span class="n">hmm_pfn</span><span class="p">)</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="p">{</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="n">pte_t</span><span class="w"> </span><span class="n">pte</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ptep_get</span><span class="p">(</span><span class="n">ptep</span><span class="p">);</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="kt">uint64_t</span><span class="w"> </span><span class="n">pfn_req_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">hmm_pfn</span><span class="p">;</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="c1">// Case 1: pte_none — 无映射 (line 252)</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pte_none</span><span class="p">(</span><span class="n">pte</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">pte_is_uffd_wp_marker</span><span class="p">(</span><span class="n">pte</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">        </span><span class="n">required_fault</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_pte_need_fault</span><span class="p">(...);</span><span class="w">  </span><span class="c1">// 检查是否请求 fault</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">required_fault</span><span class="p">)</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">fault</span><span class="p">;</span><span class="w">    </span><span class="c1">// → hmm_vma_fault → handle_mm_fault</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">out</span><span class="p">;</span><span class="w">          </span><span class="c1">// 不请求 fault，返回 0</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">    </span><span class="c1">// Case 2: !pte_present — swap/migration/device (line 260)</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">pte_present</span><span class="p">(</span><span class="n">pte</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="w">        </span><span class="n">softleaf_t</span><span class="w"> </span><span class="n">entry</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">softleaf_from_pte</span><span class="p">(</span><span class="n">pte</span><span class="p">);</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="w">        </span><span class="c1">// ★ 关键: DEVICE_PRIVATE 检查 (line 267-275)</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_device_private</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="w">            </span><span class="n">page_pgmap</span><span class="p">(</span><span class="n">softleaf_to_page</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span><span class="o">-&gt;</span><span class="n">owner</span><span class="w"> </span><span class="o">==</span>
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="w">            </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">dev_private_owner</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="w">            </span><span class="c1">// 属于调用者自己的设备内存 → 直接返回 PFN，不迁移!</span>
+<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a><span class="w">            </span><span class="n">new_pfn_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">softleaf_to_pfn</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">HMM_PFN_VALID</span><span class="p">;</span>
+<a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a><span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">out</span><span class="p">;</span>
+<a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a>
+<a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a><span class="w">        </span><span class="c1">// 别人的 DEVICE_PRIVATE → fault (line 285-286)</span>
+<a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_device_private</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span>
+<a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a><span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">fault</span><span class="p">;</span>
+<a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a>
+<a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a><span class="w">        </span><span class="c1">// migration entry → wait (line 291-295)</span>
+<a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_migration</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a><span class="w">            </span><span class="n">migration_entry_wait</span><span class="p">(</span><span class="n">walk</span><span class="o">-&gt;</span><span class="n">mm</span><span class="p">,</span><span class="w"> </span><span class="n">pmdp</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">);</span>
+<a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span>
+<a id="__codelineno-10-38" name="__codelineno-10-38" href="#__codelineno-10-38"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a>
+<a id="__codelineno-10-40" name="__codelineno-10-40" href="#__codelineno-10-40"></a><span class="w">        </span><span class="c1">// swap entry → fault (line 282-283)</span>
+<a id="__codelineno-10-41" name="__codelineno-10-41" href="#__codelineno-10-41"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_swap</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span>
+<a id="__codelineno-10-42" name="__codelineno-10-42" href="#__codelineno-10-42"></a><span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">fault</span><span class="p">;</span>
+<a id="__codelineno-10-43" name="__codelineno-10-43" href="#__codelineno-10-43"></a>
+<a id="__codelineno-10-44" name="__codelineno-10-44" href="#__codelineno-10-44"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EFAULT</span><span class="p">;</span>
+<a id="__codelineno-10-45" name="__codelineno-10-45" href="#__codelineno-10-45"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-46" name="__codelineno-10-46" href="#__codelineno-10-46"></a>
+<a id="__codelineno-10-47" name="__codelineno-10-47" href="#__codelineno-10-47"></a><span class="w">    </span><span class="c1">// Case 3: normal present PTE (line 303)</span>
+<a id="__codelineno-10-48" name="__codelineno-10-48" href="#__codelineno-10-48"></a><span class="w">    </span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pte_to_hmm_pfn_flags</span><span class="p">(</span><span class="n">range</span><span class="p">,</span><span class="w"> </span><span class="n">pte</span><span class="p">);</span>
+<a id="__codelineno-10-49" name="__codelineno-10-49" href="#__codelineno-10-49"></a><span class="w">    </span><span class="n">required_fault</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hmm_pte_need_fault</span><span class="p">(...);</span>
+<a id="__codelineno-10-50" name="__codelineno-10-50" href="#__codelineno-10-50"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">required_fault</span><span class="p">)</span>
+<a id="__codelineno-10-51" name="__codelineno-10-51" href="#__codelineno-10-51"></a><span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">fault</span><span class="p">;</span><span class="w">    </span><span class="c1">// 需要写但不可写 → fault</span>
+<a id="__codelineno-10-52" name="__codelineno-10-52" href="#__codelineno-10-52"></a>
+<a id="__codelineno-10-53" name="__codelineno-10-53" href="#__codelineno-10-53"></a><span class="w">    </span><span class="c1">// 非 struct page 内存检查 (line 313)</span>
+<a id="__codelineno-10-54" name="__codelineno-10-54" href="#__codelineno-10-54"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">vm_normal_page</span><span class="p">(</span><span class="n">walk</span><span class="o">-&gt;</span><span class="n">vma</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">pte</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">is_zero_pfn</span><span class="p">(...))</span>
+<a id="__codelineno-10-55" name="__codelineno-10-55" href="#__codelineno-10-55"></a><span class="w">        </span><span class="n">new_pfn_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HMM_PFN_ERROR</span><span class="p">;</span>
+<a id="__codelineno-10-56" name="__codelineno-10-56" href="#__codelineno-10-56"></a><span class="w">    </span><span class="k">else</span>
+<a id="__codelineno-10-57" name="__codelineno-10-57" href="#__codelineno-10-57"></a><span class="w">        </span><span class="n">new_pfn_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pte_pfn</span><span class="p">(</span><span class="n">pte</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">cpu_flags</span><span class="p">;</span>
+<a id="__codelineno-10-58" name="__codelineno-10-58" href="#__codelineno-10-58"></a>
+<a id="__codelineno-10-59" name="__codelineno-10-59" href="#__codelineno-10-59"></a><span class="nl">out</span><span class="p">:</span>
+<a id="__codelineno-10-60" name="__codelineno-10-60" href="#__codelineno-10-60"></a><span class="w">    </span><span class="o">*</span><span class="n">hmm_pfn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">hmm_pfn</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_PFN_INOUT_FLAGS</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">new_pfn_flags</span><span class="p">;</span>
+<a id="__codelineno-10-61" name="__codelineno-10-61" href="#__codelineno-10-61"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-10-62" name="__codelineno-10-62" href="#__codelineno-10-62"></a>
+<a id="__codelineno-10-63" name="__codelineno-10-63" href="#__codelineno-10-63"></a><span class="nl">fault</span><span class="p">:</span>
+<a id="__codelineno-10-64" name="__codelineno-10-64" href="#__codelineno-10-64"></a><span class="w">    </span><span class="n">pte_unmap</span><span class="p">(</span><span class="n">ptep</span><span class="p">);</span>
+<a id="__codelineno-10-65" name="__codelineno-10-65" href="#__codelineno-10-65"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">hmm_vma_fault</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">end</span><span class="p">,</span><span class="w"> </span><span class="n">required_fault</span><span class="p">,</span><span class="w"> </span><span class="n">walk</span><span class="p">);</span><span class="w">  </span><span class="c1">// → -EBUSY</span>
+<a id="__codelineno-10-66" name="__codelineno-10-66" href="#__codelineno-10-66"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="hmm_pte_need_fault">hmm_pte_need_fault 决策逻辑<a class="headerlink" href="#hmm_pte_need_fault" title="Permanent link">&para;</a></h3>
 <p><code>hmm.c:96-128</code> 判断是否需要触发缺页中断：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">// hmm.c:96-128</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">hmm_pte_need_fault</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">hmm_vma_walk</span><span class="w"> </span><span class="o">*</span><span class="n">hmm_vma_walk</span><span class="p">,</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">                                       </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">pfn_req_flags</span><span class="p">,</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">                                       </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">cpu_flags</span><span class="p">)</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">{</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="c1">// 合并 per-page 请求和 range 级默认标志</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="n">pfn_req_flags</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">pfn_flags_mask</span><span class="p">;</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="n">pfn_req_flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">default_flags</span><span class="p">;</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="c1">// 未请求 fault → 不处理</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">pfn_req_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_PFN_REQ_FAULT</span><span class="p">))</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">    </span><span class="c1">// 请求写权限但页面不可写 → WRITE_FAULT</span>
-<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">pfn_req_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_PFN_REQ_WRITE</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
-<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">        </span><span class="o">!</span><span class="p">(</span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_PFN_WRITE</span><span class="p">))</span>
-<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">HMM_NEED_FAULT</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">HMM_NEED_WRITE_FAULT</span><span class="p">;</span>
-<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>
-<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="w">    </span><span class="c1">// 页面无效 → FAULT</span>
-<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_PFN_VALID</span><span class="p">))</span>
-<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">HMM_NEED_FAULT</span><span class="p">;</span>
-<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>
-<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w">  </span><span class="c1">// 不需要 fault</span>
-<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1">// hmm.c:96-128</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">hmm_pte_need_fault</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">hmm_vma_walk</span><span class="w"> </span><span class="o">*</span><span class="n">hmm_vma_walk</span><span class="p">,</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">                                       </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">pfn_req_flags</span><span class="p">,</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">                                       </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">cpu_flags</span><span class="p">)</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="p">{</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="c1">// 合并 per-page 请求和 range 级默认标志</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">    </span><span class="n">pfn_req_flags</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">pfn_flags_mask</span><span class="p">;</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">    </span><span class="n">pfn_req_flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">default_flags</span><span class="p">;</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">    </span><span class="c1">// 未请求 fault → 不处理</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">pfn_req_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_PFN_REQ_FAULT</span><span class="p">))</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">    </span><span class="c1">// 请求写权限但页面不可写 → WRITE_FAULT</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">pfn_req_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_PFN_REQ_WRITE</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">        </span><span class="o">!</span><span class="p">(</span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_PFN_WRITE</span><span class="p">))</span>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">HMM_NEED_FAULT</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">HMM_NEED_WRITE_FAULT</span><span class="p">;</span>
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>
+<a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="w">    </span><span class="c1">// 页面无效 → FAULT</span>
+<a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_PFN_VALID</span><span class="p">))</span>
+<a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">HMM_NEED_FAULT</span><span class="p">;</span>
+<a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>
+<a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w">  </span><span class="c1">// 不需要 fault</span>
+<a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a><span class="p">}</span>
 </code></pre></div>
 <hr />
 <h2 id="hmm_vma_fault">hmm_vma_fault — 触发缺页中断<a class="headerlink" href="#hmm_vma_fault" title="Permanent link">&para;</a></h2>
 <p><code>hmm.c:73-94</code> 是唯一修改 CPU 页表的地方：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">// hmm.c:73-94</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">hmm_vma_fault</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">end</span><span class="p">,</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">                         </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">required_fault</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">mm_walk</span><span class="w"> </span><span class="o">*</span><span class="n">walk</span><span class="p">)</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="p">{</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">vm_area_struct</span><span class="w"> </span><span class="o">*</span><span class="n">vma</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">walk</span><span class="o">-&gt;</span><span class="n">vma</span><span class="p">;</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">fault_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FAULT_FLAG_REMOTE</span><span class="p">;</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">required_fault</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_NEED_WRITE_FAULT</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">vma</span><span class="o">-&gt;</span><span class="n">vm_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">VM_WRITE</span><span class="p">))</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EPERM</span><span class="p">;</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">        </span><span class="n">fault_flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">FAULT_FLAG_WRITE</span><span class="p">;</span>
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>
-<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end</span><span class="p">;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">)</span>
-<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">handle_mm_fault</span><span class="p">(</span><span class="n">vma</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">fault_flags</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span>
-<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">            </span><span class="n">VM_FAULT_ERROR</span><span class="p">)</span>
-<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EFAULT</span><span class="p">;</span>
-<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>
-<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span><span class="w">  </span><span class="c1">// ← 总是返回 EBUSY，让主循环重新遍历!</span>
-<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1">// hmm.c:73-94</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">hmm_vma_fault</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">end</span><span class="p">,</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">                         </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">required_fault</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">mm_walk</span><span class="w"> </span><span class="o">*</span><span class="n">walk</span><span class="p">)</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="p">{</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">vm_area_struct</span><span class="w"> </span><span class="o">*</span><span class="n">vma</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">walk</span><span class="o">-&gt;</span><span class="n">vma</span><span class="p">;</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">fault_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FAULT_FLAG_REMOTE</span><span class="p">;</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">required_fault</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">HMM_NEED_WRITE_FAULT</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">vma</span><span class="o">-&gt;</span><span class="n">vm_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">VM_WRITE</span><span class="p">))</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EPERM</span><span class="p">;</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">        </span><span class="n">fault_flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">FAULT_FLAG_WRITE</span><span class="p">;</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end</span><span class="p">;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">)</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">handle_mm_fault</span><span class="p">(</span><span class="n">vma</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">fault_flags</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">            </span><span class="n">VM_FAULT_ERROR</span><span class="p">)</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EFAULT</span><span class="p">;</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span><span class="w">  </span><span class="c1">// ← 总是返回 EBUSY，让主循环重新遍历!</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="p">}</span>
 </code></pre></div>
 <p>注意：即使 <code>handle_mm_fault</code> 成功，也返回 <code>-EBUSY</code> 而非 0。这是因为 fault-in 后 CPU 页表已被修改，之前获取的锁和上下文可能已经释放（mmap_lock 可能在 <code>__handle_mm_fault</code> 中被 drop/reacquire），必须重新从头遍历以保证一致性。</p>
 <hr />
@@ -22396,84 +22487,84 @@
 <p>HMM 内核中最精妙的设计之一是对 DEVICE_PRIVATE 页面的处理。</p>
 <h3 id="pte-device_private">PTE 级别的 DEVICE_PRIVATE<a class="headerlink" href="#pte-device_private" title="Permanent link">&para;</a></h3>
 <p><code>hmm.c:260-275</code>：当 PTE 为 <code>!pte_present</code> 且 entry 类型为 DEVICE_PRIVATE 时：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1">// hmm.c:267-275</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_device_private</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="n">page_pgmap</span><span class="p">(</span><span class="n">softleaf_to_page</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span><span class="o">-&gt;</span><span class="n">owner</span><span class="w"> </span><span class="o">==</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">dev_private_owner</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="c1">// 这是调用者自己的 DEVICE_PRIVATE 页面</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="c1">// → 直接返回 PFN，零拷贝，不触发迁移！</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HMM_PFN_VALID</span><span class="p">;</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_device_private_write</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">        </span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">HMM_PFN_WRITE</span><span class="p">;</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="n">new_pfn_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">softleaf_to_pfn</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">cpu_flags</span><span class="p">;</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">    </span><span class="k">goto</span><span class="w"> </span><span class="n">out</span><span class="p">;</span>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1">// hmm.c:267-275</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_device_private</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="n">page_pgmap</span><span class="p">(</span><span class="n">softleaf_to_page</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span><span class="o">-&gt;</span><span class="n">owner</span><span class="w"> </span><span class="o">==</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">dev_private_owner</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="c1">// 这是调用者自己的 DEVICE_PRIVATE 页面</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span><span class="c1">// → 直接返回 PFN，零拷贝，不触发迁移！</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">    </span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HMM_PFN_VALID</span><span class="p">;</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_device_private_write</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">        </span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">HMM_PFN_WRITE</span><span class="p">;</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">    </span><span class="n">new_pfn_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">softleaf_to_pfn</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">cpu_flags</span><span class="p">;</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">    </span><span class="k">goto</span><span class="w"> </span><span class="n">out</span><span class="p">;</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="p">}</span>
 </code></pre></div>
 <p>如果该 DEVICE_PRIVATE 页面的 owner 与 <code>range-&gt;dev_private_owner</code> 匹配，HMM 直接返回 PFN 而不需要迁移。这意味着 GPU 驱动可以<strong>零拷贝</strong>访问自己已经在 GPU 内存中的页面。</p>
 <h3 id="pmd-device_private">PMD 级别的 DEVICE_PRIVATE<a class="headerlink" href="#pmd-device_private" title="Permanent link">&para;</a></h3>
 <p><code>hmm_vma_handle_absent_pmd</code>（<code>hmm.c:334-380</code>）处理 PMD 级别的 DEVICE_PRIVATE 条目（大页情况）：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1">// hmm.c:346-367</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_device_private</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="n">softleaf_to_folio</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">pgmap</span><span class="o">-&gt;</span><span class="n">owner</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">dev_private_owner</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HMM_PFN_VALID</span><span class="w"> </span><span class="o">|</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">        </span><span class="n">hmm_pfn_flags_order</span><span class="p">(</span><span class="n">PMD_SHIFT</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">PAGE_SHIFT</span><span class="p">);</span><span class="w">  </span><span class="c1">// 大页 order</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">pfn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">softleaf_to_pfn</span><span class="p">(</span><span class="n">entry</span><span class="p">);</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end</span><span class="p">;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">,</span><span class="w"> </span><span class="n">pfn</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">        </span><span class="n">hmm_pfns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="n">HMM_PFN_INOUT_FLAGS</span><span class="p">;</span>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">        </span><span class="n">hmm_pfns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">pfn</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">cpu_flags</span><span class="p">;</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1">// hmm.c:346-367</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">softleaf_is_device_private</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="n">softleaf_to_folio</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">pgmap</span><span class="o">-&gt;</span><span class="n">owner</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">range</span><span class="o">-&gt;</span><span class="n">dev_private_owner</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">cpu_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HMM_PFN_VALID</span><span class="w"> </span><span class="o">|</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">        </span><span class="n">hmm_pfn_flags_order</span><span class="p">(</span><span class="n">PMD_SHIFT</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">PAGE_SHIFT</span><span class="p">);</span><span class="w">  </span><span class="c1">// 大页 order</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">pfn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">softleaf_to_pfn</span><span class="p">(</span><span class="n">entry</span><span class="p">);</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end</span><span class="p">;</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">,</span><span class="w"> </span><span class="n">pfn</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">        </span><span class="n">hmm_pfns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="n">HMM_PFN_INOUT_FLAGS</span><span class="p">;</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">        </span><span class="n">hmm_pfns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">pfn</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">cpu_flags</span><span class="p">;</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="p">}</span>
 </code></pre></div>
 <p>PMD 级别的 DEVICE_PRIVATE 使用 <code>hmm_pfn_flags_order()</code> 编码 order 信息，GPU 驱动可以通过 <code>hmm_pfn_to_map_order()</code> 恢复原始的大页 order。</p>
 <hr />
 <h2 id="hmm_1">完整 HMM 遍历流程图<a class="headerlink" href="#hmm_1" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>hmm_range_fault(range)
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    │
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    ├── mmap_assert_locked(mm)                              // hmm.c:668
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    │
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    ▼
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    do {
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>        mmu_interval_check_retry? → -EBUSY                  // hmm.c:672
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>        │
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>        walk_page_range(mm, start, end, &amp;hmm_walk_ops)      // hmm.c:675
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>            │
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>            ├── test_walk: 过滤 VM_IO/VM_PFNMAP              // hmm.c:597
-<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>            │     └── 不过滤 → 返回 PFN_ERROR
-<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>            │
-<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>            ├── PGD/P4D/PUD 级别 (folded to pmd)
-<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>            │
-<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>            ├── .pud_entry = hmm_vma_walk_pud               // hmm.c:632
-<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>            │     └── pud_trans_huge → HMM_PFN_VALID + order
-<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>            │     └── !pud_present → hmm_vma_walk_hole
-<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>            │
-<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>            ├── .pmd_entry = hmm_vma_walk_pmd               // hmm.c:633 ★主路径
-<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>            │     │
-<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>            │     ├── pmd_none → hmm_vma_walk_hole
-<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a>            │     ├── pmd_migration → wait → -EBUSY
-<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a>            │     ├── !pmd_present → hmm_vma_handle_absent_pmd
-<a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a>            │     │     └── DEVICE_PRIVATE(own) → PFN 直接返回
-<a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a>            │     │     └── 其他 → fault 或 ERROR
-<a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>            │     ├── pmd_trans_huge → hmm_vma_handle_pmd
-<a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a>            │     │     └── 大页 PFN + order
-<a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a>            │     └── 正常 PTE 表
-<a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a>            │           └── for each PTE:                    // hmm.c:460
-<a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a>            │                 hmm_vma_handle_pte()           // hmm.c:235
-<a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a>            │                   ├── pte_none → fault? 或 0
-<a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a>            │                   ├── DEVICE_PRIVATE(own) → PFN
-<a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a>            │                   ├── swap → fault
-<a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a>            │                   ├── migration → wait → -EBUSY
-<a id="__codelineno-12-36" name="__codelineno-12-36" href="#__codelineno-12-36"></a>            │                   └── present → PFN + flags
-<a id="__codelineno-12-37" name="__codelineno-12-37" href="#__codelineno-12-37"></a>            │
-<a id="__codelineno-12-38" name="__codelineno-12-38" href="#__codelineno-12-38"></a>            ├── .pte_hole = hmm_vma_walk_hole               // hmm.c:634
-<a id="__codelineno-12-39" name="__codelineno-12-39" href="#__codelineno-12-39"></a>            │     └── need_fault? → hmm_vma_fault → -EBUSY
-<a id="__codelineno-12-40" name="__codelineno-12-40" href="#__codelineno-12-40"></a>            │
-<a id="__codelineno-12-41" name="__codelineno-12-41" href="#__codelineno-12-41"></a>            └── .hugetlb_entry                              // hmm.c:635
-<a id="__codelineno-12-42" name="__codelineno-12-42" href="#__codelineno-12-42"></a>                  └── need_fault? → fault 或 direct PFN
-<a id="__codelineno-12-43" name="__codelineno-12-43" href="#__codelineno-12-43"></a>    } while (ret == -EBUSY);                                // hmm.c:683
-<a id="__codelineno-12-44" name="__codelineno-12-44" href="#__codelineno-12-44"></a>
-<a id="__codelineno-12-45" name="__codelineno-12-45" href="#__codelineno-12-45"></a>    return 0;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>hmm_range_fault(range)
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    │
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    ├── mmap_assert_locked(mm)                              // hmm.c:668
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    │
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    ▼
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>    do {
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>        mmu_interval_check_retry? → -EBUSY                  // hmm.c:672
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>        │
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>        walk_page_range(mm, start, end, &amp;hmm_walk_ops)      // hmm.c:675
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>            │
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>            ├── test_walk: 过滤 VM_IO/VM_PFNMAP              // hmm.c:597
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>            │     └── 不过滤 → 返回 PFN_ERROR
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>            │
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>            ├── PGD/P4D/PUD 级别 (folded to pmd)
+<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a>            │
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a>            ├── .pud_entry = hmm_vma_walk_pud               // hmm.c:632
+<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a>            │     └── pud_trans_huge → HMM_PFN_VALID + order
+<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>            │     └── !pud_present → hmm_vma_walk_hole
+<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a>            │
+<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a>            ├── .pmd_entry = hmm_vma_walk_pmd               // hmm.c:633 ★主路径
+<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a>            │     │
+<a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a>            │     ├── pmd_none → hmm_vma_walk_hole
+<a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a>            │     ├── pmd_migration → wait → -EBUSY
+<a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a>            │     ├── !pmd_present → hmm_vma_handle_absent_pmd
+<a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a>            │     │     └── DEVICE_PRIVATE(own) → PFN 直接返回
+<a id="__codelineno-15-26" name="__codelineno-15-26" href="#__codelineno-15-26"></a>            │     │     └── 其他 → fault 或 ERROR
+<a id="__codelineno-15-27" name="__codelineno-15-27" href="#__codelineno-15-27"></a>            │     ├── pmd_trans_huge → hmm_vma_handle_pmd
+<a id="__codelineno-15-28" name="__codelineno-15-28" href="#__codelineno-15-28"></a>            │     │     └── 大页 PFN + order
+<a id="__codelineno-15-29" name="__codelineno-15-29" href="#__codelineno-15-29"></a>            │     └── 正常 PTE 表
+<a id="__codelineno-15-30" name="__codelineno-15-30" href="#__codelineno-15-30"></a>            │           └── for each PTE:                    // hmm.c:460
+<a id="__codelineno-15-31" name="__codelineno-15-31" href="#__codelineno-15-31"></a>            │                 hmm_vma_handle_pte()           // hmm.c:235
+<a id="__codelineno-15-32" name="__codelineno-15-32" href="#__codelineno-15-32"></a>            │                   ├── pte_none → fault? 或 0
+<a id="__codelineno-15-33" name="__codelineno-15-33" href="#__codelineno-15-33"></a>            │                   ├── DEVICE_PRIVATE(own) → PFN
+<a id="__codelineno-15-34" name="__codelineno-15-34" href="#__codelineno-15-34"></a>            │                   ├── swap → fault
+<a id="__codelineno-15-35" name="__codelineno-15-35" href="#__codelineno-15-35"></a>            │                   ├── migration → wait → -EBUSY
+<a id="__codelineno-15-36" name="__codelineno-15-36" href="#__codelineno-15-36"></a>            │                   └── present → PFN + flags
+<a id="__codelineno-15-37" name="__codelineno-15-37" href="#__codelineno-15-37"></a>            │
+<a id="__codelineno-15-38" name="__codelineno-15-38" href="#__codelineno-15-38"></a>            ├── .pte_hole = hmm_vma_walk_hole               // hmm.c:634
+<a id="__codelineno-15-39" name="__codelineno-15-39" href="#__codelineno-15-39"></a>            │     └── need_fault? → hmm_vma_fault → -EBUSY
+<a id="__codelineno-15-40" name="__codelineno-15-40" href="#__codelineno-15-40"></a>            │
+<a id="__codelineno-15-41" name="__codelineno-15-41" href="#__codelineno-15-41"></a>            └── .hugetlb_entry                              // hmm.c:635
+<a id="__codelineno-15-42" name="__codelineno-15-42" href="#__codelineno-15-42"></a>                  └── need_fault? → fault 或 direct PFN
+<a id="__codelineno-15-43" name="__codelineno-15-43" href="#__codelineno-15-43"></a>    } while (ret == -EBUSY);                                // hmm.c:683
+<a id="__codelineno-15-44" name="__codelineno-15-44" href="#__codelineno-15-44"></a>
+<a id="__codelineno-15-45" name="__codelineno-15-45" href="#__codelineno-15-45"></a>    return 0;
 </code></pre></div>
 <h2 id="_1">总结<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
 <p>HMM 通过 <code>walk_page_range</code>（<code>hmm.c:675</code>）+ <code>hmm_walk_ops</code>（<code>hmm.c:631-638</code>）建立了一个只读的 CPU 页表遍历框架。其核心价值在于：</p>

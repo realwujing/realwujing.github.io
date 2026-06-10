@@ -7267,6 +7267,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="8. 配置依赖">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#9-pri" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. PRI 请求分组与生命周期
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -22326,6 +22343,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="8. 配置依赖">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#9-pri" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. PRI 请求分组与生命周期
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -22900,6 +22934,37 @@
 <p>验证方法：
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>grep<span class="w"> </span>CONFIG_ARM_SMMU_V3_SVA<span class="w"> </span>/boot/config-<span class="k">$(</span>uname<span class="w"> </span>-r<span class="k">)</span>
 </code></pre></div></p>
+<h3 id="9-pri">9. PRI 请求分组与生命周期<a class="headerlink" href="#9-pri" title="Permanent link">&para;</a></h3>
+<p>PRI 请求不是孤立的——硬件可能将同一事务的多次缺页请求分组，<code>grpid</code>（Page Request Group ID）就是组的标识。</p>
+<p><strong>Partial faults 的累积</strong>（<code>io-pgfault.c:63-79</code>）：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">report_partial_fault</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">iommu_fault_param</span><span class="w"> </span><span class="o">*</span><span class="n">fault_param</span><span class="p">,</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">                                </span><span class="k">struct</span><span class="w"> </span><span class="nc">iommu_fault</span><span class="w"> </span><span class="o">*</span><span class="n">fault</span><span class="p">)</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="p">{</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">iopf_fault</span><span class="w"> </span><span class="o">*</span><span class="n">iopf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">container_of</span><span class="p">(</span><span class="n">fault</span><span class="p">,</span><span class="w"> </span><span class="p">...);</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">    </span><span class="n">list_add_tail</span><span class="p">(</span><span class="o">&amp;</span><span class="n">iopf</span><span class="o">-&gt;</span><span class="n">list</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">fault_param</span><span class="o">-&gt;</span><span class="n">partial</span><span class="p">);</span><span class="w">  </span><span class="c1">// line 73</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>LAST_PAGE</code> 标志（<code>iommu.h:77</code>）触发组完成：
+- 阶段 1：硬件报告 Page Request，<code>LAST_PAGE=0</code> → <code>report_partial_fault</code> 暂存到 <code>fault_param-&gt;partial</code> 链表
+- 阶段 2：硬件报告 <code>LAST_PAGE=1</code> → <code>iopf_group_alloc</code>（<code>io-pgfault.c:81-116</code>）将同 <code>grpid</code> 的所有 partial faults 汇入 <code>iopf_group.faults</code> 链表
+- 阶段 3：<code>domain-&gt;iopf_handler(group)</code>（<code>io-pgfault.c:262</code>）处理整个 group
+- 阶段 4：<code>iopf_group_response</code> → <code>ops-&gt;page_response</code> → <code>arm_smmu_page_response</code> → CMDQ RESUME</p>
+<p><strong>PASID 生命周期</strong>：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>进程创建 → pci_enable_pasid(pdev, features)   // ats.c:395
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>         → iommu_attach_device_pasid()
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>         → SMMU 分配 CD entry
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>         → arm_smmu_s1_set_dev_pasid()        // arm-smmu-v3.c 写 CD 表
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>GPU 缺页  → PRI Page Request 带 PASID
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>         → IOPF 框架按 PASID 查 attach_handle
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>         → 找到对应进程的 domain + iopf_handler
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>进程销毁 → iommu_detach_device_pasid()
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>         → arm_smmu_disable_iopf()            // refcount--, 可能移除 queue
+<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>         → pci_disable_pasid(pdev)            // ats.c:444
+</code></pre></div>
+<p>PASID 本质上就是 SMMU 的 SSID（Substream ID），让一个物理 PCIe 设备（GPU）同时服务多个进程的地址空间。<code>arm_smmu_master.ssid_bits</code>（<code>arm-smmu-v3.h:946</code>）表示硬件支持的 SSID 位数，决定了最多 PASID 数（<code>2^ssid_bits</code>）。</p>
 <hr />
 <h2 id="_1">下一篇文章<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
 <p><a href="../05-soc-timing/">第5篇：SoC 统一内存完整时序 — 从 GPU 缺页到页表填充</a></p>

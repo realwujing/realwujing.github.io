@@ -7026,6 +7026,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#do_translation_fault-vs-do_page_fault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        do_translation_fault vs do_page_fault — 本质区别
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -22047,6 +22058,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#do_translation_fault-vs-do_page_fault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        do_translation_fault vs do_page_fault — 本质区别
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -22375,93 +22397,135 @@
 - <strong>FSC 0x04-0x07</strong> → translation fault → <code>do_translation_fault</code> → <code>do_page_fault</code>（无 PTE 存在）
 - <strong>FSC 0x08-0x0B</strong> → access flag fault → <code>do_page_fault</code>（PTE 存在但 AF=0，MMU 硬件未置位因为 OS 清过）
 - <strong>FSC 0x0C-0x0F</strong> → permission fault → <code>do_page_fault</code>（权限不匹配：写只读页、执行 NX 页等）</p>
+<h3 id="do_translation_fault-vs-do_page_fault">do_translation_fault vs do_page_fault — 本质区别<a class="headerlink" href="#do_translation_fault-vs-do_page_fault" title="Permanent link">&para;</a></h3>
+<p>这两个 handler 是 ARM64 缺页处理中最容易混淆的概念：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// fault.c:833-844 — do_translation_fault 是一个轻量包装</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__kprobes</span><span class="w"> </span><span class="nf">do_translation_fault</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">far</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">                                          </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">esr</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">                                          </span><span class="k">struct</span><span class="w"> </span><span class="nc">pt_regs</span><span class="w"> </span><span class="o">*</span><span class="n">regs</span><span class="p">)</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="p">{</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">untagged_addr</span><span class="p">(</span><span class="n">far</span><span class="p">);</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">is_ttbr0_addr</span><span class="p">(</span><span class="n">addr</span><span class="p">))</span><span class="w">           </span><span class="c1">// ← 用户态地址？</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">do_page_fault</span><span class="p">(</span><span class="n">far</span><span class="p">,</span><span class="w"> </span><span class="n">esr</span><span class="p">,</span><span class="w"> </span><span class="n">regs</span><span class="p">);</span><span class="w">  </span><span class="c1">// 转给 do_page_fault</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="n">do_bad_area</span><span class="p">(</span><span class="n">far</span><span class="p">,</span><span class="w"> </span><span class="n">esr</span><span class="p">,</span><span class="w"> </span><span class="n">regs</span><span class="p">);</span><span class="w">       </span><span class="c1">// 内核地址+translation fault→kill</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>do_translation_fault</code> <strong>只是一个门卫</strong>，它不是在处理 translation fault，而是在判断 <strong>谁发的</strong>：
+- 用户态地址（TTBR0，<code>is_ttbr0_addr</code>）→ 转给 <code>do_page_fault</code>，正常缺页
+- 内核态地址（TTBR1）→ 直接 <code>do_bad_area</code>，kill 进程</p>
+<p>而 <code>do_page_fault</code>（<code>fault.c:596</code>）才是真正干活的那个——分配 <code>vm_flags</code>、查 VMA、调用 <code>handle_mm_fault</code>。</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">// fault.c:654-662 — kernel uaccess 检查</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">is_ttbr0_addr</span><span class="p">(</span><span class="n">addr</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">is_el1_permission_fault</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">esr</span><span class="p">,</span><span class="w"> </span><span class="n">regs</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">is_el1_instruction_abort</span><span class="p">(</span><span class="n">esr</span><span class="p">))</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">        </span><span class="n">die_kernel_fault</span><span class="p">(</span><span class="s">&quot;execution of user memory&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">esr</span><span class="p">,</span><span class="w"> </span><span class="n">regs</span><span class="p">);</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">insn_may_access_user</span><span class="p">(</span><span class="n">regs</span><span class="o">-&gt;</span><span class="n">pc</span><span class="p">,</span><span class="w"> </span><span class="n">esr</span><span class="p">))</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">        </span><span class="n">die_kernel_fault</span><span class="p">(</span><span class="s">&quot;access to user memory outside uaccess routines&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">                         </span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">esr</span><span class="p">,</span><span class="w"> </span><span class="n">regs</span><span class="p">);</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="p">}</span>
+</code></pre></div>
+<p>为什么需要这种区分？ARM64 的 TTBR0_EL1 指向用户态页表，TTBR1_EL1 指向内核态页表。如果内核代码访问用户态地址时没走 <code>copy_from_user</code> 等安全路径，就需要 <code>die_kernel_fault</code> 而不是静默处理。</p>
+<p><strong>signal code 的区别</strong>也值得注意（<code>fault.c:908-924</code>）：
+- translation fault → <code>SEGV_MAPERR</code>：<strong>页根本不存在</strong>（<code>fault.c:913-916</code>）
+- access flag / permission fault → <code>SEGV_ACCERR</code>：<strong>页存在但不允许访问</strong>（<code>fault.c:917-924</code>）</p>
+<p>这两个信号码和 VMA 的存在性检测形成闭环（<code>fault.c:687-735</code>）：
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">// fault.c:687 — 查 VMA 权限</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">vma</span><span class="o">-&gt;</span><span class="n">vm_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">vm_flags</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="n">si_code</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SEGV_ACCERR</span><span class="p">;</span><span class="w">      </span><span class="c1">// VMA 存在但权限不匹配</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="p">...</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">}</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="c1">// fault.c:728 — VMA 不存在</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">si_code</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SEGV_MAPERR</span><span class="p">;</span><span class="w">          </span><span class="c1">// 根本没有 VMA</span>
+</code></pre></div></p>
 <h3 id="_4">调用链详解<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>异常入口（硬件）
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>  │
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  ▼
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>do_mem_abort(far, esr, regs)                      // fault.c:975
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>  │ esr_to_fault_info(esr) → fault_info[index]     // fault.c:58-60
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>  │ inf-&gt;fn(far, esr, regs)                        // 分发到具体 handler
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>  │
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>  ├── do_translation_fault (FSC=4-7)               // fault.c:833
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>  │     └── do_page_fault                          // fault.c:596
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>  │
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>  └── do_page_fault (FSC=8-15)                     // fault.c:596
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>        │
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        │ 1. 根据 ESR 解析 fault 类型：
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        │    - is_el0_instruction_abort → vm_flags=VM_EXEC
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>        │    - is_write_abort           → vm_flags=VM_WRITE
-<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>        │    - else                     → vm_flags=VM_READ
-<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>        │ 2. user_mode? → FAULT_FLAG_USER
-<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>        │ 3. lock_vma_under_rcu() or lock_mm_and_find_vma()
-<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>        │
-<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>        ├── handle_mm_fault(vma, addr, flags, regs)   // memory.c:6699
-<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>        │     │
-<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>        │     ├── sanitize_fault_flags()
-<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>        │     ├── arch_vma_access_permitted() 检查
-<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>        │     ├── hugetlb? → hugetlb_fault()
-<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>        │     └── else → __handle_mm_fault(vma, addr, flags)  // memory.c:6465
-<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>        │           │
-<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>        │           ├── pgd_offset(mm, addr)  — 从 mm-&gt;pgd 计算 PGD 入口
-<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>        │           ├── p4d_alloc(mm, pgd, addr)  — 分配 P4D（如果折叠则为 no-op）
-<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>        │           ├── pud_alloc(mm, p4d, addr)  — 分配 PUD
-<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a>        │           ├── 检查 PUD 大页 (create_huge_pud/pud_trans_huge)
-<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a>        │           ├── pmd_alloc(mm, pud, addr)  — 分配 PMD
-<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>        │           ├── 检查 PMD 大页 (create_huge_pmd/pmd_trans_huge)
-<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>        │           └── handle_pte_fault(vmf)          // memory.c:6383
-<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a>        │                 │
-<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a>        │                 ├── pte_none? → do_pte_missing(vmf)     // 缺页分配
-<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>        │                 ├── !pte_present? → do_swap_page(vmf)   // Swap in
-<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a>        │                 ├── pte_protnone? → do_numa_page(vmf)   // NUMA 迁移
-<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a>        │                 └── FAULT_FLAG_WRITE &amp;&amp; !pte_write?
-<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a>        │                       → do_wp_page(vmf)                  // 写时复制
-<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a>        │
-<a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a>        └── 返回后: 检查 VM_FAULT_RETRY，处理信号
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>异常入口（硬件）
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>  │
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>  ▼
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>do_mem_abort(far, esr, regs)                      // fault.c:975
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>  │ esr_to_fault_info(esr) → fault_info[index]     // fault.c:58-60
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>  │ inf-&gt;fn(far, esr, regs)                        // 分发到具体 handler
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>  │
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>  ├── do_translation_fault (FSC=4-7)               // fault.c:833
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>  │     └── do_page_fault                          // fault.c:596
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>  │
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>  └── do_page_fault (FSC=8-15)                     // fault.c:596
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>        │
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>        │ 1. 根据 ESR 解析 fault 类型：
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>        │    - is_el0_instruction_abort → vm_flags=VM_EXEC
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>        │    - is_write_abort           → vm_flags=VM_WRITE
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>        │    - else                     → vm_flags=VM_READ
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>        │ 2. user_mode? → FAULT_FLAG_USER
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>        │ 3. lock_vma_under_rcu() or lock_mm_and_find_vma()
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>        │
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>        ├── handle_mm_fault(vma, addr, flags, regs)   // memory.c:6699
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>        │     │
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>        │     ├── sanitize_fault_flags()
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>        │     ├── arch_vma_access_permitted() 检查
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>        │     ├── hugetlb? → hugetlb_fault()
+<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a>        │     └── else → __handle_mm_fault(vma, addr, flags)  // memory.c:6465
+<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a>        │           │
+<a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a>        │           ├── pgd_offset(mm, addr)  — 从 mm-&gt;pgd 计算 PGD 入口
+<a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a>        │           ├── p4d_alloc(mm, pgd, addr)  — 分配 P4D（如果折叠则为 no-op）
+<a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a>        │           ├── pud_alloc(mm, p4d, addr)  — 分配 PUD
+<a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a>        │           ├── 检查 PUD 大页 (create_huge_pud/pud_trans_huge)
+<a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a>        │           ├── pmd_alloc(mm, pud, addr)  — 分配 PMD
+<a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a>        │           ├── 检查 PMD 大页 (create_huge_pmd/pmd_trans_huge)
+<a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a>        │           └── handle_pte_fault(vmf)          // memory.c:6383
+<a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a>        │                 │
+<a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a>        │                 ├── pte_none? → do_pte_missing(vmf)     // 缺页分配
+<a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a>        │                 ├── !pte_present? → do_swap_page(vmf)   // Swap in
+<a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a>        │                 ├── pte_protnone? → do_numa_page(vmf)   // NUMA 迁移
+<a id="__codelineno-10-38" name="__codelineno-10-38" href="#__codelineno-10-38"></a>        │                 └── FAULT_FLAG_WRITE &amp;&amp; !pte_write?
+<a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a>        │                       → do_wp_page(vmf)                  // 写时复制
+<a id="__codelineno-10-40" name="__codelineno-10-40" href="#__codelineno-10-40"></a>        │
+<a id="__codelineno-10-41" name="__codelineno-10-41" href="#__codelineno-10-41"></a>        └── 返回后: 检查 VM_FAULT_RETRY，处理信号
 </code></pre></div>
 <h2 id="_5">完整页表遍历示意<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>                    ┌──────────────────────────────────────────────────────┐
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>                    │               Virtual Address (48-bit)                │
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>                    │   [47:39]  [38:30]  [29:21]  [20:12]    [11:0]      │
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>                    │    L0 idx   L1 idx   L2 idx   L3 idx    offset       │
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>                    │    9 bits   9 bits   9 bits   9 bits    12 bits      │
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>                    └──────┬───────┬───────┬───────┬───────────┬───────────┘
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>                           │       │       │       │           │
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    ┌──────────────────────┘       │       │       │           │
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    ▼                              │       │       │           │
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>┌─────────┐  TTBR0_EL1            │       │       │           │
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>│ mm-&gt;pgd │──────────────────────┐ │       │       │           │
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>│ (line   │    PGD[L0] ──► ┌─────▼─┐     │       │           │
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>│  1199)  │                │  PUD  │     │       │           │
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>└─────────┘                │table  │     │       │           │
-<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>                           │       │     │       │           │
-<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>                           │PUD    │     │       │           │
-<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>                           │[L1]───┼──┐  │       │           │
-<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>                           └───────┘ │  │       │           │
-<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>                                     │  │       │           │
-<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>                                     ▼  │       │           │
-<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>                                 ┌───────┐     │           │
-<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>                                 │  PMD  │     │           │
-<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>                                 │ table │     │           │
-<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>                                 │       │     │           │
-<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>                                 │PMD    │     │           │
-<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a>                                 │[L2]───┼──┐  │           │
-<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>                                 └───────┘ │  │           │
-<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a>                                           │  │           │
-<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a>                                           ▼  │           │
-<a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a>                                       ┌───────┐         │
-<a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a>                                       │  PTE  │         │
-<a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a>                                       │ table │         │
-<a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a>                                       │       │         │
-<a id="__codelineno-8-34" name="__codelineno-8-34" href="#__codelineno-8-34"></a>                                       │PTE    │         │
-<a id="__codelineno-8-35" name="__codelineno-8-35" href="#__codelineno-8-35"></a>                                       │[L3]───┼──┐      │
-<a id="__codelineno-8-36" name="__codelineno-8-36" href="#__codelineno-8-36"></a>                                       └───────┘ │      │
-<a id="__codelineno-8-37" name="__codelineno-8-37" href="#__codelineno-8-37"></a>                                                 │      │
-<a id="__codelineno-8-38" name="__codelineno-8-38" href="#__codelineno-8-38"></a>                                                 ▼      ▼
-<a id="__codelineno-8-39" name="__codelineno-8-39" href="#__codelineno-8-39"></a>                                            ┌──────────────┐
-<a id="__codelineno-8-40" name="__codelineno-8-40" href="#__codelineno-8-40"></a>                                            │  Physical    │
-<a id="__codelineno-8-41" name="__codelineno-8-41" href="#__codelineno-8-41"></a>                                            │  Page Frame  │
-<a id="__codelineno-8-42" name="__codelineno-8-42" href="#__codelineno-8-42"></a>                                            │  (4KB)       │
-<a id="__codelineno-8-43" name="__codelineno-8-43" href="#__codelineno-8-43"></a>                                            └──────────────┘
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>                    ┌──────────────────────────────────────────────────────┐
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>                    │               Virtual Address (48-bit)                │
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>                    │   [47:39]  [38:30]  [29:21]  [20:12]    [11:0]      │
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>                    │    L0 idx   L1 idx   L2 idx   L3 idx    offset       │
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>                    │    9 bits   9 bits   9 bits   9 bits    12 bits      │
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>                    └──────┬───────┬───────┬───────┬───────────┬───────────┘
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>                           │       │       │       │           │
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    ┌──────────────────────┘       │       │       │           │
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>    ▼                              │       │       │           │
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>┌─────────┐  TTBR0_EL1            │       │       │           │
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>│ mm-&gt;pgd │──────────────────────┐ │       │       │           │
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>│ (line   │    PGD[L0] ──► ┌─────▼─┐     │       │           │
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>│  1199)  │                │  PUD  │     │       │           │
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>└─────────┘                │table  │     │       │           │
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>                           │       │     │       │           │
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>                           │PUD    │     │       │           │
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>                           │[L1]───┼──┐  │       │           │
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>                           └───────┘ │  │       │           │
+<a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>                                     │  │       │           │
+<a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>                                     ▼  │       │           │
+<a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>                                 ┌───────┐     │           │
+<a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>                                 │  PMD  │     │           │
+<a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a>                                 │ table │     │           │
+<a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a>                                 │       │     │           │
+<a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a>                                 │PMD    │     │           │
+<a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a>                                 │[L2]───┼──┐  │           │
+<a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a>                                 └───────┘ │  │           │
+<a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a>                                           │  │           │
+<a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a>                                           ▼  │           │
+<a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a>                                       ┌───────┐         │
+<a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a>                                       │  PTE  │         │
+<a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a>                                       │ table │         │
+<a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a>                                       │       │         │
+<a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a>                                       │PTE    │         │
+<a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a>                                       │[L3]───┼──┐      │
+<a id="__codelineno-11-36" name="__codelineno-11-36" href="#__codelineno-11-36"></a>                                       └───────┘ │      │
+<a id="__codelineno-11-37" name="__codelineno-11-37" href="#__codelineno-11-37"></a>                                                 │      │
+<a id="__codelineno-11-38" name="__codelineno-11-38" href="#__codelineno-11-38"></a>                                                 ▼      ▼
+<a id="__codelineno-11-39" name="__codelineno-11-39" href="#__codelineno-11-39"></a>                                            ┌──────────────┐
+<a id="__codelineno-11-40" name="__codelineno-11-40" href="#__codelineno-11-40"></a>                                            │  Physical    │
+<a id="__codelineno-11-41" name="__codelineno-11-41" href="#__codelineno-11-41"></a>                                            │  Page Frame  │
+<a id="__codelineno-11-42" name="__codelineno-11-42" href="#__codelineno-11-42"></a>                                            │  (4KB)       │
+<a id="__codelineno-11-43" name="__codelineno-11-43" href="#__codelineno-11-43"></a>                                            └──────────────┘
 </code></pre></div>
 <p>每条 PGD/PUD/PMD/PTE entry 占用 64 bits。低 <code>PTDESC_TABLE_SHIFT</code>（9 或与页大小相关）位作为 flags，高位存放下一级页表的物理地址。</p>
 <p><strong>块映射快捷路径</strong>：当 PMD 入口配置为 <code>PMD_TYPE_SECT</code> 时，跳过 PTE 级，直接映射 2MB 大页。</p>

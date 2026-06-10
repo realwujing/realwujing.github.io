@@ -7136,6 +7136,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#event-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event ID 详解
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#smmu-stall" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SMMU stall 模式的两种子模式
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -22156,6 +22178,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#event-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event ID 详解
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#smmu-stall" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SMMU stall 模式的两种子模式
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -22598,6 +22642,56 @@
 - <code>EVT_ID_TRANSLATION_FAULT</code> ↔ CPU translation fault（<code>fault.c:913-916</code>）
 - <code>EVT_ID_ACCESS_FAULT</code> ↔ CPU access flag fault（<code>fault.c:917-920</code>）
 - <code>EVT_ID_PERMISSION_FAULT</code> ↔ CPU permission fault（<code>fault.c:921-924</code>）</p>
+<h3 id="event-id">Event ID 详解<a class="headerlink" href="#event-id" title="Permanent link">&para;</a></h3>
+<p>SMMUv3 定义了完整的事件类型码（<code>arm-smmu-v3.h</code> 中定义，<code>arm-smmu-v3.c:2136-2201</code> 中处理）：</p>
+<table>
+<thead>
+<tr>
+<th>Event ID</th>
+<th>宏</th>
+<th>CPU 等价</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0x10</td>
+<td><code>EVT_ID_TRANSLATION_FAULT</code></td>
+<td>FSC 0x04-0x07</td>
+<td>IOVA 对应页表项不存在（从未映射或已 unmap）</td>
+</tr>
+<tr>
+<td>0x11</td>
+<td><code>EVT_ID_ADDR_SIZE_FAULT</code></td>
+<td>FSC 0x00-0x03</td>
+<td>IOVA 超出 IAS（Input Address Size）范围</td>
+</tr>
+<tr>
+<td>0x12</td>
+<td><code>EVT_ID_ACCESS_FAULT</code></td>
+<td>FSC 0x08-0x0B</td>
+<td>PTE.AF=0，Access Flag 未置位</td>
+</tr>
+<tr>
+<td>0x13</td>
+<td><code>EVT_ID_PERMISSION_FAULT</code></td>
+<td>FSC 0x0C-0x0F</td>
+<td>PTE 权限位不满足请求（如写只读页）</td>
+</tr>
+</tbody>
+</table>
+<p>与 CPU 缺页的对应关系：
+- <code>EVT_ID_TRANSLATION_FAULT</code> (0x10) ≈ CPU <code>pte_none</code>，<code>fault_info</code> 派发给 <code>do_translation_fault</code>，最后走到 <code>do_page_fault</code> → <code>handle_mm_fault</code> → <code>__handle_mm_fault</code> → <code>handle_pte_fault</code> → <code>do_pte_missing</code>
+- <code>EVT_ID_ACCESS_FAULT</code> (0x12) ≈ CPU <code>PTE_AF=0</code>，<code>fault_info</code> 派发给 <code>do_page_fault</code>，<code>handle_pte_fault</code> 走 <code>ptep_set_access_flags</code> 路径
+- <code>EVT_ID_PERMISSION_FAULT</code> (0x13) ≈ CPU <code>FAULT_FLAG_WRITE &amp;&amp; !pte_write</code>，<code>handle_pte_fault</code> 走 <code>do_wp_page</code>（写时复制）</p>
+<p>关键差异：CPU 缺页路径直接由 <code>handle_mm_fault</code> 修页表后 retry 指令；SMMU 路径需要通过 IOPF 框架异步发送 Page Response，SMMU 发 CMDQ_RESUME 才能让 GPU 重试。</p>
+<h3 id="smmu-stall">SMMU stall 模式的两种子模式<a class="headerlink" href="#smmu-stall" title="Permanent link">&para;</a></h3>
+<p><code>arm_smmu_handle_event</code>（<code>arm-smmu-v3.c:2136</code>）在 <code>event-&gt;stall</code> 为真时才构造 <code>iommu_fault_page_request</code>（line 2159）：</p>
+<ul>
+<li><strong>Stall 模式</strong>：SMMU 暂停出错的设备事务，等待 OS 响应 RESUME 命令。IOPF 框架依赖此模式</li>
+<li><strong>Non-stall（Abort）模式</strong>：SMMU 直接终止事务，返回 abort 给 GPU。无需 IOPF</li>
+</ul>
+<p>Stall 模式是 <code>CONFIG_ARM_SMMU_V3_SVA</code> 支持的前提（<code>arm-smmu-v3.c:3174</code>）。<code>arm_smmu_master.stall_enabled</code>（<code>arm-smmu-v3.h:945</code>）标志设备是否配置为 stall 模式。</p>
 <hr />
 <h2 id="cpu-vs-smmu">CPU 页表 vs SMMU 页表对比<a class="headerlink" href="#cpu-vs-smmu" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>╔═══════════════════════════════════════════════════════════════╗
