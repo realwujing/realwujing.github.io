@@ -592,44 +592,45 @@ PCIe 链路本身也有独立的电源状态（`pci_regs.h:531` 的 LnkCap 位 [
 
 ## 8. PCIe 拓扑全景图
 
+PCIe 拓扑中只有**三种角色**：
+
+| 角色 | 内核 Type | 做什么 | 典型实体 |
+|------|----------|--------|---------|
+| **Root Complex** | — | CPU 侧的 PCIe 入口，把 CPU 的内存/IO 请求翻译成 TLP 包 | 集成在 CPU die 内 |
+| **Switch** | Type 5(US)+Type 6(DS) | 数据包"分路器"，上行口收→根据地址路由到下行口 | PCIe Switch 芯片 |
+| **Endpoint** | Type 0 | 叶节点，不转发，只产生/消费数据 | GPU、NVMe、NIC |
+
 ```
-                    ┌─────────────────────────┐
-  CPU ←── QPI ──→   │     Root Complex (RC)     │
-  /DRAM             │   ┌───────────────────┐   │
-                    │   │  Root Port (Type 4)│   │ ← PCI_EXP_TYPE_ROOT_PORT
-                    │   │  Bus 0, Dev 0, Fn 0│   │
-                    │   └────────┬──────────┘   │
-                    └────────────┼──────────────┘
-                                 │ PCIe Link (x16, Gen5 32GT/s)
-                                 │
-                    ┌────────────┼──────────────┐
-                    │   ┌────────▼──────────┐   │
-                    │   │ Upstream Port     │   │ ← PCI_EXP_TYPE_UPSTREAM
-                    │   │ (Type 5)          │   │
-                    │   └──┬────────────┬──┘   │
-                    │      │  Switch    │       │    ← PCIe Switch
-                    │   ┌──▼────┐  ┌────▼──┐   │
-                    │   │ Down  │  │ Down  │   │    ← PCI_EXP_TYPE_DOWNSTREAM
-                    │   │ Port  │  │ Port  │   │
-                    │   │ (T6)  │  │ (T6)  │   │
-                    │   └──┬───┘  └───┬───┘   │
-                    └──────┼───────────┼───────┘
-                           │           │
-              ┌────────────▼──┐  ┌─────▼────────────┐
-              │ GPU (Type 0)  │  │ NVMe SSD (Type 0) │  ← PCI_EXP_TYPE_ENDPOINT
-              │ 10DE:2684     │  │ 144D:A80A         │
-              │ PCI_CLASS=0x03│  │ PCI_CLASS=0x01    │
-              │ BAR0: 256MB   │  │ BAR0:  16KB       │
-              │ BAR3: 32MB    │  └───────────────────┘
-              │ ReBAR: 16GB   │
-              └───────────────┘
+                    ┌─────────────────────────────────┐
+                    │         Root Complex (RC)        │  ← 拓扑根，集成在 CPU 内
+                    │   ┌──────────┐  ┌──────────┐    │
+                    │   │Root Port │  │Root Port │    │
+                    │   │ (Type 4) │  │ (Type 4) │    │
+                    │   └────┬─────┘  └────┬─────┘    │
+                    └────────┼─────────────┼──────────┘
+                             │ PCIe Link   │
+                             │             │
+                    ┌────────┼─────────────┼──────────┐
+                    │  ┌─────▼──────┐      │          │  ← Switch 分路器
+                    │  │ Upstream   │      │          │
+                    │  │ Port(T5)   │      │          │
+                    │  └──┬─────┬───┘      │          │
+                    │  ┌──▼──┐┌──▼──┐      │          │
+                    │  │Down ││Down │      │          │
+                    │  │Port ││Port │      │          │
+                    │  │(T6) ││(T6) │      │          │
+                    │  └──┬──┘└──┬──┘      │          │
+                    └─────┼──────┼─────────┘          │
+                          │      │      直连 EP(无Switch)
+               ┌──────────▼┐  ┌──▼──────────┐  ┌─────▼──────────┐
+               │ GPU (T0)  │  │ NVMe (T0)   │  │ NIC (T0)       │
+               │ EP #1     │  │ EP #2       │  │ 直连 Root Port │
+               └───────────┘  └─────────────┘  └────────────────┘
 ```
 
-在 Linux 内核中：
-- Type 0 (Endpoint)：普通的 `pci_dev`，由设备驱动接管（如 `amdgpu`、`nvme`）
-- Type 4 (Root Port)：由 `pcieport` 驱动接管，向下注册 AER/HP/PME/DPC 服务
-- Type 6 (Downstream Port)：同样由 `pcieport` 接管
-- Type 5 (Upstream Port)：只注册 PME 服务
+**CPU 如何一步步发现 GPU**：加电 → 链路训练（~100ms，协商 Gen 速度和 Lane 宽度）→ Root Port 检测到设备在位 → 内核枚举：读配置空间 Vendor/Device ID、分配 BAR 地址空间、初始化 Capability 链表 → 驱动匹配：`pci_match_device` 对表 `[10DE:2684]` → 驱动 `probe()` 初始化 GPU → 用户态可用。
+
+**从 EP 视角**：每层 Switch 增加一级 bus 号（`bus->parent` 追溯），内核通过 `pci_upstream_bridge` 和 `pcie_find_root_port` 在 `pci_dev` 树中向上或向下导航。Switch Upstream Port 只注册 PME 服务，Downstream/Root Port 额外注册 AER、Hotplug、DPC。
 
 ---
 
