@@ -55,6 +55,51 @@ enum hmm_pfn_flags {
 
 关键设计：输入标志 `HMM_PFN_REQ_FAULT` 复用 `HMM_PFN_VALID` 的位值。调用者在 `pfns[i]` 中设置请求位，HMM 遍历后覆盖为结果位。`HMM_PFN_ORDER_SHIFT` 预留 10 位用于存储大页的 order（`hmm.c:181-184`）。
 
+### hmm_pfns[] 输出格式详解
+
+每个 `hmm_pfns[i]` 的位布局（64-bit）：
+```
+Bit:  63       62       61       60..53   52..0
+    ┌────────┬────────┬────────┬───────┬─────────┐
+    │ VALID  │ WRITE  │ ERROR  │ order │   PFN   │
+    ├────────┼────────┼────────┼───────┼─────────┤
+    │输入复用│输入复用│  输出  │ 输出  │  输出   │
+    └────────┴────────┴────────┴───────┴─────────┘
+     VALID/REQ_FAULT   WRITE/REQ_WRITE
+```
+
+- bits 63,62：输入/输出双向复用——调用者设置表示请求，HMM 输出时覆盖为结果
+- bit 61：ERROR，硬件无法访问（有毒内存、无 VMA 等场景）
+- bits 60:53：page order（大页编码），通过 `hmm_pfn_to_map_order()` 恢复
+- bits 52:0：物理页帧号（PFN），通过 `hmm_pfn_to_page()` / `hmm_pfn_to_phys()` 转换
+
+### HMM 调用前提 — mmu_interval_notifier
+
+HMM 遍历 CPU 页表前必须注册一个 `mmu_interval_notifier`，否则无法感知 CPU 侧页表变更：
+
+```c
+// include/linux/hmm.h:112-117
+struct hmm_range {
+    struct mmu_interval_notifier *notifier;   // 必须预先注册
+    unsigned long notifier_seq;               // mmu_interval_read_begin() 的返回值
+    ...
+};
+```
+
+调用流程：
+1. `mmu_interval_notifier_insert()` — 注册区间通知器
+2. `mmu_interval_read_begin()` → 存入 `notifier_seq` — 获取当前页表版本号
+3. `hmm_range_fault()` — 遍历页表
+4. `mmu_interval_check_retry(notifier, notifier_seq)` — 检查版本号是否变了（页表被其他线程改写）
+
+`hmm.c:672` 在每次 walk_page_range 之前都检查：
+```c
+if (mmu_interval_check_retry(range->notifier, range->notifier_seq))
+    return -EBUSY;  // 页表已被改写，通知调用者重试
+```
+
+还有一个超时常量：`HMM_RANGE_DEFAULT_TIMEOUT 1000`（`hmm.h:134`），单位 ms，用于 `hmm_range_fault` 调用者等待 mmu notifier 超时。
+
 ---
 
 ## walk_ops 注册

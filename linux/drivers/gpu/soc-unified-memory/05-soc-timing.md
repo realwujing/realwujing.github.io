@@ -454,6 +454,46 @@ GPU ATC miss → PRI Page Request → SMMU
 4. **Linux 内核已经提供了完整栈**：HMM（读取 CPU 页表）+ SMMU（IOMMU 翻译）+ ATS/PRI（硬件缓存与缺页请求）+ IOPF（软件缺页框架），这四个组件串起来就是完整的 SoC 统一内存
 5. **性能优势**：少了一层页表管理，少了一条内存迁移路径，延迟更低
 
+### Cold Miss vs Hot Hit — GPU 访问性能差异
+
+理解 ATS/PRI 的价值需要区分两种情况的延迟：
+
+| 场景 | 路径 | 延迟（量级） |
+|------|------|------------|
+| **Hot Hit** | GPU ATC 命中 → 直接 DMA | ~100ns（GPU 本地 TLB） |
+| **Warm Miss** | ATC miss → ATS Translation Request → SMMU 页表命中 → 返回 | ~2-5µs（SMMU 查页表） |
+| **Cold Miss** | ATC miss → Translation Req miss → PRI Page Req → IOPF → HMM → map_pages → Response → Retry | ~20-200µs（软件路径） |
+
+首次访问一个未映射的 IOVA（Cold Miss）走完整的 PRI + IOPF + HMM 路径，延迟远高于 SMMU 页表命中（Warm Miss）。但后续访问因为 ATC 缓存（Hot Hit），完全不走 SMMU，延迟回到纳秒级。
+
+### TLB Shootdown — GPU ATC 同步难题
+
+当 CPU 侧修改页表（如 `madvise DONTNEED`、`munmap`、`mprotect`），需要通知 GPU 刷新其 ATC：
+
+```
+CPU munmap(p, size)
+  → mmu_notifier callback (arm_smmu_mm_notifier)
+  → arm_smmu_atc_inv_domain(smmu_domain)
+    → for each master with ats_enabled:
+        → arm_smmu_cmdq_issue_cmd(CMD_ATC_INV)
+          → PASID=0 表示 flush 该 master 全部 ATC
+          → 或指定 PASID flush 对应进程的 ATC 条目
+  → arm_smmu_iotlb_sync()  → 等待 ATC_INV 完成
+  → [SMMU TLBI + sync 清 IOTLB]
+  → 返回 → CPU 安全释放页面
+```
+
+`arm_smmu_mmu_notifier`（`arm-smmu-v3.h:979`）注册为 CPU mm_struct 的 `mmu_notifier`，当 CPU 修改页表时 SMMU 收到回调，通过 CMDQ 发送 ATC_INV + TLBI 命令同步刷新 GPU 侧的所有缓存和 TLB。这是 SoC 统一内存性能的关键开销——比 discrete GPU 的本地 TLB shootdown 延迟更高（需要通过 CMDQ 跨设备通信）。
+
+### 对 NVIDIA+MTK SoC 的启示
+
+当 nova/tyr 这类下一代开源 GPU 驱动在 ARM SoC 上运行时：
+1. **不需要 `nouveau_dmem` 层**——没有独立 VRAM，直接用 HMM 读 CPU 页表
+2. **不需要 `migrate_vma`**——物理上是同一内存，不需要迁移
+3. **ATS 是必需项**——没有 ATC 缓存，GPU 每次访问都要经过 SMMU 页表遍历，性能不可接受
+4. **PRI 是必需项**——用于冷缺页路径，替代 discrete GPU 的 fault buffer + work handler
+5. **IOPF handler = drm_gpusvm 驱动回调**——`domain->iopf_handler` 内部调用 `hmm_range_fault` + `arm_smmu_map_pages`
+
 ---
 
 ## 8. 系列结语

@@ -169,6 +169,60 @@ static const struct fault_info fault_info[] = {
 - **FSC 0x08-0x0B** → access flag fault → `do_page_fault`（PTE 存在但 AF=0，MMU 硬件未置位因为 OS 清过）
 - **FSC 0x0C-0x0F** → permission fault → `do_page_fault`（权限不匹配：写只读页、执行 NX 页等）
 
+### do_translation_fault vs do_page_fault — 本质区别
+
+这两个 handler 是 ARM64 缺页处理中最容易混淆的概念：
+
+```c
+// fault.c:833-844 — do_translation_fault 是一个轻量包装
+static int __kprobes do_translation_fault(unsigned long far,
+                                          unsigned long esr,
+                                          struct pt_regs *regs)
+{
+    unsigned long addr = untagged_addr(far);
+
+    if (is_ttbr0_addr(addr))           // ← 用户态地址？
+        return do_page_fault(far, esr, regs);  // 转给 do_page_fault
+
+    do_bad_area(far, esr, regs);       // 内核地址+translation fault→kill
+    return 0;
+}
+```
+
+`do_translation_fault` **只是一个门卫**，它不是在处理 translation fault，而是在判断 **谁发的**：
+- 用户态地址（TTBR0，`is_ttbr0_addr`）→ 转给 `do_page_fault`，正常缺页
+- 内核态地址（TTBR1）→ 直接 `do_bad_area`，kill 进程
+
+而 `do_page_fault`（`fault.c:596`）才是真正干活的那个——分配 `vm_flags`、查 VMA、调用 `handle_mm_fault`。
+
+```c
+// fault.c:654-662 — kernel uaccess 检查
+if (is_ttbr0_addr(addr) && is_el1_permission_fault(addr, esr, regs)) {
+    if (is_el1_instruction_abort(esr))
+        die_kernel_fault("execution of user memory", addr, esr, regs);
+    if (!insn_may_access_user(regs->pc, esr))
+        die_kernel_fault("access to user memory outside uaccess routines",
+                         addr, esr, regs);
+}
+```
+
+为什么需要这种区分？ARM64 的 TTBR0_EL1 指向用户态页表，TTBR1_EL1 指向内核态页表。如果内核代码访问用户态地址时没走 `copy_from_user` 等安全路径，就需要 `die_kernel_fault` 而不是静默处理。
+
+**signal code 的区别**也值得注意（`fault.c:908-924`）：
+- translation fault → `SEGV_MAPERR`：**页根本不存在**（`fault.c:913-916`）
+- access flag / permission fault → `SEGV_ACCERR`：**页存在但不允许访问**（`fault.c:917-924`）
+
+这两个信号码和 VMA 的存在性检测形成闭环（`fault.c:687-735`）：
+```c
+// fault.c:687 — 查 VMA 权限
+if (!(vma->vm_flags & vm_flags)) {
+    si_code = SEGV_ACCERR;      // VMA 存在但权限不匹配
+    ...
+}
+// fault.c:728 — VMA 不存在
+si_code = SEGV_MAPERR;          // 根本没有 VMA
+```
+
 ### 调用链详解
 
 ```

@@ -617,6 +617,47 @@ PRI/IOPF 功能**没有独立的 Kconfig 选项**。一切由 `CONFIG_ARM_SMMU_V
 grep CONFIG_ARM_SMMU_V3_SVA /boot/config-$(uname -r)
 ```
 
+### 9. PRI 请求分组与生命周期
+
+PRI 请求不是孤立的——硬件可能将同一事务的多次缺页请求分组，`grpid`（Page Request Group ID）就是组的标识。
+
+**Partial faults 的累积**（`io-pgfault.c:63-79`）：
+
+```c
+static int report_partial_fault(struct iommu_fault_param *fault_param,
+                                struct iommu_fault *fault)
+{
+    struct iopf_fault *iopf = container_of(fault, ...);
+    list_add_tail(&iopf->list, &fault_param->partial);  // line 73
+    return 0;
+}
+```
+
+`LAST_PAGE` 标志（`iommu.h:77`）触发组完成：
+- 阶段 1：硬件报告 Page Request，`LAST_PAGE=0` → `report_partial_fault` 暂存到 `fault_param->partial` 链表
+- 阶段 2：硬件报告 `LAST_PAGE=1` → `iopf_group_alloc`（`io-pgfault.c:81-116`）将同 `grpid` 的所有 partial faults 汇入 `iopf_group.faults` 链表
+- 阶段 3：`domain->iopf_handler(group)`（`io-pgfault.c:262`）处理整个 group
+- 阶段 4：`iopf_group_response` → `ops->page_response` → `arm_smmu_page_response` → CMDQ RESUME
+
+**PASID 生命周期**：
+
+```
+进程创建 → pci_enable_pasid(pdev, features)   // ats.c:395
+         → iommu_attach_device_pasid()
+         → SMMU 分配 CD entry
+         → arm_smmu_s1_set_dev_pasid()        // arm-smmu-v3.c 写 CD 表
+
+GPU 缺页  → PRI Page Request 带 PASID
+         → IOPF 框架按 PASID 查 attach_handle
+         → 找到对应进程的 domain + iopf_handler
+
+进程销毁 → iommu_detach_device_pasid()
+         → arm_smmu_disable_iopf()            // refcount--, 可能移除 queue
+         → pci_disable_pasid(pdev)            // ats.c:444
+```
+
+PASID 本质上就是 SMMU 的 SSID（Substream ID），让一个物理 PCIe 设备（GPU）同时服务多个进程的地址空间。`arm_smmu_master.ssid_bits`（`arm-smmu-v3.h:946`）表示硬件支持的 SSID 位数，决定了最多 PASID 数（`2^ssid_bits`）。
+
 ---
 
 ## 下一篇文章
