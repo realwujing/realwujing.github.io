@@ -600,37 +600,106 @@ PCIe 拓扑中只有**三种角色**：
 | **Switch** | Type 5(US)+Type 6(DS) | 数据包"分路器"，上行口收→根据地址路由到下行口 | PCIe Switch 芯片 |
 | **Endpoint** | Type 0 | 叶节点，不转发，只产生/消费数据 | GPU、NVMe、NIC |
 
+### 8.1 三种角色与 7 种 Type
+
+PCIe 拓扑中只有三种角色，但寄存器里用 **7 种 Type 码** 区分：
+
+| Type | 寄存器值 | 角色 | 说明 |
+|------|---------|------|------|
+| **Type 0** | 0x0 | Endpoint | 普通设备：GPU、NVMe、NIC |
+| **Type 1** | 0x1 | Endpoint | Legacy Endpoint（PCI 时代遗留） |
+| **Type 4** | 0x4 | Root Complex | Root Port：CPU 直连的 PCIe 出口 |
+| **Type 5** | 0x5 | Switch | Switch 上行口（Upstream Port），连向 Root Port |
+| **Type 6** | 0x6 | Switch | Switch 下行口（Downstream Port），连向 Endpoint |
+| **Type 9** | 0x9 | Root Complex | RC Integrated Endpoint，集成在 CPU 内部的设备 |
+| **Type A** | 0xA | Root Complex | RC Event Collector，收集 RCiEP 的错误事件 |
+
 ```
-                               ┌─── Root Complex (RC) ───┐
-                               │   集成在 CPU die 内       │
-                               │   ┌────────┐┌────────┐   │
-                               │   │RootPort││RootPort│   │  ← Type 4
-                               │   │ Type 4 ││ Type 4 │   │
-                               │   └───┬────┘└───┬────┘   │
-                               └───────┼─────────┼────────┘
-                                       │         │
-      ┌─── Switch ───┐                 │         │
-      │  PCIe 分路器   │                 │         │
-      │ ┌──────────┐  │                 │         │
-      │ │ Upstream │  │ ← Type 5        │         │
-      │ │  Port    │◄─┼──── PCIe Link ──┘         │
-      │ └────┬─────┘  │                           │
-      │  ┌───▼──┐┌───▼──┐                        │
-      │  │Down ││Down │  │ ← Type 6               │
-      │  │Port ││Port │  │                         │
-      │  │(T6) ││(T6) │  │                         │
-      │  └──┬──┘└──┬──┘  │                         │
-      └─────┼──────┼─────┘                         │
-            │      │                               │
-            │      │        无 Switch，直连 EP ─────┘
-            │      │
-   ┌────────▼──┐ ┌─▼──────────┐ ┌──────────────────┐
-   │   GPU     │ │   NVMe     │ │       NIC        │
-   │ Endpoint  │ │ Endpoint   │ │    Endpoint      │  ← Type 0
-   │ Type 0    │ │ Type 0     │ │    Type 0        │
-   │ 10DE:2684 │ │ 144D:A80A  │ │  直连 Root Port  │
-   └───────────┘ └────────────┘ └──────────────────┘
+内核宏 (pci_regs.h:486-494):
+  PCI_EXP_TYPE_ENDPOINT    = 0x0    PCI_EXP_TYPE_LEG_END  = 0x1
+  PCI_EXP_TYPE_ROOT_PORT   = 0x4    PCI_EXP_TYPE_UPSTREAM = 0x5
+  PCI_EXP_TYPE_DOWNSTREAM  = 0x6    PCI_EXP_TYPE_RC_END   = 0x9
+  PCI_EXP_TYPE_RC_EC       = 0xA
 ```
+
+### 8.2 拓扑全景图
+
+```
+                           ╔══════════════════════════════╗
+                           ║      Root Complex (RC)       ║
+                           ║  集成在 CPU die 内，拓扑根    ║
+                           ║                              ║
+                           ║  ┌──────────────────────┐    ║
+                           ║  │  Root Port 1 (Type 4)│    ║    ← CPU 直连出口
+                           ║  │  Root Port 2 (Type 4)│    ║
+                           ║  │  RCiEP      (Type 9) │    ║    ← 集成 GPU/NIC
+                           ║  │  RCEC       (Type A) │    ║    ← 错误收集
+                           ║  └──────────┬───────────┘    ║
+                           ╚══════════════╪════════════════╝
+                                          │ PCIe Link (x16, Gen5 32GT/s)
+                                          │
+         ╔════════════════════════════════╪═══════════════════════════╗
+         ║                         PCIe Switch                        ║
+         ║                     数据包分路器                           ║
+         ║                                                           ║
+         ║  ┌─────────────────────────────────────────────────────┐  ║
+         ║  │            Upstream Port (Type 5)                   │  ║ ← 连向 Root Port
+         ║  │            收上游 TLP，查地址表路由                    │  ║
+         ║  └──────────────────────┬──────────────────────────────┘  ║
+         ║                         │ Internal Virtual Bus            ║
+         ║            ┌────────────┼────────────┐                    ║
+         ║  ┌─────────▼──────┐ ┌───▼──────────┐ │                    ║
+         ║  │ Downstream Port│ │Downstream Port│ │ ← Type 6           ║
+         ║  │   (Type 6)     │ │   (Type 6)    │ │   连向 Endpoint    ║
+         ║  │   链路 x8      │ │   链路 x4      │ │                    ║
+         ║  └───────┬────────┘ └───────┬────────┘ │                    ║
+         ╚══════════╪══════════════════╪═══════════╪══════════════════╝
+                    │                  │           │
+                    │                  │           │ 直连 EP (无 Switch)
+    ╔═══════════════╪══════╗ ╔════════╪══════╗ ╔══╪══════════════════╗
+    ║    GPU               ║ ║  NVMe         ║ ║  NIC               ║
+    ║  Endpoint (Type 0)   ║ ║ Endpoint(T0)  ║ ║ Endpoint (Type 0) ║
+    ║  10DE:2684           ║ ║  144D:A80A    ║ ║  直连 Root Port   ║
+    ║  BAR0: MMIO 256MB    ║ ║  BAR0: 16KB   ║ ║  BAR0: MMIO       ║
+    ║  BAR3: VRAM 32MB+    ║ ║               ║ ║                   ║
+    ╚══════════════════════╝ ╚═══════════════╝ ╚═══════════════════╝
+```
+
+### 8.3 CPU 如何一步步发现 GPU
+
+```
+加电 (T=0)
+ │
+ ├── 硬件复位阶段 (~100ms)
+ │   REFCLK 稳定 (100µs)  →  释放 PERST#  →  链路训练
+ │   协商 Gen 速度 (2.5~64GT/s) + Lane 宽度 (x1~x16)
+ │   Link Up!  Root Port LNKSTA 寄存器反映实际协商结果
+ │
+ ├── 配置空间就绪 (~100ms)
+ │   端点可能返回 Configuration Retry Status (CRS) 表示"还没准备好"
+ │   Root Complex 硬件自动重试，直到端点返回 Successful Completion
+ │   此时 Vendor/Device ID/Class Code/BAR 等寄存器可读
+ │
+ ├── 内核枚举阶段
+ │   pci_scan_child_bus(bus0)                              ← probe.c:3210
+ │     └→ pci_scan_device(bus, devfn)                      ← probe.c:2602
+ │         读 Vendor:Device → 分配 pci_dev
+ │         pci_setup_device → hdr_type/class/BAR/Cap        ← probe.c:2021
+ │         pci_init_capabilities (24 种能力初始化)           ← probe.c:2655
+ │       └→ 如果是 Bridge (hdr_type=1) → 递归扫描下游 bus
+ │
+ ├── 驱动匹配阶段
+ │   __pci_register_driver(amdgpu/nouveau)                 ← probe.c:1471
+ │     └→ pci_match_device: 对表 [Vendor:10DE, Device:2684] ← probe.c:136
+ │       命中 → pci_device_probe                            ← probe.c:473
+ │         └→ drv->probe(dev, id)  ← GPU 驱动初始化
+ │             注册 DRM device, 建立 GPU 页表, 分配 IRQ
+ │
+ └── 用户态可用
+     /dev/dri/renderD128  用户可以 open/ioctl/mmap
+```
+
+**Switch 路径的关键**：每经过一层 Switch，bus 号 +1。内核通过 `pci_upstream_bridge(dev)`（`pci.h:819`）在 `dev->bus->self` 中追溯上游 bridge，`pcie_find_root_port(dev)`（`pci.h:2651`）一路爬到 Root Port。Switch 的 Upstream Port (Type 5) 只注册 PME 服务；Downstream Port (Type 6) 额外承载 AER、Hotplug、DPC、Bandwidth Control。
 
 **CPU 如何一步步发现 GPU**：加电 → 链路训练（~100ms，协商 Gen 速度和 Lane 宽度）→ Root Port 检测到设备在位 → 内核枚举：读配置空间 Vendor/Device ID、分配 BAR 地址空间、初始化 Capability 链表 → 驱动匹配：`pci_match_device` 对表 `[10DE:2684]` → 驱动 `probe()` 初始化 GPU → 用户态可用。
 
