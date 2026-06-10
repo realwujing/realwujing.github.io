@@ -676,6 +676,125 @@ static bool rcu_watching_snap_stopped_since(struct rcu_data *rdp, int snap)
 
 这个函数和 `force_qs_rnp`（tree.c:2732）配合使用——`force_qs_rnp` 向未报告的 CPU 发送 resched IPI，逼迫它们从 idle 或内核循环中出来并报告 QS。
 
+#### 8.2.7 实战：`rcu_nocbs=3 nohz_full=3 isolcpus=3` 时 CPU 3 如何度过 QS
+
+当内核启动参数设置为 `rcu_nocbs=3 nohz_full=3 isolcpus=3` 时，CPU 3 同时承担三种角色：**NO_HZ_FULL 自适应滴答关闭** + **RCU 回调卸载到其他 CPU** + **调度隔离**。此时 CPU 3 可能很长时间没有 tick 中断，RCU 不能依赖 tick 来检测 QS。
+
+**核心问题**：tick 被关了，CPU 3 跑一个用户态实时进程长时不切，RCU 怎么知道它度过了静默期？
+
+**答案**：NO_HZ_FULL CPU 不再依赖 tick 逐 tick 检测 QS，而是通过**边界事件检测**——用户的进出、内核的进出、中断的进出、以及 GP kthread 的"逼迫"。
+
+##### NO_HZ_FULL CPU 的 QS 检测状态机
+
+```
+用户态进程                         内核态（中断/trap）
+────────────────────────          ───────────────────────
+用户态执行 = 天然静默态             内核态执行 = 可能持有 rcu_read_lock
+  │                                  │
+  │ rcu_user_enter()                 │ __rcu_irq_enter_check_tick (tree.c:662)
+  │   → context tracking 记录        │   → 如果 RCU 需要 QS，重新开启 tick
+  │   → RCU 直接认为 CPU 在 QS       │   → 有 tick 走 tick 路径
+  │                                  │   → 还是有 resched IPI
+  │                                  │
+  │ 进程切换到内核态:                  │ rcu_user_exit()
+  │   rcu_user_exit()                │   → 进入内核，RCU 需要"监视"
+  │   走下文各路径                     │
+  └──────────────────────────────────┘
+```
+
+##### 三条 NO_HZ_FULL 独有的 QS 路径
+
+**① 用户态 → 内核态切换 (最主要的 QS 来源)**
+
+```c
+// CPU 3 从用户态进内核（系统调用/中断/trap）
+→ rcu_user_exit() → 内核态
+// 用户态本身就是 QS → 直接标记
+```
+
+用户态在 context tracking 中被标记为 `CT_RCU_WATCHING` 位被清除。从用户态进入内核时，context tracking 看到这个切换，等价于一次 QS。
+
+**② 内核态下短暂恢复 tick (`__rcu_irq_enter_check_tick`)**
+
+当 CPU 3 因为中断/异常从用户态进入内核后，RCU 需要知道 CPU 3 在内核态有没有持有 `rcu_read_lock`。但 tick 已经被关了，RCU 拿不到 tick。这时 `__rcu_irq_enter_check_tick`（tree.c:662）介入：
+
+```c
+// tree.c:662-696 — NO_HZ_FULL CPU 的内核入口检查
+void __rcu_irq_enter_check_tick(void)
+{
+    struct rcu_data *rdp = this_cpu_ptr(&rcu_data);
+
+    // 如果不是 nohz_full CPU，或者 RCU 不需要 CPU 帮助 → 返回
+    if (!tick_nohz_full_cpu(rdp->cpu) ||
+        !READ_ONCE(rdp->rcu_urgent_qs) || ...)
+        return;                                          // line 673-677
+
+    // ★ NO_HZ_FULL CPU 进入内核 + RCU 需要它报告 QS
+    // → 临时恢复 tick 以便 RCU 能走正常 tick 路径检测 QS
+    tick_nohz_dep_set_cpu(rdp->cpu, TICK_DEP_MASK_RCU);  // line 689
+}
+```
+
+`tick_nohz_dep_set_cpu(TICK_DEP_MASK_RCU)` 告诉 NO_HZ 子系统"RCU 需要这个 CPU 的 tick"，tick 被暂时恢复。恢复后 `rcu_sched_clock_irq` 就能正常跑了，走 8.2.2 的标准 tick 路径。
+
+**③ GP kthread 的 resched IPI (强制逼迫)**
+
+如果 CPU 3 在内核态死循环且不触发 tick 恢复（极端场景），GP kthread 的 `force_qs_rnp`（tree.c:2048/2051）会向它发送 resched IPI：
+
+```
+rcu_gp_fqs_loop:
+  → force_qs_rnp(rcu_watching_snap_save)          // 先快照 watching 状态
+  → force_qs_rnp(rcu_watching_snap_recheck)       // 再检查是否有变化
+    → 向未报告 QS 的 CPU 发 resched IPI
+      → CPU 3 收到 IPI → 必须调度 → rcu_note_context_switch
+        → rcu_qs() → rcu_report_qs_rdp → rcu_report_qs_rnp → 上报
+```
+
+##### NO_HZ_FULL + NO_CB 的叠加效应
+
+`rcu_nocbs=3` 把 CPU 3 的 RCU callback 处理卸载到其他 CPU 的 `rcuog` kthread 上。但这**不影响 QS 检测**——QS 检测和 callback 处理是两条路径：
+
+```
+QS 检测 (GP 推进)                        Callback 处理 (释放内存)
+─────────────────                       ─────────────────────
+仍在 CPU 3 上运行                       卸载到 CPU N 的 kthread
+走用户态切换/内核入口/GP IPI 三条路径    CPU 3 不碰 callback 软中断
+RCU_SOFTIRQ 仍在 CPU 3 上被调度        CPU N 的 rcuog kthread 负责
+  (invoke_rcu_core → rcu_core)          rcu_do_batch
+```
+
+`rcu_needs_cpu`（tree.c:710）是两者之间的桥梁——它告诉 tick 子系统"即使 tick 被关了，RCU 也可能需要 tick 来处理 callback 或推进 GP"：
+
+```c
+// tree.c:710-730
+int rcu_needs_cpu(void)
+{
+    struct rcu_data *rdp = this_cpu_ptr(&rcu_data);
+    
+    // NO_HZ_FULL CPU 被"强制保留 tick" → 肯定需要
+    if (tick_nohz_full_cpu(rdp->cpu) && rdp->rcu_forced_tick)
+        return 1;                                        // line 726
+    // ... 其他检查
+}
+```
+
+##### 总结：NO_HZ_FULL + NO_CB CPU 的 QS 保障机制
+
+```
+CPU 3 状态               QS 如何被检测                代码入口
+─────────────────────   ─────────────────────────     ─────────────────
+用户态运行 (tick OFF)   天然静默，无需检测             rcu_user_enter/exit
+用户→内核切换           切换本身就是 QS               context tracking boundary
+内核态 (tick OFF)       __rcu_irq_enter_check_tick    tree.c:662
+                        临时恢复 tick → 走 tick 路径
+内核态 (死循环)          GP kthread force_qs_rnp       tree.c:2048
+                        发 resched IPI → 逼切
+中断/异常触发 callback   RCU_SOFTIRQ 正常触发          invoke_rcu_core
+NO_CB callback          卸载到 rcuog kthread           tree_nocb.h
+```
+
+**核心思想**：NO_HZ_FULL 下的 RCU QS 不再依赖"每个 tick 都检查一次"，而是依赖**状态切换的边界**。只要 CPU 3 从用户态进过内核、或从内核退出到用户态、或收到过中断、或被子 GP kthread 的 IPI 打扰，RCU 就能检测到它度过了静默期。
+
 ## 9. QS 上报 — rcu_report_qs_rnp()
 
 **定义位置**：`tree.c:2339`
