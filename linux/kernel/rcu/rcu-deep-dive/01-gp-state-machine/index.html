@@ -12964,6 +12964,78 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="8.2 Tree RCU 中的 QS 检测">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#821" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.1 怎么才算"度过静默期"——三条路径
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#822-rcu_sched_clock_irq-tick-qs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.2 详细：rcu_sched_clock_irq — tick 中的 QS 检测
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#823-rcu_report_qs_rdp-qs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.3 详细：rcu_report_qs_rdp — 将 QS 上报到合并树
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#824-rcu_report_qs_rnp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.4 详细：rcu_report_qs_rnp — 沿合并树上溯
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#825-qs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.5 合并树 QS 传播示例
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#826-dyntick-idle-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.6 dyntick idle CPU 的特殊处理
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -23433,6 +23505,78 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="8.2 Tree RCU 中的 QS 检测">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#821" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.1 怎么才算"度过静默期"——三条路径
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#822-rcu_sched_clock_irq-tick-qs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.2 详细：rcu_sched_clock_irq — tick 中的 QS 检测
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#823-rcu_report_qs_rdp-qs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.3 详细：rcu_report_qs_rdp — 将 QS 上报到合并树
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#824-rcu_report_qs_rnp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.4 详细：rcu_report_qs_rnp — 沿合并树上溯
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#825-qs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.5 合并树 QS 传播示例
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#826-dyntick-idle-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2.6 dyntick idle CPU 的特殊处理
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -24060,170 +24204,316 @@
 </code></pre></div>
 <p>Tiny RCU 的 QS 检测极其简单：每次调度时钟中断时，如果 CPU 在用户模式（<code>user=1</code>），直接调用 <code>rcu_qs()</code>。<code>rcu_qs()</code> 推进 <code>gp_seq</code>（每次 +2，跳过低位状态编码），并将待处理回调区段 "提交"。</p>
 <h3 id="82-tree-rcu-qs">8.2 Tree RCU 中的 QS 检测<a class="headerlink" href="#82-tree-rcu-qs" title="Permanent link">&para;</a></h3>
-<p>Tree RCU 使用 <code>rcu_flavor_sched_clock_irq()</code>（实现在 <code>tree_plugin.h</code> 中），核心逻辑类似但更复杂：
-- 检查 <code>user</code> 或 <code>rcu_is_cpu_rrupt_from_idle()</code> → 是则报告 QS
-- 设置 <code>rcu_urgent_qs</code> 标志，在下一次 <code>rcu_read_unlock()</code> 或上下文切换时触发 QS 报告
-- 通过 softirq (<code>RCU_SOFTIRQ</code>) 处理回调</p>
+<p>Tree RCU 不像 Tiny RCU 那样在 tick 中"立即"推进 GP。它是一个<strong>异步三级检测机制</strong>：tick 做轻量检测 → 上下文切换做标记 → GP kthread 汇总推进。</p>
+<h4 id="821">8.2.1 怎么才算"度过静默期"——三条路径<a class="headerlink" href="#821" title="Permanent link">&para;</a></h4>
+<p>一个 CPU "度过静默期"意味着它<strong>已经不在 RCU 读临界区中</strong>。Tree RCU 检测这一点有三个入口：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>① 调度时钟中断 (tick):
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>   rcu_sched_clock_irq(user)              ← tree.c:2696
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>   如果 user=1（用户态）或 idle → 这个 tick 期间 CPU 一定不在读临界区
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>     → rcu_note_voluntary_context_switch(current)  ← 记录&quot;度过了 QS&quot;
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>② 上下文切换:
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>   rcu_note_context_switch()              ← kernel/sched/core.c
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>   任何 CPU 发生 context switch → 之前的进程如果持了 rcu_read_lock
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>   也会随 switch 被打断 → CPU 离开读临界区
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>     → rcu_qs()                            ← tree.c:1994 (softirq中)
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>     → rcu_report_qs_rdp(this_cpu_ptr)     ← tree.c:1995 上报
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>③ GP kthread 主动逼迫 (force QS):
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>   如果某个 CPU 长时间不报告 QS（既不 tick 用户态，也不切换上下文）
+<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a>   可能是内核态死循环或 dyntick idle CPU
+<a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a>     → force_qs_rnp(rcu_watching_snap_save)  ← tree.c:2732
+<a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a>     → 向目标 CPU 发送 resched IPI
+<a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a>     → 目标 CPU 收到后必须调度 → 走路径②
+</code></pre></div>
+<h4 id="822-rcu_sched_clock_irq-tick-qs">8.2.2 详细：rcu_sched_clock_irq — tick 中的 QS 检测<a class="headerlink" href="#822-rcu_sched_clock_irq-tick-qs" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1">// tree.c:2696-2728 — 调度时钟中断的 RCU 入口</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="kt">void</span><span class="w"> </span><span class="nf">rcu_sched_clock_irq</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">user</span><span class="p">)</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="p">{</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="c1">// 计数器：这次 GP 的第几个 tick</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="n">raw_cpu_inc</span><span class="p">(</span><span class="n">rcu_data</span><span class="p">.</span><span class="n">ticks_this_gp</span><span class="p">);</span><span class="w">                         </span><span class="c1">// line 2708</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">    </span><span class="c1">// ★ 关键：urgent_qs 标志处理</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">smp_load_acquire</span><span class="p">(</span><span class="n">this_cpu_ptr</span><span class="p">(</span><span class="o">&amp;</span><span class="n">rcu_data</span><span class="p">.</span><span class="n">rcu_urgent_qs</span><span class="p">)))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">        </span><span class="c1">// GP kthread 设置了 urgent QS 需求 → 加速退出读临界区</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">rcu_is_cpu_rrupt_from_idle</span><span class="p">()</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">user</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="w">            </span><span class="c1">// 不在 idle、不在用户态 → 可能在内核态读临界区</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="w">            </span><span class="c1">// 设置 need_resched 标志 → 下一次 preempt_enable/中断返回时触发调度</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="w">            </span><span class="n">set_need_resched_current</span><span class="p">();</span><span class="w">                           </span><span class="c1">// line 2713</span>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a><span class="w">        </span><span class="n">__this_cpu_write</span><span class="p">(</span><span class="n">rcu_data</span><span class="p">.</span><span class="n">rcu_urgent_qs</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">);</span><span class="w">         </span><span class="c1">// line 2714</span>
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>
+<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a><span class="w">    </span><span class="c1">// 调用 flavors（RCU/RUDP/TREE）</span>
+<a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a><span class="w">    </span><span class="n">rcu_flavor_sched_clock_irq</span><span class="p">(</span><span class="n">user</span><span class="p">);</span><span class="w">                            </span><span class="c1">// line 2717</span>
+<a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>
+<a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a><span class="w">    </span><span class="c1">// 检查是否有 pending 的 RCU 工作需要做</span>
+<a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rcu_pending</span><span class="p">(</span><span class="n">user</span><span class="p">))</span><span class="w">                                       </span><span class="c1">// line 2719</span>
+<a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a><span class="w">        </span><span class="n">invoke_rcu_core</span><span class="p">();</span><span class="w">                                       </span><span class="c1">// line 2720 → 触发 RCU_SOFTIRQ</span>
+<a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a>
+<a id="__codelineno-17-25" name="__codelineno-17-25" href="#__codelineno-17-25"></a><span class="w">    </span><span class="c1">// ★ 如果 CPU 在用户态或 idle 中断中 → 立即标记为 QS</span>
+<a id="__codelineno-17-26" name="__codelineno-17-26" href="#__codelineno-17-26"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">user</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">rcu_is_cpu_rrupt_from_idle</span><span class="p">())</span><span class="w">                    </span><span class="c1">// line 2721</span>
+<a id="__codelineno-17-27" name="__codelineno-17-27" href="#__codelineno-17-27"></a><span class="w">        </span><span class="n">rcu_note_voluntary_context_switch</span><span class="p">(</span><span class="n">current</span><span class="p">);</span><span class="w">              </span><span class="c1">// line 2722</span>
+<a id="__codelineno-17-28" name="__codelineno-17-28" href="#__codelineno-17-28"></a><span class="p">}</span>
+</code></pre></div>
+<h4 id="823-rcu_report_qs_rdp-qs">8.2.3 详细：rcu_report_qs_rdp — 将 QS 上报到合并树<a class="headerlink" href="#823-rcu_report_qs_rdp-qs" title="Permanent link">&para;</a></h4>
+<p>当 CPU 知道自己度过了静默期（通过上述三条路径之一），它调用 <code>rcu_report_qs_rdp</code> 将这一事实传播到合并树：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1">// tree.c:2443-2486 — per-CPU QS 上报</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="kt">void</span><span class="w"> </span><span class="nf">rcu_report_qs_rdp</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_data</span><span class="w"> </span><span class="o">*</span><span class="n">rdp</span><span class="p">)</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="p">{</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="n">rnp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">mynode</span><span class="p">;</span><span class="w">                          </span><span class="c1">// 获取本 CPU 所属的叶 rcu_node</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">    </span><span class="c1">// 检查 gp_seq 是否匹配——如果 CPU 的 gp_seq 已经落后 rnp-&gt;gp_seq，</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">    </span><span class="c1">// 说明本 GP 已经过去了，这个 QS 属于&quot;旧&quot;GP，不能上报</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">cpu_no_qs</span><span class="p">.</span><span class="n">b</span><span class="p">.</span><span class="n">norm</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">gpwrap</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">        </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">cpu_no_qs</span><span class="p">.</span><span class="n">b</span><span class="p">.</span><span class="n">norm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w">          </span><span class="c1">// 标记需要为&quot;新&quot;GP 重新检测 QS</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">        </span><span class="k">return</span><span class="p">;</span><span class="w">                                  </span><span class="c1">// 不上报</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">    </span><span class="n">mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">grpmask</span><span class="p">;</span><span class="w">                        </span><span class="c1">// 此 CPU 在叶节点的位掩码</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">    </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">core_needs_qs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span><span class="w">                 </span><span class="c1">// 清除&quot;需要 QS&quot; 标志</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">    </span><span class="c1">// ★ 检查叶 rcu_node 的 qsmask 中此 CPU 位是否还在</span>
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">mask</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="w">        </span><span class="c1">// 已经被清过了（其它路径已经报告了这个 CPU 的 QS）</span>
+<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="w">        </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a><span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a><span class="w">        </span><span class="c1">// ★ 调用 rcu_report_qs_rnp 向上游传播 QS 清除</span>
+<a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a><span class="w">        </span><span class="n">rcu_report_qs_rnp</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span><span class="w"> </span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span><span class="w">  </span><span class="c1">// line 2486</span>
+<a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a><span class="p">}</span>
+</code></pre></div>
+<h4 id="824-rcu_report_qs_rnp">8.2.4 详细：rcu_report_qs_rnp — 沿合并树上溯<a class="headerlink" href="#824-rcu_report_qs_rnp" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1">// tree.c:2339-2393 — 沿合并树向上传播 QS</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">rcu_report_qs_rnp</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">mask</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_node</span><span class="w"> </span><span class="o">*</span><span class="n">rnp</span><span class="p">,</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">                              </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">gps</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">flags</span><span class="p">)</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="p">{</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;;)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">        </span><span class="c1">// ① 清掉当前节点中对应子节点/CPU 的 qsmask 位</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">        </span><span class="n">WRITE_ONCE</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="p">,</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="o">~</span><span class="n">mask</span><span class="p">);</span><span class="w">          </span><span class="c1">// line 2362</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">        </span><span class="c1">// ② 检查：当前节点还有其它子节点未报告 QS 吗？</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">rcu_preempt_blocked_readers_cgp</span><span class="p">(</span><span class="n">rnp</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">            </span><span class="c1">// 有！停止上溯，释放锁</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="w">            </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span><span class="w">   </span><span class="c1">// line 2370</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="w">            </span><span class="k">return</span><span class="p">;</span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a>
+<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a><span class="w">        </span><span class="c1">// ③ 所有子节点都报告了 QS → 准备向父节点报告</span>
+<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a><span class="w">        </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">completedqs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="p">;</span>
+<a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a><span class="w">        </span><span class="n">mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">grpmask</span><span class="p">;</span><span class="w">  </span><span class="c1">// 当前节点在父节点中的位</span>
+<a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a>
+<a id="__codelineno-19-20" name="__codelineno-19-20" href="#__codelineno-19-20"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">parent</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-19-21" name="__codelineno-19-21" href="#__codelineno-19-21"></a><span class="w">            </span><span class="c1">// ★ 到达根节点！所有 CPU/子组完成 QS → GP 可以结束</span>
+<a id="__codelineno-19-22" name="__codelineno-19-22" href="#__codelineno-19-22"></a><span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<a id="__codelineno-19-23" name="__codelineno-19-23" href="#__codelineno-19-23"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-19-24" name="__codelineno-19-24" href="#__codelineno-19-24"></a>
+<a id="__codelineno-19-25" name="__codelineno-19-25" href="#__codelineno-19-25"></a><span class="w">        </span><span class="c1">// ④ 获取父节点锁，继续上溯</span>
+<a id="__codelineno-19-26" name="__codelineno-19-26" href="#__codelineno-19-26"></a><span class="w">        </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-19-27" name="__codelineno-19-27" href="#__codelineno-19-27"></a><span class="w">        </span><span class="n">rnp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">parent</span><span class="p">;</span>
+<a id="__codelineno-19-28" name="__codelineno-19-28" href="#__codelineno-19-28"></a><span class="w">        </span><span class="n">raw_spin_lock_irqsave_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-19-29" name="__codelineno-19-29" href="#__codelineno-19-29"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-19-30" name="__codelineno-19-30" href="#__codelineno-19-30"></a>
+<a id="__codelineno-19-31" name="__codelineno-19-31" href="#__codelineno-19-31"></a><span class="w">    </span><span class="c1">// ★ 到达根节点且所有子节点完成 → 唤醒 GP kthread</span>
+<a id="__codelineno-19-32" name="__codelineno-19-32" href="#__codelineno-19-32"></a><span class="w">    </span><span class="n">rcu_report_qs_rsp</span><span class="p">(</span><span class="n">flags</span><span class="p">);</span><span class="w">                                   </span><span class="c1">// line 2393</span>
+<a id="__codelineno-19-33" name="__codelineno-19-33" href="#__codelineno-19-33"></a><span class="p">}</span>
+</code></pre></div>
+<h4 id="825-qs">8.2.5 合并树 QS 传播示例<a class="headerlink" href="#825-qs" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>8 CPUs, 3 层合并树:
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>                           rcu_node[1] (Root)
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>                          qsmask = 0b011 ← bit0=CPU0组已QS? bit1=CPU1组已QS?
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>                         ┌────────┴────────┐
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>                  rcu_node[2]          rcu_node[3] (叶,各管4 CPU)
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>              qsmask = 0b1111       qsmask = 0b1100
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>               ↑ CPU0-3 未QS          ↑ CPU6-7 未QS (CPU4-5 已QS)
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>CPU0 报告 QS:
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>  → rcu_report_qs_rdp(CPU0)
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>    → rcu_report_qs_rnp(mask=0b0001, rcu_node[2])
+<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>      → rcu_node[2].qsmask: 0b1111 → 0b1110 (CPU0 bit cleared)
+<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a>      → rcu_node[2].qsmask != 0 (还有 CPU1-3 未 QS) → 停止
+<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>
+<a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a>CPU1-3 逐个报告 QS:
+<a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a>  → rcu_node[2].qsmask 逐步变为 0b0000
+<a id="__codelineno-20-17" name="__codelineno-20-17" href="#__codelineno-20-17"></a>  → 最后一个 CPU 报告后: rcu_node[2].qsmask == 0 → 上溯到 Root!
+<a id="__codelineno-20-18" name="__codelineno-20-18" href="#__codelineno-20-18"></a>    → rcu_report_qs_rnp(mask=rcu_node[2].grpmask, rcu_node[1])
+<a id="__codelineno-20-19" name="__codelineno-20-19" href="#__codelineno-20-19"></a>      → rcu_node[1].qsmask: 0b011 → 0b001 (CPU0组 bit cleared)
+<a id="__codelineno-20-20" name="__codelineno-20-20" href="#__codelineno-20-20"></a>
+<a id="__codelineno-20-21" name="__codelineno-20-21" href="#__codelineno-20-21"></a>CPU6-7 报告 QS:
+<a id="__codelineno-20-22" name="__codelineno-20-22" href="#__codelineno-20-22"></a>  → rcu_node[3].qsmask: 0b1100 → 0b0000
+<a id="__codelineno-20-23" name="__codelineno-20-23" href="#__codelineno-20-23"></a>  → 上溯到 Root: rcu_node[1].qsmask: 0b001 → 0b000
+<a id="__codelineno-20-24" name="__codelineno-20-24" href="#__codelineno-20-24"></a>  → 到达根节点 + qsmask==0 + 无阻塞读者 → rcu_report_qs_rsp → GP 完成!
+</code></pre></div>
+<h4 id="826-dyntick-idle-cpu">8.2.6 dyntick idle CPU 的特殊处理<a class="headerlink" href="#826-dyntick-idle-cpu" title="Permanent link">&para;</a></h4>
+<p>当 CPU 进入 idle（<code>CT_RCU_WATCHING</code> 位被清除），它处于"扩展静默状态"（Extended QS）。此时没有 tick 中断来报告 QS，GP kthread 通过 <code>rcu_watching_snap_stopped_since</code>（tree.c:312）检测：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1">// 原理：保存 CPU 的 watching_snap，如果 CPU 进入 idle (watching 位翻转)</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="c1">// re-check 时发现值变了 → 说明经过了一次静默状态</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="k">static</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="nf">rcu_watching_snap_stopped_since</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_data</span><span class="w"> </span><span class="o">*</span><span class="n">rdp</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">snap</span><span class="p">)</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="p">{</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">snap</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">ct_rcu_watching_cpu_acquire</span><span class="p">(</span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">cpu</span><span class="p">);</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="p">}</span>
+</code></pre></div>
+<p>这个函数和 <code>force_qs_rnp</code>（tree.c:2732）配合使用——<code>force_qs_rnp</code> 向未报告的 CPU 发送 resched IPI，逼迫它们从 idle 或内核循环中出来并报告 QS。</p>
 <h2 id="9-qs-rcu_report_qs_rnp">9. QS 上报 — rcu_report_qs_rnp()<a class="headerlink" href="#9-qs-rcu_report_qs_rnp" title="Permanent link">&para;</a></h2>
 <p><strong>定义位置</strong>：<code>tree.c:2339</code></p>
 <p>这是将静默状态沿合并树向上传播的核心函数：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1">// tree.c:2339-2394</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">rcu_report_qs_rnp</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">mask</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_node</span><span class="w"> </span><span class="o">*</span><span class="n">rnp</span><span class="p">,</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">                              </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">gps</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">flags</span><span class="p">)</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="n">__releases</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">)</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="p">{</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">oldmask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_node</span><span class="w"> </span><span class="o">*</span><span class="n">rnp_c</span><span class="p">;</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;;)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">        </span><span class="c1">// 如果该位已经清除或 GP 已结束，直接返回</span>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="o">!</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">mask</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">mask</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">gps</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="w">            </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="w">            </span><span class="k">return</span><span class="p">;</span>
-<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="w">        </span><span class="p">}</span>
-<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a>
-<a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="w">        </span><span class="c1">// 清除本节点的对应 qsmask 位</span>
-<a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="w">        </span><span class="n">WRITE_ONCE</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="p">,</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="o">~</span><span class="n">mask</span><span class="p">);</span><span class="w">        </span><span class="c1">// line 2362</span>
-<a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a>
-<a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="w">        </span><span class="c1">// 本节点还有其它位未清零或有阻塞任务 → 停止上溯</span>
-<a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">rcu_preempt_blocked_readers_cgp</span><span class="p">(</span><span class="n">rnp</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a><span class="w">            </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
-<a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="w">            </span><span class="k">return</span><span class="p">;</span><span class="w">                                          </span><span class="c1">// line 2370-2371</span>
-<a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a><span class="w">        </span><span class="p">}</span>
-<a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a>
-<a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a><span class="w">        </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">completedqs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="p">;</span><span class="w">                      </span><span class="c1">// 记录完成</span>
-<a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a><span class="w">        </span><span class="n">mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">grpmask</span><span class="p">;</span><span class="w">                                 </span><span class="c1">// 准备上溯掩码</span>
-<a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a>
-<a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">parent</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a><span class="w">            </span><span class="c1">// 到达根节点！这是最后一个 CPU/子组报告 QS</span>
-<a id="__codelineno-16-30" name="__codelineno-16-30" href="#__codelineno-16-30"></a><span class="w">            </span><span class="k">break</span><span class="p">;</span><span class="w">                                           </span><span class="c1">// line 2379</span>
-<a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a><span class="w">        </span><span class="p">}</span>
-<a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a>
-<a id="__codelineno-16-33" name="__codelineno-16-33" href="#__codelineno-16-33"></a><span class="w">        </span><span class="c1">// 释放当前节点锁，获取父节点锁</span>
-<a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a><span class="w">        </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
-<a id="__codelineno-16-35" name="__codelineno-16-35" href="#__codelineno-16-35"></a><span class="w">        </span><span class="n">rnp_c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rnp</span><span class="p">;</span>
-<a id="__codelineno-16-36" name="__codelineno-16-36" href="#__codelineno-16-36"></a><span class="w">        </span><span class="n">rnp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">parent</span><span class="p">;</span>
-<a id="__codelineno-16-37" name="__codelineno-16-37" href="#__codelineno-16-37"></a><span class="w">        </span><span class="n">raw_spin_lock_irqsave_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
-<a id="__codelineno-16-38" name="__codelineno-16-38" href="#__codelineno-16-38"></a><span class="w">        </span><span class="n">oldmask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">READ_ONCE</span><span class="p">(</span><span class="n">rnp_c</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="p">);</span>
-<a id="__codelineno-16-39" name="__codelineno-16-39" href="#__codelineno-16-39"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-16-40" name="__codelineno-16-40" href="#__codelineno-16-40"></a>
-<a id="__codelineno-16-41" name="__codelineno-16-41" href="#__codelineno-16-41"></a><span class="w">    </span><span class="c1">// 所有 CPU/子组完成 → 唤醒 GP kthread 执行清理</span>
-<a id="__codelineno-16-42" name="__codelineno-16-42" href="#__codelineno-16-42"></a><span class="w">    </span><span class="n">rcu_report_qs_rsp</span><span class="p">(</span><span class="n">flags</span><span class="p">);</span><span class="w">                                </span><span class="c1">// line 2393</span>
-<a id="__codelineno-16-43" name="__codelineno-16-43" href="#__codelineno-16-43"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1">// tree.c:2339-2394</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">rcu_report_qs_rnp</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">mask</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_node</span><span class="w"> </span><span class="o">*</span><span class="n">rnp</span><span class="p">,</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">                              </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">gps</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">flags</span><span class="p">)</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">    </span><span class="n">__releases</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">)</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="p">{</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">oldmask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_node</span><span class="w"> </span><span class="o">*</span><span class="n">rnp_c</span><span class="p">;</span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;;)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="w">        </span><span class="c1">// 如果该位已经清除或 GP 已结束，直接返回</span>
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="o">!</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">mask</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">mask</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">gps</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="w">            </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="w">            </span><span class="k">return</span><span class="p">;</span>
+<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a>
+<a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a><span class="w">        </span><span class="c1">// 清除本节点的对应 qsmask 位</span>
+<a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a><span class="w">        </span><span class="n">WRITE_ONCE</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="p">,</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="o">~</span><span class="n">mask</span><span class="p">);</span><span class="w">        </span><span class="c1">// line 2362</span>
+<a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a>
+<a id="__codelineno-22-19" name="__codelineno-22-19" href="#__codelineno-22-19"></a><span class="w">        </span><span class="c1">// 本节点还有其它位未清零或有阻塞任务 → 停止上溯</span>
+<a id="__codelineno-22-20" name="__codelineno-22-20" href="#__codelineno-22-20"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">rcu_preempt_blocked_readers_cgp</span><span class="p">(</span><span class="n">rnp</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a><span class="w">            </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-22-22" name="__codelineno-22-22" href="#__codelineno-22-22"></a><span class="w">            </span><span class="k">return</span><span class="p">;</span><span class="w">                                          </span><span class="c1">// line 2370-2371</span>
+<a id="__codelineno-22-23" name="__codelineno-22-23" href="#__codelineno-22-23"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-22-24" name="__codelineno-22-24" href="#__codelineno-22-24"></a>
+<a id="__codelineno-22-25" name="__codelineno-22-25" href="#__codelineno-22-25"></a><span class="w">        </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">completedqs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="p">;</span><span class="w">                      </span><span class="c1">// 记录完成</span>
+<a id="__codelineno-22-26" name="__codelineno-22-26" href="#__codelineno-22-26"></a><span class="w">        </span><span class="n">mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">grpmask</span><span class="p">;</span><span class="w">                                 </span><span class="c1">// 准备上溯掩码</span>
+<a id="__codelineno-22-27" name="__codelineno-22-27" href="#__codelineno-22-27"></a>
+<a id="__codelineno-22-28" name="__codelineno-22-28" href="#__codelineno-22-28"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">parent</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-22-29" name="__codelineno-22-29" href="#__codelineno-22-29"></a><span class="w">            </span><span class="c1">// 到达根节点！这是最后一个 CPU/子组报告 QS</span>
+<a id="__codelineno-22-30" name="__codelineno-22-30" href="#__codelineno-22-30"></a><span class="w">            </span><span class="k">break</span><span class="p">;</span><span class="w">                                           </span><span class="c1">// line 2379</span>
+<a id="__codelineno-22-31" name="__codelineno-22-31" href="#__codelineno-22-31"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-22-32" name="__codelineno-22-32" href="#__codelineno-22-32"></a>
+<a id="__codelineno-22-33" name="__codelineno-22-33" href="#__codelineno-22-33"></a><span class="w">        </span><span class="c1">// 释放当前节点锁，获取父节点锁</span>
+<a id="__codelineno-22-34" name="__codelineno-22-34" href="#__codelineno-22-34"></a><span class="w">        </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-22-35" name="__codelineno-22-35" href="#__codelineno-22-35"></a><span class="w">        </span><span class="n">rnp_c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rnp</span><span class="p">;</span>
+<a id="__codelineno-22-36" name="__codelineno-22-36" href="#__codelineno-22-36"></a><span class="w">        </span><span class="n">rnp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">parent</span><span class="p">;</span>
+<a id="__codelineno-22-37" name="__codelineno-22-37" href="#__codelineno-22-37"></a><span class="w">        </span><span class="n">raw_spin_lock_irqsave_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-22-38" name="__codelineno-22-38" href="#__codelineno-22-38"></a><span class="w">        </span><span class="n">oldmask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">READ_ONCE</span><span class="p">(</span><span class="n">rnp_c</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="p">);</span>
+<a id="__codelineno-22-39" name="__codelineno-22-39" href="#__codelineno-22-39"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-22-40" name="__codelineno-22-40" href="#__codelineno-22-40"></a>
+<a id="__codelineno-22-41" name="__codelineno-22-41" href="#__codelineno-22-41"></a><span class="w">    </span><span class="c1">// 所有 CPU/子组完成 → 唤醒 GP kthread 执行清理</span>
+<a id="__codelineno-22-42" name="__codelineno-22-42" href="#__codelineno-22-42"></a><span class="w">    </span><span class="n">rcu_report_qs_rsp</span><span class="p">(</span><span class="n">flags</span><span class="p">);</span><span class="w">                                </span><span class="c1">// line 2393</span>
+<a id="__codelineno-22-43" name="__codelineno-22-43" href="#__codelineno-22-43"></a><span class="p">}</span>
 </code></pre></div>
 <p><code>rcu_report_qs_rsp()</code> (line 2315) 设置 <code>RCU_GP_FLAG_FQS</code> 并唤醒 GP kthread，后者发现所有 QS 完成，跳出 <code>rcu_gp_fqs_loop()</code> 进入 <code>rcu_gp_cleanup()</code>。</p>
 <h3 id="91-qs">9.1 QS 传播示例<a class="headerlink" href="#91-qs" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>8 CPUs 的 QS 上报过程（CPU 3 最后报告）:
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>Step 1: CPU 3 报告 QS 给其 leaf rcu_node[4] (覆盖 CPU 2,3)
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>        qsmask: 0b11 → 清除 bit1 → 0b10 (只有 CPU 2 还未报告)
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>        → CPU 2 还在读临界区，停止上溯
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>
-<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>Step 2: CPU 2 调用 rcu_read_unlock() → 触发 QS
-<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>        qsmask: 0b10 → 清除 bit0 → 0b00
-<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>        → 本节点完成，上溯到父节点 rcu_node[2]
-<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>
-<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>Step 3: rcu_node[2] (覆盖 CPU 0..3)
-<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>        qsmask: 0b11 → 清除 rcu_node[4] 对应的 bit → 0b01
-<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>        → rcu_node[3] 还未完成，停止上溯
-<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>
-<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>Step 4: rcu_node[3] 的所有 CPU 也完成
-<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>        qsmask: 0b01 → 清除 → 0b00
-<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>        → 上溯到 root rcu_node[0]
-<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>
-<a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>Step 5: root qsmask 清零
-<a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>        → 本 GP 完成，唤醒 GP kthread → rcu_gp_cleanup()
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>8 CPUs 的 QS 上报过程（CPU 3 最后报告）:
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>Step 1: CPU 3 报告 QS 给其 leaf rcu_node[4] (覆盖 CPU 2,3)
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>        qsmask: 0b11 → 清除 bit1 → 0b10 (只有 CPU 2 还未报告)
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>        → CPU 2 还在读临界区，停止上溯
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>Step 2: CPU 2 调用 rcu_read_unlock() → 触发 QS
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>        qsmask: 0b10 → 清除 bit0 → 0b00
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>        → 本节点完成，上溯到父节点 rcu_node[2]
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>Step 3: rcu_node[2] (覆盖 CPU 0..3)
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>        qsmask: 0b11 → 清除 rcu_node[4] 对应的 bit → 0b01
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a>        → rcu_node[3] 还未完成，停止上溯
+<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>
+<a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a>Step 4: rcu_node[3] 的所有 CPU 也完成
+<a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a>        qsmask: 0b01 → 清除 → 0b00
+<a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a>        → 上溯到 root rcu_node[0]
+<a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a>
+<a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a>Step 5: root qsmask 清零
+<a id="__codelineno-23-20" name="__codelineno-23-20" href="#__codelineno-23-20"></a>        → 本 GP 完成，唤醒 GP kthread → rcu_gp_cleanup()
 </code></pre></div>
 <h2 id="10-rcu_report_qs_rdp-per-cpu-qs">10. rcu_report_qs_rdp() — Per-CPU QS 上报入口<a class="headerlink" href="#10-rcu_report_qs_rdp-per-cpu-qs" title="Permanent link">&para;</a></h2>
 <p><strong>定义位置</strong>：<code>tree.c:2442</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1">// tree.c:2442-2489</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">rcu_report_qs_rdp</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_data</span><span class="w"> </span><span class="o">*</span><span class="n">rdp</span><span class="p">)</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="p">{</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">flags</span><span class="p">;</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">mask</span><span class="p">;</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_node</span><span class="w"> </span><span class="o">*</span><span class="n">rnp</span><span class="p">;</span>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>
-<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">    </span><span class="n">WARN_ON_ONCE</span><span class="p">(</span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">cpu</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">smp_processor_id</span><span class="p">());</span>
-<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">    </span><span class="n">rnp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">mynode</span><span class="p">;</span>
-<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">    </span><span class="n">raw_spin_lock_irqsave_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
-<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>
-<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">    </span><span class="c1">// 如果 GP 已经结束或本 CPU 还需要新 QS</span>
-<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">cpu_no_qs</span><span class="p">.</span><span class="n">b</span><span class="p">.</span><span class="n">norm</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="w"> </span><span class="o">||</span>
-<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">        </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">gpwrap</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="w">        </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">cpu_no_qs</span><span class="p">.</span><span class="n">b</span><span class="p">.</span><span class="n">norm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w">  </span><span class="c1">// 需要为新的 GP 报告 QS</span>
-<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">        </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
-<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="w">        </span><span class="k">return</span><span class="p">;</span>
-<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a>
-<a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a><span class="w">    </span><span class="n">mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">grpmask</span><span class="p">;</span>
-<a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a><span class="w">    </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">core_needs_qs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
-<a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a>
-<a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">mask</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a><span class="w">        </span><span class="c1">// 该位已经清除（重复报告），直接返回</span>
-<a id="__codelineno-18-25" name="__codelineno-18-25" href="#__codelineno-18-25"></a><span class="w">        </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
-<a id="__codelineno-18-26" name="__codelineno-18-26" href="#__codelineno-18-26"></a><span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-18-27" name="__codelineno-18-27" href="#__codelineno-18-27"></a><span class="w">        </span><span class="c1">// 加速回调处理（当前 GP 还未完成，所以下一个 GP 才能处理回调）</span>
-<a id="__codelineno-18-28" name="__codelineno-18-28" href="#__codelineno-18-28"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">rcu_rdp_is_offloaded</span><span class="p">(</span><span class="n">rdp</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-18-29" name="__codelineno-18-29" href="#__codelineno-18-29"></a><span class="w">            </span><span class="n">WARN_ON_ONCE</span><span class="p">(</span><span class="n">rcu_accelerate_cbs</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">rdp</span><span class="p">));</span>
-<a id="__codelineno-18-30" name="__codelineno-18-30" href="#__codelineno-18-30"></a><span class="w">        </span><span class="p">}</span>
-<a id="__codelineno-18-31" name="__codelineno-18-31" href="#__codelineno-18-31"></a><span class="w">        </span><span class="n">rcu_disable_urgency_upon_qs</span><span class="p">(</span><span class="n">rdp</span><span class="p">);</span>
-<a id="__codelineno-18-32" name="__codelineno-18-32" href="#__codelineno-18-32"></a><span class="w">        </span><span class="c1">// 向上传播 QS</span>
-<a id="__codelineno-18-33" name="__codelineno-18-33" href="#__codelineno-18-33"></a><span class="w">        </span><span class="n">rcu_report_qs_rnp</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span><span class="w"> </span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
-<a id="__codelineno-18-34" name="__codelineno-18-34" href="#__codelineno-18-34"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-18-35" name="__codelineno-18-35" href="#__codelineno-18-35"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1">// tree.c:2442-2489</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">rcu_report_qs_rdp</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_data</span><span class="w"> </span><span class="o">*</span><span class="n">rdp</span><span class="p">)</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="p">{</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">flags</span><span class="p">;</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">mask</span><span class="p">;</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_node</span><span class="w"> </span><span class="o">*</span><span class="n">rnp</span><span class="p">;</span>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a><span class="w">    </span><span class="n">WARN_ON_ONCE</span><span class="p">(</span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">cpu</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">smp_processor_id</span><span class="p">());</span>
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a><span class="w">    </span><span class="n">rnp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">mynode</span><span class="p">;</span>
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a><span class="w">    </span><span class="n">raw_spin_lock_irqsave_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>
+<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a><span class="w">    </span><span class="c1">// 如果 GP 已经结束或本 CPU 还需要新 QS</span>
+<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">cpu_no_qs</span><span class="p">.</span><span class="n">b</span><span class="p">.</span><span class="n">norm</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="w"> </span><span class="o">||</span>
+<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a><span class="w">        </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">gpwrap</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a><span class="w">        </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">cpu_no_qs</span><span class="p">.</span><span class="n">b</span><span class="p">.</span><span class="n">norm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w">  </span><span class="c1">// 需要为新的 GP 报告 QS</span>
+<a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a><span class="w">        </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a><span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<a id="__codelineno-24-18" name="__codelineno-24-18" href="#__codelineno-24-18"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-24-19" name="__codelineno-24-19" href="#__codelineno-24-19"></a>
+<a id="__codelineno-24-20" name="__codelineno-24-20" href="#__codelineno-24-20"></a><span class="w">    </span><span class="n">mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">grpmask</span><span class="p">;</span>
+<a id="__codelineno-24-21" name="__codelineno-24-21" href="#__codelineno-24-21"></a><span class="w">    </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">core_needs_qs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-24-22" name="__codelineno-24-22" href="#__codelineno-24-22"></a>
+<a id="__codelineno-24-23" name="__codelineno-24-23" href="#__codelineno-24-23"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">mask</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-24-24" name="__codelineno-24-24" href="#__codelineno-24-24"></a><span class="w">        </span><span class="c1">// 该位已经清除（重复报告），直接返回</span>
+<a id="__codelineno-24-25" name="__codelineno-24-25" href="#__codelineno-24-25"></a><span class="w">        </span><span class="n">raw_spin_unlock_irqrestore_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-24-26" name="__codelineno-24-26" href="#__codelineno-24-26"></a><span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-24-27" name="__codelineno-24-27" href="#__codelineno-24-27"></a><span class="w">        </span><span class="c1">// 加速回调处理（当前 GP 还未完成，所以下一个 GP 才能处理回调）</span>
+<a id="__codelineno-24-28" name="__codelineno-24-28" href="#__codelineno-24-28"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">rcu_rdp_is_offloaded</span><span class="p">(</span><span class="n">rdp</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-24-29" name="__codelineno-24-29" href="#__codelineno-24-29"></a><span class="w">            </span><span class="n">WARN_ON_ONCE</span><span class="p">(</span><span class="n">rcu_accelerate_cbs</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">rdp</span><span class="p">));</span>
+<a id="__codelineno-24-30" name="__codelineno-24-30" href="#__codelineno-24-30"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-24-31" name="__codelineno-24-31" href="#__codelineno-24-31"></a><span class="w">        </span><span class="n">rcu_disable_urgency_upon_qs</span><span class="p">(</span><span class="n">rdp</span><span class="p">);</span>
+<a id="__codelineno-24-32" name="__codelineno-24-32" href="#__codelineno-24-32"></a><span class="w">        </span><span class="c1">// 向上传播 QS</span>
+<a id="__codelineno-24-33" name="__codelineno-24-33" href="#__codelineno-24-33"></a><span class="w">        </span><span class="n">rcu_report_qs_rnp</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span><span class="w"> </span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-24-34" name="__codelineno-24-34" href="#__codelineno-24-34"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-24-35" name="__codelineno-24-35" href="#__codelineno-24-35"></a><span class="p">}</span>
 </code></pre></div>
 <h2 id="11-rcu_gp_cleanup-gp">11. rcu_gp_cleanup() — GP 清理<a class="headerlink" href="#11-rcu_gp_cleanup-gp" title="Permanent link">&para;</a></h2>
 <p><strong>定义位置</strong>：<code>tree.c:2150</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1">// tree.c:2150-2266</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="k">static</span><span class="w"> </span><span class="n">noinline</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">rcu_gp_cleanup</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="p">{</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_node</span><span class="w"> </span><span class="o">*</span><span class="n">rnp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_get_root</span><span class="p">();</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">    </span><span class="n">raw_spin_lock_irq_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">);</span>
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">    </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_end</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">jiffies</span><span class="p">;</span>
-<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">    </span><span class="n">gp_duration</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_end</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_start</span><span class="p">;</span>
-<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">gp_duration</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_max</span><span class="p">)</span>
-<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">        </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_max</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gp_duration</span><span class="p">;</span><span class="w">                      </span><span class="c1">// 记录最大 GP 时长</span>
-<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">    </span><span class="n">raw_spin_unlock_irq_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">);</span>
-<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>
-<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="w">    </span><span class="c1">// 传播新的 gp_seq 到所有 rcu_node</span>
-<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="w">    </span><span class="n">new_gp_seq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_seq</span><span class="p">;</span>
-<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a><span class="w">    </span><span class="n">rcu_seq_end</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new_gp_seq</span><span class="p">);</span><span class="w">                                </span><span class="c1">// line 2189</span>
-<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a><span class="w">    </span><span class="n">rcu_for_each_node_breadth_first</span><span class="p">(</span><span class="n">rnp</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a><span class="w">        </span><span class="n">raw_spin_lock_irq_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">);</span>
-<a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a><span class="w">        </span><span class="n">WARN_ON_ONCE</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="p">);</span><span class="w">                           </span><span class="c1">// 应该已经清零</span>
-<a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a><span class="w">        </span><span class="n">WRITE_ONCE</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="p">,</span><span class="w"> </span><span class="n">new_gp_seq</span><span class="p">);</span><span class="w">                 </span><span class="c1">// line 2195</span>
-<a id="__codelineno-19-20" name="__codelineno-19-20" href="#__codelineno-19-20"></a><span class="w">        </span><span class="c1">// 检查每个 CPU 是否需要新 GP</span>
-<a id="__codelineno-19-21" name="__codelineno-19-21" href="#__codelineno-19-21"></a><span class="w">        </span><span class="n">rdp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this_cpu_ptr</span><span class="p">(</span><span class="o">&amp;</span><span class="n">rcu_data</span><span class="p">);</span>
-<a id="__codelineno-19-22" name="__codelineno-19-22" href="#__codelineno-19-22"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rnp</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">mynode</span><span class="p">)</span>
-<a id="__codelineno-19-23" name="__codelineno-19-23" href="#__codelineno-19-23"></a><span class="w">            </span><span class="n">needgp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__note_gp_changes</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">rdp</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">needgp</span><span class="p">;</span>
-<a id="__codelineno-19-24" name="__codelineno-19-24" href="#__codelineno-19-24"></a><span class="w">        </span><span class="n">needgp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_future_gp_cleanup</span><span class="p">(</span><span class="n">rnp</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">needgp</span><span class="p">;</span>
-<a id="__codelineno-19-25" name="__codelineno-19-25" href="#__codelineno-19-25"></a><span class="w">        </span><span class="c1">// ...</span>
-<a id="__codelineno-19-26" name="__codelineno-19-26" href="#__codelineno-19-26"></a><span class="w">        </span><span class="n">raw_spin_unlock_irq_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">);</span>
-<a id="__codelineno-19-27" name="__codelineno-19-27" href="#__codelineno-19-27"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-19-28" name="__codelineno-19-28" href="#__codelineno-19-28"></a>
-<a id="__codelineno-19-29" name="__codelineno-19-29" href="#__codelineno-19-29"></a><span class="w">    </span><span class="c1">// 正式结束 GP</span>
-<a id="__codelineno-19-30" name="__codelineno-19-30" href="#__codelineno-19-30"></a><span class="w">    </span><span class="n">rcu_seq_end</span><span class="p">(</span><span class="o">&amp;</span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_seq</span><span class="p">);</span><span class="w">                          </span><span class="c1">// line 2221</span>
-<a id="__codelineno-19-31" name="__codelineno-19-31" href="#__codelineno-19-31"></a><span class="w">    </span><span class="n">WRITE_ONCE</span><span class="p">(</span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_state</span><span class="p">,</span><span class="w"> </span><span class="n">RCU_GP_IDLE</span><span class="p">);</span><span class="w">            </span><span class="c1">// line 2223</span>
-<a id="__codelineno-19-32" name="__codelineno-19-32" href="#__codelineno-19-32"></a>
-<a id="__codelineno-19-33" name="__codelineno-19-33" href="#__codelineno-19-33"></a><span class="w">    </span><span class="c1">// 检查是否已经有新的 GP 请求（通过 gp_seq_needed）</span>
-<a id="__codelineno-19-34" name="__codelineno-19-34" href="#__codelineno-19-34"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">needgp</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ULONG_CMP_LT</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="p">,</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq_needed</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-19-35" name="__codelineno-19-35" href="#__codelineno-19-35"></a><span class="w">        </span><span class="n">needgp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w">                                       </span><span class="c1">// line 2229</span>
-<a id="__codelineno-19-36" name="__codelineno-19-36" href="#__codelineno-19-36"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-19-37" name="__codelineno-19-37" href="#__codelineno-19-37"></a>
-<a id="__codelineno-19-38" name="__codelineno-19-38" href="#__codelineno-19-38"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">offloaded</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="n">rcu_accelerate_cbs</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">rdp</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">needgp</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-19-39" name="__codelineno-19-39" href="#__codelineno-19-39"></a><span class="w">        </span><span class="c1">// 需要新 GP，设置 RCU_GP_FLAG_INIT</span>
-<a id="__codelineno-19-40" name="__codelineno-19-40" href="#__codelineno-19-40"></a><span class="w">        </span><span class="n">WRITE_ONCE</span><span class="p">(</span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_flags</span><span class="p">,</span><span class="w"> </span><span class="n">RCU_GP_FLAG_INIT</span><span class="p">);</span><span class="w">    </span><span class="c1">// line 2245</span>
-<a id="__codelineno-19-41" name="__codelineno-19-41" href="#__codelineno-19-41"></a><span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-19-42" name="__codelineno-19-42" href="#__codelineno-19-42"></a><span class="w">        </span><span class="c1">// 不需要新 GP，仅保留可能已有 INIT 标志</span>
-<a id="__codelineno-19-43" name="__codelineno-19-43" href="#__codelineno-19-43"></a><span class="w">        </span><span class="n">WRITE_ONCE</span><span class="p">(</span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_flags</span><span class="p">,</span>
-<a id="__codelineno-19-44" name="__codelineno-19-44" href="#__codelineno-19-44"></a><span class="w">                   </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">RCU_GP_FLAG_INIT</span><span class="p">);</span><span class="w">    </span><span class="c1">// line 2256</span>
-<a id="__codelineno-19-45" name="__codelineno-19-45" href="#__codelineno-19-45"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-19-46" name="__codelineno-19-46" href="#__codelineno-19-46"></a><span class="w">    </span><span class="n">raw_spin_unlock_irq_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">);</span>
-<a id="__codelineno-19-47" name="__codelineno-19-47" href="#__codelineno-19-47"></a>
-<a id="__codelineno-19-48" name="__codelineno-19-48" href="#__codelineno-19-48"></a><span class="w">    </span><span class="c1">// 通知 synchronize_rcu() 用户 GP 结束</span>
-<a id="__codelineno-19-49" name="__codelineno-19-49" href="#__codelineno-19-49"></a><span class="w">    </span><span class="n">rcu_sr_normal_gp_cleanup</span><span class="p">();</span><span class="w">                              </span><span class="c1">// line 2261</span>
-<a id="__codelineno-19-50" name="__codelineno-19-50" href="#__codelineno-19-50"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1">// tree.c:2150-2266</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="k">static</span><span class="w"> </span><span class="n">noinline</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">rcu_gp_cleanup</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="p">{</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_node</span><span class="w"> </span><span class="o">*</span><span class="n">rnp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_get_root</span><span class="p">();</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="w">    </span><span class="n">raw_spin_lock_irq_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">);</span>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="w">    </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_end</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">jiffies</span><span class="p">;</span>
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a><span class="w">    </span><span class="n">gp_duration</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_end</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_start</span><span class="p">;</span>
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">gp_duration</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_max</span><span class="p">)</span>
+<a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a><span class="w">        </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_max</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gp_duration</span><span class="p">;</span><span class="w">                      </span><span class="c1">// 记录最大 GP 时长</span>
+<a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a><span class="w">    </span><span class="n">raw_spin_unlock_irq_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">);</span>
+<a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a>
+<a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a><span class="w">    </span><span class="c1">// 传播新的 gp_seq 到所有 rcu_node</span>
+<a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a><span class="w">    </span><span class="n">new_gp_seq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_seq</span><span class="p">;</span>
+<a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a><span class="w">    </span><span class="n">rcu_seq_end</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new_gp_seq</span><span class="p">);</span><span class="w">                                </span><span class="c1">// line 2189</span>
+<a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a><span class="w">    </span><span class="n">rcu_for_each_node_breadth_first</span><span class="p">(</span><span class="n">rnp</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-25-17" name="__codelineno-25-17" href="#__codelineno-25-17"></a><span class="w">        </span><span class="n">raw_spin_lock_irq_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">);</span>
+<a id="__codelineno-25-18" name="__codelineno-25-18" href="#__codelineno-25-18"></a><span class="w">        </span><span class="n">WARN_ON_ONCE</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">qsmask</span><span class="p">);</span><span class="w">                           </span><span class="c1">// 应该已经清零</span>
+<a id="__codelineno-25-19" name="__codelineno-25-19" href="#__codelineno-25-19"></a><span class="w">        </span><span class="n">WRITE_ONCE</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="p">,</span><span class="w"> </span><span class="n">new_gp_seq</span><span class="p">);</span><span class="w">                 </span><span class="c1">// line 2195</span>
+<a id="__codelineno-25-20" name="__codelineno-25-20" href="#__codelineno-25-20"></a><span class="w">        </span><span class="c1">// 检查每个 CPU 是否需要新 GP</span>
+<a id="__codelineno-25-21" name="__codelineno-25-21" href="#__codelineno-25-21"></a><span class="w">        </span><span class="n">rdp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this_cpu_ptr</span><span class="p">(</span><span class="o">&amp;</span><span class="n">rcu_data</span><span class="p">);</span>
+<a id="__codelineno-25-22" name="__codelineno-25-22" href="#__codelineno-25-22"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rnp</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">rdp</span><span class="o">-&gt;</span><span class="n">mynode</span><span class="p">)</span>
+<a id="__codelineno-25-23" name="__codelineno-25-23" href="#__codelineno-25-23"></a><span class="w">            </span><span class="n">needgp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__note_gp_changes</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">rdp</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">needgp</span><span class="p">;</span>
+<a id="__codelineno-25-24" name="__codelineno-25-24" href="#__codelineno-25-24"></a><span class="w">        </span><span class="n">needgp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_future_gp_cleanup</span><span class="p">(</span><span class="n">rnp</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">needgp</span><span class="p">;</span>
+<a id="__codelineno-25-25" name="__codelineno-25-25" href="#__codelineno-25-25"></a><span class="w">        </span><span class="c1">// ...</span>
+<a id="__codelineno-25-26" name="__codelineno-25-26" href="#__codelineno-25-26"></a><span class="w">        </span><span class="n">raw_spin_unlock_irq_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">);</span>
+<a id="__codelineno-25-27" name="__codelineno-25-27" href="#__codelineno-25-27"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-25-28" name="__codelineno-25-28" href="#__codelineno-25-28"></a>
+<a id="__codelineno-25-29" name="__codelineno-25-29" href="#__codelineno-25-29"></a><span class="w">    </span><span class="c1">// 正式结束 GP</span>
+<a id="__codelineno-25-30" name="__codelineno-25-30" href="#__codelineno-25-30"></a><span class="w">    </span><span class="n">rcu_seq_end</span><span class="p">(</span><span class="o">&amp;</span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_seq</span><span class="p">);</span><span class="w">                          </span><span class="c1">// line 2221</span>
+<a id="__codelineno-25-31" name="__codelineno-25-31" href="#__codelineno-25-31"></a><span class="w">    </span><span class="n">WRITE_ONCE</span><span class="p">(</span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_state</span><span class="p">,</span><span class="w"> </span><span class="n">RCU_GP_IDLE</span><span class="p">);</span><span class="w">            </span><span class="c1">// line 2223</span>
+<a id="__codelineno-25-32" name="__codelineno-25-32" href="#__codelineno-25-32"></a>
+<a id="__codelineno-25-33" name="__codelineno-25-33" href="#__codelineno-25-33"></a><span class="w">    </span><span class="c1">// 检查是否已经有新的 GP 请求（通过 gp_seq_needed）</span>
+<a id="__codelineno-25-34" name="__codelineno-25-34" href="#__codelineno-25-34"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">needgp</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ULONG_CMP_LT</span><span class="p">(</span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq</span><span class="p">,</span><span class="w"> </span><span class="n">rnp</span><span class="o">-&gt;</span><span class="n">gp_seq_needed</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-25-35" name="__codelineno-25-35" href="#__codelineno-25-35"></a><span class="w">        </span><span class="n">needgp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w">                                       </span><span class="c1">// line 2229</span>
+<a id="__codelineno-25-36" name="__codelineno-25-36" href="#__codelineno-25-36"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-25-37" name="__codelineno-25-37" href="#__codelineno-25-37"></a>
+<a id="__codelineno-25-38" name="__codelineno-25-38" href="#__codelineno-25-38"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">offloaded</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="n">rcu_accelerate_cbs</span><span class="p">(</span><span class="n">rnp</span><span class="p">,</span><span class="w"> </span><span class="n">rdp</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">needgp</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-25-39" name="__codelineno-25-39" href="#__codelineno-25-39"></a><span class="w">        </span><span class="c1">// 需要新 GP，设置 RCU_GP_FLAG_INIT</span>
+<a id="__codelineno-25-40" name="__codelineno-25-40" href="#__codelineno-25-40"></a><span class="w">        </span><span class="n">WRITE_ONCE</span><span class="p">(</span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_flags</span><span class="p">,</span><span class="w"> </span><span class="n">RCU_GP_FLAG_INIT</span><span class="p">);</span><span class="w">    </span><span class="c1">// line 2245</span>
+<a id="__codelineno-25-41" name="__codelineno-25-41" href="#__codelineno-25-41"></a><span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-25-42" name="__codelineno-25-42" href="#__codelineno-25-42"></a><span class="w">        </span><span class="c1">// 不需要新 GP，仅保留可能已有 INIT 标志</span>
+<a id="__codelineno-25-43" name="__codelineno-25-43" href="#__codelineno-25-43"></a><span class="w">        </span><span class="n">WRITE_ONCE</span><span class="p">(</span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_flags</span><span class="p">,</span>
+<a id="__codelineno-25-44" name="__codelineno-25-44" href="#__codelineno-25-44"></a><span class="w">                   </span><span class="n">rcu_state</span><span class="p">.</span><span class="n">gp_flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">RCU_GP_FLAG_INIT</span><span class="p">);</span><span class="w">    </span><span class="c1">// line 2256</span>
+<a id="__codelineno-25-45" name="__codelineno-25-45" href="#__codelineno-25-45"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-25-46" name="__codelineno-25-46" href="#__codelineno-25-46"></a><span class="w">    </span><span class="n">raw_spin_unlock_irq_rcu_node</span><span class="p">(</span><span class="n">rnp</span><span class="p">);</span>
+<a id="__codelineno-25-47" name="__codelineno-25-47" href="#__codelineno-25-47"></a>
+<a id="__codelineno-25-48" name="__codelineno-25-48" href="#__codelineno-25-48"></a><span class="w">    </span><span class="c1">// 通知 synchronize_rcu() 用户 GP 结束</span>
+<a id="__codelineno-25-49" name="__codelineno-25-49" href="#__codelineno-25-49"></a><span class="w">    </span><span class="n">rcu_sr_normal_gp_cleanup</span><span class="p">();</span><span class="w">                              </span><span class="c1">// line 2261</span>
+<a id="__codelineno-25-50" name="__codelineno-25-50" href="#__codelineno-25-50"></a><span class="p">}</span>
 </code></pre></div>
 <p>清理阶段的关键操作：
 1. 更新所有 rcu_node 的 <code>gp_seq</code> 为新的已完成的序列号
@@ -24232,65 +24522,65 @@
 4. 如果需要，设置 <code>RCU_GP_FLAG_INIT</code>，GP kthread 的下一次循环会检测到</p>
 <h2 id="12-rcu_init">12. rcu_init() — 启动序列<a class="headerlink" href="#12-rcu_init" title="Permanent link">&para;</a></h2>
 <p><strong>定义位置</strong>：<code>tree.c:4874</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1">// tree.c:4874-4926</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">rcu_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="p">{</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">cpu</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">smp_processor_id</span><span class="p">();</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">    </span><span class="n">rcu_early_boot_tests</span><span class="p">();</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">    </span><span class="n">rcu_bootup_announce</span><span class="p">();</span>
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">    </span><span class="n">sanitize_kthread_prio</span><span class="p">();</span>
-<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">    </span><span class="n">rcu_init_geometry</span><span class="p">();</span><span class="w">           </span><span class="c1">// 计算 rcu_node 树结构</span>
-<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="w">    </span><span class="n">rcu_init_one</span><span class="p">();</span><span class="w">                </span><span class="c1">// 初始化 rcu_state 和第一个 rcu_node</span>
-<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>
-<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dump_tree</span><span class="p">)</span>
-<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="w">        </span><span class="n">rcu_dump_rcu_node_tree</span><span class="p">();</span><span class="w">  </span><span class="c1">// 打印树结构供调试</span>
-<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>
-<a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">use_softirq</span><span class="p">)</span>
-<a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a><span class="w">        </span><span class="n">open_softirq</span><span class="p">(</span><span class="n">RCU_SOFTIRQ</span><span class="p">,</span><span class="w"> </span><span class="n">rcu_core_si</span><span class="p">);</span><span class="w">  </span><span class="c1">// 注册 RCU_SOFTIRQ 处理函数</span>
-<a id="__codelineno-20-17" name="__codelineno-20-17" href="#__codelineno-20-17"></a>
-<a id="__codelineno-20-18" name="__codelineno-20-18" href="#__codelineno-20-18"></a><span class="w">    </span><span class="n">pm_notifier</span><span class="p">(</span><span class="n">rcu_pm_notify</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w"> </span><span class="c1">// 注册电源管理通知</span>
-<a id="__codelineno-20-19" name="__codelineno-20-19" href="#__codelineno-20-19"></a><span class="w">    </span><span class="n">rcutree_prepare_cpu</span><span class="p">(</span><span class="n">cpu</span><span class="p">);</span><span class="w">      </span><span class="c1">// 准备 boot CPU</span>
-<a id="__codelineno-20-20" name="__codelineno-20-20" href="#__codelineno-20-20"></a><span class="w">    </span><span class="n">rcutree_report_cpu_starting</span><span class="p">(</span><span class="n">cpu</span><span class="p">);</span>
-<a id="__codelineno-20-21" name="__codelineno-20-21" href="#__codelineno-20-21"></a><span class="w">    </span><span class="n">rcutree_online_cpu</span><span class="p">(</span><span class="n">cpu</span><span class="p">);</span><span class="w">       </span><span class="c1">// 将 boot CPU 上线</span>
-<a id="__codelineno-20-22" name="__codelineno-20-22" href="#__codelineno-20-22"></a>
-<a id="__codelineno-20-23" name="__codelineno-20-23" href="#__codelineno-20-23"></a><span class="w">    </span><span class="n">rcu_gp_wq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_workqueue</span><span class="p">(</span><span class="s">&quot;rcu_gp&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">WQ_MEM_RECLAIM</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">WQ_PERCPU</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
-<a id="__codelineno-20-24" name="__codelineno-20-24" href="#__codelineno-20-24"></a>
-<a id="__codelineno-20-25" name="__codelineno-20-25" href="#__codelineno-20-25"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rcu_normal_wake_from_gp</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-20-26" name="__codelineno-20-26" href="#__codelineno-20-26"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">num_possible_cpus</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">WAKE_FROM_GP_CPU_THRESHOLD</span><span class="p">)</span>
-<a id="__codelineno-20-27" name="__codelineno-20-27" href="#__codelineno-20-27"></a><span class="w">            </span><span class="n">rcu_normal_wake_from_gp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
-<a id="__codelineno-20-28" name="__codelineno-20-28" href="#__codelineno-20-28"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-20-29" name="__codelineno-20-29" href="#__codelineno-20-29"></a>
-<a id="__codelineno-20-30" name="__codelineno-20-30" href="#__codelineno-20-30"></a><span class="w">    </span><span class="c1">// 填充默认的 qovld (回调过载阈值) 参数</span>
-<a id="__codelineno-20-31" name="__codelineno-20-31" href="#__codelineno-20-31"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">qovld</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-20-32" name="__codelineno-20-32" href="#__codelineno-20-32"></a><span class="w">        </span><span class="n">qovld_calc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DEFAULT_RCU_QOVLD_MULT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">qhimark</span><span class="p">;</span>
-<a id="__codelineno-20-33" name="__codelineno-20-33" href="#__codelineno-20-33"></a><span class="w">    </span><span class="k">else</span>
-<a id="__codelineno-20-34" name="__codelineno-20-34" href="#__codelineno-20-34"></a><span class="w">        </span><span class="n">qovld_calc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">qovld</span><span class="p">;</span>
-<a id="__codelineno-20-35" name="__codelineno-20-35" href="#__codelineno-20-35"></a>
-<a id="__codelineno-20-36" name="__codelineno-20-36" href="#__codelineno-20-36"></a><span class="w">    </span><span class="n">tasks_cblist_init_generic</span><span class="p">();</span><span class="w">   </span><span class="c1">// 初始化 Tasks RCU</span>
-<a id="__codelineno-20-37" name="__codelineno-20-37" href="#__codelineno-20-37"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1">// tree.c:4874-4926</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">rcu_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="p">{</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">cpu</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">smp_processor_id</span><span class="p">();</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>
+<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="w">    </span><span class="n">rcu_early_boot_tests</span><span class="p">();</span>
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="w">    </span><span class="n">rcu_bootup_announce</span><span class="p">();</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="w">    </span><span class="n">sanitize_kthread_prio</span><span class="p">();</span>
+<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a><span class="w">    </span><span class="n">rcu_init_geometry</span><span class="p">();</span><span class="w">           </span><span class="c1">// 计算 rcu_node 树结构</span>
+<a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a><span class="w">    </span><span class="n">rcu_init_one</span><span class="p">();</span><span class="w">                </span><span class="c1">// 初始化 rcu_state 和第一个 rcu_node</span>
+<a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a>
+<a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dump_tree</span><span class="p">)</span>
+<a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a><span class="w">        </span><span class="n">rcu_dump_rcu_node_tree</span><span class="p">();</span><span class="w">  </span><span class="c1">// 打印树结构供调试</span>
+<a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a>
+<a id="__codelineno-26-15" name="__codelineno-26-15" href="#__codelineno-26-15"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">use_softirq</span><span class="p">)</span>
+<a id="__codelineno-26-16" name="__codelineno-26-16" href="#__codelineno-26-16"></a><span class="w">        </span><span class="n">open_softirq</span><span class="p">(</span><span class="n">RCU_SOFTIRQ</span><span class="p">,</span><span class="w"> </span><span class="n">rcu_core_si</span><span class="p">);</span><span class="w">  </span><span class="c1">// 注册 RCU_SOFTIRQ 处理函数</span>
+<a id="__codelineno-26-17" name="__codelineno-26-17" href="#__codelineno-26-17"></a>
+<a id="__codelineno-26-18" name="__codelineno-26-18" href="#__codelineno-26-18"></a><span class="w">    </span><span class="n">pm_notifier</span><span class="p">(</span><span class="n">rcu_pm_notify</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w"> </span><span class="c1">// 注册电源管理通知</span>
+<a id="__codelineno-26-19" name="__codelineno-26-19" href="#__codelineno-26-19"></a><span class="w">    </span><span class="n">rcutree_prepare_cpu</span><span class="p">(</span><span class="n">cpu</span><span class="p">);</span><span class="w">      </span><span class="c1">// 准备 boot CPU</span>
+<a id="__codelineno-26-20" name="__codelineno-26-20" href="#__codelineno-26-20"></a><span class="w">    </span><span class="n">rcutree_report_cpu_starting</span><span class="p">(</span><span class="n">cpu</span><span class="p">);</span>
+<a id="__codelineno-26-21" name="__codelineno-26-21" href="#__codelineno-26-21"></a><span class="w">    </span><span class="n">rcutree_online_cpu</span><span class="p">(</span><span class="n">cpu</span><span class="p">);</span><span class="w">       </span><span class="c1">// 将 boot CPU 上线</span>
+<a id="__codelineno-26-22" name="__codelineno-26-22" href="#__codelineno-26-22"></a>
+<a id="__codelineno-26-23" name="__codelineno-26-23" href="#__codelineno-26-23"></a><span class="w">    </span><span class="n">rcu_gp_wq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_workqueue</span><span class="p">(</span><span class="s">&quot;rcu_gp&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">WQ_MEM_RECLAIM</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">WQ_PERCPU</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<a id="__codelineno-26-24" name="__codelineno-26-24" href="#__codelineno-26-24"></a>
+<a id="__codelineno-26-25" name="__codelineno-26-25" href="#__codelineno-26-25"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rcu_normal_wake_from_gp</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-26-26" name="__codelineno-26-26" href="#__codelineno-26-26"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">num_possible_cpus</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">WAKE_FROM_GP_CPU_THRESHOLD</span><span class="p">)</span>
+<a id="__codelineno-26-27" name="__codelineno-26-27" href="#__codelineno-26-27"></a><span class="w">            </span><span class="n">rcu_normal_wake_from_gp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<a id="__codelineno-26-28" name="__codelineno-26-28" href="#__codelineno-26-28"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-26-29" name="__codelineno-26-29" href="#__codelineno-26-29"></a>
+<a id="__codelineno-26-30" name="__codelineno-26-30" href="#__codelineno-26-30"></a><span class="w">    </span><span class="c1">// 填充默认的 qovld (回调过载阈值) 参数</span>
+<a id="__codelineno-26-31" name="__codelineno-26-31" href="#__codelineno-26-31"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">qovld</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-26-32" name="__codelineno-26-32" href="#__codelineno-26-32"></a><span class="w">        </span><span class="n">qovld_calc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DEFAULT_RCU_QOVLD_MULT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">qhimark</span><span class="p">;</span>
+<a id="__codelineno-26-33" name="__codelineno-26-33" href="#__codelineno-26-33"></a><span class="w">    </span><span class="k">else</span>
+<a id="__codelineno-26-34" name="__codelineno-26-34" href="#__codelineno-26-34"></a><span class="w">        </span><span class="n">qovld_calc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">qovld</span><span class="p">;</span>
+<a id="__codelineno-26-35" name="__codelineno-26-35" href="#__codelineno-26-35"></a>
+<a id="__codelineno-26-36" name="__codelineno-26-36" href="#__codelineno-26-36"></a><span class="w">    </span><span class="n">tasks_cblist_init_generic</span><span class="p">();</span><span class="w">   </span><span class="c1">// 初始化 Tasks RCU</span>
+<a id="__codelineno-26-37" name="__codelineno-26-37" href="#__codelineno-26-37"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="121-rcu_init_geometry">12.1 rcu_init_geometry() — 合并树几何计算<a class="headerlink" href="#121-rcu_init_geometry" title="Permanent link">&para;</a></h3>
 <p><strong>定义位置</strong>：<code>tree.c:4768</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1">// tree.c:4819-4847 关键计算</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">rcu_capacity</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_fanout_leaf</span><span class="p">;</span><span class="w">                           </span><span class="c1">// line 4819</span>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">RCU_NUM_LVLS</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">    </span><span class="n">rcu_capacity</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_capacity</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">RCU_FANOUT</span><span class="p">;</span><span class="w">      </span><span class="c1">// line 4821</span>
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>
-<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="c1">// 计算需要的层数</span>
-<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">nr_cpu_ids</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">rcu_capacity</span><span class="p">[</span><span class="n">i</span><span class="p">];</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">}</span><span class="w">           </span><span class="c1">// line 4834</span>
-<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="n">rcu_num_lvls</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">                                        </span><span class="c1">// line 4836</span>
-<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>
-<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="c1">// 计算每层的节点数</span>
-<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">rcu_num_lvls</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">cap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_capacity</span><span class="p">[(</span><span class="n">rcu_num_lvls</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="p">];</span>
-<a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="w">    </span><span class="n">num_rcu_lvl</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DIV_ROUND_UP</span><span class="p">(</span><span class="n">nr_cpu_ids</span><span class="p">,</span><span class="w"> </span><span class="n">cap</span><span class="p">);</span>
-<a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a><span class="p">}</span>
-<a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a>
-<a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a><span class="c1">// 计算总节点数</span>
-<a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a><span class="n">rcu_num_nodes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">rcu_num_lvls</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
-<a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a><span class="w">    </span><span class="n">rcu_num_nodes</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">num_rcu_lvl</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1">// tree.c:4819-4847 关键计算</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="n">rcu_capacity</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_fanout_leaf</span><span class="p">;</span><span class="w">                           </span><span class="c1">// line 4819</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">RCU_NUM_LVLS</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="w">    </span><span class="n">rcu_capacity</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_capacity</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">RCU_FANOUT</span><span class="p">;</span><span class="w">      </span><span class="c1">// line 4821</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="c1">// 计算需要的层数</span>
+<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">nr_cpu_ids</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">rcu_capacity</span><span class="p">[</span><span class="n">i</span><span class="p">];</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">}</span><span class="w">           </span><span class="c1">// line 4834</span>
+<a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a><span class="n">rcu_num_lvls</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">                                        </span><span class="c1">// line 4836</span>
+<a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a>
+<a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="c1">// 计算每层的节点数</span>
+<a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">rcu_num_lvls</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">cap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rcu_capacity</span><span class="p">[(</span><span class="n">rcu_num_lvls</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="p">];</span>
+<a id="__codelineno-27-13" name="__codelineno-27-13" href="#__codelineno-27-13"></a><span class="w">    </span><span class="n">num_rcu_lvl</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DIV_ROUND_UP</span><span class="p">(</span><span class="n">nr_cpu_ids</span><span class="p">,</span><span class="w"> </span><span class="n">cap</span><span class="p">);</span>
+<a id="__codelineno-27-14" name="__codelineno-27-14" href="#__codelineno-27-14"></a><span class="p">}</span>
+<a id="__codelineno-27-15" name="__codelineno-27-15" href="#__codelineno-27-15"></a>
+<a id="__codelineno-27-16" name="__codelineno-27-16" href="#__codelineno-27-16"></a><span class="c1">// 计算总节点数</span>
+<a id="__codelineno-27-17" name="__codelineno-27-17" href="#__codelineno-27-17"></a><span class="n">rcu_num_nodes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-27-18" name="__codelineno-27-18" href="#__codelineno-27-18"></a><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">rcu_num_lvls</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
+<a id="__codelineno-27-19" name="__codelineno-27-19" href="#__codelineno-27-19"></a><span class="w">    </span><span class="n">rcu_num_nodes</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">num_rcu_lvl</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
 </code></pre></div>
 <p>例如 64 个 CPU，<code>RCU_FANOUT_LEAF=16</code>, <code>RCU_FANOUT=8</code>：
 - capacity: <code>[16, 128, 1024]</code>
@@ -24300,21 +24590,21 @@
 - 总节点 = 5</p>
 <h2 id="13-gp">13. GP 序列号编码<a class="headerlink" href="#13-gp" title="Permanent link">&para;</a></h2>
 <p><code>gp_seq</code> 的低 <code>RCU_SEQ_CTR_SHIFT</code> 位（2 位）编码 GP 阶段：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>gp_seq 格式 (64-bit):
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>  ┌────────────────────────────────────────────┬───┬───┐
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>  │              计数器 (62 bits)               │ S │ S │
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>  └────────────────────────────────────────────┴───┴───┘
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>                                                  [1] [0]
-<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>
-<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>位[1:0]:
-<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>  00 = GP idle (无活跃 GP)
-<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>  01 = GP 进行中
-<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>  10 = GP 进行中
-<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>  11 = GP 进行中
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>gp_seq 格式 (64-bit):
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>  ┌────────────────────────────────────────────┬───┬───┐
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>  │              计数器 (62 bits)               │ S │ S │
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>  └────────────────────────────────────────────┴───┴───┘
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>                                                  [1] [0]
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>
+<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a>位[1:0]:
+<a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a>  00 = GP idle (无活跃 GP)
+<a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a>  01 = GP 进行中
+<a id="__codelineno-28-10" name="__codelineno-28-10" href="#__codelineno-28-10"></a>  10 = GP 进行中
+<a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a>  11 = GP 进行中
 </code></pre></div>
 <p>相关宏（<code>rcupdate.h:47-48</code>）：
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="cp">#define RCU_SEQ_CTR_SHIFT    2</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="cp">#define RCU_SEQ_STATE_MASK   ((1 &lt;&lt; RCU_SEQ_CTR_SHIFT) - 1)  </span><span class="c1">// 0x3</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="cp">#define RCU_SEQ_CTR_SHIFT    2</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="cp">#define RCU_SEQ_STATE_MASK   ((1 &lt;&lt; RCU_SEQ_CTR_SHIFT) - 1)  </span><span class="c1">// 0x3</span>
 </code></pre></div></p>
 <p><code>rcu_seq_start()</code> 递增低 2 位，<code>rcu_seq_end()</code> 清零低 2 位并递增计数器。这允许 poll 函数只需要检查 <code>gp_seq</code> 的低 2 位状态和计数器值。</p>
 <h2 id="14">14. 总结<a class="headerlink" href="#14" title="Permanent link">&para;</a></h2>
