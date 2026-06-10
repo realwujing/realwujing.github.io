@@ -844,6 +844,37 @@ CPU 3 全程在用户态跑，完全不知道上面的 GP 存在
 
 这是 RCU **最快**通过的路径：一次快照读取就判了，零等待、零 IPI、零 tick 恢复。和内核态死循环形成鲜明对比——后者需要 `nohz_full_patience_delay`（默认 5 个 jiffy）后 GP kthread 才会发 resched IPI 逼迫。
 
+##### "用户态不可能持有 rcu_read_lock" 的源码级证明
+
+上面说了"用户态天然静默"，但为什么用户态进程不可能持有 `rcu_read_lock`？根因在于 `rcu_read_lock()` 的底层实现不是一个"标记"，而是一个**抢占禁止原语**：
+
+```c
+// include/linux/rcupdate.h:101
+static inline void __rcu_read_lock(void) { preempt_disable(); }
+```
+
+`preempt_disable()` 操作的是 per-CPU 的 `__preempt_count` 变量——这是内核态的调度器数据结构。用户态没有这个变量，调度器的概念在用户态也不存在（进程是直接被踢出 CPU 的）。
+
+看一条完整的生命周期：
+
+```
+用户态进程 → 进入内核 (系统调用/中断/trap)
+  → rcu_read_lock()    ← preempt_disable(), __preempt_count + 1
+  → ... RCU 读临界区 ...   ← 此期间内核抢占被禁止
+  → rcu_read_unlock()  ← preempt_enable(), __preempt_count - 1
+  → 返回用户态
+```
+
+**关键点**：如果进程在 RCU 读临界区内被调用 `schedule()` 或被 scheduler tick 选中切走，这个切换**只能在 `preempt_enable()` 之后发生**。因为 `preempt_disable()` 期间调度器看到 `__preempt_count > 0`，会跳过这个 CPU 不切换。
+
+而 `preempt_enable()` 本身就是 `rcu_read_unlock()`。所以：
+
+> **没有任何 RCU 读锁可以"跨"到用户态存活。进程只要回到用户态，它之前持有的所有 `rcu_read_lock` 都一定已经随 `preempt_enable()` 释放了。**
+
+这就是"CT_RCU_WATCHING 位 → 静默态"可以成立的逻辑链——context tracking 的 `CT_RCU_WATCHING` 位只是个**表象**，真正的根因在 `preempt_disable()` 的语义本身就保证了 rcu_read_lock 的生存周期不可能超出内核态边界。
+
+反之，在 PREEMPT_RCU 内核中（`CONFIG_PREEMPT_RCU=y`），`rcu_read_lock()` 的实现不同——它允许抢占，因此 RCU 必须额外维护一个 per-task 的 `rcu_read_lock_nesting` 计数器。这种情况下通过 `rcu_blocked_task`（被抢占时 rcu_read_lock 还持着）来追踪，GP kthread 必须等这个 task 重新被调度运行并走到 `rcu_read_unlock()` 才认为 QS 完成。这就是为什么**低延迟实时环境中 PREEMPT_RCU 的 GP 延迟显著高于 standard RCU**。
+
 ## 9. QS 上报 — rcu_report_qs_rnp()
 
 **定义位置**：`tree.c:2339`
