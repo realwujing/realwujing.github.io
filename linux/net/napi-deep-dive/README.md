@@ -1,6 +1,7 @@
 # NAPI 内核源码深度解析
 
-> 📌 源码：git@github.com:torvalds/linux.git, torvalds/master, net/core/dev.c net/core/gro.c | 头文件：include/linux/netdevice.h include/net/busy_poll.h
+> 📌 源码：git@github.com:torvalds/linux.git, torvalds/master, eb3f4b7426cf (v7.1-rc5-26)
+> 源文件：`net/core/dev.c` `net/core/gro.c` | 头文件：`include/linux/netdevice.h` `include/net/busy_poll.h`
 
 ---
 
