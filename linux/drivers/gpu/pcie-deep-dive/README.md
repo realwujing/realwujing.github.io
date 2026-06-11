@@ -1,5 +1,7 @@
 # PCIe 内核源码深度解析 — 系列导读
 
+> 📌 源码：git@github.com:torvalds/linux.git, torvalds/master, `eb3f4b7426cf` (v7.1-rc5-26)
+>
 > AI 服务器的物理互联基础：从设备枚举到错误恢复
 
 ## 阅读指南

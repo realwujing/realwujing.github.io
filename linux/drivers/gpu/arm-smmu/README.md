@@ -1,7 +1,8 @@
 # ARM SMMU 内核源码深度解析
 
+> 📌 源码：git@github.com:torvalds/linux.git, torvalds/master, `eb3f4b7426cf` (v7.1-rc5-26)
+>
 > 系列文章基于 Linux 内核源码，逐行解析 ARM System Memory Management Unit (SMMU) 驱动实现。
-> 最后更新：2026-06-10
 
 ## 系列目录
 

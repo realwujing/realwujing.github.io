@@ -1,5 +1,7 @@
 # KVM 内核源码深度解析
 
+> 📌 源码：git@github.com:torvalds/linux.git, torvalds/master, `eb3f4b7426cf` (v7.1-rc5-26)
+
 系列文章深入分析 Linux 内核 KVM (Kernel-based Virtual Machine) 子系统的核心实现。
 基于 Linux 最新内核源码，涵盖从核心框架到 x86 硬件虚拟化的完整技术栈。
 

@@ -1,5 +1,7 @@
 # SoC 统一内存架构深度解析 — 系列导读
 
+> 📌 源码：git@github.com:torvalds/linux.git, torvalds/master, `eb3f4b7426cf` (v7.1-rc5-26)
+>
 > 源码：`drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c`, `drivers/pci/ats.c`, `drivers/iommu/io-pgfault.c`, `mm/hmm.c`, `drivers/gpu/drm/nouveau/nouveau_svm.c`
 
 本系列是 [nvidia-svm 深度解析](../nvidia-svm/README.md) 的姊妹篇。两者的核心区别在于：

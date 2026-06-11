@@ -1,5 +1,7 @@
 # RCU 内核源码深度解析 — 系列目录
 
+> 📌 源码：git@github.com:torvalds/linux.git, torvalds/master, `eb3f4b7426cf` (v7.1-rc5-26)
+
 > 基于 Linux 内核源码逐行分析 RCU (Read-Copy Update) 机制的实现原理。所有行号来自 `/home/wujing/code/linux` 实际源码。
 
 ## 系列文章

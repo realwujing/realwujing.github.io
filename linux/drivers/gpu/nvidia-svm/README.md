@@ -2,6 +2,8 @@
 
 本系列从 Linux 内核源码出发，逐层剖析 NVIDIA GPU 在 AI 训练/推理中的内核侧基础设施。从 CPU↔GPU 内存镜像到 GPU↔GPU RDMA 零拷贝数据传输，覆盖 CUDA Unified Memory、GPUDirect RDMA 的完整内核路径。
 
+> 📌 源码：git@github.com:torvalds/linux.git, torvalds/master, `eb3f4b7426cf` (v7.1-rc5-26)
+
 ## 阅读指南
 
 这是一个**从底层到上层、从通用到专用**的递进系列。建议按顺序阅读：

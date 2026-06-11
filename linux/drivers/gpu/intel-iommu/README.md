@@ -1,5 +1,7 @@
 # Intel IOMMU (VT-d) 内核源码深度解析 — 系列导读
 
+> 📌 源码：git@github.com:torvalds/linux.git, torvalds/master, `eb3f4b7426cf` (v7.1-rc5-26)
+>
 > 从 ACPI DMAR 表到嵌套翻译：Intel VT-d 的完整软件实现
 
 ## 阅读指南
