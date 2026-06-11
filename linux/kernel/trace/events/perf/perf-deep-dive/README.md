@@ -15,6 +15,7 @@
 | 2 | [Ring Buffer](./02-ring-buffer.md) | 用户态 mmap、零拷贝轮询、AUX buffer |
 | 3 | [x86 PMU 驱动](./03-pmu.md) | Intel 硬件计数器、NMI 采样路径 |
 | 4 | [tracepoint/ftrace/bpf 集成](./04-tooling.md) | Tracepoint 桥接、perf record 完整数据流 |
+| 5 | [Kprobe/Uprobe/Tracepoint](./05-kprobe-uprobe.md) | 三大探测机制、register_kprobe、uprobe_register、perf 桥接 |
 
 ## 前置知识
 

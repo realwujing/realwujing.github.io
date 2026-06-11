@@ -14,6 +14,8 @@ eBPF 允许用户态程序在内核中安全地执行沙箱化代码。本系列
 | 1 | [01-prog-load.md](./01-prog-load.md) | BPF 程序加载 — struct bpf_prog、BPF_PROG_LOAD 系统调用 |
 | 2 | [02-verifier.md](./02-verifier.md) | Verifier — 循环检测、类型追踪、边界检查 |
 | 3 | [03-maps.md](./03-maps.md) | BPF Maps — BPF_MAP_CREATE、lookup/update 与 map 类型 |
+| 4 | [04-bpf-progs.md](./04-bpf-progs.md) | BPF 程序运行 — KPROBE/TRACEPOINT/PERF_EVENT/XDP |
+| 5 | [05-jit.md](./05-jit.md) | JIT 编译器 — 从 bytecode 到 x86 原生代码 |
 
 ## 前置知识
 
