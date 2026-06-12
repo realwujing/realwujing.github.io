@@ -8,7 +8,7 @@
 
 ## 1. LSM 的核心理念
 
-Linux 内核中对每类关键操作（打开文件、发送信号、挂载文件系统）都有一个 **Hook 点**。LSM 框架在 Hook 点调用注册的模块，任何模块返回 `-EPERM` → 操作被拒绝。
+Linux 内核中对每类关键操作（打开文件、发送信号、挂载文件系统）都有一个 **Hook 点**。LSM 框架在 Hook 点调用注册的模块，任何模块返回非零 → 操作被拒绝。
 
 ```
 VFS: do_open → may_open()
@@ -27,7 +27,7 @@ VFS: do_open → may_open()
 ## 2. LSM_HOOK 宏 — 一行定义一个钩子
 
 ```c
-// include/linux/lsm_hook_defs.h (~478行, 250+ hooks)
+// include/linux/lsm_hook_defs.h — 共 277 个 hook（lines 29-478）
 LSM_HOOK(int, 0, capable, const struct cred *cred,
          struct user_namespace *ns, int cap, unsigned int opts)
 
@@ -42,10 +42,12 @@ LSM_HOOK(int, 0, ptrace_access_check, struct task_struct *child,
 
 LSM_HOOK(int, 0, socket_create, int family, int type, int protocol, int kern)
 
-LSM_HOOK(int, 0, task_getpgid, struct task_struct *p)
-
-// ... 250+ 个 hook 定义 ...
+LSM_HOOK(int, 0, bdev_alloc_security, struct block_device *bdev)
 ```
+
+**第一个 hook** (`lsm_hook_defs.h:29`)：`binder_set_context_mgr`  
+**最后一个 hook** (`lsm_hook_defs.h:477-478`)：`bdev_setintegrity`  
+**总计**：277 个 hook
 
 **参数含义**：
 - `int`：返回类型（绝大部分是 int，返回 0=允许，负值=拒绝）
@@ -57,137 +59,184 @@ LSM_HOOK(int, 0, task_getpgid, struct task_struct *p)
 
 ## 3. 宏展开——生成三层代码结构
 
-LSM_HOOK 在 `security/security.c` 中被 `#include` 了 **三次**，每次都在不同的宏定义下展开，生成三个不同的代码块：
+LSM_HOOK 在 `security/security.c` 中被 `#include` 了 **三次**，每次都在不同的宏定义下展开，生成三个不同的代码块。
 
-### 3.1 展开一：生成全局 hook 链表头
+### 3.1 展开一：static call 静态跳转
 
 ```c
-// security/security.c:122-125
-// 宏定义为:
-#define LSM_HOOK(RET, DEFAULT, NAME, ...)       \
-    struct hlist_head NAME;
+// security/security.c:107-126
+#define DEFINE_LSM_STATIC_CALL(NUM, NAME, RET, ...)                  \
+    DEFINE_STATIC_CALL_NULL(LSM_STATIC_CALL(NAME, NUM),              \
+                            *((RET(*)(__VA_ARGS__))NULL));           \
+    static DEFINE_STATIC_KEY_FALSE(SECURITY_HOOK_ACTIVE_KEY(NAME, NUM));
 
+#define LSM_HOOK(RET, DEFAULT, NAME, ...)                            \
+    LSM_DEFINE_UNROLL(DEFINE_LSM_STATIC_CALL, NAME, RET, __VA_ARGS__)
 #include <linux/lsm_hook_defs.h>
 #undef LSM_HOOK
 ```
 
-展开后生成全局的 `struct security_hook_heads` 结构体：
+生成 277 个 `DEFINE_STATIC_CALL_NULL` + 277 个 `DEFINE_STATIC_KEY_FALSE`。每个 hook 有 `MAX_LSM_COUNT` 个槽位（每个注册的模块占用一个槽）。
+
+**重要**：`LSM_DEFINE_UNROLL` 对每个 hook 生成 `MAX_LSM_COUNT` 次 `DEFINE_STATIC_CALL` 调用（每个加载的模块一个）。这是单模块下的零间接跳转优化——直接通过 `arch_static_call` 跳转到模块的回调。
+
+### 3.2 展开二：static call 表快照
 
 ```c
-struct security_hook_heads {
-    struct hlist_head capable;         // ← 由 LSM_HOOK(int, 0, capable, ...) 生成
-    struct hlist_head file_permission;
-    struct hlist_head inode_permission;
-    struct hlist_head bprm_creds_for_exec;
-    struct hlist_head ptrace_access_check;
-    struct hlist_head socket_create;
-    struct hlist_head task_getpgid;
-    // ... 250 个 hlist_head ...
+// security/security.c:139-154
+struct lsm_static_calls_table
+    static_calls_table __ro_after_init = {
+#define INIT_LSM_STATIC_CALL(NUM, NAME)                              \
+    (struct lsm_static_call) {                                       \
+        .key = &STATIC_CALL_KEY(LSM_STATIC_CALL(NAME, NUM)),        \
+        .trampoline = LSM_HOOK_TRAMP(NAME, NUM),                     \
+        .active = &SECURITY_HOOK_ACTIVE_KEY(NAME, NUM),             \
+    },
+#define LSM_HOOK(RET, DEFAULT, NAME, ...)                            \
+    .NAME = {                                                        \
+        LSM_DEFINE_UNROLL(INIT_LSM_STATIC_CALL, NAME)                \
+    },
+#include <linux/lsm_hook_defs.h>
+#undef LSM_HOOK
 };
-
-// security/security.c:140
-struct security_hook_heads security_hook_heads __ro_after_init;
 ```
 
-每个 `hlist_head` 是一个 LSM hook 的注册回调链表——SELinux、AppArmor、BPF 各注册自己的回调到一个链表里。
+生成一个 `struct lsm_static_calls_table` 结构体，每个 hook name 是一个 `struct lsm_static_call[MAX_LSM_COUNT]` 数组。这个表在模块注册时由 `security_add_hooks` 更新跳转目标。
 
-### 3.2 展开二：生成 static call 跳板
-
-```c
-// security/security.c:144-156
-// 宏定义为:
-#define LSM_HOOK(RET, DEFAULT, NAME, ...)                \
-    struct lsm_static_call NAME = {                       \
-        .trampoline = LSM_HOOK_TRAMP(NAME, NUM),          \
-    };
-
-#include <linux/lsm_hook_defs.h>
-#undef LSM_HOOK
-```
-
-生成 250 个 `lsm_static_call` 结构体，每个包含一个 **跳板地址**。如果只有一个模块注册了这个 hook，内核用 `arch_static_call` 零开销直接跳转到模块的回调——省去了 hlist 遍历。
-
-### 3.3 展开三：生成 security_xxx() 包装函数
+### 3.3 展开三：`security_xxx()` 包装函数
 
 ```c
-// security/security.c:451-455
-// 宏定义为:
+// security/security.c:447-455
+#define LSM_RET_DEFAULT(NAME) (NAME##_default)
+#define DECLARE_LSM_RET_DEFAULT_void(DEFAULT, NAME)
+#define DECLARE_LSM_RET_DEFAULT_int(DEFAULT, NAME) \
+    static const int __maybe_unused LSM_RET_DEFAULT(NAME) = (DEFAULT);
 #define LSM_HOOK(RET, DEFAULT, NAME, ...) \
-RET security_##NAME(__VA_ARGS__)
+    DECLARE_LSM_RET_DEFAULT_##RET(DEFAULT, NAME)
 
 #include <linux/lsm_hook_defs.h>
 #undef LSM_HOOK
 ```
 
-展开后生成 250 个模块暴露的 `security_xxx()` 函数：
-
-```c
-int security_capable(const struct cred *cred, struct user_namespace *ns,
-                     int cap, unsigned int opts)
-{
-    // ① 优先走 static call —— 单槽优化
-    // ② 如果有多个模块注册 → 回退到 call_int_hook 遍历 hlist
-    return call_int_hook(capable, 0, cred, ns, cap, opts);
-}
-
-int security_file_permission(struct file *file, int mask) { ... }
-int security_inode_permission(struct inode *inode, int mask) { ... }
-int security_socket_create(int family, int type, int protocol, int kern) { ... }
-```
+这里只声明了默认返回值常量。实际的 `security_xxx()` 函数由 `lsm_hook_defs.h` 在**调用点（`security.c` 主文件底部）**使用 `call_int_hook` 或 `call_void_hook` 包装。
 
 ---
 
-## 4. call_int_hook — 遍历回调链
+## 4. `call_int_hook` 和 `call_void_hook` — 静态调用引擎
 
 ```c
-// security/security.c:439-448
-#define call_int_hook(FUNC, ...)                                          \
-({                                                                        \
-    int RC = LSM_RET_DEFAULT(FUNC);                                       \
-    do {                                                                   \
-        struct security_hook_list *P;                                      \
-        hlist_for_each_entry(P, &security_hook_heads.FUNC, list) {        \
-            RC = P->hook.FUNC(__VA_ARGS__);                                \
-            if (RC != 0)                                                    \
-                break;           // ★ 任一模块拒绝 → 立即返回               \
-        }                                                                  \
-    } while (0);                                                           \
-    RC;                                                                    \
+// security/security.c:466-496
+#define __CALL_STATIC_INT(NUM, R, HOOK, LABEL, ...)                 \
+do {                                                                 \
+    if (static_branch_unlikely(&SECURITY_HOOK_ACTIVE_KEY(HOOK, NUM))) { \
+        R = static_call(LSM_STATIC_CALL(HOOK, NUM))(__VA_ARGS__);   \
+        if (R != LSM_RET_DEFAULT(HOOK))                              \
+            goto LABEL;                                              \
+    }                                                                \
+} while (0);
+
+#define call_int_hook(HOOK, ...)                                     \
+({                                                                   \
+    __label__ OUT;                                                   \
+    int RC = LSM_RET_DEFAULT(HOOK);                                  \
+    LSM_LOOP_UNROLL(__CALL_STATIC_INT, RC, HOOK, OUT, __VA_ARGS__); \
+OUT:                                                                 \
+    RC;                                                              \
 })
 ```
 
-**调用链顺序**：按 LSM 注册顺序（通常 SELinux 第一，AppArmor 第二，BPF 第三），调用每个模块的回调。任何模块返回非零 → 立即停止遍历，返回拒绝。
+**工作原理**：
+1. `static_branch_unlikely` 检查这个模块是否激活
+2. 如果激活 → `static_call` 直接跳转到模块的回调（零开销间接跳转）
+3. `LSM_LOOP_UNROLL` 展开 `MAX_LSM_COUNT` 次——轮询所有模块
+4. 任何模块返回非默认值 → `goto OUT` 立即返回
+
+**单模块优化**：只有一个模块注册时，`static_call` 就是直接跳转，没有 hlist 遍历的开销。
 
 ---
 
-## 5. LSM hook 在全局调用链中的位置
+## 5. `security_add_hooks` — 模块注册
+
+```c
+// security/lsm_init.c:369-380
+void __init security_add_hooks(struct security_hook_list *hooks, int count,
+                               const struct lsm_id *lsmid)
+{
+    int i;
+
+    for (i = 0; i < count; i++) {
+        hooks[i].lsmid = lsmid;
+        if (lsm_static_call_init(&hooks[i]))
+            panic("exhausted LSM callback slots with LSM %s\n",
+                  lsmid->name);
+    }
+}
+```
+
+**每个 hook 的注册通过 `lsm_static_call_init` 更新 static_call 表**：
+- 找到该 hook 在 `static_calls_table` 中的槽位
+- 设置 `static_call_update` 指向模块的回调
+- 设置 `static_key` 使 `call_int_hook` 中的 `static_branch_unlikely` 为真
+
+---
+
+## 6. `struct lsm_info` — 模块声明
+
+```c
+// include/linux/lsm_hooks.h:171-185
+struct lsm_info {
+    const struct lsm_id *id;       // 模块名 + 唯一 ID
+    enum lsm_order order;          // LSM_ORDER_FIRST / LSM_ORDER_LAST
+    unsigned long flags;           // LSM_FLAG_EXCLUSIVE / LSM_FLAG_LEGACY_MAJOR / ...
+    struct lsm_blob_sizes *blobs;  // 每个对象分配的 blob 大小
+    int *enabled;                  // 指向模块的"启用"变量
+    int (*init)(void);             // ★ 初始化回调
+};
+```
+
+```c
+// include/linux/lsm_hooks.h:137-141
+#define LSM_HOOK_INIT(NAME, HOOK)            \
+    {                                        \
+        .scalls = static_calls_table.NAME,   \
+        .hook = { .NAME = HOOK }             \
+    }
+```
+
+模块的 hooks 数组使用 `LSM_HOOK_INIT` 宏定义，`.scalls` 指向该 hook 在 static_calls_table 中的槽位数组。
+
+---
+
+## 7. LSM hook 在全局调用链中的位置
 
 ```
 用户态: open("/etc/shadow", O_RDONLY)
   → do_sys_open → do_file_open → path_openat
     → may_open(inode, MAY_READ, ...)
       → security_inode_permission(inode, MAY_READ)     ← ★ LSM hook
-        → selinux_inode_permission(inode, MAY_READ)     │
-          → 检查 SELinux 策略 (type enforcement)         │ 三个模块
-        → apparmor_file_permission(file, MAY_READ)      │ 依次调用
-          → 检查 AppArmor profile (path-based)           │
-        → bpf_lsm_run(inode, ...)                       │
-          → BPF 程序决定                                 │
-        → 如果有任何一个返回 -EPERM → 立即返回用户态       │
+        → call_int_hook(inode_permission, ...)
+          → LSM_LOOP_UNROLL: 依次 static_call 每个模块
+            → selinux_inode_permission(inode, mask)      Slot 0
+              → check SELinux policy (type enforcement)
+            → apparmor_inode_permission(inode, mask)     Slot 1  
+              → check AppArmor profile (path-based)
+            → bpf_lsm_run(...)                            Slot 2
+              → BPF program decides
+            → 如果有任何一个返回非默认值 → goto OUT → 返回
 ```
 
 ---
 
-## 6. 总结
+## 8. 总结
 
-| 组件 | 关键位置 | 作用 |
-|------|---------|------|
-| LSM_HOOK 宏 | `lsm_hook_defs.h` (478行) | 250+ hook 的统一定义 |
-| security_hook_heads | `security.c:140` | 每个 hook 的 hlist 链表 |
-| static call 跳板 | `security.c:144-156` | 单模块的零开销直接跳转 |
-| security_xxx() 包装 | `security.c:451-455` | 对内核暴露的调用入口 |
-| call_int_hook | `security.c:439` | 遍历 hlist，任何模块拒绝即停止 |
+| 组件 | 关键位置 | 大小/数量 | 作用 |
+|------|---------|---------|------|
+| LSM_HOOK 宏 | `lsm_hook_defs.h:29-478` | 277 个 | 统一定义所有 hook |
+| static call 生成 | `security.c:107-126` | 277×MAX_LSM_COUNT | 零开销跳转 |
+| call_int_hook | `security.c:488-496` | — | 轮询所有模块的回调 |
+| security_add_hooks | `lsm_init.c:369-380` | — | 注册到 static_call 表 |
+| LSM_HOOK_INIT | `lsm_hooks.h:137-141` | — | 模块 hook 数组的声明宏 |
 
 ## 下一篇文章
 
-→ [第2篇：LSM 模块化与初始化 — DEFINE_LSM、security_add_hooks、ordered_lsm_init](./02-lsm-init.md)
+→ [第2篇：LSM 模块化与初始化 — DEFINE_LSM、lsm_order_append、ordered_lsm_init](./02-lsm-init.md)
