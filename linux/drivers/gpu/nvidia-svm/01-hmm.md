@@ -342,7 +342,45 @@ VRAM = Video RAM（显存），GPU 的专用内存，物理上与系统 DRAM 分
   CPU 缺页 (DEVICE_PRIVATE) → host page fault → migrate_vma → DMA 搬到 DRAM
 ```
 
-**所以 HMM 本身只管"读 CPU 页表 + 搬运数据"。它不负责 GPU 页表管理（那是驱动做的），不负责分配 VRAM（那是 TTM/GPU Buddy 做的），不负责 DMA 引擎调度（那是 nouveau_dmem 做的）。统一内存在用户看来是一体化的 `cudaMallocManaged`，但在内核中是由 HMM + DRM GPUSVM + nouveau_svm + nouveau_dmem + TTM + GPU Buddy 六个子系统协作完成的。**
+**所以 HMM 本身只管"读 CPU 页表 + 搬运数据"。它不负责 GPU 页表管理（那是驱动做的），不负责分配 VRAM（那是 TTM/GPU Buddy 做的），不负责 DMA 引擎调度（那是 nouveau_dmem 做的）。统一内存在用户看来是一体化的 `cudaMallocManaged`，但在内核中是由 HMM + DRM GPUSVM + nouveau_svm + nouveau_dmem + TTM + GPU Buddy 六个子系统协作完成的。
+
+### 8.6 离散 GPU 的"软件改造统一内存" — 内核已做到
+
+能，而且**已经做到了**——我们 nvidia-svm 系列分析的内核代码就是这套方案。
+
+就是 **HMM + `migrate_vma` + CUDA Unified Memory**：
+
+```
+CUDA 程序员写: cudaMallocManaged(ptr, size)
+  ptr 在 GPU 和 CPU 上都能直接读写 ← 看起来像统一内存
+
+内核做的事（本系列覆盖的全部内容）:
+  GPU 访问 ptr → GPU MMU miss → nouveau_svm fault handler
+    → hmm_range_fault 读 CPU 页表
+
+    情况 A: 数据在系统 DRAM
+      → nouveau_pfns_map 写 GPU 内部页表 → GPU 通过 PCIe 读 DRAM（慢但能读）
+
+    情况 B: 数据在 VRAM
+      → nouveau_dmem_page_addr 返回 DEVICE_PRIVATE PFN
+      → CPU 再访问 → DEVICE_PRIVATE PTE → 触发 CPU page fault
+        → nouveau_dmem_migrate_to_ram → DMA 从 VRAM 搬运到 DRAM → 更新 CPU PTE
+```
+
+所以**能力上**离散 GPU 已经能做统一内存——CUDA 从 2013 年 (Kepler) 就支持 `cudaMallocManaged`。内核的 `mm/hmm.c` 就是为这个场景写的。
+
+**性能上**做不到和 SoC 统一内存一样，原因是物理路径不同：
+
+| | SoC UMA（NVIDIA+MTK） | 离散 GPU + HMM 模拟 |
+|---|---|---|
+| GPU 访问"CPU 的页" | 走 SMMU → DDR（本地速度） | 走 PCIe → DRAM（~32GB/s，本地 1/3） |
+| CPU 访问"GPU 的页" | 不存在"GPU 专有"页 | DMA 搬运到 DRAM → 等搬运 → 访问 |
+| 页迁移 | 无 | `migrate_vma` DMA 搬运, 每次微秒级延迟 |
+| 编程模型 | `cudaMallocManaged` | `cudaMallocManaged` ← **完全一样** |
+
+**软件改造的本质就是把"独立显存"包装成"看起来统一"，代价是迁移延迟和 PCIe 带宽。但用户代码不需要改一行。** 我们两个系列的区别正是在这里——nvidia-svm 系列讲的就是这套"包装"是怎么实现的，soc-unified-memory 系列讲的是"物理上就是统一的"不需要包装。
+
+**版本支持**：HMM 在 Linux 4.14（2017 年）合入主线，`nouveau_svm.c` 和 `nouveau_dmem.c` 在 4.16 合入。6.6 内核（2023 年 10 月）完全包含这里分析的全部代码——只要 `CONFIG_DRM_NOUVEAU_SVM=y`，CUDA Unified Memory 在 NVIDIA 开源驱动下的内核侧路径和我们分析的完全一致。**
 
 ## 9. 下一篇文章
 
