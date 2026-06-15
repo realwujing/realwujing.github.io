@@ -7058,6 +7058,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#86-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.6 离散 GPU 的"软件改造统一内存" — 内核已做到
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -26562,6 +26573,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#86-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.6 离散 GPU 的"软件改造统一内存" — 内核已做到
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -26875,7 +26897,60 @@
 <a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    → 如果页在 VRAM → nouveau_dmem_migrate_to_ram DMA 迁到 DRAM (路径 B)
 <a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>  CPU 缺页 (DEVICE_PRIVATE) → host page fault → migrate_vma → DMA 搬到 DRAM
 </code></pre></div>
-<p><strong>所以 HMM 本身只管"读 CPU 页表 + 搬运数据"。它不负责 GPU 页表管理（那是驱动做的），不负责分配 VRAM（那是 TTM/GPU Buddy 做的），不负责 DMA 引擎调度（那是 nouveau_dmem 做的）。统一内存在用户看来是一体化的 <code>cudaMallocManaged</code>，但在内核中是由 HMM + DRM GPUSVM + nouveau_svm + nouveau_dmem + TTM + GPU Buddy 六个子系统协作完成的。</strong></p>
+<p>**所以 HMM 本身只管"读 CPU 页表 + 搬运数据"。它不负责 GPU 页表管理（那是驱动做的），不负责分配 VRAM（那是 TTM/GPU Buddy 做的），不负责 DMA 引擎调度（那是 nouveau_dmem 做的）。统一内存在用户看来是一体化的 <code>cudaMallocManaged</code>，但在内核中是由 HMM + DRM GPUSVM + nouveau_svm + nouveau_dmem + TTM + GPU Buddy 六个子系统协作完成的。</p>
+<h3 id="86-gpu">8.6 离散 GPU 的"软件改造统一内存" — 内核已做到<a class="headerlink" href="#86-gpu" title="Permanent link">&para;</a></h3>
+<p>能，而且<strong>已经做到了</strong>——我们 nvidia-svm 系列分析的内核代码就是这套方案。</p>
+<p>就是 <strong>HMM + <code>migrate_vma</code> + CUDA Unified Memory</strong>：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>CUDA 程序员写: cudaMallocManaged(ptr, size)
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>  ptr 在 GPU 和 CPU 上都能直接读写 ← 看起来像统一内存
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>内核做的事（本系列覆盖的全部内容）:
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>  GPU 访问 ptr → GPU MMU miss → nouveau_svm fault handler
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    → hmm_range_fault 读 CPU 页表
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    情况 A: 数据在系统 DRAM
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>      → nouveau_pfns_map 写 GPU 内部页表 → GPU 通过 PCIe 读 DRAM（慢但能读）
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>    情况 B: 数据在 VRAM
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>      → nouveau_dmem_page_addr 返回 DEVICE_PRIVATE PFN
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>      → CPU 再访问 → DEVICE_PRIVATE PTE → 触发 CPU page fault
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>        → nouveau_dmem_migrate_to_ram → DMA 从 VRAM 搬运到 DRAM → 更新 CPU PTE
+</code></pre></div>
+<p>所以<strong>能力上</strong>离散 GPU 已经能做统一内存——CUDA 从 2013 年 (Kepler) 就支持 <code>cudaMallocManaged</code>。内核的 <code>mm/hmm.c</code> 就是为这个场景写的。</p>
+<p><strong>性能上</strong>做不到和 SoC 统一内存一样，原因是物理路径不同：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>SoC UMA（NVIDIA+MTK）</th>
+<th>离散 GPU + HMM 模拟</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPU 访问"CPU 的页"</td>
+<td>走 SMMU → DDR（本地速度）</td>
+<td>走 PCIe → DRAM（~32GB/s，本地 1/3）</td>
+</tr>
+<tr>
+<td>CPU 访问"GPU 的页"</td>
+<td>不存在"GPU 专有"页</td>
+<td>DMA 搬运到 DRAM → 等搬运 → 访问</td>
+</tr>
+<tr>
+<td>页迁移</td>
+<td>无</td>
+<td><code>migrate_vma</code> DMA 搬运, 每次微秒级延迟</td>
+</tr>
+<tr>
+<td>编程模型</td>
+<td><code>cudaMallocManaged</code></td>
+<td><code>cudaMallocManaged</code> ← <strong>完全一样</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>软件改造的本质就是把"独立显存"包装成"看起来统一"，代价是迁移延迟和 PCIe 带宽。但用户代码不需要改一行。</strong> 我们两个系列的区别正是在这里——nvidia-svm 系列讲的就是这套"包装"是怎么实现的，soc-unified-memory 系列讲的是"物理上就是统一的"不需要包装。</p>
+<p><strong>版本支持</strong>：HMM 在 Linux 4.14（2017 年）合入主线，<code>nouveau_svm.c</code> 和 <code>nouveau_dmem.c</code> 在 4.16 合入。6.6 内核（2023 年 10 月）完全包含这里分析的全部代码——只要 <code>CONFIG_DRM_NOUVEAU_SVM=y</code>，CUDA Unified Memory 在 NVIDIA 开源驱动下的内核侧路径和我们分析的完全一致。**</p>
 <h2 id="9">9. 下一篇文章<a class="headerlink" href="#9" title="Permanent link">&para;</a></h2>
 <p><a href="../02-drm-gpusvm/">第 2 篇：GPU 共享虚拟内存抽象层 — DRM GPUSVM</a>
 — HMM 只负责读 CPU 页表，DRM GPUSVM 在 HMM 之上构建了完整的 GPU SVM 框架：notifier 管理、range 分配、设备内存迁移、DMA 映射协调。</p>
