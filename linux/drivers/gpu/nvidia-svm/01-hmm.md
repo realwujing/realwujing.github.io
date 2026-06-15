@@ -228,6 +228,122 @@ GPU 驱动（nouveau_svm.c）
 4. **`mmu_interval_notifier` 是必须品** — 没有它，HMM 不知道 CPU 侧页表何时被改写了
 5. **HMM 是 read-only 的操作** — 它不修改 CPU 页表（缺页除外），只读不变
 
+## 8. 深入：HMM 读取了 CPU 页表然后干什么？
+
+`hmm_range_fault` 本身**只是一个"读"操作**——它遍历 CPU 页表，把物理页帧号（PFN）填回 array。真正让数据流动的，是调用者接下来做的事。
+
+### 8.1 nouveau 的两条路径
+
+GPU 缺页后，`nouveau_svm` 的 work handler 调用 `hmm_range_fault()` 拿到 PFN 数组，然后分两条路走：
+
+**路径 A：数据在系统 DRAM → 直接写 GPU 页表**
+
+```c
+// nouveau_svm.c:923-937 — PFN 直接映射到 GPU 页表
+void nouveau_pfns_map(struct nouveau_svmm *svmm, struct mm_struct *mm,
+                      unsigned long addr, u64 *pfns, unsigned long npages,
+                      unsigned int page_shift)
+{
+    args->p.addr = addr;
+    args->p.size = npages << page_shift;
+    args->p.page = page_shift;
+
+    // ★ 通过 NVIF 接口写 GPU 内部 MMU 页表
+    // GPU 此后可以通过自己的 MMU 直接访问系统 DRAM
+    nvif_object_ioctl(&svmm->vmm->vmm.object, args, ...);
+}
+```
+
+这是最快路径：HMM 拿到的 PFN 就是系统 DRAM 的物理地址，GPU 侧页表直接映射过去。GPU 访问这块内存时走 PCIe 读系统 DRAM。
+
+**路径 B：数据在 VRAM → 先迁移到系统 DRAM**
+
+```c
+// nouveau_dmem.c:822 — 把系统页迁到 VRAM
+// 或反向: nouveau_dmem_migrate_to_ram 把 VRAM 迁回系统 RAM
+int nouveau_dmem_migrate_vma(struct nouveau_drm *drm,
+                             struct nouveau_svmm *svmm,
+                             struct vm_area_struct *vma,
+                             unsigned long start, unsigned long end)
+{
+    args.pgmap_owner = drm->dev;
+    args.flags = MIGRATE_VMA_SELECT_SYSTEM;  // ★ 选择系统页
+
+    migrate_vma_setup(&args);
+    // 为每个页面: 锁定 → 在 VRAM 中分配新页 → DMA copy → 更新 PTE 为 DEVICE_PRIVATE
+    // 最终 CPU PTE 被替换为 DEVICE_PRIVATE 条目（CPU 无法直接访问）
+}
+```
+
+### 8.2 HMM 怎么比 CPU MMIO 更高效？
+
+CPU 可以直接通过 PCIe BAR 以 MMIO 方式读写 GPU VRAM。但 HMM 比这个快得多，**不是因为它加速了 MMIO，而是因为它根本不用 MMIO**：
+
+```
+MMIO 路径:
+  CPU 读 VRAM → PCIe MMIO 读（单次 ~500ns-1µs）→ 每次访问都走 PCIe 往返
+  CPU 写 VRAM → PCIe MMIO 写（单次 ~500ns-1µs）→ 同样每次都走
+  带宽: ~1-2 GB/s（受限于 CPU 单次 MMIO 事务开销）
+
+HMM + DMA 迁移路径:
+  ① GPU DMA 引擎把 VRAM 批量搬到系统 DRAM（DMA burst, 全 PCIe 带宽 32GB/s）
+  ② 更新 CPU PTE 指向新的系统 DRAM 地址（不再是 DEVICE_PRIVATE）
+  ③ CPU 此后直接访问本地 DDR（~100ns, 不走 PCIe, 可命 CPU cache）
+  ④ 所有后续访问全是本地内存速度
+```
+
+HMM 的效率来自两点：
+
+1. **DMA 带宽 >> CPU MMIO**：GPU DMA 引擎可以一次搬 2MB THP，饱和 PCIe 带宽。CPU MMIO 每个读都是一次 PCIe 事务往返，开销巨大
+2. **一次搬，永久用**：数据搬到系统 DRAM 后，CPU 页表指向的就是本地 DDR 地址了。后续访问零 PCIe、零迁移，全速命中的 CPU cache。本质上"HMM 把一次性的 DMA 迁移延迟≈远程内存访问变成了无穷次本地访问≈零延迟"
+
+### 8.3 迁移期间怎么保证数据一致性？
+
+迁移**不是异步的**，而是**同步阻塞**的——CPU 访问线程被卡在 page fault 中直到 DMA 完成：
+
+```
+CPU 访问 VRAM 中的页
+  → MMU 查 PTE: DEVICE_PRIVATE（不能被 CPU 直接读）
+  → 触发 CPU page fault
+  → handle_mm_fault → do_swap_page → migrate_vma
+
+  migrate_vma 流程 (阻塞等待 DMA 完成):
+    ① 分配系统 DRAM 页
+    ② GPU DMA 引擎: VRAM → DRAM（全 PCIe 带宽搬运, 2MB THP 一次搬）
+    ③ CPU 等待 DMA 完成（阻塞!）
+    ④ 更新 PTE: 指向新的 DRAM 页
+    ⑤ 返回用户态 → CPU 重新执行访问指令 → 命中本地 DDR
+```
+
+**没有"实时性"问题**，因为这个操作就是同步的——DMA 完成之前 CPU 不会继续往下走。机制上完全类比 `read()` 等磁盘 IO——block 直到数据到达。
+
+**GPU 端的一致性**由 `mmu_notifier` 保证。GPU 修改了自己的页表后，通过 MMU notifier 通知 CPU 侧"这个页我改过了"。CPU 再访问时 DEVICE_PRIVATE PTE 已经失效，触发新的迁移。
+
+### 8.4 VRAM 是什么
+
+VRAM = Video RAM（显存），GPU 的专用内存，物理上与系统 DRAM 分离：
+
+- 物理上：GPU 板载的 GDDR/HBM 内存颗粒，通过 GPU 内部内存控制器访问
+- 内核中：VRAM 通过 TTM（`drivers/gpu/drm/ttm/`）管理，nouveau 等驱动用 `gpu_buddy_alloc_blocks()` 分配块
+- CPU 只能通过 PCIe BAR 以 MMIO 方式间接访问——这正是 HMM/DMA 要绕过的瓶颈
+
+### 8.5 统一内存到底实现了没有
+
+**HMM 实现了统一内存的基础设施，但不等于"HMM 就是统一内存"。** HMM 是内核提供的一套 API（`hmm_range_fault` + `migrate_vma`），nouveau 驱动**用它实现了 NVIDIA 的统一内存**：
+
+```
+用户看到的效果（CUDA Unified Memory / cudaMallocManaged）:
+  GPU 和 CPU 可以访问同一块虚拟地址，数据自动在两边迁移
+
+实现链路:
+  GPU 缺页 → nouveau_svm 故障处理 → hmm_range_fault(读 CPU 页表)
+    → 如果页在 DRAM → nouveau_pfns_map 写 GPU 页表 (路径 A)
+    → 如果页在 VRAM → nouveau_dmem_migrate_to_ram DMA 迁到 DRAM (路径 B)
+  CPU 缺页 (DEVICE_PRIVATE) → host page fault → migrate_vma → DMA 搬到 DRAM
+```
+
+**所以 HMM 本身只管"读 CPU 页表 + 搬运数据"。它不负责 GPU 页表管理（那是驱动做的），不负责分配 VRAM（那是 TTM/GPU Buddy 做的），不负责 DMA 引擎调度（那是 nouveau_dmem 做的）。统一内存在用户看来是一体化的 `cudaMallocManaged`，但在内核中是由 HMM + DRM GPUSVM + nouveau_svm + nouveau_dmem + TTM + GPU Buddy 六个子系统协作完成的。**
+
 ## 9. 下一篇文章
 
 [第 2 篇：GPU 共享虚拟内存抽象层 — DRM GPUSVM](02-drm-gpusvm.md)
