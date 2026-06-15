@@ -7846,6 +7846,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hmm-soc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HMM 在 SoC 统一内存中的角色：依赖但不依赖迁移
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HMM 在 SoC 统一内存中的角色：依赖但不依赖迁移">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#discrete-gpuh100hmm-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discrete GPU（H100）：HMM → 迁移 → GPU 内部页表
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#socnvidiamtk-sochmm-smmu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SoC（NVIDIA+MTK 笔记本 SoC）：HMM → 直接写 SMMU 页表
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#soc-hmm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SoC 为什么还需要 HMM？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -26592,6 +26642,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hmm-soc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HMM 在 SoC 统一内存中的角色：依赖但不依赖迁移
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HMM 在 SoC 统一内存中的角色：依赖但不依赖迁移">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#discrete-gpuh100hmm-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discrete GPU（H100）：HMM → 迁移 → GPU 内部页表
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#socnvidiamtk-sochmm-smmu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SoC（NVIDIA+MTK 笔记本 SoC）：HMM → 直接写 SMMU 页表
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#soc-hmm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SoC 为什么还需要 HMM？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -27026,6 +27126,72 @@
 <li><strong>一致性保证</strong>：通过 <code>mmu_interval_check_retry</code>（<code>hmm.c:672</code>）和 <code>-EBUSY</code> 重试循环保证并发安全</li>
 <li><strong>大页支持</strong>：PMD 级 THP（<code>hmm.c:428-442</code>）和 PUD 级大页（<code>hmm.c:484-529</code>）都通过 order 位编码返回</li>
 </ol>
+<hr />
+<h2 id="hmm-soc">HMM 在 SoC 统一内存中的角色：依赖但不依赖迁移<a class="headerlink" href="#hmm-soc" title="Permanent link">&para;</a></h2>
+<p>HMM 是 SoC 统一内存的<strong>核心依赖</strong>——<code>hmm_range_fault</code> 读 CPU 页表获取 PFN 数组是不可替代的。但 SoC 和 Discrete GPU 拿到 PFN 后做的事完全不同：</p>
+<h3 id="discrete-gpuh100hmm-gpu">Discrete GPU（H100）：HMM → 迁移 → GPU 内部页表<a class="headerlink" href="#discrete-gpuh100hmm-gpu" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>hmm_range_fault → PFN[]
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>  │
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>  ├─ PFN 是系统 DRAM → nouveau_pfns_map → NVIF 写 GPU 内部 MMU 页表
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>  └─ PFN 是 DEVICE_PRIVATE（数据在 VRAM）→ migrate_vma → DMA 搬运到 DRAM
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>     每个 PFN 都要经过 &quot;这个页在 DRAM 还是 VRAM?&quot; 的判断
+</code></pre></div>
+<h3 id="socnvidiamtk-sochmm-smmu">SoC（NVIDIA+MTK 笔记本 SoC）：HMM → 直接写 SMMU 页表<a class="headerlink" href="#socnvidiamtk-sochmm-smmu" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>hmm_range_fault → PFN[]
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>  │
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>  └─ ★ PFN 全部是普通系统 PFN——物理 DDR 地址
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>     没有 DEVICE_PRIVATE 条目（GPU 和 CPU 共享同一块 LPDDR）
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>     → arm_smmu_map_pages → arm_lpae_map_pages → 写 SMMU io-pgtable
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>     → SMMU 页表条目 = PTE(pfn=PFN, prot=READ|WRITE)
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>     → GPU 通过 SMMU 再次访问该 IOVA → SMMU 页表命中 → 返回物理地址
+</code></pre></div>
+<p><strong>核心区别一句话</strong>：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Discrete GPU（已讲 nvidia-svm 系列）</th>
+<th>SoC UMA（本系列）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PFN 类型</td>
+<td>可能是 DEVICE_PRIVATE（VRAM）</td>
+<td>★ 始终是普通系统 PFN</td>
+</tr>
+<tr>
+<td>需要迁移吗？</td>
+<td>是（<code>migrate_vma</code>）</td>
+<td>★ 不需要——所有数据都在 DDR</td>
+</tr>
+<tr>
+<td>页表写入</td>
+<td>NVIF → GPU 内部 MMU 页表</td>
+<td><code>arm_smmu_map_pages</code> → SMMU <code>io-pgtable</code></td>
+</tr>
+<tr>
+<td>DMA 拷贝？</td>
+<td>可能（页迁移时）</td>
+<td>★ 永不发生</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Discrete GPU 的 DEVICE_PRIVATE 分支在 SoC 上完全不走</strong>。<code>hmm_vma_handle_pte</code> 中的 DEVICE_PRIVATE 检查（<code>hmm.c:260-275</code>）永远不会匹配——因为没有页被标记为 DEVICE_PRIVATE。所有页都是 <code>pte_present &amp;&amp; vm_normal_page</code> 的正常路径，返回的就是标准的 <code>pte_pfn(pte) | cpu_flags</code>。</p>
+<h3 id="soc-hmm">SoC 为什么还需要 HMM？<a class="headerlink" href="#soc-hmm" title="Permanent link">&para;</a></h3>
+<p>既然 CPU 和 GPU 共享同一块 DDR，直接让 GPU 通过 SMMU 访问物理地址不就行了？为什么还要走 HMM 读 CPU 页表？</p>
+<p><strong>两件事</strong>：</p>
+<ol>
+<li><strong>CPU 页表可能有缺页</strong>：<code>hmm_range_fault</code> 的 <code>hmm_vma_fault</code> 路径在 PTE 不存在时调用 <code>handle_mm_fault</code> 触发缺页处理——就像 CPU 自己访问该页一样。否则 SMMU 也查不到这个映射，GPU 访问直接 abort</li>
+<li><strong>只读快照不需要锁</strong>：<code>hmm_range_fault</code> 走 CPU 页表是只读操作（读 PTE，不写 PTE）——比 SMMU 硬件自己遍历页表更高效（走 CPU 的 TLB cache 路径），而且内核有 <code>mmap_lock</code> 保证页表一致性。SMMU 硬件遍历是异步的，需要 stall + IOPF 才能处理</li>
+</ol>
+<p><strong>两者的协作</strong>：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>首次访问：IOPF handler → hmm_range_fault（读 CPU 页表）→ arm_smmu_map_pages（写 SMMU 页表）
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>                                     │                          │
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>                              利用 CPU TLB cache             后续访问全走 SMMU
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>                              缺页时自动 fault-in              不再经过 HMM
+</code></pre></div>
+<p>HMM 负责"发现 PFN"，SMMU 负责"翻译执行"。一次 HMM 调用后，PFN 被写进 SMMU 页表，后续所有 GPU 访问都直接走 SMMU 页表命中，不需要再经过 HMM。</p>
 <h2 id="_2">下一篇文章<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
 <p>→ <a href="../03-smmu-page-table/">第3篇：ARM SMMU 页表镜像 — IOMMU 如何把 CPU 页表给 GPU 用</a></p>
 
