@@ -25,7 +25,7 @@ CONTAINER_NAME := $(IMAGE_NAME)-$(DEV_TAG)
 
 # Source files
 DOCKER_IMAGE_SOURCE := ctyunos4-docker-25.07-250905.x86_64.tar.xz
-# DOCKER_IMAGE_URL := https://repo.ctyun.cn/hostos/ctyunos-4/docker_img/x86_64/$(DOCKER_IMAGE_SOURCE)
+DOCKER_IMAGE_URL := https://repo.ctyun.cn/hostos/ctyunos-4-25.07/docker_img/x86_64/$(DOCKER_IMAGE_SOURCE)
 DOCKER_IMAGE_DIR := $(HOST_DOWNLOADS_DIR)
 DOCKER_IMAGE_PATH := $(DOCKER_IMAGE_DIR)/$(DOCKER_IMAGE_SOURCE)
 
@@ -103,8 +103,7 @@ download-image:	# Internal: Download CTYunOS 4 docker image (use 'load-image' in
 	@echo "Downloading CTYunOS 4 docker image to $(DOCKER_IMAGE_DIR)..."
 	@mkdir -p $(DOCKER_IMAGE_DIR)
 	@if [ ! -f $(DOCKER_IMAGE_PATH) ]; then \
-		echo "Please manually download $(DOCKER_IMAGE_SOURCE) to $(DOCKER_IMAGE_DIR)"; \
-		# cd $(DOCKER_IMAGE_DIR) && wget $(DOCKER_IMAGE_URL); \
+		wget -O $(DOCKER_IMAGE_PATH) $(DOCKER_IMAGE_URL); \
 	else \
 		echo "$(DOCKER_IMAGE_PATH) already exists"; \
 	fi
@@ -116,8 +115,8 @@ load-image: download-image	## Load base OS image (→ ctyunos:4-25.07-250905)
 		cd $(DOCKER_IMAGE_DIR) && xz -d -k $(DOCKER_IMAGE_SOURCE); \
 	fi; \
 	docker load < $$TAR_FILE
-	@echo "Tagging image as $(DEV_IMAGE)..."
-	@docker tag $$(docker images --format "{{.Repository}}:{{.Tag}}" | grep ctyunos | head -1) $(DEV_IMAGE)
+	@echo "Tagging image as $(BASE_IMAGE)..."
+	@docker tag $$(docker images --format "{{.Repository}}:{{.Tag}}" | grep ctyunos | grep -v ":" | head -1) $(BASE_IMAGE) 2>/dev/null || true
 
 build-base-image:	## Build image with build tools (→ ctyunos:4-25.07-250905-build)
 	@echo "Building CTYunOS 4 base image with build tools..."
@@ -125,20 +124,16 @@ build-base-image:	## Build image with build tools (→ ctyunos:4-25.07-250905-bu
 		echo "Base image $(BASE_IMAGE) not found, loading..."; \
 		make load-image; \
 	fi
-	@echo "Installing ctactv RPM package..."
-	@echo "FROM $(BASE_IMAGE)" > Dockerfile.build
-	@echo "COPY ctactv-1.3-17.ctl4.x86_64.rpm /tmp/" >> Dockerfile.build
-	@echo "RUN rpm -ivh /tmp/ctactv-1.3-17.ctl4.x86_64.rpm && rm -f /tmp/ctactv-1.3-17.ctl4.x86_64.rpm" >> Dockerfile.build
 	@echo "Installing build tools and configuring permissions..."
-	@echo "RUN yum install -y sudo shadow-utils git vim dnf-plugins-core tmux rpm-build -y && \\" >> Dockerfile.build
+	@echo "FROM $(BASE_IMAGE)" > Dockerfile.build
+	@echo "RUN rpm -Uvh https://satellite.ctyun.cn/stltapi/public/ctyunos-4-25.07/ct-satellite-client-1.2-30.ctl4.noarch.rpm && \\" >> Dockerfile.build
+	@echo "    yum install -y sudo shadow-utils git vim dnf-plugins-core tmux rpm-build -y && \\" >> Dockerfile.build
 	@echo "    groupadd -g $(HOST_GID) $(HOST_USER) 2>/dev/null || true && \\" >> Dockerfile.build
 	@echo "    useradd -m -u $(HOST_UID) -g $(HOST_GID) -s /bin/bash $(HOST_USER) 2>/dev/null || true && \\" >> Dockerfile.build
 	@echo "    echo '$(HOST_USER) ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \\" >> Dockerfile.build
 	@echo "    echo 'Defaults !requiretty' >> /etc/sudoers && \\" >> Dockerfile.build
 	@echo "    mkdir -p /home/$(HOST_USER)/{code,rpmbuild,Downloads}" >> Dockerfile.build
-	@cp $(HOST_DOWNLOADS_DIR)/ctactv-1.3-17.ctl4.x86_64.rpm . 2>/dev/null || echo "Warning: ctactv RPM not found in Downloads, build may fail"
 	@docker build -t $(BUILD_IMAGE) -f Dockerfile.build .
-	@rm -f ctactv-1.3-17.ctl4.x86_64.rpm
 	@rm -f Dockerfile.build
 build-image:	## Build development image with user mapping (→ ctyunos:4-25.07-250905-dev)
 	@echo "Preparing CTYunOS 4 development image..."
