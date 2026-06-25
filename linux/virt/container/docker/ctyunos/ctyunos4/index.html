@@ -27228,6 +27228,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cpu-numa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU / NUMA 限制
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_10" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -27533,6 +27544,7 @@
 <li><strong>多架构支持</strong>：支持 AMD64 和 ARM64 (交叉编译) 内核构建</li>
 <li><strong>智能分支检测</strong>：自动识别 git worktree 和分支目录</li>
 <li><strong>增量构建</strong>：镜像分层设计，支持快速重建</li>
+<li><strong>CPU/NUMA 绑定</strong>：容器自动绑定到单个 NUMA 节点（不跨 NUMA），使用该节点全部 CPU，避免占满整机</li>
 </ul>
 <h2 id="_2">镜像架构<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ctyunos:4-25.07-250905           ← 基础 OS 镜像 (从 tar.xz 加载)
@@ -27739,6 +27751,43 @@
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>make<span class="w"> </span>build-5.10-amd64<span class="w"> </span><span class="nv">KERNEL_5_10_BRANCH</span><span class="o">=</span>ctkernel-lts-5.10/my-feature
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>make<span class="w"> </span>rpmbuild-6.6-amd64<span class="w"> </span><span class="nv">KERNEL_6_6_BRANCH</span><span class="o">=</span>ctkernel-lts-6.6/bugfix-123
 </code></pre></div>
+<h2 id="cpu-numa">CPU / NUMA 限制<a class="headerlink" href="#cpu-numa" title="Permanent link">&para;</a></h2>
+<p>容器创建时会自动绑定到<strong>单个 NUMA 节点</strong>，使用该节点的<strong>全部 CPU</strong>，并把内存分配限制在同一节点，避免跨 NUMA 访问内存导致的性能下降，同时不会占满整机。</p>
+<p>使用整节点 CPU（而非写死数量）可自动适配不同机器：某些机器单节点 CPU 数可能少于 32，也无需手动调整。</p>
+<p>对应 Makefile 变量与 <code>docker run</code> 选项：</p>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>默认值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NUMA_NODE</code></td>
+<td>空闲内存最多的节点（自动检测）</td>
+<td>容器绑定的 NUMA 节点</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">--cpuset-cpus</span><span class="o">=</span>&lt;该节点全部<span class="w"> </span>CPU&gt;<span class="w">   </span><span class="c1"># 例如 96-119,288-311，全部在同一节点</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">--cpuset-mems</span><span class="o">=</span><span class="k">$(</span>NUMA_NODE<span class="k">)</span><span class="w">       </span><span class="c1"># 内存只在该节点分配 → 不跨 NUMA</span>
+</code></pre></div>
+<p>默认行为：</p>
+<ul>
+<li><code>NUMA_NODE</code> 自动选择当前<strong>空闲内存最多</strong>的 NUMA 节点（内核编译较吃内存）。</li>
+<li>读取该节点的 <code>cpulist</code>，把节点上<strong>所有逻辑 CPU</strong> 绑定给容器。</li>
+<li>容器内 <code>nproc</code> 会遵守 cgroup cpuset 返回该节点的 CPU 数，因此 <code>make -j$(nproc)</code> 的并行度会自动对齐到节点 CPU 数。</li>
+</ul>
+<p>覆盖默认值：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># 指定 NUMA 节点</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>make<span class="w"> </span>build-6.6-amd64<span class="w"> </span><span class="nv">NUMA_NODE</span><span class="o">=</span><span class="m">4</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>make<span class="w"> </span>shell<span class="w"> </span><span class="nv">NUMA_NODE</span><span class="o">=</span><span class="m">5</span>
+</code></pre></div>
+<blockquote>
+<p>⚠️ CPU/NUMA 绑定只在<strong>容器创建时</strong>（<code>docker run</code>）生效。修改 <code>NUMA_NODE</code> 或希望重新自动选节点时，需先 <code>make clean-container</code>（<strong>不要用 <code>make clean</code>，它会删除镜像</strong>）再重建容器。</p>
+</blockquote>
 <h2 id="_10">源码目录检测<a class="headerlink" href="#_10" title="Permanent link">&para;</a></h2>
 <p>构建命令会按以下顺序查找源码目录：</p>
 <ol>
@@ -27747,11 +27796,11 @@
 <li><strong>主仓库</strong>：使用 <code>~/code/linux</code> 并切换到指定分支</li>
 </ol>
 <p>示例：
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># 分支: ctkernel-lts-5.10/develop</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># 查找顺序:</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># 1. git worktree 中的 ctkernel-lts-5.10/develop</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># 2. ~/code/ctkernel-lts-5.10-develop</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># 3. ~/code/linux (切换到该分支)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># 分支: ctkernel-lts-5.10/develop</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># 查找顺序:</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># 1. git worktree 中的 ctkernel-lts-5.10/develop</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># 2. ~/code/ctkernel-lts-5.10-develop</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># 3. ~/code/linux (切换到该分支)</span>
 </code></pre></div></p>
 <h2 id="_11">用户权限<a class="headerlink" href="#_11" title="Permanent link">&para;</a></h2>
 <p>容器运行时自动映射 host 用户的 UID/GID，确保：</p>
@@ -27761,11 +27810,11 @@
 <li>支持 sudo 无密码执行 root 命令</li>
 </ul>
 <p>验证用户映射：
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make<span class="w"> </span>shell
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># 在容器内</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>whoami<span class="w">  </span><span class="c1"># 显示你的用户名</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>id<span class="w">      </span><span class="c1"># 显示 UID/GID</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>sudo<span class="w"> </span>whoami<span class="w">  </span><span class="c1"># 显示 root (无需密码)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>make<span class="w"> </span>shell
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="c1"># 在容器内</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>whoami<span class="w">  </span><span class="c1"># 显示你的用户名</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>id<span class="w">      </span><span class="c1"># 显示 UID/GID</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>sudo<span class="w"> </span>whoami<span class="w">  </span><span class="c1"># 显示 root (无需密码)</span>
 </code></pre></div></p>
 <h2 id="_12">内核配置<a class="headerlink" href="#_12" title="Permanent link">&para;</a></h2>
 <p>不同版本使用不同的 defconfig：</p>
@@ -27801,23 +27850,23 @@
 - ARM64: <code>~/rpmbuild/RPMS/aarch64/</code></p>
 <h2 id="_15">故障排查<a class="headerlink" href="#_15" title="Permanent link">&para;</a></h2>
 <h3 id="_16">容器无法启动<a class="headerlink" href="#_16" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># 查看状态</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>make<span class="w"> </span>status
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># 清理并重建</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>make<span class="w"> </span>clean
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>make<span class="w"> </span>setup-container
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># 查看状态</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>make<span class="w"> </span>status
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># 清理并重建</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>make<span class="w"> </span>clean
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>make<span class="w"> </span>setup-container
 </code></pre></div>
 <h3 id="_17">用户权限问题<a class="headerlink" href="#_17" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># 检查容器内用户</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>ctyunos-4-25.07-250905-dev<span class="w"> </span>id
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># 应该显示你的 UID/GID，而不是 root (0:0)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># 检查容器内用户</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>ctyunos-4-25.07-250905-dev<span class="w"> </span>id
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># 应该显示你的 UID/GID，而不是 root (0:0)</span>
 </code></pre></div>
 <h3 id="_18">镜像构建失败<a class="headerlink" href="#_18" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># 清理所有镜像重新构建</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>make<span class="w"> </span>clean-images
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>make<span class="w"> </span>build-image
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># 清理所有镜像重新构建</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>make<span class="w"> </span>clean-images
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>make<span class="w"> </span>build-image
 </code></pre></div>
 <h3 id="_19">找不到源码目录<a class="headerlink" href="#_19" title="Permanent link">&para;</a></h3>
 <p>确保源码位于以下位置之一：
@@ -27825,24 +27874,24 @@
 - <code>~/code/&lt;branch-name&gt;</code> (分支目录)
 - Git worktree 中</p>
 <h3 id="arm64_1">ARM64 交叉编译失败<a class="headerlink" href="#arm64_1" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># 确保工具链已安装</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>make<span class="w"> </span>setup-cross-compile
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># 验证工具链路径</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>ls<span class="w"> </span>-la<span class="w"> </span>~/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># 确保工具链已安装</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>make<span class="w"> </span>setup-cross-compile
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># 验证工具链路径</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>ls<span class="w"> </span>-la<span class="w"> </span>~/Downloads/cross_compile/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/
 </code></pre></div>
 <h2 id="_20">高级用法<a class="headerlink" href="#_20" title="Permanent link">&para;</a></h2>
 <h3 id="_21">手动进入容器执行命令<a class="headerlink" href="#_21" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>ctyunos-4-25.07-250905-dev<span class="w"> </span>bash
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>ctyunos-4-25.07-250905-dev<span class="w"> </span>bash
 </code></pre></div>
 <h3 id="_22">查看容器日志<a class="headerlink" href="#_22" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>docker<span class="w"> </span>logs<span class="w"> </span>ctyunos-4-25.07-250905-dev
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>docker<span class="w"> </span>logs<span class="w"> </span>ctyunos-4-25.07-250905-dev
 </code></pre></div>
 <h3 id="_23">自定义目录映射<a class="headerlink" href="#_23" title="Permanent link">&para;</a></h3>
 <p>编辑 Makefile 中的以下变量：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nv">HOST_CODE_DIR</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">$(</span>HOST_HOME<span class="k">)</span>/code
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="nv">HOST_RPMBUILD_DIR</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">$(</span>HOST_CODE_DIR<span class="k">)</span>/rpmbuild
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="nv">HOST_DOWNLOADS_DIR</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">$(</span>HOST_HOME<span class="k">)</span>/Downloads
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nv">HOST_CODE_DIR</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">$(</span>HOST_HOME<span class="k">)</span>/code
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="nv">HOST_RPMBUILD_DIR</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">$(</span>HOST_CODE_DIR<span class="k">)</span>/rpmbuild
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="nv">HOST_DOWNLOADS_DIR</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">$(</span>HOST_HOME<span class="k">)</span>/Downloads
 </code></pre></div>
 <h3 id="_24">保留容器运行<a class="headerlink" href="#_24" title="Permanent link">&para;</a></h3>
 <p>默认情况下，构建完成后容器会自动停止。如需保持运行，修改 Makefile 中的构建命令，删除最后的 <code>docker stop</code> 行。</p>
