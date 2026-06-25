@@ -517,6 +517,51 @@ VM:       INT3写入 → text_poke_sync → VM exit(Host调度) → [数百us~ms
 2. **`poke_int3_handler` fallback** — 远程 CPU 命中陈旧 INT3 时，无论 `refs==0` 还是地址不在当前 batch，都安全跳过（问题 3）
 3. **`clflush_cache_range`** — Step 3 后刷新所有被修改地址的 i-cache，从根源清除远程 CPU 的陈旧 INT3（问题 3 根治）
 
+### Q: 为啥执行 INT3 替换指令的时候不崩溃，最后 die("int3")?
+
+关键区别在于 **`bp_desc.refs` 的值**。
+
+**正常情况（不崩溃）：`refs != 0`**
+
+```
+text_poke_bp_batch() Step 1 之前:
+  atomic_set_release(&bp_desc.refs, 1);    ← refs = 1
+
+CPU 1 执行到 INT3:
+  exc_int3()
+    → poke_int3_handler()
+        → try_get_desc() = &bp_desc        ← refs > 0，获取成功
+        → 二分查找 → 找到 text_poke_loc
+        → tp->opcode = JMP32_INSN_OPCODE   ← "这条指令要模拟成 JMP32+0"
+        → int3_emulate_jmp(regs, ip + 0)   ← 模拟执行 NOP，跳过
+        → return 1                         ← "处理完了，没事"
+```
+
+`poke_int3_handler` 成功处理后返回 1，`exc_int3()` 看到返回值非 0，就**不调用 `do_int3()` 和 `die()`**，而是返回被中断的代码继续跑。
+
+**崩溃情况：`refs == 0`**
+
+```
+text_poke_bp_batch() Step 3 之后:
+  atomic_dec_and_test(&bp_desc.refs)       ← refs → 0
+  // batch 完成了，bp_desc 释放了
+
+CPU 1 执行到 INT3（i-cache 残留）:
+  exc_int3()
+    → poke_int3_handler()
+        → try_get_desc() = NULL            ← refs == 0，拿不到描述符
+        → return 0                         ← "处理不了，不知道这是什么"
+
+    → do_int3()                             ← handler 说处理不了
+        → kprobe_int3_handler() → 不匹配
+        → notify_die(DIE_INT3) → 没人认领
+        → die("int3")                       ← 崩
+```
+
+**决定性的区别**：`try_get_desc()` 的返回值。`refs > 0` 时 handler 知道"有人正在 patch，这个 INT3 是合法的，我来模拟"。`refs == 0` 时 handler 不知道这是啥，返回 0，`do_int3()` 把检查链走完没人认领 → `die("int3")`。
+
+**所以不是"执行 INT3 不崩"**，而是**执行 INT3 时 handler 在岗，把 INT3 瞒过去了**。handler 下班后，残留在 i-cache 里的 INT3 就变成了无人认领的 trap，内核直接 panic。
+
 ### Q: 这个问题上游有修复吗？
 
 上游没有。这个 INT3 竞态是 CTK 内核 + KVM 虚拟化环境下的特定问题，上游主线未必会触发（物理机上 `text_poke_sync()` 足够快）。但对于虚拟化和 syzkaller fuzzing 场景，这是一个真实的缺陷。
