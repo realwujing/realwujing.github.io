@@ -39,9 +39,23 @@ CROSS_COMPILE_PATH := /home/$(HOST_USER)/Downloads/cross_compile/$(CROSS_COMPILE
 KERNEL_5_10_BRANCH ?= ctkernel-lts-5.10/develop
 KERNEL_6_6_BRANCH ?= ctkernel-lts-6.6/develop
 
+# CPU / NUMA limits for the dev container
+# Pin the container to a single NUMA node and let it use ALL of that node's
+# logical CPUs. This keeps the build off other nodes (no cross-NUMA memory
+# access) and adapts automatically to hosts where a node has fewer/more CPUs.
+#
+# NUMA_NODE defaults to the node with the most free memory (best for a
+# memory-hungry kernel build). Override on the command line if needed:
+#   make shell NUMA_NODE=4
+NUMA_NODE ?= $(shell grep MemFree /sys/devices/system/node/node*/meminfo | sort -k4 -nr | head -1 | sed 's/.*node//; s,/.*,,')
+# All logical CPUs of NUMA node NUMA_NODE (cpulist range form, e.g. 96-119,288-311)
+DOCKER_CPUSET_CPUS := $(shell cat /sys/devices/system/node/node$(NUMA_NODE)/cpulist)
+
 # Docker run options with user mapping
 DOCKER_RUN_OPTS := -it \
 	--name $(CONTAINER_NAME) \
+	--cpuset-cpus=$(DOCKER_CPUSET_CPUS) \
+	--cpuset-mems=$(NUMA_NODE) \
 	--user $(HOST_UID):$(HOST_GID) \
 	-v $(HOST_CODE_DIR):/home/$(HOST_USER)/code \
 	-v $(HOST_RPMBUILD_DIR):/home/$(HOST_USER)/rpmbuild \
