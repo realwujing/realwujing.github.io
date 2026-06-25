@@ -27145,6 +27145,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cpu-numa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU / NUMA 限制
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -27183,6 +27194,7 @@
 <li><strong>权限映射</strong>：容器内自动映射宿主机用户 UID/GID，避免权限冲突</li>
 <li><strong>工具链集成</strong>：自动配置 YUM 源并安装必要的开发工具（bc, rpm-build 等）</li>
 <li><strong>多架构支持</strong>：支持 AMD64 原生编译和 ARM64 交叉编译</li>
+<li><strong>CPU/NUMA 绑定</strong>：容器自动绑定到单个 NUMA 节点（不跨 NUMA），使用该节点全部 CPU，避免占满整机</li>
 </ul>
 <h2 id="_2">快速开始<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
 <h3 id="1">1. 查看帮助<a class="headerlink" href="#1" title="Permanent link">&para;</a></h3>
@@ -27239,6 +27251,43 @@
 </tr>
 </tbody>
 </table>
+<h2 id="cpu-numa">CPU / NUMA 限制<a class="headerlink" href="#cpu-numa" title="Permanent link">&para;</a></h2>
+<p>容器创建时会自动绑定到<strong>单个 NUMA 节点</strong>，使用该节点的<strong>全部 CPU</strong>，并把内存分配限制在同一节点，避免跨 NUMA 访问内存导致的性能下降，同时不会占满整机。</p>
+<p>使用整节点 CPU（而非写死数量）可自动适配不同机器：某些机器单节点 CPU 数可能少于 32，也无需手动调整。</p>
+<p>对应 Makefile 变量与 <code>docker run</code> 选项：</p>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>默认值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NUMA_NODE</code></td>
+<td>空闲内存最多的节点（自动检测）</td>
+<td>容器绑定的 NUMA 节点</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">--cpuset-cpus</span><span class="o">=</span>&lt;该节点全部<span class="w"> </span>CPU&gt;<span class="w">   </span><span class="c1"># 例如 96-119,288-311，全部在同一节点</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">--cpuset-mems</span><span class="o">=</span><span class="k">$(</span>NUMA_NODE<span class="k">)</span><span class="w">       </span><span class="c1"># 内存只在该节点分配 → 不跨 NUMA</span>
+</code></pre></div>
+<p>默认行为：</p>
+<ul>
+<li><code>NUMA_NODE</code> 自动选择当前<strong>空闲内存最多</strong>的 NUMA 节点（内核编译较吃内存）。</li>
+<li>读取该节点的 <code>cpulist</code>，把节点上<strong>所有逻辑 CPU</strong> 绑定给容器。</li>
+<li>容器内 <code>nproc</code> 会遵守 cgroup cpuset 返回该节点的 CPU 数，因此 <code>make -j$(nproc)</code> 的并行度会自动对齐到节点 CPU 数。</li>
+</ul>
+<p>覆盖默认值：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># 指定 NUMA 节点</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>make<span class="w"> </span>build-4.19-amd64<span class="w"> </span><span class="nv">NUMA_NODE</span><span class="o">=</span><span class="m">4</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>make<span class="w"> </span>shell<span class="w"> </span><span class="nv">NUMA_NODE</span><span class="o">=</span><span class="m">5</span>
+</code></pre></div>
+<blockquote>
+<p>⚠️ CPU/NUMA 绑定只在<strong>容器创建时</strong>（<code>docker run</code>）生效。修改 <code>NUMA_NODE</code> 或希望重新自动选节点时，需先 <code>make clean-container</code>（<strong>不要用 <code>make clean</code>，它会删除镜像</strong>）再重建容器。</p>
+</blockquote>
 <h2 id="_4">参考资源<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
 <ul>
 <li>CTYunOS 官方资源: https://repo.ctyun.cn/hostos/ctyunos-22.06/</li>
