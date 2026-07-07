@@ -69,7 +69,8 @@ DOCKER_BUILD_ARGS := --build-arg USER_ID=$(HOST_UID) \
 
 define SETUP_ARM64_ENV
 export CROSS_COMPILE=$(CROSS_COMPILE_PATH) && \
-export ARCH=arm64
+export ARCH=arm64 && \
+export PATH=$(shell dirname $(CROSS_COMPILE_PATH)):$$PATH
 endef
 
 define PRINT_BUILD_TIME
@@ -96,6 +97,7 @@ help:	## Show this help message
 	@echo "    make build-6.6-arm64          Cross-compile 6.6 for ARM64"
 	@echo "    make rpmbuild-5.10-arm64      Build 5.10 RPM for ARM64"
 	@echo "    make rpmbuild-6.6-arm64       Build 6.6 RPM for ARM64"
+	@echo "    make rpmbuild-spec-arm64      Build ARM64 RPM via spec file"
 	@echo "    make setup-cross-compile      Download ARM64 cross-compile toolchain"
 	@echo ""
 	@grep -E '^[a-zA-Z0-9_.-]+:.*##' $(MAKEFILE_LIST) | \
@@ -116,10 +118,10 @@ help:	## Show this help message
 	@echo "    make openeuler_defconfig"
 	@echo "    make -j\$$(nproc) LOCALVERSION=-mykernel.\$$(date +%Y%m%d)"
 	@echo ""
-	@echo "  In shell-arm64, build ARM64 RPM package:"
-	@echo "    cd ~/code/linux && make mrproper"
-	@echo "    make openeuler_defconfig"
-	@echo "    make -j\$$(nproc) binrpm-pkg LOCALVERSION=-mykernel.\$$(date +%Y%m%d)"
+	@echo "  In shell-arm64, build ARM64 RPM package (with spec file):"
+	@echo "    rpmbuild -ba build/kernel.spec --target aarch64 \\"
+	@echo "      --define \"build_arch aarch64\" \\"
+	@echo "      --define \"cross_compile \$$CROSS_COMPILE\""
 	@echo ""
 	@echo "Advanced commands (for debugging):"
 	@echo ""
@@ -533,6 +535,31 @@ shell-arm64: setup-cross-compile	## Open shell with ARM64 cross-compile env
 		make setup-container; \
 	fi
 	@docker exec -it $(CONTAINER_NAME) bash -c '$(SETUP_ARM64_ENV) && exec /bin/bash'
+
+rpmbuild-spec-arm64: setup-container setup-cross-compile	## Build ARM64 RPM with spec file (rpmbuild -ba)
+	@echo "======= Building ARM64 RPM Package (spec file) ======="
+	@docker exec -i $(CONTAINER_NAME) bash -c ' \
+		set -e && \
+		WORK_DIR=$$(pwd) && \
+		SPEC=$$(find build -type f -name "*.spec" -print -quit 2>/dev/null) && \
+		if [ -z "$$SPEC" ]; then \
+			echo "No .spec found in build/" && exit 1; \
+		fi && \
+		echo "Using spec: $$SPEC" && \
+		sudo yum-builddep "$$SPEC" -y && \
+		for dir in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do \
+			rm -rf /home/$(HOST_USER)/rpmbuild/$$dir/*; \
+		done && \
+		mkdir -p /home/$(HOST_USER)/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+		rm -rf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz && \
+		tar --xform="s/^./kernel/" --exclude=".git" -chzf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz . && \
+		cp build/* /home/$(HOST_USER)/rpmbuild/SOURCES && \
+		rpmbuild -ba "$$SPEC" --target aarch64 \
+			--define "build_arch aarch64" \
+			--define "cross_compile $(CROSS_COMPILE_PATH)" && \
+		echo "======= RPM Build Completed =======" && \
+		echo "RPM packages location: /home/$(HOST_USER)/rpmbuild/RPMS/"' && \
+	docker stop $(CONTAINER_NAME)
 
 clean-images:	## Remove CTYunOS docker images (including base images)
 	@echo "WARNING: This will remove all CTYunOS images!"

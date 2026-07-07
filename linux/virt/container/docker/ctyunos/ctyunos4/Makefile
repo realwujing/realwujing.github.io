@@ -30,9 +30,9 @@ DOCKER_IMAGE_DIR := $(HOST_DOWNLOADS_DIR)/docker
 DOCKER_IMAGE_PATH := $(DOCKER_IMAGE_DIR)/$(DOCKER_IMAGE_SOURCE)
 
 # Cross-compile toolchain
-CROSS_COMPILE_URL := https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
-CROSS_COMPILE_TAR := gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
-CROSS_COMPILE_DIR := gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu
+CROSS_COMPILE_URL := https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/12.3.rel1/arm-gnu-toolchain-12.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+CROSS_COMPILE_TAR := arm-gnu-toolchain-12.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+CROSS_COMPILE_DIR := arm-gnu-toolchain-12.3.rel1-x86_64-aarch64-none-linux-gnu
 CROSS_COMPILE_PATH := /home/$(HOST_USER)/Downloads/cross_compile/$(CROSS_COMPILE_DIR)/bin/aarch64-none-linux-gnu-
 
 # Branch configuration (can be overridden via command line)
@@ -69,7 +69,8 @@ DOCKER_BUILD_ARGS := --build-arg USER_ID=$(HOST_UID) \
 
 define SETUP_ARM64_ENV
 export CROSS_COMPILE=$(CROSS_COMPILE_PATH) && \
-export ARCH=arm64
+export ARCH=arm64 && \
+export PATH=$(shell dirname $(CROSS_COMPILE_PATH)):$$PATH
 endef
 
 define PRINT_BUILD_TIME
@@ -90,6 +91,15 @@ help:	## Show this help message
 	@echo "    make build-5.10-amd64 KERNEL_5_10_BRANCH=my-branch"
 	@echo "    make rpmbuild-6.6-arm64 KERNEL_6_6_BRANCH=my-branch"
 	@echo ""
+	@echo "  Cross-compile commands (ARM64):"
+	@echo "    make shell-arm64              Open shell with CROSS_COMPILE/ARCH=arm64"
+	@echo "    make build-5.10-arm64         Cross-compile 5.10 for ARM64"
+	@echo "    make build-6.6-arm64          Cross-compile 6.6 for ARM64"
+	@echo "    make rpmbuild-5.10-arm64      Build 5.10 RPM for ARM64"
+	@echo "    make rpmbuild-6.6-arm64       Build 6.6 RPM for ARM64"
+	@echo "    make rpmbuild-spec-arm64      Build ARM64 RPM via spec file"
+	@echo "    make setup-cross-compile      Download ARM64 cross-compile toolchain"
+	@echo ""
 	@grep -E '^[a-zA-Z0-9_.-]+:.*##' $(MAKEFILE_LIST) | \
 		sed 's/:.*##/##/' | \
 		awk -F'##' '{printf "  %-25s %s\n", $$1, $$2}' | \
@@ -98,6 +108,20 @@ help:	## Show this help message
 		sed 's/:.*##/##/' | \
 		awk -F'##' '{printf "  %-25s %s\n", $$1, $$2}' | \
 		grep '^  rpmbuild-' | sort
+	@echo ""
+	@echo "Shell commands:"
+	@echo "  make shell                     Open shell in container"
+	@echo "  make shell-arm64               Open shell with ARM64 cross-compile env"
+	@echo ""
+	@echo "  In shell-arm64, cross-compile manually:"
+	@echo "    cd ~/code/linux && make mrproper"
+	@echo "    make ctyunos_defconfig"
+	@echo "    make -j\$$(nproc) LOCALVERSION=-mykernel.\$$(date +%Y%m%d)"
+	@echo ""
+	@echo "  In shell-arm64, build ARM64 RPM package (with spec file):"
+	@echo "    rpmbuild -ba build/kernel.spec --target aarch64 \\"
+	@echo "      --define \"build_arch aarch64\" \\"
+	@echo "      --define \"cross_compile \$$CROSS_COMPILE\""
 	@echo ""
 	@echo "Advanced commands (for debugging):"
 	@echo ""
@@ -509,6 +533,38 @@ shell:	## Open shell in running container
 		make setup-container; \
 	fi
 	@docker exec -it $(CONTAINER_NAME) /bin/bash
+
+shell-arm64: setup-cross-compile	## Open shell with ARM64 cross-compile env
+	@echo "Opening shell in container $(CONTAINER_NAME) with ARM64 cross-compile..."
+	@if [ ! $$(docker ps -q -f name=$(CONTAINER_NAME)) ]; then \
+		echo "Container not running, setting up..."; \
+		make setup-container; \
+	fi
+	@docker exec -it $(CONTAINER_NAME) bash -c '$(SETUP_ARM64_ENV) && exec /bin/bash'
+
+rpmbuild-spec-arm64: setup-container setup-cross-compile	## Build ARM64 RPM with spec file (rpmbuild -ba)
+	@echo "======= Building ARM64 RPM Package (spec file) ======="
+	@docker exec -i $(CONTAINER_NAME) bash -c ' \
+		set -e && \
+		SPEC=$$(find build -type f -name "*.spec" -print -quit 2>/dev/null) && \
+		if [ -z "$$SPEC" ]; then \
+			echo "No .spec found in build/" && exit 1; \
+		fi && \
+		echo "Using spec: $$SPEC" && \
+		sudo yum-builddep "$$SPEC" -y && \
+		for dir in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do \
+			rm -rf /home/$(HOST_USER)/rpmbuild/$$dir/*; \
+		done && \
+		mkdir -p /home/$(HOST_USER)/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+		rm -rf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz && \
+		tar --xform="s/^./kernel/" --exclude=".git" -chzf /home/$(HOST_USER)/rpmbuild/SOURCES/kernel.tar.gz . && \
+		cp build/* /home/$(HOST_USER)/rpmbuild/SOURCES && \
+		rpmbuild -ba "$$SPEC" --target aarch64 \
+			--define "build_arch aarch64" \
+			--define "cross_compile $(CROSS_COMPILE_PATH)" && \
+		echo "======= RPM Build Completed =======" && \
+		echo "RPM packages location: /home/$(HOST_USER)/rpmbuild/RPMS/"' && \
+	docker stop $(CONTAINER_NAME)
 
 clean-images:	## Remove CTYunOS docker images (including base images)
 	@echo "WARNING: This will remove all CTYunOS images!"
