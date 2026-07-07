@@ -113,24 +113,19 @@ help:	## Show this help message
 		grep -v '^  setup-container' | grep -v '^  shell' | \
 		grep -v '^  restart-container' | grep -v '^  stop-container' | grep -v '^  clean' | grep -v '^  status'
 
-download-image:	# Internal: Download CTYunOS 3 docker image (use 'load-image' instead)
-	@echo "Downloading CTYunOS 3 docker image to $(DOCKER_IMAGE_DIR)..."
+load-image:	## Load base OS image (→ ctyunos:23.01)
+	@echo "Loading CTYunOS 3 docker image..."
 	@mkdir -p $(DOCKER_IMAGE_DIR)
 	@if [ ! -f $(DOCKER_IMAGE_PATH) ]; then \
 		cd $(DOCKER_IMAGE_DIR) && wget $(DOCKER_IMAGE_URL); \
 	else \
-		echo "$(DOCKER_IMAGE_PATH) already exists"; \
+		echo "$(DOCKER_IMAGE_PATH) already exists, using cached copy"; \
 	fi
-
-load-image: download-image	## Load base OS image (→ ctyunos:23.01)
-	@echo "Extracting and loading CTYunOS 3 docker image..."
-	@TAR_FILE=$(DOCKER_IMAGE_DIR)/ctyunos3-docker-230117-x86_64.tar; \
-	if [ ! -f $$TAR_FILE ]; then \
-		cd $(DOCKER_IMAGE_DIR) && xz -d -k $(DOCKER_IMAGE_SOURCE); \
-	fi; \
-	docker load < $$TAR_FILE
-	@echo "Tagging image as $(DEV_IMAGE)..."
-	@docker tag $$(docker images --format "{{.Repository}}:{{.Tag}}" | grep ctyunos | head -1) $(DEV_IMAGE)
+	@docker load < $(DOCKER_IMAGE_PATH) | tail -1 | sed 's/Loaded image: //' > /tmp/ctyunos3_loaded_image.txt; \
+	LOADED_IMAGE=$$(cat /tmp/ctyunos3_loaded_image.txt); \
+	docker tag $$LOADED_IMAGE $(BASE_IMAGE); \
+	docker tag $$LOADED_IMAGE $(DEV_IMAGE); \
+	rm -f /tmp/ctyunos3_loaded_image.txt
 
 build-base-image:	## Build image with build tools (→ ctyunos:23.01-build)
 	@echo "Building CTYunOS 3 base image with build tools..."
