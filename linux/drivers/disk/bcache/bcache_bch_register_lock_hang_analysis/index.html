@@ -27879,67 +27879,48 @@
 <a id="__codelineno-3-54" name="__codelineno-3-54" href="#__codelineno-3-54"></a>Mar 12 11:04:18 kernel: [  244.088294]  el0_sync+0x160/0x180
 </code></pre></div>
 <p><strong>关键分析</strong>：PID 8103 持有 <code>bch_register_lock</code> 走过的完整调用链，按层次拆解：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>  用户态 sysfs 写入
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    └─ kernfs_fop_write_iter → sysfs_kf_write → kobj_attr_store
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>         └─ register_bcache                               [bcache]
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>              └─ register_cache                           [bcache]
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>                   └─ register_cache_set                  [bcache]  ← 获取 bch_register_lock
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>                        └─ run_cache_set                  [bcache]
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>                             └─ bch_cached_dev_attach     [bcache]
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>                                  └─ bch_cached_dev_run   [bcache]
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>                                       └─ device_add_disk          [block]
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>                                            └─ disk_init_partition  [block]
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>                                                 └─ blkdev_get_by_dev → … → blk_add_partitions
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>                                                      └─ check_partition → efi_partition
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>                                                           └─ read_lba → read_part_sector    [block, 读盘]
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>                                                                └─ read_cache_page → blkdev_readpage
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>                                                                     └─ submit_bio          [block]
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>                                                                          └─ cached_dev_submit_bio  [bcache]
-<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>                                                                               └─ cache_lookup
-<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>                                                                                    └─ bch_btree_map_keys  [bcache, 遍历 B+ 树]
-</code></pre></div>
 <p>整个调用链从 <code>register_cache_set()</code> 获取 <code>bch_register_lock</code> 开始，穿越了 sysfs 层 → bcache 注册层 → 块设备层 → 分区表读取 → 磁盘 IO → 又回到 bcache 的 btree 查找，锁持有时间完全取决于磁盘 IO 和 btree 遍历速度，对 HDD 可能长达数分钟。</p>
 <p><strong>注意：这个问题发生在 bcache 设备注册阶段，远在创建 ext4 文件系统之前。</strong> 从 Call Trace 看，锁持有者在做的是 bcache 模块初始化 cache_set —— 把缓存设备（NVMe 分区）和后备设备（HDD）关联起来，让 <code>/dev/bcacheN</code> 出现。此时所有其他 bcache 设备的 sysfs 操作全部阻塞。ext4 是之后的事情：<code>/dev/bcacheN</code> 出现后，LVM 扫描到 PV，激活 VG/LV，然后 Ceph OSD 才会 mount 上面的 ext4。所以这个 hang 发生在整个存储栈的最底层 —— bcache 设备还没完全就绪，上游的 LVM 和文件系统都还没开始。</p>
 <h3 id="dudev-killretry-cascade">证据 D：udev 超时 kill/retry cascade<a class="headerlink" href="#dudev-killretry-cascade" title="Permanent link">&para;</a></h3>
 <p>全部 12 个 NVMe 分区的 <code>bcache_cache_set_conf.sh</code> 脚本在 11:02:03 触发 59s 警告，在 11:04:03 全部超时被 kill，随后重试，在 11:07:04 和 11:10:05 再次全部超时 kill，形成稳定的 3 分钟周期：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a># 第一轮 — 59s 警告 (11:02:03)
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>Mar 12 11:02:03 systemd-udevd[1618]: nvme1n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p11&#39; [3526] is taking longer than 59s to complete
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>Mar 12 11:02:03 systemd-udevd[2054]: nvme0n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p10&#39; [3522] is taking longer than 59s to complete
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>Mar 12 11:02:03 systemd-udevd[1922]: nvme1n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p10&#39; [3520] is taking longer than 59s to complete
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>Mar 12 11:02:03 systemd-udevd[1771]: nvme0n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p8&#39; [3496] is taking longer than 59s to complete
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>Mar 12 11:02:03 systemd-udevd[2033]: nvme1n1p12: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p12&#39; [3521] is taking longer than 59s to complete
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>Mar 12 11:02:03 systemd-udevd[1594]: nvme1n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p8&#39; [3524] is taking longer than 59s to complete
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>Mar 12 11:02:03 systemd-udevd[2101]: nvme1n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p7&#39; [3523] is taking longer than 59s to complete
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>Mar 12 11:02:03 systemd-udevd[2014]: nvme0n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p9&#39; [3494] is taking longer than 59s to complete
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>Mar 12 11:02:03 systemd-udevd[1729]: nvme0n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p11&#39; [3492] is taking longer than 59s to complete
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>Mar 12 11:02:03 systemd-udevd[1648]: nvme0n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p7&#39; [3493] is taking longer than 59s to complete
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>Mar 12 11:02:03 systemd-udevd[1646]: nvme1n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p9&#39; [3519] is taking longer than 59s to complete
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>Mar 12 11:02:03 systemd-udevd[1713]: nvme0n1p12: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p12&#39; [3518] is taking longer than 59s to complete
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a># 第一轮 — 超时 kill (11:04:03)
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>Mar 12 11:04:03 systemd-udevd[1771]: nvme0n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p8&#39; [3496] timed out after 2min 59s, killing
-<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>Mar 12 11:04:03 systemd-udevd[2014]: nvme0n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p9&#39; [3494] timed out after 2min 59s, killing
-<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>Mar 12 11:04:03 systemd-udevd[1618]: nvme1n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p11&#39; [3526] timed out after 2min 59s, killing
-<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>Mar 12 11:04:03 systemd-udevd[2033]: nvme1n1p12: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p12&#39; [3521] timed out after 2min 59s, killing
-<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>Mar 12 11:04:03 systemd-udevd[1594]: nvme1n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p8&#39; [3524] timed out after 2min 59s, killing
-<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>Mar 12 11:04:03 systemd-udevd[2101]: nvme1n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p7&#39; [3523] timed out after 2min 59s, killing
-<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>Mar 12 11:04:03 systemd-udevd[2054]: nvme0n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p10&#39; [3522] timed out after 2min 59s, killing
-<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>Mar 12 11:04:03 systemd-udevd[1922]: nvme1n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p10&#39; [3520] timed out after 2min 59s, killing
-<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>Mar 12 11:04:03 systemd-udevd[1648]: nvme0n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p7&#39; [3493] timed out after 2min 59s, killing
-<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>Mar 12 11:04:03 systemd-udevd[1646]: nvme1n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p9&#39; [3519] timed out after 2min 59s, killing
-<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>Mar 12 11:04:03 systemd-udevd[1729]: nvme0n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p11&#39; [3492] timed out after 2min 59s, killing
-<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>
-<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a># Worker 失败后重试
-<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>Mar 12 11:04:16 systemd-udevd[1587]: bcache0: Worker [1926] failed
-<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a>Mar 12 11:04:16 systemd-udevd[1587]: bcache0: Retry 1 times.
-<a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a>
-<a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a># 同时 bcache cached_dev 的 udev 脚本也超时
-<a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a>Mar 12 11:04:17 systemd-udevd[1879]: bcache7: Spawned process &#39;/usr/sbin/bcache_cached_dev_conf.sh /sys/devices/virtual/block/bcache7/bcache&#39; [12892] timed out after 2min 59s, killing
-<a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a>Mar 12 11:04:17 systemd-udevd[1587]: bcache7: Worker [1879] failed
-<a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a>Mar 12 11:04:17 systemd-udevd[1587]: bcache7: Retry 1 times.
-<a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a>
-<a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a># 第二轮 — 11:05:04 再次全部 59s 警告，11:07:04 再次全部超时 kill
-<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a># 第三轮 — 11:08:05 再次全部 59s 警告，11:10:05 再次全部超时 kill
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a># 第一轮 — 59s 警告 (11:02:03)
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Mar 12 11:02:03 systemd-udevd[1618]: nvme1n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p11&#39; [3526] is taking longer than 59s to complete
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>Mar 12 11:02:03 systemd-udevd[2054]: nvme0n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p10&#39; [3522] is taking longer than 59s to complete
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>Mar 12 11:02:03 systemd-udevd[1922]: nvme1n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p10&#39; [3520] is taking longer than 59s to complete
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>Mar 12 11:02:03 systemd-udevd[1771]: nvme0n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p8&#39; [3496] is taking longer than 59s to complete
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>Mar 12 11:02:03 systemd-udevd[2033]: nvme1n1p12: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p12&#39; [3521] is taking longer than 59s to complete
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>Mar 12 11:02:03 systemd-udevd[1594]: nvme1n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p8&#39; [3524] is taking longer than 59s to complete
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>Mar 12 11:02:03 systemd-udevd[2101]: nvme1n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p7&#39; [3523] is taking longer than 59s to complete
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>Mar 12 11:02:03 systemd-udevd[2014]: nvme0n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p9&#39; [3494] is taking longer than 59s to complete
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>Mar 12 11:02:03 systemd-udevd[1729]: nvme0n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p11&#39; [3492] is taking longer than 59s to complete
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>Mar 12 11:02:03 systemd-udevd[1648]: nvme0n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p7&#39; [3493] is taking longer than 59s to complete
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>Mar 12 11:02:03 systemd-udevd[1646]: nvme1n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p9&#39; [3519] is taking longer than 59s to complete
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>Mar 12 11:02:03 systemd-udevd[1713]: nvme0n1p12: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p12&#39; [3518] is taking longer than 59s to complete
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a># 第一轮 — 超时 kill (11:04:03)
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>Mar 12 11:04:03 systemd-udevd[1771]: nvme0n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p8&#39; [3496] timed out after 2min 59s, killing
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>Mar 12 11:04:03 systemd-udevd[2014]: nvme0n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p9&#39; [3494] timed out after 2min 59s, killing
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>Mar 12 11:04:03 systemd-udevd[1618]: nvme1n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p11&#39; [3526] timed out after 2min 59s, killing
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>Mar 12 11:04:03 systemd-udevd[2033]: nvme1n1p12: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p12&#39; [3521] timed out after 2min 59s, killing
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>Mar 12 11:04:03 systemd-udevd[1594]: nvme1n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p8&#39; [3524] timed out after 2min 59s, killing
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>Mar 12 11:04:03 systemd-udevd[2101]: nvme1n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p7&#39; [3523] timed out after 2min 59s, killing
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>Mar 12 11:04:03 systemd-udevd[2054]: nvme0n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p10&#39; [3522] timed out after 2min 59s, killing
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>Mar 12 11:04:03 systemd-udevd[1922]: nvme1n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p10&#39; [3520] timed out after 2min 59s, killing
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>Mar 12 11:04:03 systemd-udevd[1648]: nvme0n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p7&#39; [3493] timed out after 2min 59s, killing
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>Mar 12 11:04:03 systemd-udevd[1646]: nvme1n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p9&#39; [3519] timed out after 2min 59s, killing
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>Mar 12 11:04:03 systemd-udevd[1729]: nvme0n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p11&#39; [3492] timed out after 2min 59s, killing
+<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>
+<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a># Worker 失败后重试
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>Mar 12 11:04:16 systemd-udevd[1587]: bcache0: Worker [1926] failed
+<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>Mar 12 11:04:16 systemd-udevd[1587]: bcache0: Retry 1 times.
+<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a>
+<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a># 同时 bcache cached_dev 的 udev 脚本也超时
+<a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>Mar 12 11:04:17 systemd-udevd[1879]: bcache7: Spawned process &#39;/usr/sbin/bcache_cached_dev_conf.sh /sys/devices/virtual/block/bcache7/bcache&#39; [12892] timed out after 2min 59s, killing
+<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a>Mar 12 11:04:17 systemd-udevd[1587]: bcache7: Worker [1879] failed
+<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a>Mar 12 11:04:17 systemd-udevd[1587]: bcache7: Retry 1 times.
+<a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>
+<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a># 第二轮 — 11:05:04 再次全部 59s 警告，11:07:04 再次全部超时 kill
+<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a># 第三轮 — 11:08:05 再次全部 59s 警告，11:10:05 再次全部超时 kill
 </code></pre></div>
 <p>实际生产环境：Ceph OSD 节点，2 块 NVMe 各分 6 个分区，共 12 个 cache_set 缓存 12 块 HDD 后备设备。启动时每个 bcacheN 设备出现后 udev 触发调优脚本写入 sysfs，因为 <code>bch_register_lock</code> 被 PID 8103 在 <code>run_cache_set()</code> 中做 journal replay + btree check + cached_dev attach（其中包含 <code>device_add_disk</code> -&gt; <code>check_partition</code> -&gt; <code>efi_partition</code> -&gt; <code>read_lba</code> 的完整磁盘 IO 路径）长期持有，所有设备的 sysfs 写操作全部阻塞。udev worker 超时后被 systemd-udevd kill，设备 add 事件失败并重试，kill/retry 循环每约 3 分钟重复一次，波及所有 NVMe 分区，导致整个 bcache 管理平面启动失败，进而延迟 LVM PV 激活和 Ceph OSD 启动。</p>
 <hr />
@@ -27988,10 +27969,10 @@
 </tbody>
 </table>
 <p>实际日志中具体的 sysfs 写入操作证据：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Mar 12 11:01:14 kernel: bcache: bch_cached_dev_store() write file /sys/devices/.../block/sdb/bcache/sequential_cutoff: 1048576
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>Mar 12 11:01:15 kernel: bcache: bch_cached_dev_store() write file /sys/devices/.../block/sdc/bcache/sequential_cutoff: 1048576
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>...
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>Mar 12 11:04:17 kernel: [  242.656072] INFO: task bcache_cache_se:3492 blocked for more than 120 seconds.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Mar 12 11:01:14 kernel: bcache: bch_cached_dev_store() write file /sys/devices/.../block/sdb/bcache/sequential_cutoff: 1048576
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>Mar 12 11:01:15 kernel: bcache: bch_cached_dev_store() write file /sys/devices/.../block/sdc/bcache/sequential_cutoff: 1048576
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>...
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>Mar 12 11:04:17 kernel: [  242.656072] INFO: task bcache_cache_se:3492 blocked for more than 120 seconds.
 </code></pre></div>
 <p>注意：不仅是 "show" vs "store" 的问题，也不仅限于当前正在初始化的设备——<strong>另一个无关设备自己的注册也被阻塞了</strong>。PID 8103 作为锁持有者，在 <code>run_cache_set()</code> -&gt; <code>bch_cached_dev_attach()</code> -&gt; <code>bch_cached_dev_run()</code> -&gt; <code>device_add_disk()</code> -&gt; <code>check_partition()</code> -&gt; <code>read_lba()</code> 的完整调用链中持续持有锁，这是磁盘 IO 密集路径，持续时间取决于磁盘性能。</p>
 <hr />
@@ -28023,18 +28004,18 @@
 <h3 id="52-v3">5.2 v3：分阶段注册方案（最终方案，已修复）<a class="headerlink" href="#52-v3" title="Permanent link">&para;</a></h3>
 <p>v3 放弃了锁类型变更，改用<strong>根因修复</strong>：不改变 <code>bch_register_lock</code> 的类型（仍是 mutex），而是改变它被持有的时间段。</p>
 <p><strong>核心思路</strong>：把注册一个全新 cache_set 拆成两个阶段——</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Phase 1（无锁恢复）:  journal replay + btree check + allocator start
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>Phase 2（加锁发布）:  kobject_add + sysfs 链接 + attach pending 设备
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Phase 1（无锁恢复）:  journal replay + btree check + allocator start
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>Phase 2（加锁发布）:  kobject_add + sysfs 链接 + attach pending 设备
 </code></pre></div>
 <p>Phase 1 是耗时大户（数秒到数分钟），v3 让它完全不持有 <code>bch_register_lock</code>。Phase 2 是轻量操作（毫秒级），在锁保护下完成，与 <code>register_bdev_worker()</code> 现有的持锁成本一致。</p>
 <hr />
 <h2 id="6-v3">6. v3 补丁逐文件代码分析<a class="headerlink" href="#6-v3" title="Permanent link">&para;</a></h2>
 <h3 id="61-bcacheh-cache_set_registering">6.1 <code>bcache.h</code>：新增 <code>CACHE_SET_REGISTERING</code> 标志位<a class="headerlink" href="#61-bcacheh-cache_set_registering" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="w"> </span>#define CACHE_SET_UNREGISTERING       0
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w"> </span>#define CACHE_SET_STOPPING            1
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w"> </span>#define CACHE_SET_RUNNING             2
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w"> </span>#define CACHE_SET_IO_DISABLE          3
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="gi">+#define CACHE_SET_REGISTERING         4</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="w"> </span>#define CACHE_SET_UNREGISTERING       0
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w"> </span>#define CACHE_SET_STOPPING            1
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w"> </span>#define CACHE_SET_RUNNING             2
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w"> </span>#define CACHE_SET_IO_DISABLE          3
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="gi">+#define CACHE_SET_REGISTERING         4</span>
 </code></pre></div>
 <p>新增标志位 <code>CACHE_SET_REGISTERING</code>（bit 4），附有详细注释说明其语义：</p>
 <blockquote>
@@ -28043,149 +28024,149 @@
 <p>这个标志位的设计意图非常明确：<strong>cache_set 在 <code>bch_cache_sets</code> 全局链表中可见（供 duplicate-uuid 检测和 <code>bcache_reboot()</code> 使用），但对 sysfs 和 <code>bch_cached_dev_attach()</code> 不可达</strong>。这是一种"半可见"状态——链表可见、kobject 不可见。</p>
 <h3 id="62-superc">6.2 <code>super.c</code>：核心重构<a class="headerlink" href="#62-superc" title="Permanent link">&para;</a></h3>
 <h4 id="621-__uuid_write-lockdep">6.2.1 <code>__uuid_write()</code> 的 lockdep 断言放宽<a class="headerlink" href="#621-__uuid_write-lockdep" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="gd">-   lockdep_assert_held(&amp;bch_register_lock);</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="gi">+   /*</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="gi">+    * Called either with bch_register_lock held, or from</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="gi">+    * bch_cache_set_recover() on a cache_set that is still</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="gi">+    * CACHE_SET_REGISTERING and therefore not yet reachable by any</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="gi">+    * other thread.</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="gi">+    */</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="gi">+   if (!test_bit(CACHE_SET_REGISTERING, &amp;c-&gt;flags))</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="gi">+       lockdep_assert_held(&amp;bch_register_lock);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="gd">-   lockdep_assert_held(&amp;bch_register_lock);</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="gi">+   /*</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="gi">+    * Called either with bch_register_lock held, or from</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="gi">+    * bch_cache_set_recover() on a cache_set that is still</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="gi">+    * CACHE_SET_REGISTERING and therefore not yet reachable by any</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="gi">+    * other thread.</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="gi">+    */</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="gi">+   if (!test_bit(CACHE_SET_REGISTERING, &amp;c-&gt;flags))</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="gi">+       lockdep_assert_held(&amp;bch_register_lock);</span>
 </code></pre></div>
 <p><strong>分析</strong>：<code>__uuid_write()</code> 在无锁恢复路径的 fresh-cache 分支中会被调用。原来的无条件 <code>lockdep_assert_held()</code> 会在无锁路径上触发 lockdep 告警。修改后，如果是 <code>CACHE_SET_REGISTERING</code> 状态（即 cache_set 尚未对任何其他线程可见），则跳过断言——因为此时没有并发访问风险。</p>
 <h4 id="622-bch_cached_dev_attach">6.2.2 <code>bch_cached_dev_attach()</code> 门控<a class="headerlink" href="#622-bch_cached_dev_attach" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="gi">+   if (test_bit(CACHE_SET_REGISTERING, &amp;c-&gt;flags)) {</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="gi">+       pr_err(&quot;Can&#39;t attach %pg: cache set is still registering\n&quot;,</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="gi">+              dc-&gt;bdev);</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="gi">+       return -EINVAL;</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="gi">+   }</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="gi">+   if (test_bit(CACHE_SET_REGISTERING, &amp;c-&gt;flags)) {</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="gi">+       pr_err(&quot;Can&#39;t attach %pg: cache set is still registering\n&quot;,</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="gi">+              dc-&gt;bdev);</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="gi">+       return -EINVAL;</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="gi">+   }</span>
 </code></pre></div>
 <p><strong>分析</strong>：在 attach 入口处增加门控。如果 cache_set 还在 <code>CACHE_SET_REGISTERING</code> 状态（即恢复尚未完成），拒绝 backing device 的 attach 请求。这防止了在 cache_set 完全初始化之前就 attach backing device 的风险。</p>
 <h4 id="623-run_cache_set-bch_cache_set_recover-bch_cache_set_attach_devices">6.2.3 函数拆分：<code>run_cache_set()</code> -&gt; <code>bch_cache_set_recover()</code> + <code>bch_cache_set_attach_devices()</code><a class="headerlink" href="#623-run_cache_set-bch_cache_set_recover-bch_cache_set_attach_devices" title="Permanent link">&para;</a></h4>
 <p>原来的 <code>run_cache_set()</code> 做了两件事：恢复 + 发布。v3 将其拆分为两个独立函数：</p>
 <p><strong><code>bch_cache_set_recover()</code></strong>（无锁恢复阶段）：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gd">-static int run_cache_set(struct cache_set *c)</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="gi">+/*</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="gi">+ * Recover a cache_set from disk (journal replay, btree check, allocator</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="gi">+ * start) or initialize a brand new one. This is the expensive, I/O-bound</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="gi">+ * part of bringing a cache_set up.</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="gi">+ *</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="gi">+ * For a freshly allocated cache_set, this is called without</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="gi">+ * bch_register_lock held: the cache_set is marked CACHE_SET_REGISTERING</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="gi">+ * and is not yet reachable via c-&gt;kobj/sysfs or via any attach lookup</span>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="gi">+ * ...</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="gi">+ */</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="gi">+static int bch_cache_set_recover(struct cache_set *c)</span>
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w"> </span>{
-<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w"> </span>   const char *err = &quot;cannot allocate memory&quot;;
-<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="gd">-   struct cached_dev *dc, *t;</span>
-<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w"> </span>   struct cache *ca = c-&gt;cache;
-<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w"> </span>   struct closure cl;
-<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w"> </span>   LIST_HEAD(journal);
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="gd">-static int run_cache_set(struct cache_set *c)</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="gi">+/*</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="gi">+ * Recover a cache_set from disk (journal replay, btree check, allocator</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="gi">+ * start) or initialize a brand new one. This is the expensive, I/O-bound</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="gi">+ * part of bringing a cache_set up.</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="gi">+ *</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="gi">+ * For a freshly allocated cache_set, this is called without</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="gi">+ * bch_register_lock held: the cache_set is marked CACHE_SET_REGISTERING</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="gi">+ * and is not yet reachable via c-&gt;kobj/sysfs or via any attach lookup</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="gi">+ * ...</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="gi">+ */</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="gi">+static int bch_cache_set_recover(struct cache_set *c)</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w"> </span>{
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w"> </span>   const char *err = &quot;cannot allocate memory&quot;;
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="gd">-   struct cached_dev *dc, *t;</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w"> </span>   struct cache *ca = c-&gt;cache;
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w"> </span>   struct closure cl;
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w"> </span>   LIST_HEAD(journal);
 </code></pre></div>
 <p>关键变化：函数签名中去掉了 <code>struct cached_dev *dc, *t</code> 局部变量声明——因为 attach 逻辑被移到了 <code>bch_cache_set_attach_devices()</code> 中。这个函数<strong>只做纯粹的磁盘恢复</strong>（journal replay, btree check, allocator start），不再涉及设备 attach。</p>
 <p>结尾处也移除了原来在 <code>run_cache_set()</code> 末尾的 attach + RUNNING 标志位设置：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="gd">-   list_for_each_entry_safe(dc, t, &amp;uncached_devices, list)</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="gd">-       bch_cached_dev_attach(dc, c, NULL);</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="gd">-</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="gd">-   flash_devs_run(c);</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="gd">-</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="gd">-   bch_journal_space_reserve(&amp;c-&gt;journal);</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="gd">-   set_bit(CACHE_SET_RUNNING, &amp;c-&gt;flags);</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w"> </span>   return 0;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gd">-   list_for_each_entry_safe(dc, t, &amp;uncached_devices, list)</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="gd">-       bch_cached_dev_attach(dc, c, NULL);</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="gd">-</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="gd">-   flash_devs_run(c);</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="gd">-</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="gd">-   bch_journal_space_reserve(&amp;c-&gt;journal);</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="gd">-   set_bit(CACHE_SET_RUNNING, &amp;c-&gt;flags);</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w"> </span>   return 0;
 </code></pre></div>
 <p><strong><code>bch_cache_set_attach_devices()</code></strong>（加锁发布阶段）：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="o">+</span><span class="cm">/*</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="cm">+ * Publish a recovered cache_set: attach pending backing/flash devices and</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="cm">+ * mark it running. Must be called with bch_register_lock held. Unlike</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="cm">+ * bch_cache_set_recover(), nothing here can fail.</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="cm">+ */</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">bch_cache_set_attach_devices</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cache_set</span><span class="w"> </span><span class="o">*</span><span class="n">c</span><span class="p">)</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="o">+</span><span class="p">{</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="o">+</span><span class="w">   </span><span class="k">struct</span><span class="w"> </span><span class="nc">cached_dev</span><span class="w"> </span><span class="o">*</span><span class="n">dc</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">t</span><span class="p">;</span>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="o">+</span>
-<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="o">+</span><span class="w">   </span><span class="n">lockdep_assert_held</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
-<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="o">+</span>
-<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="o">+</span><span class="w">   </span><span class="n">list_for_each_entry_safe</span><span class="p">(</span><span class="n">dc</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">uncached_devices</span><span class="p">,</span><span class="w"> </span><span class="n">list</span><span class="p">)</span>
-<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="o">+</span><span class="w">       </span><span class="n">bch_cached_dev_attach</span><span class="p">(</span><span class="n">dc</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
-<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="o">+</span>
-<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="o">+</span><span class="w">   </span><span class="n">flash_devs_run</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
-<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="o">+</span>
-<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="o">+</span><span class="w">   </span><span class="n">bch_journal_space_reserve</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">journal</span><span class="p">);</span>
-<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="o">+</span><span class="w">   </span><span class="n">set_bit</span><span class="p">(</span><span class="n">CACHE_SET_RUNNING</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">flags</span><span class="p">);</span>
-<a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="o">+</span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="o">+</span><span class="cm">/*</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="cm">+ * Publish a recovered cache_set: attach pending backing/flash devices and</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="cm">+ * mark it running. Must be called with bch_register_lock held. Unlike</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="cm">+ * bch_cache_set_recover(), nothing here can fail.</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="cm">+ */</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">bch_cache_set_attach_devices</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cache_set</span><span class="w"> </span><span class="o">*</span><span class="n">c</span><span class="p">)</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="o">+</span><span class="p">{</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="o">+</span><span class="w">   </span><span class="k">struct</span><span class="w"> </span><span class="nc">cached_dev</span><span class="w"> </span><span class="o">*</span><span class="n">dc</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">t</span><span class="p">;</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="o">+</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="o">+</span><span class="w">   </span><span class="n">lockdep_assert_held</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="o">+</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="o">+</span><span class="w">   </span><span class="n">list_for_each_entry_safe</span><span class="p">(</span><span class="n">dc</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">uncached_devices</span><span class="p">,</span><span class="w"> </span><span class="n">list</span><span class="p">)</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="o">+</span><span class="w">       </span><span class="n">bch_cached_dev_attach</span><span class="p">(</span><span class="n">dc</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="o">+</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="o">+</span><span class="w">   </span><span class="n">flash_devs_run</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="o">+</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="o">+</span><span class="w">   </span><span class="n">bch_journal_space_reserve</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">journal</span><span class="p">);</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="o">+</span><span class="w">   </span><span class="n">set_bit</span><span class="p">(</span><span class="n">CACHE_SET_RUNNING</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="o">+</span><span class="p">}</span>
 </code></pre></div>
 <p><strong>分析</strong>：这个函数是原来 <code>run_cache_set()</code> 末尾的 attach 逻辑的独立封装。加了 <code>lockdep_assert_held(&amp;bch_register_lock)</code> 强制调用者必须持有锁。返回值是 <code>void</code>（不会失败），因为恢复已经完成，attach 只是将已就绪的设备挂上去。</p>
 <p><strong>新的 <code>run_cache_set()</code></strong>（仅用于 "found" 路径）：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="o">+</span><span class="cm">/*</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="cm">+ * Recover and publish a cache_set as a single locked unit. Used only for</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="cm">+ * attaching a cache device to an already-published cache_set (the &quot;found:&quot;</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="cm">+ * case in register_cache_set()) — that cache_set is already reachable via</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="cm">+ * bch_cache_sets/sysfs, so it must not go through the unlocked recovery</span>
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="cm">+ * path used for a brand new cache_set.</span>
-<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="cm">+ */</span>
-<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">run_cache_set</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cache_set</span><span class="w"> </span><span class="o">*</span><span class="n">c</span><span class="p">)</span>
-<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="o">+</span><span class="p">{</span>
-<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="o">+</span><span class="w">   </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
-<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="o">+</span>
-<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="o">+</span><span class="w">   </span><span class="n">lockdep_assert_held</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
-<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="o">+</span>
-<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="o">+</span><span class="w">   </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bch_cache_set_recover</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
-<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
-<a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="o">+</span><span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
-<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a><span class="o">+</span>
-<a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a><span class="o">+</span><span class="w">   </span><span class="n">bch_cache_set_attach_devices</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
-<a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a><span class="o">+</span><span class="w">   </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a><span class="o">+</span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="o">+</span><span class="cm">/*</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="cm">+ * Recover and publish a cache_set as a single locked unit. Used only for</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="cm">+ * attaching a cache device to an already-published cache_set (the &quot;found:&quot;</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="cm">+ * case in register_cache_set()) — that cache_set is already reachable via</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="cm">+ * bch_cache_sets/sysfs, so it must not go through the unlocked recovery</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="cm">+ * path used for a brand new cache_set.</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="cm">+ */</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">run_cache_set</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cache_set</span><span class="w"> </span><span class="o">*</span><span class="n">c</span><span class="p">)</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="o">+</span><span class="p">{</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="o">+</span><span class="w">   </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="o">+</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="o">+</span><span class="w">   </span><span class="n">lockdep_assert_held</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="o">+</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="o">+</span><span class="w">   </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bch_cache_set_recover</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="o">+</span><span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="o">+</span>
+<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="o">+</span><span class="w">   </span><span class="n">bch_cache_set_attach_devices</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="o">+</span><span class="w">   </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a><span class="o">+</span><span class="p">}</span>
 </code></pre></div>
 <p><strong>分析</strong>：保留了 <code>run_cache_set()</code> 函数名，但语义完全变了——它现在是<strong>带锁的恢复+发布合一</strong>，仅用于 "found" 路径（即 cache device 重新 attach 到一个已经发布过的 cache_set）。因为那个 cache_set 已经通过 sysfs 可达，必须全程持锁。<code>lockdep_assert_held()</code> 保证调用者不会错误地在无锁场景下调用它。</p>
 <h4 id="624-register_cache_set">6.2.4 <code>register_cache_set()</code> 重构——核心注册流程<a class="headerlink" href="#624-register_cache_set" title="Permanent link">&para;</a></h4>
 <p>这是整个补丁最关键的变更，原始函数被完全重写以支持分阶段注册：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="nf">register_cache_set</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cache</span><span class="w"> </span><span class="o">*</span><span class="n">ca</span><span class="p">)</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">buf</span><span class="p">[</span><span class="mi">12</span><span class="p">];</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;cannot allocate memory&quot;</span><span class="p">;</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">cache_set</span><span class="w"> </span><span class="o">*</span><span class="n">c</span><span class="p">;</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="o">+</span><span class="w">   </span><span class="kt">bool</span><span class="w"> </span><span class="n">fresh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
-<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="o">+</span>
-<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="nf">register_cache_set</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cache</span><span class="w"> </span><span class="o">*</span><span class="n">ca</span><span class="p">)</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">buf</span><span class="p">[</span><span class="mi">12</span><span class="p">];</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;cannot allocate memory&quot;</span><span class="p">;</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">cache_set</span><span class="w"> </span><span class="o">*</span><span class="n">c</span><span class="p">;</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="o">+</span><span class="w">   </span><span class="kt">bool</span><span class="w"> </span><span class="n">fresh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="o">+</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
 </code></pre></div>
 <p><strong>分析</strong>：锁的获取从 <code>register_cache()</code> 移到了 <code>register_cache_set()</code> 内部。这样 <code>register_cache_set()</code> 可以在不同阶段自主决定持锁/释放锁，而 <code>register_cache()</code> 的调用者不再需要关心锁。</p>
 <p><strong>Duplicate-UUID 检测（锁内）</strong>：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="w">    </span><span class="n">list_for_each_entry</span><span class="p">(</span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bch_cache_sets</span><span class="p">,</span><span class="w"> </span><span class="n">list</span><span class="p">)</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">memcmp</span><span class="p">(</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">set_uuid</span><span class="p">,</span><span class="w"> </span><span class="n">ca</span><span class="o">-&gt;</span><span class="n">sb</span><span class="p">.</span><span class="n">set_uuid</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="o">-</span><span class="w">           </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">cache</span><span class="p">)</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="o">+</span><span class="w">           </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">cache</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="o">+</span><span class="w">               </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;duplicate cache set member&quot;</span><span class="p">;</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="o">+</span><span class="w">           </span><span class="p">}</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">found</span><span class="p">;</span>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">        </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="w">    </span><span class="n">list_for_each_entry</span><span class="p">(</span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bch_cache_sets</span><span class="p">,</span><span class="w"> </span><span class="n">list</span><span class="p">)</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">memcmp</span><span class="p">(</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">set_uuid</span><span class="p">,</span><span class="w"> </span><span class="n">ca</span><span class="o">-&gt;</span><span class="n">sb</span><span class="p">.</span><span class="n">set_uuid</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="o">-</span><span class="w">           </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">cache</span><span class="p">)</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="o">+</span><span class="w">           </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">cache</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="o">+</span><span class="w">               </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;duplicate cache set member&quot;</span><span class="p">;</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="o">+</span><span class="w">           </span><span class="p">}</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">found</span><span class="p">;</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">        </span><span class="p">}</span>
 </code></pre></div>
 <p><strong>分析</strong>：遍历全局 <code>bch_cache_sets</code> 链表查找同 UUID 的 cache_set。如果找到且 <code>c-&gt;cache</code> 已设置（说明该 cache_set 已有活跃的 cache 设备），返回 "duplicate cache set member"。注意这里在返回前需要 <code>mutex_unlock()</code>——因为锁现在在函数内部获取。如果 <code>c-&gt;cache == NULL</code>（即 cache_set 存在但 cache 设备丢失了，需要重新 attach），走 <code>goto found</code> 路径。</p>
 <p><strong>新 cache_set 分配与标记（锁内）</strong>：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="w">    </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bch_cache_set_alloc</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ca</span><span class="o">-&gt;</span><span class="n">sb</span><span class="p">);</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="o">-</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">c</span><span class="p">)</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="o">+</span><span class="w">       </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="o">+</span><span class="w">   </span><span class="p">}</span>
-<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="o">+</span>
-<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="o">+</span><span class="w">   </span><span class="cm">/*</span>
-<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="cm">+    * Link the new cache_set into bch_cache_sets right away, marked</span>
-<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="cm">+    * CACHE_SET_REGISTERING, before dropping the lock for recovery.</span>
-<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="cm">+    * bch_cache_set_alloc() already set c-&gt;cache = ca above, so the</span>
-<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="cm">+    * duplicate-uuid check above will correctly reject a second</span>
-<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="cm">+    * concurrent registration for the same uuid while this one is</span>
-<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a><span class="cm">+    * mid-recovery.</span>
-<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a><span class="cm">+    */</span>
-<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a><span class="o">+</span><span class="w">   </span><span class="n">set_bit</span><span class="p">(</span><span class="n">CACHE_SET_REGISTERING</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">flags</span><span class="p">);</span>
-<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a><span class="o">+</span><span class="w">   </span><span class="n">list_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">list</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bch_cache_sets</span><span class="p">);</span>
-<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a><span class="o">+</span><span class="w">   </span><span class="n">fresh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
-<a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a><span class="o">+</span>
-<a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="w">    </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bch_cache_set_alloc</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ca</span><span class="o">-&gt;</span><span class="n">sb</span><span class="p">);</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="o">-</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">c</span><span class="p">)</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="o">+</span><span class="w">       </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="o">+</span><span class="w">   </span><span class="p">}</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="o">+</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="o">+</span><span class="w">   </span><span class="cm">/*</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="cm">+    * Link the new cache_set into bch_cache_sets right away, marked</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="cm">+    * CACHE_SET_REGISTERING, before dropping the lock for recovery.</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="cm">+    * bch_cache_set_alloc() already set c-&gt;cache = ca above, so the</span>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="cm">+    * duplicate-uuid check above will correctly reject a second</span>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="cm">+    * concurrent registration for the same uuid while this one is</span>
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="cm">+    * mid-recovery.</span>
+<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="cm">+    */</span>
+<a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="o">+</span><span class="w">   </span><span class="n">set_bit</span><span class="p">(</span><span class="n">CACHE_SET_REGISTERING</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="o">+</span><span class="w">   </span><span class="n">list_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">list</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bch_cache_sets</span><span class="p">);</span>
+<a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="o">+</span><span class="w">   </span><span class="n">fresh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="o">+</span>
+<a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
 </code></pre></div>
 <p><strong>分析</strong>：这是分阶段注册的核心。在同一个锁临界区内完成三件事：
 1. <code>bch_cache_set_alloc()</code>（已设置 <code>c-&gt;cache = ca</code>）
@@ -28193,84 +28174,84 @@
 3. <code>list_add(&amp;c-&gt;list, &amp;bch_cache_sets)</code>（加入全局链表）</p>
 <p>然后<strong>立即释放锁</strong>。此时 cache_set 对全局链表遍历可见（duplicate-uuid 检测可用），但对 sysfs 和 attach 不可达。<code>fresh = true</code> 标记这是新分配的 cache_set，后续用于区分走哪条路径。</p>
 <p><strong>无锁恢复阶段</strong>：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="o">+</span><span class="w">   </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;failed to recover cache set&quot;</span><span class="p">;</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">bch_cache_set_recover</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="o">+</span><span class="w">       </span><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="o">+</span><span class="w">       </span><span class="k">goto</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="o">+</span><span class="w">   </span><span class="p">}</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="o">+</span>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="o">+</span><span class="w">   </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;failed to recover cache set&quot;</span><span class="p">;</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">bch_cache_set_recover</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="o">+</span><span class="w">       </span><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="o">+</span><span class="w">       </span><span class="k">goto</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="o">+</span><span class="w">   </span><span class="p">}</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="o">+</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
 </code></pre></div>
 <p><strong>分析</strong>：在无锁状态下调用 <code>bch_cache_set_recover()</code> 进行 journal replay + btree check + allocator start。这是最耗时的阶段，现在完全不阻塞其他设备的 sysfs 操作。恢复失败时重新获取锁，跳转到 <code>err</code> 标签执行清理。恢复成功时重新获取锁，进入发布阶段。</p>
 <p><strong>发布阶段（锁内）</strong>：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="w">    </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;error creating kobject&quot;</span><span class="p">;</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">kobject_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">kobj</span><span class="p">,</span><span class="w"> </span><span class="n">bcache_kobj</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;%pU&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="o">-&gt;</span><span class="n">set_uuid</span><span class="p">)</span><span class="w"> </span><span class="o">||</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">        </span><span class="n">kobject_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">debug</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">kobj</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;debug&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">||</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">        </span><span class="p">...)</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">    </span><span class="n">bch_debug_init_cache_set</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
-<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="o">-</span>
-<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="o">-</span><span class="w">   </span><span class="n">list_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">list</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bch_cache_sets</span><span class="p">);</span>
-<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="o">+</span><span class="w">   </span><span class="n">clear_bit</span><span class="p">(</span><span class="n">CACHE_SET_REGISTERING</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">flags</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="w">    </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;error creating kobject&quot;</span><span class="p">;</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">kobject_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">kobj</span><span class="p">,</span><span class="w"> </span><span class="n">bcache_kobj</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;%pU&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="o">-&gt;</span><span class="n">set_uuid</span><span class="p">)</span><span class="w"> </span><span class="o">||</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">        </span><span class="n">kobject_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">debug</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">kobj</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;debug&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">||</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">        </span><span class="p">...)</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">    </span><span class="n">bch_debug_init_cache_set</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="o">-</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="o">-</span><span class="w">   </span><span class="n">list_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">list</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bch_cache_sets</span><span class="p">);</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="o">+</span><span class="w">   </span><span class="n">clear_bit</span><span class="p">(</span><span class="n">CACHE_SET_REGISTERING</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">flags</span><span class="p">);</span>
 </code></pre></div>
 <p><strong>分析</strong>：<code>kobject_add()</code> 创建 sysfs 入口，这是 cache_set 首次对用户空间可见。成功后清除 <code>CACHE_SET_REGISTERING</code> 标志位——此时 cache_set 完全就绪。注意原来的 <code>list_add()</code> 被移到了无锁恢复之前（见上文），这里不再是首次加入链表。</p>
 <p><strong>发布完成后的路径选择</strong>：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="w">    </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;failed to run cache set&quot;</span><span class="p">;</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="o">-</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">run_cache_set</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">fresh</span><span class="p">)</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="o">+</span><span class="w">       </span><span class="n">bch_cache_set_attach_devices</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="o">+</span><span class="w">   </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">run_cache_set</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
-<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="w">    </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;failed to run cache set&quot;</span><span class="p">;</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="o">-</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">run_cache_set</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">fresh</span><span class="p">)</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="o">+</span><span class="w">       </span><span class="n">bch_cache_set_attach_devices</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="o">+</span><span class="w">   </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">run_cache_set</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
 </code></pre></div>
 <p><strong>分析</strong>：这是路径选择的关键：
 - <strong><code>fresh</code> 路径</strong>：新分配的 cache_set，恢复已经在无锁阶段完成，这里只需调用 <code>bch_cache_set_attach_devices()</code>（纯加锁发布，不会失败）。
 - <strong><code>found</code> 路径</strong>：cache_set 已存在但 cache 设备丢失，需要重新恢复。调用 <code>run_cache_set()</code>（带锁的恢复+发布合一），因为该 cache_set 已经通过 sysfs 可达，必须全程持锁。</p>
 <p><strong>错误路径</strong>：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="w"> </span><span class="nl">err</span><span class="p">:</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">    </span><span class="n">bch_cache_set_unregister</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="w"> </span><span class="nl">err</span><span class="p">:</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">    </span><span class="n">bch_cache_set_unregister</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
 </code></pre></div>
 <p><strong>分析</strong>：错误路径也需要 <code>mutex_unlock()</code>，因为函数现在自己管理锁。<code>bch_cache_set_unregister()</code> 在锁释放后调用，这与原来的行为一致。</p>
 <h4 id="625-register_cache">6.2.5 <code>register_cache()</code> 简化<a class="headerlink" href="#625-register_cache" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="gd">-   mutex_lock(&amp;bch_register_lock);</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w"> </span>   err = register_cache_set(ca);
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="gd">-   mutex_unlock(&amp;bch_register_lock);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="gd">-   mutex_lock(&amp;bch_register_lock);</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w"> </span>   err = register_cache_set(ca);
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="gd">-   mutex_unlock(&amp;bch_register_lock);</span>
 </code></pre></div>
 <p><strong>分析</strong>：<code>register_cache()</code> 不再负责获取/释放锁，因为锁管理已经完全移入 <code>register_cache_set()</code> 内部。这简化了调用者，也让锁的持有/释放更加精细——<code>register_cache_set()</code> 可以在无锁恢复期间释放锁，而不需要 <code>register_cache()</code> 知道这些细节。</p>
 <h3 id="63-sysfsc__bch_cache-showstore">6.3 <code>sysfs.c</code>：<code>__bch_cache</code> 的 SHOW/STORE 门控<a class="headerlink" href="#63-sysfsc__bch_cache-showstore" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="w"> </span>SHOW(__bch_cache)
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w"> </span>{
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w"> </span>   struct cache *ca = container_of(kobj, struct cache, kobj);
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="gi">+   /*</span>
-<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="gi">+    * ca-&gt;set is still being recovered without bch_register_lock held</span>
-<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="gi">+    * (see bch_cache_set_recover()); its bucket_lock and on-disk</span>
-<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="gi">+    * superblock are not safe to touch yet.</span>
-<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="gi">+    */</span>
-<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="gi">+   if (ca-&gt;set &amp;&amp; test_bit(CACHE_SET_REGISTERING, &amp;ca-&gt;set-&gt;flags))</span>
-<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="gi">+       return -EAGAIN;</span>
-<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="gi">+</span>
-<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="w"> </span>   sysfs_hprint(bucket_size,   bucket_bytes(ca));
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="w"> </span>SHOW(__bch_cache)
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w"> </span>{
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w"> </span>   struct cache *ca = container_of(kobj, struct cache, kobj);
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="gi">+   /*</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="gi">+    * ca-&gt;set is still being recovered without bch_register_lock held</span>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="gi">+    * (see bch_cache_set_recover()); its bucket_lock and on-disk</span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="gi">+    * superblock are not safe to touch yet.</span>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="gi">+    */</span>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="gi">+   if (ca-&gt;set &amp;&amp; test_bit(CACHE_SET_REGISTERING, &amp;ca-&gt;set-&gt;flags))</span>
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="gi">+       return -EAGAIN;</span>
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="gi">+</span>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="w"> </span>   sysfs_hprint(bucket_size,   bucket_bytes(ca));
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="w"> </span>STORE(__bch_cache)
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w"> </span>{
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w"> </span>   ...
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="w"> </span>   if (bcache_is_reboot)
-<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="w"> </span>       return -EBUSY;
-<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>
-<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="gi">+   /*</span>
-<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a><span class="gi">+    * ca-&gt;set is still being recovered without bch_register_lock held</span>
-<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a><span class="gi">+    * (see bch_cache_set_recover()); its bucket_lock and on-disk</span>
-<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a><span class="gi">+    * superblock are not safe to touch yet.</span>
-<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a><span class="gi">+    */</span>
-<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a><span class="gi">+   if (ca-&gt;set &amp;&amp; test_bit(CACHE_SET_REGISTERING, &amp;ca-&gt;set-&gt;flags))</span>
-<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a><span class="gi">+       return -EAGAIN;</span>
-<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a><span class="gi">+</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="w"> </span>STORE(__bch_cache)
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w"> </span>{
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w"> </span>   ...
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w"> </span>   if (bcache_is_reboot)
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w"> </span>       return -EBUSY;
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="gi">+   /*</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="gi">+    * ca-&gt;set is still being recovered without bch_register_lock held</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="gi">+    * (see bch_cache_set_recover()); its bucket_lock and on-disk</span>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="gi">+    * superblock are not safe to touch yet.</span>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="gi">+    */</span>
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="gi">+   if (ca-&gt;set &amp;&amp; test_bit(CACHE_SET_REGISTERING, &amp;ca-&gt;set-&gt;flags))</span>
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="gi">+       return -EAGAIN;</span>
+<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a><span class="gi">+</span>
 </code></pre></div>
 <p><strong>分析</strong>：在 <code>__bch_cache</code> 的 SHOW 和 STORE 入口增加 <code>CACHE_SET_REGISTERING</code> 检查。如果 cache_set 仍在恢复中（标志位置位），返回 <code>-EAGAIN</code> 让用户空间稍后重试。这是因为此时 <code>ca-&gt;set</code> 的 <code>bucket_lock</code> 和 on-disk superblock 正在被恢复过程写入，读取不安全。</p>
 <p>注意：这里返回 <code>-EAGAIN</code> 而不是阻塞等待，是比原来的行为更优的选择——原来调用者会进入 D 状态阻塞数分钟，现在立即返回错误让用户空间决定是否重试。对于 <code>bcache_cached_dev_conf.sh</code> 这类 udev 脚本，快速失败并重试比长时间阻塞更合理。</p>
