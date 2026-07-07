@@ -90,6 +90,14 @@ help:	## Show this help message
 	@echo "    make build-5.10-amd64 KERNEL_5_10_BRANCH=my-branch"
 	@echo "    make rpmbuild-6.6-arm64 KERNEL_6_6_BRANCH=my-branch"
 	@echo ""
+	@echo "  Cross-compile commands (ARM64):"
+	@echo "    make shell-arm64              Open shell with CROSS_COMPILE/ARCH=arm64"
+	@echo "    make build-5.10-arm64         Cross-compile 5.10 for ARM64"
+	@echo "    make build-6.6-arm64          Cross-compile 6.6 for ARM64"
+	@echo "    make rpmbuild-5.10-arm64      Build 5.10 RPM for ARM64"
+	@echo "    make rpmbuild-6.6-arm64       Build 6.6 RPM for ARM64"
+	@echo "    make setup-cross-compile      Download ARM64 cross-compile toolchain"
+	@echo ""
 	@grep -E '^[a-zA-Z0-9_.-]+:.*##' $(MAKEFILE_LIST) | \
 		sed 's/:.*##/##/' | \
 		awk -F'##' '{printf "  %-25s %s\n", $$1, $$2}' | \
@@ -98,6 +106,20 @@ help:	## Show this help message
 		sed 's/:.*##/##/' | \
 		awk -F'##' '{printf "  %-25s %s\n", $$1, $$2}' | \
 		grep '^  rpmbuild-' | sort
+	@echo ""
+	@echo "Shell commands:"
+	@echo "  make shell                     Open shell in container"
+	@echo "  make shell-arm64               Open shell with ARM64 cross-compile env"
+	@echo ""
+	@echo "  In shell-arm64, cross-compile manually:"
+	@echo "    cd ~/code/linux && make mrproper"
+	@echo "    make openeuler_defconfig"
+	@echo "    make -j\$$(nproc) LOCALVERSION=-mykernel.\$$(date +%Y%m%d)"
+	@echo ""
+	@echo "  In shell-arm64, build ARM64 RPM package:"
+	@echo "    cd ~/code/linux && make mrproper"
+	@echo "    make openeuler_defconfig"
+	@echo "    make -j\$$(nproc) binrpm-pkg LOCALVERSION=-mykernel.\$$(date +%Y%m%d)"
 	@echo ""
 	@echo "Advanced commands (for debugging):"
 	@echo ""
@@ -503,6 +525,14 @@ shell:	## Open shell in running container
 		make setup-container; \
 	fi
 	@docker exec -it $(CONTAINER_NAME) /bin/bash
+
+shell-arm64: setup-cross-compile	## Open shell with ARM64 cross-compile env
+	@echo "Opening shell in container $(CONTAINER_NAME) with ARM64 cross-compile..."
+	@if [ ! $$(docker ps -q -f name=$(CONTAINER_NAME)) ]; then \
+		echo "Container not running, setting up..."; \
+		make setup-container; \
+	fi
+	@docker exec -it $(CONTAINER_NAME) bash -c '$(SETUP_ARM64_ENV) && exec /bin/bash'
 
 clean-images:	## Remove CTYunOS docker images (including base images)
 	@echo "WARNING: This will remove all CTYunOS images!"
