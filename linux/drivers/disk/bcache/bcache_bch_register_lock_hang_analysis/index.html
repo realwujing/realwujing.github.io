@@ -12,7 +12,7 @@
         <meta name="author" content="Wu Jing">
       
       
-        <link rel="canonical" href="https://realwujing.github.io/linux/drivers/disk/bcache/bcache_log_analysis/">
+        <link rel="canonical" href="https://realwujing.github.io/linux/drivers/disk/bcache/bcache_bch_register_lock_hang_analysis/">
       
       
         <link rel="prev" href="../">
@@ -29,7 +29,7 @@
     
     
       
-        <title>Bcache 深度日志分析报告 (messages.txt) - WuJing's Blog</title>
+        <title>bcache 全局锁 bch_register_lock 长时间持有导致 sysfs 管理平面瘫痪的分析与修复 - WuJing's Blog</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#bcache-messagestxt" class="md-skip">
+        <a href="#bcache-bch_register_lock-sysfs" class="md-skip">
           跳转至
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Bcache 深度日志分析报告 (messages.txt)
+              bcache 全局锁 bch_register_lock 长时间持有导致 sysfs 管理平面瘫痪的分析与修复
             
           </span>
         </div>
@@ -5575,7 +5575,7 @@
   <span class="md-ellipsis">
     
   
-    Bcache 深度日志分析报告 (messages.txt)
+    bcache 全局锁 bch_register_lock 长时间持有导致 sysfs 管理平面瘫痪的分析与修复
   
 
     
@@ -5593,7 +5593,7 @@
   <span class="md-ellipsis">
     
   
-    Bcache 深度日志分析报告 (messages.txt)
+    bcache 全局锁 bch_register_lock 长时间持有导致 sysfs 管理平面瘫痪的分析与修复
   
 
     
@@ -5619,6 +5619,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#bcache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        背景：bcache 在存储栈中的位置
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#1-state-d-uninterruptible-sleep" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5631,10 +5642,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#asysfs" class="md-nav__link">
+  <a href="#asysfs-bcache_cache_set_confsh" class="md-nav__link">
     <span class="md-ellipsis">
       
-        证据 A：sysfs 配置进程阻塞
+        证据 A：sysfs 配置进程阻塞（bcache_cache_set_conf.sh）
       
     </span>
   </a>
@@ -5642,10 +5653,32 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#b" class="md-nav__link">
+  <a href="#bregister_cache" class="md-nav__link">
     <span class="md-ellipsis">
       
-        证据 B：注册进程阻塞
+        证据 B：注册进程阻塞（register_cache）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c-run_cache_set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        证据 C：锁持有者——正在做 run_cache_set() 的注册进程
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dudev-killretry-cascade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        证据 D：udev 超时 kill/retry cascade
       
     </span>
   </a>
@@ -5674,6 +5707,17 @@
     <span class="md-ellipsis">
       
         2.1 为什么会导致进程进入 D 状态？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 具体被阻塞的接口
       
     </span>
   </a>
@@ -5711,19 +5755,30 @@
   <a href="#5" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. 结论与修复建议
+        5. 修复方案演进
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="5. 结论与修复建议">
+    <nav class="md-nav" aria-label="5. 修复方案演进">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
+  <a href="#51-v1v2mutex-rw_semaphore" class="md-nav__link">
     <span class="md-ellipsis">
       
-        修复结论：
+        5.1 v1/v2：Mutex -&gt; rw_semaphore 方案（已废弃）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-v3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 v3：分阶段注册方案（最终方案，已修复）
       
     </span>
   </a>
@@ -5736,22 +5791,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#6-technical-fix-logic" class="md-nav__link">
+  <a href="#6-v3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6. 核心修复逻辑详析 (Technical Fix Logic)
+        6. v3 补丁逐文件代码分析
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="6. 核心修复逻辑详析 (Technical Fix Logic)">
+    <nav class="md-nav" aria-label="6. v3 补丁逐文件代码分析">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#61-mutex-rightarrow-rw_semaphore" class="md-nav__link">
+  <a href="#61-bcacheh-cache_set_registering" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6.1 架构级重构：Mutex \(\rightarrow\) rw_semaphore
+        6.1 bcache.h：新增 CACHE_SET_REGISTERING 标志位
       
     </span>
   </a>
@@ -5759,10 +5814,22 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#62-lock-downgrade" class="md-nav__link">
+  <a href="#62-superc" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6.2 关键机制：锁降级 (Lock Downgrade)
+        6.2 super.c：核心重构
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6.2 super.c：核心重构">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#621-__uuid_write-lockdep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2.1 __uuid_write() 的 lockdep 断言放宽
       
     </span>
   </a>
@@ -5770,10 +5837,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#63-sysfs" class="md-nav__link">
+  <a href="#622-bch_cached_dev_attach" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6.3 精细化 Sysfs 锁定策略
+        6.2.2 bch_cached_dev_attach() 门控
       
     </span>
   </a>
@@ -5781,10 +5848,32 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#64-lock-free-optimization" class="md-nav__link">
+  <a href="#623-run_cache_set-bch_cache_set_recover-bch_cache_set_attach_devices" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6.4 统计指标无锁化 (Lock-Free Optimization)
+        6.2.3 函数拆分：run_cache_set() -&gt; bch_cache_set_recover() + bch_cache_set_attach_devices()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#624-register_cache_set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2.4 register_cache_set() 重构——核心注册流程
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#625-register_cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2.5 register_cache() 简化
       
     </span>
   </a>
@@ -5793,6 +5882,55 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-sysfsc__bch_cache-showstore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 sysfs.c：__bch_cache 的 SHOW/STORE 门控
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. 修复前后对比
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. 补丁链接
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. 验证结果
+      
+    </span>
+  </a>
   
 </li>
       
@@ -27272,6 +27410,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#bcache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        背景：bcache 在存储栈中的位置
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#1-state-d-uninterruptible-sleep" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -27284,10 +27433,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#asysfs" class="md-nav__link">
+  <a href="#asysfs-bcache_cache_set_confsh" class="md-nav__link">
     <span class="md-ellipsis">
       
-        证据 A：sysfs 配置进程阻塞
+        证据 A：sysfs 配置进程阻塞（bcache_cache_set_conf.sh）
       
     </span>
   </a>
@@ -27295,10 +27444,32 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#b" class="md-nav__link">
+  <a href="#bregister_cache" class="md-nav__link">
     <span class="md-ellipsis">
       
-        证据 B：注册进程阻塞
+        证据 B：注册进程阻塞（register_cache）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c-run_cache_set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        证据 C：锁持有者——正在做 run_cache_set() 的注册进程
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dudev-killretry-cascade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        证据 D：udev 超时 kill/retry cascade
       
     </span>
   </a>
@@ -27327,6 +27498,17 @@
     <span class="md-ellipsis">
       
         2.1 为什么会导致进程进入 D 状态？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 具体被阻塞的接口
       
     </span>
   </a>
@@ -27364,19 +27546,30 @@
   <a href="#5" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. 结论与修复建议
+        5. 修复方案演进
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="5. 结论与修复建议">
+    <nav class="md-nav" aria-label="5. 修复方案演进">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
+  <a href="#51-v1v2mutex-rw_semaphore" class="md-nav__link">
     <span class="md-ellipsis">
       
-        修复结论：
+        5.1 v1/v2：Mutex -&gt; rw_semaphore 方案（已废弃）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-v3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 v3：分阶段注册方案（最终方案，已修复）
       
     </span>
   </a>
@@ -27389,22 +27582,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#6-technical-fix-logic" class="md-nav__link">
+  <a href="#6-v3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6. 核心修复逻辑详析 (Technical Fix Logic)
+        6. v3 补丁逐文件代码分析
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="6. 核心修复逻辑详析 (Technical Fix Logic)">
+    <nav class="md-nav" aria-label="6. v3 补丁逐文件代码分析">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#61-mutex-rightarrow-rw_semaphore" class="md-nav__link">
+  <a href="#61-bcacheh-cache_set_registering" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6.1 架构级重构：Mutex \(\rightarrow\) rw_semaphore
+        6.1 bcache.h：新增 CACHE_SET_REGISTERING 标志位
       
     </span>
   </a>
@@ -27412,10 +27605,22 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#62-lock-downgrade" class="md-nav__link">
+  <a href="#62-superc" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6.2 关键机制：锁降级 (Lock Downgrade)
+        6.2 super.c：核心重构
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6.2 super.c：核心重构">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#621-__uuid_write-lockdep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2.1 __uuid_write() 的 lockdep 断言放宽
       
     </span>
   </a>
@@ -27423,10 +27628,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#63-sysfs" class="md-nav__link">
+  <a href="#622-bch_cached_dev_attach" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6.3 精细化 Sysfs 锁定策略
+        6.2.2 bch_cached_dev_attach() 门控
       
     </span>
   </a>
@@ -27434,10 +27639,32 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#64-lock-free-optimization" class="md-nav__link">
+  <a href="#623-run_cache_set-bch_cache_set_recover-bch_cache_set_attach_devices" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6.4 统计指标无锁化 (Lock-Free Optimization)
+        6.2.3 函数拆分：run_cache_set() -&gt; bch_cache_set_recover() + bch_cache_set_attach_devices()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#624-register_cache_set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2.4 register_cache_set() 重构——核心注册流程
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#625-register_cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2.5 register_cache() 简化
       
     </span>
   </a>
@@ -27446,6 +27673,55 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-sysfsc__bch_cache-showstore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 sysfs.c：__bch_cache 的 SHOW/STORE 门控
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. 修复前后对比
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. 补丁链接
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. 验证结果
+      
+    </span>
+  </a>
   
 </li>
       
@@ -27469,28 +27745,212 @@
   
 
 
-<h1 id="bcache-messagestxt">Bcache 深度日志分析报告 (messages.txt)<a class="headerlink" href="#bcache-messagestxt" title="Permanent link">&para;</a></h1>
+<h1 id="bcache-bch_register_lock-sysfs">bcache 全局锁 bch_register_lock 长时间持有导致 sysfs 管理平面瘫痪的分析与修复<a class="headerlink" href="#bcache-bch_register_lock-sysfs" title="Permanent link">&para;</a></h1>
+<h2 id="bcache">背景：bcache 在存储栈中的位置<a class="headerlink" href="#bcache" title="Permanent link">&para;</a></h2>
+<p>bcache 是 Linux 内核的<strong>块设备级缓存层</strong>，位于文件系统和物理磁盘之间：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ext4 / xfs / LVM 等
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    ↓
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>/dev/bcacheN          ← 对上层表现为普通块设备，ext4 直接 mount 在这个上
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    ↓
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>bcache 内核模块       ← 缓存逻辑：热数据命中 SSD，冷数据落到 HDD
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>   ↙       ↘
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>/dev/nvme0n1p1      /dev/sdb
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>(cache 设备，SSD)    (backing 设备，HDD)
+</code></pre></div>
+<p>IO 路径是 <strong>ext4 先写 <code>bcacheN</code>，bcache 再决定写到 SSD 缓存还是 HDD 后端</strong>，不是 "先写 ext4 再写 bcache"，而是 <strong>ext4 始终在 bcache 之上</strong>。bcache 用快速的 SSD 当慢速 HDD 的缓存，加速随机读写。</p>
+<p>本补丁涉及的 <code>bch_register_lock</code> 全局锁问题，就发生在 bcache 模块注册和管理这些 cache/backing 设备时。</p>
+<hr />
 <h2 id="1-state-d-uninterruptible-sleep">1. 核心现象：大面积进程进入 State D (Uninterruptible Sleep)<a class="headerlink" href="#1-state-d-uninterruptible-sleep" title="Permanent link">&para;</a></h2>
 <p>日志文件 <code>messages.txt</code> 中记录了大量 <code>INFO: task ... blocked for more than 120 seconds</code> 警告。</p>
-<h3 id="asysfs">证据 A：sysfs 配置进程阻塞<a class="headerlink" href="#asysfs" title="Permanent link">&para;</a></h3>
-<p>多个 PID（如 3493, 3494, 3518, 3519, 3522 等，识别为 <code>bcache_cache_se</code>，猜测是 <code>udev</code> 脚本的截断名）全部阻塞在：
-- <code>bch_cache_set_store+0x40/0x80 [bcache]</code>
-- <code>mutex_lock+0x50/0x60</code></p>
-<p>这证实了 <code>udev</code> 并发修改 bcache 参数（如 <code>sequential_cutoff</code>）时，正在排队等待一个全局 Mutex。</p>
-<h3 id="b">证据 B：注册进程阻塞<a class="headerlink" href="#b" title="Permanent link">&para;</a></h3>
-<p>PID 8104 阻塞在：
-- <code>register_cache+0x11c/0x1a0 [bcache]</code>
-- <code>register_bcache+0x1d4/0x3cc [bcache]</code></p>
-<p>这意味着不仅是监控/配置进程，连新的设备注册也在排队等待同一个锁。</p>
+<h3 id="asysfs-bcache_cache_set_confsh">证据 A：sysfs 配置进程阻塞（<code>bcache_cache_set_conf.sh</code>）<a class="headerlink" href="#asysfs-bcache_cache_set_confsh" title="Permanent link">&para;</a></h3>
+<p>12 个 NVMe 分区的 <code>bcache_cache_set_conf.sh</code> 脚本全部阻塞在 <code>mutex_lock(&amp;bch_register_lock)</code> 上，等待同一个全局锁。以下以 PID 3492（nvme0n1p11）的完整 Call Trace 为例，其余 11 个进程的 trace 完全一致：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Mar 12 11:04:17 kernel: [  242.656072] INFO: task bcache_cache_se:3492 blocked for more than 120 seconds.
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Mar 12 11:04:17 kernel: [  242.664618]       Tainted: G           OE     4.19.326-0092.ctl3.aarch64 #1
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Mar 12 11:04:17 kernel: [  242.672880] &quot;echo 0 &gt; /proc/sys/kernel/hung_task_timeout_secs&quot; disables this message.
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>Mar 12 11:04:17 kernel: [  242.682037] task:bcache_cache_se state:D stack:    0 pid: 3492 ppid:     1 flags:0x00000801
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>Mar 12 11:04:17 kernel: [  242.691720] Call trace:
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>Mar 12 11:04:17 kernel: [  242.695174]  __switch_to+0x7c/0xbc
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>Mar 12 11:04:17 kernel: [  242.699571]  __schedule+0x338/0x6f0
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>Mar 12 11:04:17 kernel: [  242.704046]  schedule+0x50/0xe0
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>Mar 12 11:04:17 kernel: [  242.708164]  schedule_preempt_disabled+0x18/0x24
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>Mar 12 11:04:17 kernel: [  242.713756]  __mutex_lock.constprop.0+0x1d4/0x5ec
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>Mar 12 11:04:17 kernel: [  242.719429]  __mutex_lock_slowpath+0x1c/0x30
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>Mar 12 11:04:17 kernel: [  242.724657]  mutex_lock+0x50/0x60
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>Mar 12 11:04:17 kernel: [  242.728967]  bch_cache_set_store+0x40/0x80 [bcache]
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>Mar 12 11:04:17 kernel: [  242.734805]  sysfs_kf_write+0x4c/0x5c
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>Mar 12 11:04:17 kernel: [  242.739419]  kernfs_fop_write_iter+0x130/0x1c0
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>Mar 12 11:04:17 kernel: [  242.744809]  new_sync_write+0xec/0x18c
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>Mar 12 11:04:17 kernel: [  242.749497]  vfs_write+0x214/0x2ac
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>Mar 12 11:04:17 kernel: [  242.753837]  ksys_write+0x70/0xfc
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>Mar 12 11:04:17 kernel: [  242.758083]  __arm64_sys_write+0x24/0x30
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>Mar 12 11:04:17 kernel: [  242.762937]  invoke_syscall+0x50/0x11c
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>Mar 12 11:04:17 kernel: [  242.767605]  el0_svc_common.constprop.0+0x158/0x164
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>Mar 12 11:04:17 kernel: [  242.773407]  do_el0_svc+0x2c/0x9c
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>Mar 12 11:04:17 kernel: [  242.777644]  el0_svc+0x20/0x30
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>Mar 12 11:04:17 kernel: [  242.781606]  el0_sync_handler+0xb0/0xb4
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>Mar 12 11:04:17 kernel: [  242.786350]  el0_sync+0x160/0x180
+</code></pre></div>
+<p>全部 12 个阻塞进程（PID 3492/3493/3494/3496/3518/3519/3520/3521/3522/3523/3524/3526）的 Call Trace 完全一致，全部卡在 <code>mutex_lock+0x50/0x60</code> -&gt; <code>bch_cache_set_store+0x40/0x80 [bcache]</code>。</p>
+<h3 id="bregister_cache">证据 B：注册进程阻塞（<code>register_cache</code>）<a class="headerlink" href="#bregister_cache" title="Permanent link">&para;</a></h3>
+<p>另一个无关的 cache 设备注册也被同一个锁阻塞，PID 8104 阻塞在 <code>register_cache()</code>：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Mar 12 11:04:18 kernel: [  244.092476] INFO: task bcache:8104 blocked for more than 122 seconds.
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Mar 12 11:04:18 kernel: [  244.099820]       Tainted: G           OE     4.19.326-0092.ctl3.aarch64 #1
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Mar 12 11:04:18 kernel: [  244.107860] &quot;echo 0 &gt; /proc/sys/kernel/hung_task_timeout_secs&quot; disables this message.
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>Mar 12 11:04:18 kernel: [  244.116777] task:bcache          state:D stack:    0 pid: 8104 ppid:     1 flags:0x00000a00
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>Mar 12 11:04:18 kernel: [  244.126240] Call trace:
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>Mar 12 11:04:18 kernel: [  244.129590]  __switch_to+0x7c/0xbc
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>Mar 12 11:04:18 kernel: [  244.133893]  __schedule+0x338/0x6f0
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>Mar 12 11:04:18 kernel: [  244.138279]  schedule+0x50/0xe0
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>Mar 12 11:04:18 kernel: [  244.142315]  schedule_preempt_disabled+0x18/0x24
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>Mar 12 11:04:18 kernel: [  244.147828]  __mutex_lock.constprop.0+0x1d4/0x5ec
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>Mar 12 11:04:18 kernel: [  244.153436]  __mutex_lock_slowpath+0x1c/0x30
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>Mar 12 11:04:18 kernel: [  244.158598]  mutex_lock+0x50/0x60
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>Mar 12 11:04:18 kernel: [  244.162833]  register_cache+0x11c/0x1a0 [bcache]
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>Mar 12 11:04:18 kernel: [  244.168361]  register_bcache+0x1d4/0x3cc [bcache]
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>Mar 12 11:04:18 kernel: [  244.173962]  kobj_attr_store+0x18/0x30
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>Mar 12 11:04:18 kernel: [  244.178608]  sysfs_kf_write+0x4c/0x5c
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>Mar 12 11:04:18 kernel: [  244.183161]  kernfs_fop_write_iter+0x130/0x1c0
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>Mar 12 11:04:18 kernel: [  244.188498]  new_sync_write+0xec/0x18c
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>Mar 12 11:04:18 kernel: [  244.193140]  vfs_write+0x214/0x2ac
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>Mar 12 11:04:18 kernel: [  244.197434]  ksys_write+0x70/0xfc
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>Mar 12 11:04:18 kernel: [  244.201607]  __arm64_sys_write+0x24/0x30
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>Mar 12 11:04:18 kernel: [  244.206391]  invoke_syscall+0x50/0x11c
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>Mar 12 11:04:18 kernel: [  244.210998]  el0_svc_common.constprop.0+0x158/0x164
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>Mar 12 11:04:18 kernel: [  244.216736]  do_el0_svc+0x2c/0x9c
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>Mar 12 11:04:18 kernel: [  244.220913]  el0_svc+0x20/0x30
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>Mar 12 11:04:18 kernel: [  244.224826]  el0_sync_handler+0xb0/0xb4
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>Mar 12 11:04:18 kernel: [  244.229522]  el0_sync+0x160/0x180
+</code></pre></div>
+<h3 id="c-run_cache_set">证据 C：锁持有者——正在做 <code>run_cache_set()</code> 的注册进程<a class="headerlink" href="#c-run_cache_set" title="Permanent link">&para;</a></h3>
+<p>PID 8103 是正在持锁的进程，它在 <code>run_cache_set()</code> -&gt; <code>bch_btree_map_keys()</code> 中做 btree 遍历，同时持有着 <code>bch_register_lock</code>：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Mar 12 11:04:18 kernel: [  243.814774] INFO: task bcache:8103 blocked for more than 121 seconds.
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>Mar 12 11:04:18 kernel: [  243.822161]       Tainted: G           OE     4.19.326-0092.ctl3.aarch64 #1
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>Mar 12 11:04:18 kernel: [  243.830259] &quot;echo 0 &gt; /proc/sys/kernel/hung_task_timeout_secs&quot; disables this message.
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>Mar 12 11:04:18 kernel: [  243.839220] task:bcache          state:D stack:    0 pid: 8103 ppid:     1 flags:0x00000a08
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>Mar 12 11:04:18 kernel: [  243.848695] Call trace:
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>Mar 12 11:04:18 kernel: [  243.852040]  __switch_to+0x7c/0xbc
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>Mar 12 11:04:18 kernel: [  243.856339]  __schedule+0x338/0x6f0
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>Mar 12 11:04:18 kernel: [  243.860722]  schedule+0x50/0xe0
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>Mar 12 11:04:18 kernel: [  243.864758]  rwsem_down_read_slowpath+0x1a0/0x660
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>Mar 12 11:04:18 kernel: [  243.870362]  down_read+0xa4/0xc0
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>Mar 12 11:04:18 kernel: [  243.874516]  bch_btree_map_keys+0xe8/0x180 [bcache]
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>Mar 12 11:04:18 kernel: [  243.880308]  cache_lookup+0x94/0x170 [bcache]
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>Mar 12 11:04:18 kernel: [  243.885578]  cached_dev_read.constprop.0+0xe8/0xf0 [bcache]
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>Mar 12 11:04:18 kernel: [  243.892065]  cached_dev_submit_bio+0x444/0x460 [bcache]
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>Mar 12 11:04:18 kernel: [  243.898199]  __submit_bio_noacct+0x98/0x27c
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>Mar 12 11:04:18 kernel: [  243.903285]  submit_bio_noacct+0x4c/0xb0
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>Mar 12 11:04:18 kernel: [  243.908112]  submit_bio+0x50/0x150
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>Mar 12 11:04:18 kernel: [  243.912416]  submit_bh_wbc+0x180/0x1e0
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>Mar 12 11:04:18 kernel: [  243.917065]  block_read_full_page+0x4b8/0x580
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>Mar 12 11:04:18 kernel: [  243.922322]  blkdev_readpage+0x24/0x30
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>Mar 12 11:04:18 kernel: [  243.926977]  do_read_cache_page+0x36c/0x530
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>Mar 12 11:04:18 kernel: [  243.932064]  read_cache_page+0x1c/0x30
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>Mar 12 11:04:18 kernel: [  243.936716]  read_part_sector+0x50/0x1a0
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>Mar 12 11:04:18 kernel: [  243.941535]  read_lba+0xcc/0x1b0
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>Mar 12 11:04:18 kernel: [  243.945659]  find_valid_gpt.constprop.0+0xc8/0x360
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>Mar 12 11:04:18 kernel: [  243.951350]  efi_partition+0x68/0x37c
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>Mar 12 11:04:18 kernel: [  243.955913]  check_partition+0x114/0x220
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>Mar 12 11:04:18 kernel: [  243.960733]  blk_add_partitions+0x44/0x1c0
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>Mar 12 11:04:18 kernel: [  243.965721]  bdev_disk_changed+0xb8/0x144
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>Mar 12 11:04:18 kernel: [  243.970617]  __blkdev_get+0x434/0x73c
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a>Mar 12 11:04:18 kernel: [  243.975158]  blkdev_get+0x58/0xe4
+<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>Mar 12 11:04:18 kernel: [  243.979343]  blkdev_get_by_dev+0x40/0x6c
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>Mar 12 11:04:18 kernel: [  243.984130]  disk_init_partition+0x78/0x120
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>Mar 12 11:04:18 kernel: [  243.989173]  __device_add_disk+0x1b4/0x320
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>Mar 12 11:04:18 kernel: [  243.994132]  device_add_disk+0x1c/0x2c
+<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>Mar 12 11:04:18 kernel: [  243.998757]  bch_cached_dev_run+0xe0/0x2b0 [bcache]
+<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>Mar 12 11:04:18 kernel: [  244.004507]  bch_cached_dev_attach+0x31c/0x5f0 [bcache]
+<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>Mar 12 11:04:18 kernel: [  244.010605]  run_cache_set+0x24c/0x630 [bcache]
+<a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a>Mar 12 11:04:18 kernel: [  244.016008]  register_cache_set+0x20c/0x234 [bcache]
+<a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a>Mar 12 11:04:18 kernel: [  244.021846]  register_cache+0x124/0x1a0 [bcache]
+<a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a>Mar 12 11:04:18 kernel: [  244.027334]  register_bcache+0x1d4/0x3cc [bcache]
+<a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a>Mar 12 11:04:18 kernel: [  244.032906]  kobj_attr_store+0x18/0x30
+<a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a>Mar 12 11:04:18 kernel: [  244.037517]  sysfs_kf_write+0x4c/0x5c
+<a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a>Mar 12 11:04:18 kernel: [  244.042038]  kernfs_fop_write_iter+0x130/0x1c0
+<a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a>Mar 12 11:04:18 kernel: [  244.047340]  new_sync_write+0xec/0x18c
+<a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a>Mar 12 11:04:18 kernel: [  244.051948]  vfs_write+0x214/0x2ac
+<a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a>Mar 12 11:04:18 kernel: [  244.056206]  ksys_write+0x70/0xfc
+<a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a>Mar 12 11:04:18 kernel: [  244.060379]  __arm64_sys_write+0x24/0x30
+<a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a>Mar 12 11:04:18 kernel: [  244.065163]  invoke_syscall+0x50/0x11c
+<a id="__codelineno-3-50" name="__codelineno-3-50" href="#__codelineno-3-50"></a>Mar 12 11:04:18 kernel: [  244.069770]  el0_svc_common.constprop.0+0x158/0x164
+<a id="__codelineno-3-51" name="__codelineno-3-51" href="#__codelineno-3-51"></a>Mar 12 11:04:18 kernel: [  244.075508]  do_el0_svc+0x2c/0x9c
+<a id="__codelineno-3-52" name="__codelineno-3-52" href="#__codelineno-3-52"></a>Mar 12 11:04:18 kernel: [  244.079685]  el0_svc+0x20/0x30
+<a id="__codelineno-3-53" name="__codelineno-3-53" href="#__codelineno-3-53"></a>Mar 12 11:04:18 kernel: [  244.083598]  el0_sync_handler+0xb0/0xb4
+<a id="__codelineno-3-54" name="__codelineno-3-54" href="#__codelineno-3-54"></a>Mar 12 11:04:18 kernel: [  244.088294]  el0_sync+0x160/0x180
+</code></pre></div>
+<p><strong>关键分析</strong>：PID 8103 持有 <code>bch_register_lock</code> 走过的完整调用链，按层次拆解：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>  用户态 sysfs 写入
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    └─ kernfs_fop_write_iter → sysfs_kf_write → kobj_attr_store
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>         └─ register_bcache                               [bcache]
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>              └─ register_cache                           [bcache]
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>                   └─ register_cache_set                  [bcache]  ← 获取 bch_register_lock
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>                        └─ run_cache_set                  [bcache]
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>                             └─ bch_cached_dev_attach     [bcache]
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>                                  └─ bch_cached_dev_run   [bcache]
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>                                       └─ device_add_disk          [block]
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>                                            └─ disk_init_partition  [block]
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>                                                 └─ blkdev_get_by_dev → … → blk_add_partitions
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>                                                      └─ check_partition → efi_partition
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>                                                           └─ read_lba → read_part_sector    [block, 读盘]
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>                                                                └─ read_cache_page → blkdev_readpage
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>                                                                     └─ submit_bio          [block]
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>                                                                          └─ cached_dev_submit_bio  [bcache]
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>                                                                               └─ cache_lookup
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>                                                                                    └─ bch_btree_map_keys  [bcache, 遍历 B+ 树]
+</code></pre></div>
+<p>整个调用链从 <code>register_cache_set()</code> 获取 <code>bch_register_lock</code> 开始，穿越了 sysfs 层 → bcache 注册层 → 块设备层 → 分区表读取 → 磁盘 IO → 又回到 bcache 的 btree 查找，锁持有时间完全取决于磁盘 IO 和 btree 遍历速度，对 HDD 可能长达数分钟。</p>
+<p><strong>注意：这个问题发生在 bcache 设备注册阶段，远在创建 ext4 文件系统之前。</strong> 从 Call Trace 看，锁持有者在做的是 bcache 模块初始化 cache_set —— 把缓存设备（NVMe 分区）和后备设备（HDD）关联起来，让 <code>/dev/bcacheN</code> 出现。此时所有其他 bcache 设备的 sysfs 操作全部阻塞。ext4 是之后的事情：<code>/dev/bcacheN</code> 出现后，LVM 扫描到 PV，激活 VG/LV，然后 Ceph OSD 才会 mount 上面的 ext4。所以这个 hang 发生在整个存储栈的最底层 —— bcache 设备还没完全就绪，上游的 LVM 和文件系统都还没开始。</p>
+<h3 id="dudev-killretry-cascade">证据 D：udev 超时 kill/retry cascade<a class="headerlink" href="#dudev-killretry-cascade" title="Permanent link">&para;</a></h3>
+<p>全部 12 个 NVMe 分区的 <code>bcache_cache_set_conf.sh</code> 脚本在 11:02:03 触发 59s 警告，在 11:04:03 全部超时被 kill，随后重试，在 11:07:04 和 11:10:05 再次全部超时 kill，形成稳定的 3 分钟周期：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a># 第一轮 — 59s 警告 (11:02:03)
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>Mar 12 11:02:03 systemd-udevd[1618]: nvme1n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p11&#39; [3526] is taking longer than 59s to complete
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>Mar 12 11:02:03 systemd-udevd[2054]: nvme0n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p10&#39; [3522] is taking longer than 59s to complete
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>Mar 12 11:02:03 systemd-udevd[1922]: nvme1n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p10&#39; [3520] is taking longer than 59s to complete
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>Mar 12 11:02:03 systemd-udevd[1771]: nvme0n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p8&#39; [3496] is taking longer than 59s to complete
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>Mar 12 11:02:03 systemd-udevd[2033]: nvme1n1p12: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p12&#39; [3521] is taking longer than 59s to complete
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>Mar 12 11:02:03 systemd-udevd[1594]: nvme1n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p8&#39; [3524] is taking longer than 59s to complete
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>Mar 12 11:02:03 systemd-udevd[2101]: nvme1n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p7&#39; [3523] is taking longer than 59s to complete
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>Mar 12 11:02:03 systemd-udevd[2014]: nvme0n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p9&#39; [3494] is taking longer than 59s to complete
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>Mar 12 11:02:03 systemd-udevd[1729]: nvme0n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p11&#39; [3492] is taking longer than 59s to complete
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>Mar 12 11:02:03 systemd-udevd[1648]: nvme0n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p7&#39; [3493] is taking longer than 59s to complete
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>Mar 12 11:02:03 systemd-udevd[1646]: nvme1n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p9&#39; [3519] is taking longer than 59s to complete
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>Mar 12 11:02:03 systemd-udevd[1713]: nvme0n1p12: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p12&#39; [3518] is taking longer than 59s to complete
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a># 第一轮 — 超时 kill (11:04:03)
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>Mar 12 11:04:03 systemd-udevd[1771]: nvme0n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p8&#39; [3496] timed out after 2min 59s, killing
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>Mar 12 11:04:03 systemd-udevd[2014]: nvme0n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p9&#39; [3494] timed out after 2min 59s, killing
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>Mar 12 11:04:03 systemd-udevd[1618]: nvme1n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p11&#39; [3526] timed out after 2min 59s, killing
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>Mar 12 11:04:03 systemd-udevd[2033]: nvme1n1p12: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p12&#39; [3521] timed out after 2min 59s, killing
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>Mar 12 11:04:03 systemd-udevd[1594]: nvme1n1p8: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p8&#39; [3524] timed out after 2min 59s, killing
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>Mar 12 11:04:03 systemd-udevd[2101]: nvme1n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p7&#39; [3523] timed out after 2min 59s, killing
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>Mar 12 11:04:03 systemd-udevd[2054]: nvme0n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p10&#39; [3522] timed out after 2min 59s, killing
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>Mar 12 11:04:03 systemd-udevd[1922]: nvme1n1p10: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p10&#39; [3520] timed out after 2min 59s, killing
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>Mar 12 11:04:03 systemd-udevd[1648]: nvme0n1p7: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p7&#39; [3493] timed out after 2min 59s, killing
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>Mar 12 11:04:03 systemd-udevd[1646]: nvme1n1p9: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme1n1p9&#39; [3519] timed out after 2min 59s, killing
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>Mar 12 11:04:03 systemd-udevd[1729]: nvme0n1p11: Spawned process &#39;/usr/sbin/bcache_cache_set_conf.sh nvme0n1p11&#39; [3492] timed out after 2min 59s, killing
+<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>
+<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a># Worker 失败后重试
+<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>Mar 12 11:04:16 systemd-udevd[1587]: bcache0: Worker [1926] failed
+<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a>Mar 12 11:04:16 systemd-udevd[1587]: bcache0: Retry 1 times.
+<a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a>
+<a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a># 同时 bcache cached_dev 的 udev 脚本也超时
+<a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a>Mar 12 11:04:17 systemd-udevd[1879]: bcache7: Spawned process &#39;/usr/sbin/bcache_cached_dev_conf.sh /sys/devices/virtual/block/bcache7/bcache&#39; [12892] timed out after 2min 59s, killing
+<a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a>Mar 12 11:04:17 systemd-udevd[1587]: bcache7: Worker [1879] failed
+<a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a>Mar 12 11:04:17 systemd-udevd[1587]: bcache7: Retry 1 times.
+<a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a>
+<a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a># 第二轮 — 11:05:04 再次全部 59s 警告，11:07:04 再次全部超时 kill
+<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a># 第三轮 — 11:08:05 再次全部 59s 警告，11:10:05 再次全部超时 kill
+</code></pre></div>
+<p>实际生产环境：Ceph OSD 节点，2 块 NVMe 各分 6 个分区，共 12 个 cache_set 缓存 12 块 HDD 后备设备。启动时每个 bcacheN 设备出现后 udev 触发调优脚本写入 sysfs，因为 <code>bch_register_lock</code> 被 PID 8103 在 <code>run_cache_set()</code> 中做 journal replay + btree check + cached_dev attach（其中包含 <code>device_add_disk</code> -&gt; <code>check_partition</code> -&gt; <code>efi_partition</code> -&gt; <code>read_lba</code> 的完整磁盘 IO 路径）长期持有，所有设备的 sysfs 写操作全部阻塞。udev worker 超时后被 systemd-udevd kill，设备 add 事件失败并重试，kill/retry 循环每约 3 分钟重复一次，波及所有 NVMe 分区，导致整个 bcache 管理平面启动失败，进而延迟 LVM PV 激活和 Ceph OSD 启动。</p>
 <hr />
 <h2 id="2-bch_register_lock">2. 根源定位：<code>bch_register_lock</code> 的长时间持有<a class="headerlink" href="#2-bch_register_lock" title="Permanent link">&para;</a></h2>
 <h3 id="21-d">2.1 为什么会导致进程进入 D 状态？<a class="headerlink" href="#21-d" title="Permanent link">&para;</a></h3>
 <p>根据 Call Trace 和源码逻辑，进程进入 D 状态（不可中断睡眠）的完整路径如下：</p>
 <ol>
 <li><strong>全局互斥锁抢占</strong>：bcache 使用一个全局互斥锁 <code>bch_register_lock</code> 来保护几乎所有的 sysfs 操作和设备注册逻辑。</li>
-<li><strong>长时间持锁任务</strong>：当系统注册新设备或启动时，内核会调用 <code>run_cache_set</code> -&gt; <code>bch_btree_check</code>。<ul>
+<li><strong>长时间持锁任务</strong>：当系统注册新设备或启动时，<code>register_cache()</code> 在 <code>mutex_lock(&amp;bch_register_lock)</code> 保护下调用 <code>register_cache_set()</code> -&gt; <code>run_cache_set()</code> -&gt; <code>bch_btree_check()</code>。<ul>
 <li><code>bch_btree_check</code> 需要遍历磁盘上的 B+ 树索引以检测一致性，对于大容量磁盘，这可能耗时<strong>数分钟</strong>。</li>
-<li>在此期间，该进程一直持有全局 Mutex，不释放。</li>
+<li>在此期间，<code>register_cache()</code> 一直持有全局 Mutex，直到 <code>register_cache_set()</code> 返回后才 <code>mutex_unlock()</code>。</li>
 </ul>
 </li>
 <li><strong>并发请求阻塞</strong>：此时，监控脚本（如 <code>cat dirty_data</code>）或 <code>udev</code> 脚本尝试操作 sysfs。这些操作在内核中也会调用 <code>mutex_lock(&amp;bch_register_lock)</code>。</li>
@@ -27499,17 +27959,52 @@
 </ul>
 </li>
 </ol>
+<h3 id="22">2.2 具体被阻塞的接口<a class="headerlink" href="#22" title="Permanent link">&para;</a></h3>
+<p>来自生产环境 call trace，三类接口被阻塞，全部在 <code>mutex_lock(&amp;bch_register_lock)</code> 上：</p>
+<table>
+<thead>
+<tr>
+<th>接口</th>
+<th>调用栈关键帧</th>
+<th>场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bch_cache_set_store()</code></td>
+<td><code>mutex_lock</code> -&gt; <code>bch_cache_set_store+0x40/0x80 [bcache]</code></td>
+<td><code>bcache_cache_set_conf.sh</code> 脚本写 <code>congested_read_threshold_us</code> / <code>congested_write_threshold_us</code> 等调优参数到 cache_set 的 sysfs 节点</td>
+</tr>
+<tr>
+<td><code>bch_cached_dev_store()</code></td>
+<td><code>mutex_lock</code> -&gt; <code>sysfs_kf_write</code> -&gt; <code>kernfs_fop_write_iter</code></td>
+<td><code>bcache_cached_dev_conf.sh</code> 脚本写 <code>sequential_cutoff</code> 到已 attach 的后备设备 bcacheN 的 sysfs 节点</td>
+</tr>
+<tr>
+<td><code>register_cache()</code></td>
+<td><code>mutex_lock</code> -&gt; <code>register_cache+0x11c/0x1a0 [bcache]</code></td>
+<td>注册另一个不相关的 cache 设备，也通过 <code>register_bcache</code> -&gt; <code>kobj_attr_store</code> -&gt; <code>sysfs_kf_write</code> 路径</td>
+</tr>
+</tbody>
+</table>
+<p>实际日志中具体的 sysfs 写入操作证据：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Mar 12 11:01:14 kernel: bcache: bch_cached_dev_store() write file /sys/devices/.../block/sdb/bcache/sequential_cutoff: 1048576
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>Mar 12 11:01:15 kernel: bcache: bch_cached_dev_store() write file /sys/devices/.../block/sdc/bcache/sequential_cutoff: 1048576
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>...
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>Mar 12 11:04:17 kernel: [  242.656072] INFO: task bcache_cache_se:3492 blocked for more than 120 seconds.
+</code></pre></div>
+<p>注意：不仅是 "show" vs "store" 的问题，也不仅限于当前正在初始化的设备——<strong>另一个无关设备自己的注册也被阻塞了</strong>。PID 8103 作为锁持有者，在 <code>run_cache_set()</code> -&gt; <code>bch_cached_dev_attach()</code> -&gt; <code>bch_cached_dev_run()</code> -&gt; <code>device_add_disk()</code> -&gt; <code>check_partition()</code> -&gt; <code>read_lba()</code> 的完整调用链中持续持有锁，这是磁盘 IO 密集路径，持续时间取决于磁盘性能。</p>
 <hr />
 <h2 id="3-call-trace">3. 源码审计与日志 call trace 对比<a class="headerlink" href="#3-call-trace" title="Permanent link">&para;</a></h2>
 <ol>
-<li><strong>持有者行为</strong>：当一个 cache set 注册时，它会调用 <code>register_cache_set</code> -&gt; <code>run_cache_set</code>。</li>
-<li><strong>重度操作</strong>：在 <code>run_cache_set</code> (line 1845) 中，内核执行了 <code>bch_btree_check(c)</code>。<ul>
+<li><strong>持有者行为</strong>：<code>register_cache()</code> 获取锁后调用 <code>register_cache_set()</code> -&gt; <code>run_cache_set()</code>。</li>
+<li><strong>重度操作</strong>：在 <code>run_cache_set()</code> 中，内核执行了 <code>bch_btree_check(c)</code>。<ul>
 <li>这是一个耗时操作，会遍历整个 bset 树确认一致性。</li>
 <li>对于大容量或 IO 繁忙的磁盘，该过程可能持续数十秒甚至更久。</li>
 </ul>
 </li>
-<li><strong>锁的颗粒度</strong>：整个 <code>run_cache_set</code> 过程一直持有 <code>bch_register_lock</code> (全局互斥锁)。</li>
-<li><strong>连带效应</strong>：由于 <code>sysfs.c</code> 使用 <code>STORE_LOCKED</code> 包装宏，<strong>任何</strong> 对 <strong>任何</strong> bcache 设备的写操作（无论是否属于正在初始化的那个 set）都必须等待这个锁，导致整个系统的 bcache 管理面瞬间瘫痪，产生大量 State D 进程。</li>
+<li><strong>锁的颗粒度</strong>：整个 <code>register_cache_set()</code> 过程一直持有 <code>bch_register_lock</code> (全局互斥锁)。</li>
+<li><strong>连带效应</strong>：由于 <code>sysfs.c</code> 所有 show/store 都需要 <code>mutex_lock(&amp;bch_register_lock)</code>，<strong>任何</strong> 对 <strong>任何</strong> bcache 设备的操作（无论是否属于正在初始化的那个 set）都必须等待这个锁，导致整个系统的 bcache 管理面瞬间瘫痪，产生大量 State D 进程。</li>
 </ol>
 <hr />
 <h2 id="4-log-spamming">4. 日志洪流 (Log Spamming)<a class="headerlink" href="#4-log-spamming" title="Permanent link">&para;</a></h2>
@@ -27518,41 +28013,335 @@
 <li><strong>影响</strong>：这种高频 <code>pr_info</code> 在 IO 压力大或系统启动阶段会进一步拖累内核日志子系统，甚至可能导致 <code>dmesg</code> 缓冲区溢出，掩盖真正的错误。</li>
 </ul>
 <hr />
-<h2 id="5">5. 结论与修复建议<a class="headerlink" href="#5" title="Permanent link">&para;</a></h2>
-<p>目前的现象并非偶发 bug，而是 <strong>锁架构设计缺陷</strong>（Big Hammer Global Lock）。</p>
-<h3 id="_1">修复结论：<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h3>
-<ol>
-<li><strong>架构升级</strong>：必须将 <code>bch_register_lock</code> 升级为 <code>rw_semaphore</code>。</li>
-<li><strong>并发允许</strong>：<code>sysfs</code> 的 <code>SHOW</code> 和普通调优 <code>STORE</code> 应改用 <code>down_read</code>。这样当一个设备在做耗时的 <code>btree_check</code>（持有写锁或降级后的读锁）时，其他设备的监控和参数调整可以并行进行。</li>
-<li><strong>精细化持有</strong>：优化 <code>run_cache_set</code>，在执行 IO 密集或长耗时检查任务时，考虑降级锁或释放锁，直到需要修改全局链表时再重新获取。</li>
-<li><strong>静默日志</strong>：直接删除 <code>writeback.c</code> 中的冗余打印。</li>
-</ol>
+<h2 id="5">5. 修复方案演进<a class="headerlink" href="#5" title="Permanent link">&para;</a></h2>
+<h3 id="51-v1v2mutex-rw_semaphore">5.1 v1/v2：Mutex -&gt; rw_semaphore 方案（已废弃）<a class="headerlink" href="#51-v1v2mutex-rw_semaphore" title="Permanent link">&para;</a></h3>
+<p>v1/v2 尝试将 <code>bch_register_lock</code> 从 <code>struct mutex</code> 转为 <code>struct rw_semaphore</code>，让 sysfs SHOW 路径用 <code>down_read()</code> 并发执行，并在 <code>run_cache_set()</code> 中通过 <code>downgrade_write()</code> 在 btree check 期间降级为读锁。</p>
+<p><strong>废弃原因</strong>（Coly Li 指出）：
+1. <strong>未解决根本问题</strong>：<code>register_cache()</code> 仍需持有写锁贯穿整个 <code>register_cache_set()</code>，sysfs STORE 路径仍需独占写锁，所以与报告 hang 无关的设备的 store 操作仍然阻塞同样长的时间。
+2. <strong>KABI 顾虑</strong>：改变全局变量类型（即使 bcache 内部未 EXPORT_SYMBOL）。
+3. <strong>真实回归</strong>：v1 的 <code>downgrade_write()</code>/<code>up_read()</code>/<code>down_write()</code> 舞蹈在 <code>bch_btree_check()</code> 周围存在 race window——在 <code>up_read()</code> 和 <code>down_write()</code> 之间如果触发 unregister，可能导致 use-after-free。</p>
+<h3 id="52-v3">5.2 v3：分阶段注册方案（最终方案，已修复）<a class="headerlink" href="#52-v3" title="Permanent link">&para;</a></h3>
+<p>v3 放弃了锁类型变更，改用<strong>根因修复</strong>：不改变 <code>bch_register_lock</code> 的类型（仍是 mutex），而是改变它被持有的时间段。</p>
+<p><strong>核心思路</strong>：把注册一个全新 cache_set 拆成两个阶段——</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Phase 1（无锁恢复）:  journal replay + btree check + allocator start
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>Phase 2（加锁发布）:  kobject_add + sysfs 链接 + attach pending 设备
+</code></pre></div>
+<p>Phase 1 是耗时大户（数秒到数分钟），v3 让它完全不持有 <code>bch_register_lock</code>。Phase 2 是轻量操作（毫秒级），在锁保护下完成，与 <code>register_bdev_worker()</code> 现有的持锁成本一致。</p>
 <hr />
-<h2 id="6-technical-fix-logic">6. 核心修复逻辑详析 (Technical Fix Logic)<a class="headerlink" href="#6-technical-fix-logic" title="Permanent link">&para;</a></h2>
-<p>为了彻底解决上述锁竞争导致的 D 状态死锁，我们实施了以下四项核心修复逻辑：</p>
-<h3 id="61-mutex-rightarrow-rw_semaphore">6.1 架构级重构：Mutex <span class="arithmatex">\(\rightarrow\)</span> <code>rw_semaphore</code><a class="headerlink" href="#61-mutex-rightarrow-rw_semaphore" title="Permanent link">&para;</a></h3>
-<p>我们将全局锁 <code>bch_register_lock</code> 从 <code>struct mutex</code> 升级为 <code>struct rw_semaphore</code>。
-- <strong>改变点</strong>：由原先的“完全互斥”转变为“读写分离”。
-- <strong>收益</strong>：允许多个进程同时执行 <code>SHOW</code>（读取状态）操作，只有涉及拓扑变更的 <code>STORE</code>（写入配置）才需要独占写锁。</p>
-<h3 id="62-lock-downgrade">6.2 关键机制：锁降级 (Lock Downgrade)<a class="headerlink" href="#62-lock-downgrade" title="Permanent link">&para;</a></h3>
-<p>在 <code>super.c</code> 的设备注册路径 <code>run_cache_set</code> 中引入了锁降级逻辑：
-1. <strong>写锁获取</strong>：在修改全局缓存集链表时，持有 <code>down_write</code>。
-2. <strong>主动降级</strong>：在进入耗时的 <code>bch_btree_check()</code> 之前，调用 <code>downgrade_write()</code> 将写锁降级为读锁。
-3. <strong>并发释放</strong>：此时，主进程依然保留了对该 set 的引用权限，但<strong>不再阻塞</strong>其他请求读锁的监控进程。</p>
-<h3 id="63-sysfs">6.3 精细化 Sysfs 锁定策略<a class="headerlink" href="#63-sysfs" title="Permanent link">&para;</a></h3>
-<p>我们重写了 <code>sysfs.h</code> 中的 <code>SHOW_LOCKED</code> 和 <code>STORE_LOCKED</code> 宏，并对 <code>sysfs.c</code> 进行了针对性优化：
-- <strong>监控路径 (SHOW)</strong>：统一使用 <code>down_read</code>。即便是主进程在初始化，查看 <code>dirty_data</code> 也不会卡顿。
-- <strong>调优路径 (STORE)</strong>：区分“参数调整”与“结构变更”。
-    - 对于 <code>sequential_cutoff</code> 等参数，使用 <code>down_read</code> 即可保证安全（因为只操作标量）。
-    - 仅对于 <code>attach</code> / <code>detach</code> / <code>stop</code> / <code>unregister</code> 等改变设备关系的动作，才请求 <code>down_write</code>。</p>
-<h3 id="64-lock-free-optimization">6.4 统计指标无锁化 (Lock-Free Optimization)<a class="headerlink" href="#64-lock-free-optimization" title="Permanent link">&para;</a></h3>
-<p>针对监控系统最高频访问的 <code>dirty_data</code> 和 <code>writeback_rate_debug</code> 属性，我们取消了所有锁定操作：
-- <strong>原理</strong>：这些属性读取的是 <code>atomic_long_t</code> 或在此时刻即便有微小偏差（Jitter）也无大碍的标量。
-- <strong>效果</strong>：彻底消除了在高并发监控压力下，因为“排队拿锁”动作本身触发的上下文切换开销（Context Switch Overheads）。</p>
+<h2 id="6-v3">6. v3 补丁逐文件代码分析<a class="headerlink" href="#6-v3" title="Permanent link">&para;</a></h2>
+<h3 id="61-bcacheh-cache_set_registering">6.1 <code>bcache.h</code>：新增 <code>CACHE_SET_REGISTERING</code> 标志位<a class="headerlink" href="#61-bcacheh-cache_set_registering" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="w"> </span>#define CACHE_SET_UNREGISTERING       0
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w"> </span>#define CACHE_SET_STOPPING            1
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w"> </span>#define CACHE_SET_RUNNING             2
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w"> </span>#define CACHE_SET_IO_DISABLE          3
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="gi">+#define CACHE_SET_REGISTERING         4</span>
+</code></pre></div>
+<p>新增标志位 <code>CACHE_SET_REGISTERING</code>（bit 4），附有详细注释说明其语义：</p>
+<blockquote>
+<p>CACHE_SET_REGISTERING is set while a freshly allocated cache set is running its recovery path (journal replay, btree check, allocator start) without holding bch_register_lock. The cache set is already linked into bch_cache_sets at this point (so duplicate-uuid detection and reboot bookkeeping can see it), but its kobjects are not added to sysfs yet, so it is not reachable from userspace or from cache-set lookups that attach backing devices. Cleared once the cache set is fully published.</p>
+</blockquote>
+<p>这个标志位的设计意图非常明确：<strong>cache_set 在 <code>bch_cache_sets</code> 全局链表中可见（供 duplicate-uuid 检测和 <code>bcache_reboot()</code> 使用），但对 sysfs 和 <code>bch_cached_dev_attach()</code> 不可达</strong>。这是一种"半可见"状态——链表可见、kobject 不可见。</p>
+<h3 id="62-superc">6.2 <code>super.c</code>：核心重构<a class="headerlink" href="#62-superc" title="Permanent link">&para;</a></h3>
+<h4 id="621-__uuid_write-lockdep">6.2.1 <code>__uuid_write()</code> 的 lockdep 断言放宽<a class="headerlink" href="#621-__uuid_write-lockdep" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="gd">-   lockdep_assert_held(&amp;bch_register_lock);</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="gi">+   /*</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="gi">+    * Called either with bch_register_lock held, or from</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="gi">+    * bch_cache_set_recover() on a cache_set that is still</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="gi">+    * CACHE_SET_REGISTERING and therefore not yet reachable by any</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="gi">+    * other thread.</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="gi">+    */</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="gi">+   if (!test_bit(CACHE_SET_REGISTERING, &amp;c-&gt;flags))</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="gi">+       lockdep_assert_held(&amp;bch_register_lock);</span>
+</code></pre></div>
+<p><strong>分析</strong>：<code>__uuid_write()</code> 在无锁恢复路径的 fresh-cache 分支中会被调用。原来的无条件 <code>lockdep_assert_held()</code> 会在无锁路径上触发 lockdep 告警。修改后，如果是 <code>CACHE_SET_REGISTERING</code> 状态（即 cache_set 尚未对任何其他线程可见），则跳过断言——因为此时没有并发访问风险。</p>
+<h4 id="622-bch_cached_dev_attach">6.2.2 <code>bch_cached_dev_attach()</code> 门控<a class="headerlink" href="#622-bch_cached_dev_attach" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="gi">+   if (test_bit(CACHE_SET_REGISTERING, &amp;c-&gt;flags)) {</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="gi">+       pr_err(&quot;Can&#39;t attach %pg: cache set is still registering\n&quot;,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="gi">+              dc-&gt;bdev);</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="gi">+       return -EINVAL;</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="gi">+   }</span>
+</code></pre></div>
+<p><strong>分析</strong>：在 attach 入口处增加门控。如果 cache_set 还在 <code>CACHE_SET_REGISTERING</code> 状态（即恢复尚未完成），拒绝 backing device 的 attach 请求。这防止了在 cache_set 完全初始化之前就 attach backing device 的风险。</p>
+<h4 id="623-run_cache_set-bch_cache_set_recover-bch_cache_set_attach_devices">6.2.3 函数拆分：<code>run_cache_set()</code> -&gt; <code>bch_cache_set_recover()</code> + <code>bch_cache_set_attach_devices()</code><a class="headerlink" href="#623-run_cache_set-bch_cache_set_recover-bch_cache_set_attach_devices" title="Permanent link">&para;</a></h4>
+<p>原来的 <code>run_cache_set()</code> 做了两件事：恢复 + 发布。v3 将其拆分为两个独立函数：</p>
+<p><strong><code>bch_cache_set_recover()</code></strong>（无锁恢复阶段）：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gd">-static int run_cache_set(struct cache_set *c)</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="gi">+/*</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="gi">+ * Recover a cache_set from disk (journal replay, btree check, allocator</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="gi">+ * start) or initialize a brand new one. This is the expensive, I/O-bound</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="gi">+ * part of bringing a cache_set up.</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="gi">+ *</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="gi">+ * For a freshly allocated cache_set, this is called without</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="gi">+ * bch_register_lock held: the cache_set is marked CACHE_SET_REGISTERING</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="gi">+ * and is not yet reachable via c-&gt;kobj/sysfs or via any attach lookup</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="gi">+ * ...</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="gi">+ */</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="gi">+static int bch_cache_set_recover(struct cache_set *c)</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w"> </span>{
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w"> </span>   const char *err = &quot;cannot allocate memory&quot;;
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="gd">-   struct cached_dev *dc, *t;</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w"> </span>   struct cache *ca = c-&gt;cache;
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w"> </span>   struct closure cl;
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w"> </span>   LIST_HEAD(journal);
+</code></pre></div>
+<p>关键变化：函数签名中去掉了 <code>struct cached_dev *dc, *t</code> 局部变量声明——因为 attach 逻辑被移到了 <code>bch_cache_set_attach_devices()</code> 中。这个函数<strong>只做纯粹的磁盘恢复</strong>（journal replay, btree check, allocator start），不再涉及设备 attach。</p>
+<p>结尾处也移除了原来在 <code>run_cache_set()</code> 末尾的 attach + RUNNING 标志位设置：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="gd">-   list_for_each_entry_safe(dc, t, &amp;uncached_devices, list)</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="gd">-       bch_cached_dev_attach(dc, c, NULL);</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="gd">-</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="gd">-   flash_devs_run(c);</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="gd">-</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="gd">-   bch_journal_space_reserve(&amp;c-&gt;journal);</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="gd">-   set_bit(CACHE_SET_RUNNING, &amp;c-&gt;flags);</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w"> </span>   return 0;
+</code></pre></div>
+<p><strong><code>bch_cache_set_attach_devices()</code></strong>（加锁发布阶段）：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="o">+</span><span class="cm">/*</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="cm">+ * Publish a recovered cache_set: attach pending backing/flash devices and</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="cm">+ * mark it running. Must be called with bch_register_lock held. Unlike</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="cm">+ * bch_cache_set_recover(), nothing here can fail.</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="cm">+ */</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">bch_cache_set_attach_devices</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cache_set</span><span class="w"> </span><span class="o">*</span><span class="n">c</span><span class="p">)</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="o">+</span><span class="p">{</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="o">+</span><span class="w">   </span><span class="k">struct</span><span class="w"> </span><span class="nc">cached_dev</span><span class="w"> </span><span class="o">*</span><span class="n">dc</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">t</span><span class="p">;</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="o">+</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="o">+</span><span class="w">   </span><span class="n">lockdep_assert_held</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="o">+</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="o">+</span><span class="w">   </span><span class="n">list_for_each_entry_safe</span><span class="p">(</span><span class="n">dc</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">uncached_devices</span><span class="p">,</span><span class="w"> </span><span class="n">list</span><span class="p">)</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="o">+</span><span class="w">       </span><span class="n">bch_cached_dev_attach</span><span class="p">(</span><span class="n">dc</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="o">+</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="o">+</span><span class="w">   </span><span class="n">flash_devs_run</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="o">+</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="o">+</span><span class="w">   </span><span class="n">bch_journal_space_reserve</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">journal</span><span class="p">);</span>
+<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="o">+</span><span class="w">   </span><span class="n">set_bit</span><span class="p">(</span><span class="n">CACHE_SET_RUNNING</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="o">+</span><span class="p">}</span>
+</code></pre></div>
+<p><strong>分析</strong>：这个函数是原来 <code>run_cache_set()</code> 末尾的 attach 逻辑的独立封装。加了 <code>lockdep_assert_held(&amp;bch_register_lock)</code> 强制调用者必须持有锁。返回值是 <code>void</code>（不会失败），因为恢复已经完成，attach 只是将已就绪的设备挂上去。</p>
+<p><strong>新的 <code>run_cache_set()</code></strong>（仅用于 "found" 路径）：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="o">+</span><span class="cm">/*</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="cm">+ * Recover and publish a cache_set as a single locked unit. Used only for</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="cm">+ * attaching a cache device to an already-published cache_set (the &quot;found:&quot;</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="cm">+ * case in register_cache_set()) — that cache_set is already reachable via</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="cm">+ * bch_cache_sets/sysfs, so it must not go through the unlocked recovery</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="cm">+ * path used for a brand new cache_set.</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="cm">+ */</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">run_cache_set</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cache_set</span><span class="w"> </span><span class="o">*</span><span class="n">c</span><span class="p">)</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="o">+</span><span class="p">{</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="o">+</span><span class="w">   </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="o">+</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="o">+</span><span class="w">   </span><span class="n">lockdep_assert_held</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="o">+</span>
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="o">+</span><span class="w">   </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bch_cache_set_recover</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+<a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="o">+</span><span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a><span class="o">+</span>
+<a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a><span class="o">+</span><span class="w">   </span><span class="n">bch_cache_set_attach_devices</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a><span class="o">+</span><span class="w">   </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a><span class="o">+</span><span class="p">}</span>
+</code></pre></div>
+<p><strong>分析</strong>：保留了 <code>run_cache_set()</code> 函数名，但语义完全变了——它现在是<strong>带锁的恢复+发布合一</strong>，仅用于 "found" 路径（即 cache device 重新 attach 到一个已经发布过的 cache_set）。因为那个 cache_set 已经通过 sysfs 可达，必须全程持锁。<code>lockdep_assert_held()</code> 保证调用者不会错误地在无锁场景下调用它。</p>
+<h4 id="624-register_cache_set">6.2.4 <code>register_cache_set()</code> 重构——核心注册流程<a class="headerlink" href="#624-register_cache_set" title="Permanent link">&para;</a></h4>
+<p>这是整个补丁最关键的变更，原始函数被完全重写以支持分阶段注册：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="nf">register_cache_set</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cache</span><span class="w"> </span><span class="o">*</span><span class="n">ca</span><span class="p">)</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">buf</span><span class="p">[</span><span class="mi">12</span><span class="p">];</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;cannot allocate memory&quot;</span><span class="p">;</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">cache_set</span><span class="w"> </span><span class="o">*</span><span class="n">c</span><span class="p">;</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="o">+</span><span class="w">   </span><span class="kt">bool</span><span class="w"> </span><span class="n">fresh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="o">+</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+</code></pre></div>
+<p><strong>分析</strong>：锁的获取从 <code>register_cache()</code> 移到了 <code>register_cache_set()</code> 内部。这样 <code>register_cache_set()</code> 可以在不同阶段自主决定持锁/释放锁，而 <code>register_cache()</code> 的调用者不再需要关心锁。</p>
+<p><strong>Duplicate-UUID 检测（锁内）</strong>：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="w">    </span><span class="n">list_for_each_entry</span><span class="p">(</span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bch_cache_sets</span><span class="p">,</span><span class="w"> </span><span class="n">list</span><span class="p">)</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">memcmp</span><span class="p">(</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">set_uuid</span><span class="p">,</span><span class="w"> </span><span class="n">ca</span><span class="o">-&gt;</span><span class="n">sb</span><span class="p">.</span><span class="n">set_uuid</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="o">-</span><span class="w">           </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">cache</span><span class="p">)</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="o">+</span><span class="w">           </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">cache</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="o">+</span><span class="w">               </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;duplicate cache set member&quot;</span><span class="p">;</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="o">+</span><span class="w">           </span><span class="p">}</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">found</span><span class="p">;</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">        </span><span class="p">}</span>
+</code></pre></div>
+<p><strong>分析</strong>：遍历全局 <code>bch_cache_sets</code> 链表查找同 UUID 的 cache_set。如果找到且 <code>c-&gt;cache</code> 已设置（说明该 cache_set 已有活跃的 cache 设备），返回 "duplicate cache set member"。注意这里在返回前需要 <code>mutex_unlock()</code>——因为锁现在在函数内部获取。如果 <code>c-&gt;cache == NULL</code>（即 cache_set 存在但 cache 设备丢失了，需要重新 attach），走 <code>goto found</code> 路径。</p>
+<p><strong>新 cache_set 分配与标记（锁内）</strong>：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="w">    </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bch_cache_set_alloc</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ca</span><span class="o">-&gt;</span><span class="n">sb</span><span class="p">);</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="o">-</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">c</span><span class="p">)</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="o">+</span><span class="w">       </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="o">+</span><span class="w">   </span><span class="p">}</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="o">+</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="o">+</span><span class="w">   </span><span class="cm">/*</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="cm">+    * Link the new cache_set into bch_cache_sets right away, marked</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="cm">+    * CACHE_SET_REGISTERING, before dropping the lock for recovery.</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="cm">+    * bch_cache_set_alloc() already set c-&gt;cache = ca above, so the</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="cm">+    * duplicate-uuid check above will correctly reject a second</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="cm">+    * concurrent registration for the same uuid while this one is</span>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a><span class="cm">+    * mid-recovery.</span>
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a><span class="cm">+    */</span>
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a><span class="o">+</span><span class="w">   </span><span class="n">set_bit</span><span class="p">(</span><span class="n">CACHE_SET_REGISTERING</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">flags</span><span class="p">);</span>
+<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a><span class="o">+</span><span class="w">   </span><span class="n">list_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">list</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bch_cache_sets</span><span class="p">);</span>
+<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a><span class="o">+</span><span class="w">   </span><span class="n">fresh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a><span class="o">+</span>
+<a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+</code></pre></div>
+<p><strong>分析</strong>：这是分阶段注册的核心。在同一个锁临界区内完成三件事：
+1. <code>bch_cache_set_alloc()</code>（已设置 <code>c-&gt;cache = ca</code>）
+2. <code>set_bit(CACHE_SET_REGISTERING, &amp;c-&gt;flags)</code>（标记为注册中）
+3. <code>list_add(&amp;c-&gt;list, &amp;bch_cache_sets)</code>（加入全局链表）</p>
+<p>然后<strong>立即释放锁</strong>。此时 cache_set 对全局链表遍历可见（duplicate-uuid 检测可用），但对 sysfs 和 attach 不可达。<code>fresh = true</code> 标记这是新分配的 cache_set，后续用于区分走哪条路径。</p>
+<p><strong>无锁恢复阶段</strong>：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="o">+</span><span class="w">   </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;failed to recover cache set&quot;</span><span class="p">;</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">bch_cache_set_recover</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="o">+</span><span class="w">       </span><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="o">+</span><span class="w">       </span><span class="k">goto</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="o">+</span><span class="w">   </span><span class="p">}</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="o">+</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+</code></pre></div>
+<p><strong>分析</strong>：在无锁状态下调用 <code>bch_cache_set_recover()</code> 进行 journal replay + btree check + allocator start。这是最耗时的阶段，现在完全不阻塞其他设备的 sysfs 操作。恢复失败时重新获取锁，跳转到 <code>err</code> 标签执行清理。恢复成功时重新获取锁，进入发布阶段。</p>
+<p><strong>发布阶段（锁内）</strong>：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="w">    </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;error creating kobject&quot;</span><span class="p">;</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">kobject_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">kobj</span><span class="p">,</span><span class="w"> </span><span class="n">bcache_kobj</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;%pU&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="o">-&gt;</span><span class="n">set_uuid</span><span class="p">)</span><span class="w"> </span><span class="o">||</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">        </span><span class="n">kobject_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">debug</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">kobj</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;debug&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">||</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">        </span><span class="p">...)</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">    </span><span class="n">bch_debug_init_cache_set</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="o">-</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="o">-</span><span class="w">   </span><span class="n">list_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">list</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bch_cache_sets</span><span class="p">);</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="o">+</span><span class="w">   </span><span class="n">clear_bit</span><span class="p">(</span><span class="n">CACHE_SET_REGISTERING</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">flags</span><span class="p">);</span>
+</code></pre></div>
+<p><strong>分析</strong>：<code>kobject_add()</code> 创建 sysfs 入口，这是 cache_set 首次对用户空间可见。成功后清除 <code>CACHE_SET_REGISTERING</code> 标志位——此时 cache_set 完全就绪。注意原来的 <code>list_add()</code> 被移到了无锁恢复之前（见上文），这里不再是首次加入链表。</p>
+<p><strong>发布完成后的路径选择</strong>：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="w">    </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;failed to run cache set&quot;</span><span class="p">;</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="o">-</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">run_cache_set</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="o">+</span><span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">fresh</span><span class="p">)</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="o">+</span><span class="w">       </span><span class="n">bch_cache_set_attach_devices</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="o">+</span><span class="w">   </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">run_cache_set</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+</code></pre></div>
+<p><strong>分析</strong>：这是路径选择的关键：
+- <strong><code>fresh</code> 路径</strong>：新分配的 cache_set，恢复已经在无锁阶段完成，这里只需调用 <code>bch_cache_set_attach_devices()</code>（纯加锁发布，不会失败）。
+- <strong><code>found</code> 路径</strong>：cache_set 已存在但 cache 设备丢失，需要重新恢复。调用 <code>run_cache_set()</code>（带锁的恢复+发布合一），因为该 cache_set 已经通过 sysfs 可达，必须全程持锁。</p>
+<p><strong>错误路径</strong>：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="w"> </span><span class="nl">err</span><span class="p">:</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="o">+</span><span class="w">   </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bch_register_lock</span><span class="p">);</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">    </span><span class="n">bch_cache_set_unregister</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
+</code></pre></div>
+<p><strong>分析</strong>：错误路径也需要 <code>mutex_unlock()</code>，因为函数现在自己管理锁。<code>bch_cache_set_unregister()</code> 在锁释放后调用，这与原来的行为一致。</p>
+<h4 id="625-register_cache">6.2.5 <code>register_cache()</code> 简化<a class="headerlink" href="#625-register_cache" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="gd">-   mutex_lock(&amp;bch_register_lock);</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w"> </span>   err = register_cache_set(ca);
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="gd">-   mutex_unlock(&amp;bch_register_lock);</span>
+</code></pre></div>
+<p><strong>分析</strong>：<code>register_cache()</code> 不再负责获取/释放锁，因为锁管理已经完全移入 <code>register_cache_set()</code> 内部。这简化了调用者，也让锁的持有/释放更加精细——<code>register_cache_set()</code> 可以在无锁恢复期间释放锁，而不需要 <code>register_cache()</code> 知道这些细节。</p>
+<h3 id="63-sysfsc__bch_cache-showstore">6.3 <code>sysfs.c</code>：<code>__bch_cache</code> 的 SHOW/STORE 门控<a class="headerlink" href="#63-sysfsc__bch_cache-showstore" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="w"> </span>SHOW(__bch_cache)
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w"> </span>{
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w"> </span>   struct cache *ca = container_of(kobj, struct cache, kobj);
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="gi">+   /*</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="gi">+    * ca-&gt;set is still being recovered without bch_register_lock held</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="gi">+    * (see bch_cache_set_recover()); its bucket_lock and on-disk</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="gi">+    * superblock are not safe to touch yet.</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="gi">+    */</span>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="gi">+   if (ca-&gt;set &amp;&amp; test_bit(CACHE_SET_REGISTERING, &amp;ca-&gt;set-&gt;flags))</span>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="gi">+       return -EAGAIN;</span>
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="gi">+</span>
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="w"> </span>   sysfs_hprint(bucket_size,   bucket_bytes(ca));
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="w"> </span>STORE(__bch_cache)
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w"> </span>{
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w"> </span>   ...
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="w"> </span>   if (bcache_is_reboot)
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="w"> </span>       return -EBUSY;
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="gi">+   /*</span>
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a><span class="gi">+    * ca-&gt;set is still being recovered without bch_register_lock held</span>
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a><span class="gi">+    * (see bch_cache_set_recover()); its bucket_lock and on-disk</span>
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a><span class="gi">+    * superblock are not safe to touch yet.</span>
+<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a><span class="gi">+    */</span>
+<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a><span class="gi">+   if (ca-&gt;set &amp;&amp; test_bit(CACHE_SET_REGISTERING, &amp;ca-&gt;set-&gt;flags))</span>
+<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a><span class="gi">+       return -EAGAIN;</span>
+<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a><span class="gi">+</span>
+</code></pre></div>
+<p><strong>分析</strong>：在 <code>__bch_cache</code> 的 SHOW 和 STORE 入口增加 <code>CACHE_SET_REGISTERING</code> 检查。如果 cache_set 仍在恢复中（标志位置位），返回 <code>-EAGAIN</code> 让用户空间稍后重试。这是因为此时 <code>ca-&gt;set</code> 的 <code>bucket_lock</code> 和 on-disk superblock 正在被恢复过程写入，读取不安全。</p>
+<p>注意：这里返回 <code>-EAGAIN</code> 而不是阻塞等待，是比原来的行为更优的选择——原来调用者会进入 D 状态阻塞数分钟，现在立即返回错误让用户空间决定是否重试。对于 <code>bcache_cached_dev_conf.sh</code> 这类 udev 脚本，快速失败并重试比长时间阻塞更合理。</p>
+<hr />
+<h2 id="7">7. 修复前后对比<a class="headerlink" href="#7" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>修复前</th>
+<th>修复后 (v3)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bch_register_lock</code> 类型</td>
+<td><code>struct mutex</code></td>
+<td><code>struct mutex</code>（不变）</td>
+</tr>
+<tr>
+<td>持锁范围</td>
+<td><code>register_cache_set()</code> 整个过程</td>
+<td>仅 allocation + list_add + kobject_add + attach</td>
+</tr>
+<tr>
+<td>恢复期间持锁</td>
+<td>是（数分钟）</td>
+<td>否（完全不持锁）</td>
+</tr>
+<tr>
+<td>无关设备的 sysfs 访问</td>
+<td>阻塞</td>
+<td>不受影响</td>
+</tr>
+<tr>
+<td>无关设备的注册</td>
+<td>阻塞</td>
+<td>不受影响</td>
+</tr>
+<tr>
+<td>sysfs 访问正在初始化的 cache_set</td>
+<td>进入 D 状态阻塞</td>
+<td>立即返回 <code>-EAGAIN</code></td>
+</tr>
+<tr>
+<td>KABI</td>
+<td>—</td>
+<td>无影响（锁类型不变）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8">8. 补丁链接<a class="headerlink" href="#8" title="Permanent link">&para;</a></h2>
+<ul>
+<li>v3: https://lore.kernel.org/r/20260706-feat-bcache-v3-1-8824683656ca@gmail.com</li>
+<li>v2: https://lore.kernel.org/r/20260706-feat-bcache-v2-1-70a4b6e246c0@gmail.com</li>
+<li>v1: https://lore.kernel.org/r/20260318-wujing-bcache-v1-1-f0b9aaf3f81d@gmail.com</li>
+</ul>
+<hr />
+<h2 id="9">9. 验证结果<a class="headerlink" href="#9" title="Permanent link">&para;</a></h2>
+<p>v3 补丁已在云基础设施的生产环境中部署测试，验证结果如下：</p>
+<ul>
+<li><strong>udev 超时重试消除</strong>：之前启动时每个 bcache 设备的 udev worker 都会因 sysfs 写操作阻塞超时，被 systemd-udevd kill 后重试，循环重复。v3 后不再复现。</li>
+<li><strong>管理平面恢复</strong>：12 个 cache_set 并行启动时，已运行的 cache_set 的 sysfs 调优操作不再被其他 cache_set 的恢复过程阻塞，LVM PV 激活和 Ceph OSD 启动正常进行。</li>
+<li><strong>Duplicate-UUID 检测正常</strong>：并发注册同一 UUID 的 cache device 仍被正确拒绝。</li>
+<li><strong><code>bcache_reboot()</code> 路径分析</strong>：<code>bch_cache_set_recover()</code> 只在刚分配的 cache_set 上无锁运行，<code>CACHE_SET_REGISTERING</code> 置位和 <code>list_add()</code> 在同一个锁临界区内完成，所以 <code>bcache_reboot()</code> 的 <code>list_empty(&amp;bch_cache_sets)</code> 检查和 <code>mutex_lock()</code> 保护的等待循环能在恢复期间看到该 cache_set，不存在窗口期。</li>
+</ul>
 <hr />
 <blockquote>
 <p>[!TIP]
-<strong>结论</strong>：上述组合拳将 bcache 的管理平面从“单线程串行”进化到了“高并发读写分离”模式。针对并发 100+ 磁盘的极端场景，测试显示管理操作响应速度提升了 <strong>100 倍以上</strong>。</p>
+<strong>结论</strong>：v3 方案从根因出发，不改变锁类型，而是精细控制锁的持有时间窗口——将耗时的恢复操作（<code>bch_cache_set_recover()</code>）移出锁外，轻量的发布操作（<code>bch_cache_set_attach_devices()</code>）留在锁内。通过 <code>CACHE_SET_REGISTERING</code> 标志位在全局链表可见性和 sysfs 可达性之间建立了"半可见"状态，确保并发安全。修复后，bcache 管理平面不再因单个 cache_set 的恢复而全局瘫痪，生产环境验证通过。</p>
 </blockquote>
 
 
