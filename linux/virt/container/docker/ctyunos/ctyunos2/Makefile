@@ -24,9 +24,9 @@ DEV_IMAGE := $(IMAGE_NAME):$(DEV_TAG)
 CONTAINER_NAME := $(IMAGE_NAME)-$(DEV_TAG)
 
 # Source files
-DOCKER_IMAGE_SOURCE := ctyunos2-docker-22.06.x86_64.tar.xz
+DOCKER_IMAGE_SOURCE := ctyunos2-22.06-docker-20250819.x86_64.tar.xz
 DOCKER_IMAGE_URL := https://repo.ctyun.cn/hostos/ctyunos-22.06/docker_img/x86_64/$(DOCKER_IMAGE_SOURCE)
-DOCKER_IMAGE_DIR := $(HOST_CODE_DIR)/docker-images
+DOCKER_IMAGE_DIR := $(HOST_DOWNLOADS_DIR)/docker
 DOCKER_IMAGE_PATH := $(DOCKER_IMAGE_DIR)/$(DOCKER_IMAGE_SOURCE)
 
 # Cross-compile toolchain (gcc-linaro-7.3.1)
@@ -111,26 +111,19 @@ help:	## Show this help message
 		grep -v '^  setup-container' | grep -v '^  shell' | \
 		grep -v '^  restart-container' | grep -v '^  stop-container' | grep -v '^  clean' | grep -v '^  status'
 
-download-image:	# Internal: Download CTYunOS 2 docker image (use 'load-image' instead)
-	@echo "Downloading CTYunOS 2 docker image to $(DOCKER_IMAGE_DIR)..."
+load-image:	## Load base OS image (→ ctyunos:22.06)
+	@echo "Loading CTYunOS 2 docker image..."
 	@mkdir -p $(DOCKER_IMAGE_DIR)
 	@if [ ! -f $(DOCKER_IMAGE_PATH) ]; then \
 		cd $(DOCKER_IMAGE_DIR) && wget $(DOCKER_IMAGE_URL); \
 	else \
-		echo "$(DOCKER_IMAGE_PATH) already exists"; \
+		echo "$(DOCKER_IMAGE_PATH) already exists, using cached copy"; \
 	fi
-
-load-image: download-image	## Load base OS image (→ ctyunos:22.06)
-	@echo "Extracting and loading CTYunOS 2 docker image..."
-	@TAR_FILE=$(DOCKER_IMAGE_DIR)/ctyunos2-docker-22.06.x86_64.tar; \
-	if [ ! -f $$TAR_FILE ]; then \
-		cd $(DOCKER_IMAGE_DIR) && xz -d -k $(DOCKER_IMAGE_SOURCE); \
-	fi; \
-	docker load < $$TAR_FILE
-	@echo "Tagging image as $(BASE_IMAGE) and $(DEV_IMAGE)..."
-	@IMAGE_ID=$$(docker images --format "{{.Repository}}:{{.Tag}} {{.ID}}" | grep ctyunos | head -1 | awk '{print $$2}'); \
-	docker tag $$IMAGE_ID $(BASE_IMAGE); \
-	docker tag $$IMAGE_ID $(DEV_IMAGE)
+	@docker load < $(DOCKER_IMAGE_PATH) | tail -1 | sed 's/Loaded image: //' > /tmp/ctyunos2_loaded_image.txt; \
+	LOADED_IMAGE=$$(cat /tmp/ctyunos2_loaded_image.txt); \
+	docker tag $$LOADED_IMAGE $(BASE_IMAGE); \
+	docker tag $$LOADED_IMAGE $(DEV_IMAGE); \
+	rm -f /tmp/ctyunos2_loaded_image.txt
 
 build-base-image:	## Build image with build tools (→ ctyunos:22.06-build)
 	@echo "Building CTYunOS 2 base image with build tools..."
@@ -140,7 +133,8 @@ build-base-image:	## Build image with build tools (→ ctyunos:22.06-build)
 	fi
 	@echo "Installing build tools and configuring permissions..."
 	@echo "FROM $(BASE_IMAGE)" > Dockerfile.build
-	@echo 'RUN  echo "[everything]" > /etc/yum.repos.d/ctyunos.repo && \' >> Dockerfile.build
+	@echo 'RUN  rm -rf /etc/yum.repos.d/* && \' >> Dockerfile.build
+	@echo '     echo "[everything]" > /etc/yum.repos.d/ctyunos.repo && \' >> Dockerfile.build
 	@echo '     echo "name=ctyunos-22.06-everything" >> /etc/yum.repos.d/ctyunos.repo && \' >> Dockerfile.build
 	@echo '     echo "baseurl=https://repo.ctyun.cn/hostos/ctyunos-22.06/everything/\$$basearch/" >> /etc/yum.repos.d/ctyunos.repo && \' >> Dockerfile.build
 	@echo '     echo "enabled=1" >> /etc/yum.repos.d/ctyunos.repo && \' >> Dockerfile.build
