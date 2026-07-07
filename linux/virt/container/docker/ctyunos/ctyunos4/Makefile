@@ -26,7 +26,7 @@ CONTAINER_NAME := $(IMAGE_NAME)-$(DEV_TAG)
 # Source files
 DOCKER_IMAGE_SOURCE := ctyunos4-docker-25.07-250905.x86_64.tar.xz
 DOCKER_IMAGE_URL := https://repo.ctyun.cn/hostos/ctyunos-4-25.07/docker_img/x86_64/$(DOCKER_IMAGE_SOURCE)
-DOCKER_IMAGE_DIR := $(HOST_DOWNLOADS_DIR)
+DOCKER_IMAGE_DIR := $(HOST_DOWNLOADS_DIR)/docker
 DOCKER_IMAGE_PATH := $(DOCKER_IMAGE_DIR)/$(DOCKER_IMAGE_SOURCE)
 
 # Cross-compile toolchain
@@ -128,9 +128,10 @@ load-image: download-image	## Load base OS image (→ ctyunos:4-25.07-250905)
 	if [ ! -f $$TAR_FILE ]; then \
 		cd $(DOCKER_IMAGE_DIR) && xz -d -k $(DOCKER_IMAGE_SOURCE); \
 	fi; \
-	docker load < $$TAR_FILE
-	@echo "Tagging image as $(BASE_IMAGE)..."
-	@docker tag $$(docker images --format "{{.Repository}}:{{.Tag}}" | grep ctyunos | grep -v ":" | head -1) $(BASE_IMAGE) 2>/dev/null || true
+	docker load < $$TAR_FILE | tail -1 | sed 's/Loaded image: //' > /tmp/ctyunos4_loaded_image.txt; \
+	LOADED_IMAGE=$$(cat /tmp/ctyunos4_loaded_image.txt); \
+	docker tag $$LOADED_IMAGE $(BASE_IMAGE); \
+	rm -f /tmp/ctyunos4_loaded_image.txt
 
 build-base-image:	## Build image with build tools (→ ctyunos:4-25.07-250905-build)
 	@echo "Building CTYunOS 4 base image with build tools..."
