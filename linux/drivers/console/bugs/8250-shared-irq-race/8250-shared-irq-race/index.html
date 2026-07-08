@@ -5448,7 +5448,79 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#guardscoped_guard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        guard/scoped_guard 实现原理
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="guard/scoped_guard 实现原理">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#__attribute__cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        核心机制：__attribute__((cleanup))
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#define_lock_guard_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DEFINE_LOCK_GUARD_1 展开
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#guardmutex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        guard(mutex) 展开
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scoped_guard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scoped_guard 展开
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        为什么高效
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         版本变更总结
@@ -27530,7 +27602,79 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#guardscoped_guard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        guard/scoped_guard 实现原理
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="guard/scoped_guard 实现原理">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#__attribute__cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        核心机制：__attribute__((cleanup))
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#define_lock_guard_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DEFINE_LOCK_GUARD_1 展开
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#guardmutex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        guard(mutex) 展开
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scoped_guard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scoped_guard 展开
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        为什么高效
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         版本变更总结
@@ -27754,7 +27898,109 @@
 <a id="__codelineno-4-41" name="__codelineno-4-41" href="#__codelineno-4-41"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
 <a id="__codelineno-4-42" name="__codelineno-4-42" href="#__codelineno-4-42"></a><span class="p">}</span>
 </code></pre></div>
-<h2 id="_5">版本变更总结<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<h2 id="guardscoped_guard">guard/scoped_guard 实现原理<a class="headerlink" href="#guardscoped_guard" title="Permanent link">&para;</a></h2>
+<p>v6 最终使用了 <code>guard(mutex)</code> 和 <code>scoped_guard(spinlock_irq)</code> 两种 scope-based 锁管理宏。
+它们基于 GCC 的 <code>__attribute__((cleanup))</code> 编译器扩展，在变量离开作用域时自动调用析构函数。</p>
+<h3 id="__attribute__cleanup">核心机制：<code>__attribute__((cleanup))</code><a class="headerlink" href="#__attribute__cleanup" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1">// 当 var 离开作用域时，自动调用 destructor(&amp;var)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">type</span><span class="w"> </span><span class="n">var</span><span class="w"> </span><span class="n">__attribute__</span><span class="p">((</span><span class="n">cleanup</span><span class="p">(</span><span class="n">destructor</span><span class="p">)))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">constructor</span><span class="p">(</span><span class="n">args</span><span class="p">);</span>
+</code></pre></div>
+<p>这是 C 语言实现 RAII（Resource Acquisition Is Initialization）的基础，无需 C++ 的析构函数。</p>
+<h3 id="define_lock_guard_1">DEFINE_LOCK_GUARD_1 展开<a class="headerlink" href="#define_lock_guard_1" title="Permanent link">&para;</a></h3>
+<p>以 <code>guard(mutex)</code> 为例，mutex 的 guard 在 <code>include/linux/mutex.h:253</code> 中定义：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">DEFINE_LOCK_GUARD_1</span><span class="p">(</span><span class="n">mutex</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">mutex</span><span class="p">,</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="n">mutex_lock</span><span class="p">(</span><span class="n">_T</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">),</span><span class="w">       </span><span class="c1">// lock 语句</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="n">_T</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">))</span><span class="w">     </span><span class="c1">// unlock 语句</span>
+</code></pre></div>
+<p>这个宏展开后生成：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// 1. 定义一个结构体，包含锁指针</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">mutex</span><span class="w"> </span><span class="o">*</span><span class="n">lock</span><span class="p">;</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="p">}</span><span class="w"> </span><span class="n">class_mutex_t</span><span class="p">;</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="c1">// 2. 构造函数：获取锁，lit = lock 指针</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="k">static</span><span class="w"> </span><span class="n">__always_inline</span><span class="w"> </span><span class="n">class_mutex_t</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="n">class_mutex_constructor</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">mutex</span><span class="w"> </span><span class="o">*</span><span class="n">lock</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="n">mutex_lock</span><span class="p">(</span><span class="n">lock</span><span class="p">);</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="n">class_mutex_t</span><span class="p">){</span><span class="w"> </span><span class="p">.</span><span class="n">lock</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">lock</span><span class="w"> </span><span class="p">};</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="p">}</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="c1">// 3. 析构函数：释放锁，inline 展开</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="k">static</span><span class="w"> </span><span class="n">__always_inline</span><span class="w"> </span><span class="kt">void</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="n">class_mutex_destructor</span><span class="p">(</span><span class="n">class_mutex_t</span><span class="w"> </span><span class="o">*</span><span class="n">p</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">mutex</span><span class="w"> </span><span class="o">*</span><span class="n">lock</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">;</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="n">lock</span><span class="p">);</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="guardmutex">guard(mutex) 展开<a class="headerlink" href="#guardmutex" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="cp">#define guard(_name)  CLASS(_name, __UNIQUE_ID(guard))</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1">// CLASS(mutex, __UNIQUE_ID(guard)) 展开为：</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">class_mutex_t</span><span class="w"> </span><span class="nf">__UNIQUE_ID</span><span class="p">(</span><span class="n">guard</span><span class="p">)</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="n">__attribute__</span><span class="p">((</span><span class="n">cleanup</span><span class="p">(</span><span class="n">class_mutex_destructor</span><span class="p">)))</span><span class="w"> </span><span class="o">=</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="n">class_mutex_constructor</span><span class="p">;</span>
+</code></pre></div>
+<p>使用时 <code>guard(mutex)(&amp;hash_mutex)</code> 等价于：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">class_mutex_t</span><span class="w"> </span><span class="n">_guard_42</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span><span class="n">__attribute__</span><span class="p">((</span><span class="n">cleanup</span><span class="p">(</span><span class="n">class_mutex_destructor</span><span class="p">)))</span><span class="w"> </span><span class="o">=</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="n">class_mutex_constructor</span><span class="p">(</span><span class="o">&amp;</span><span class="n">hash_mutex</span><span class="p">);</span>
+</code></pre></div>
+<p>当 <code>_guard_42</code> 离开作用域（函数返回、goto、break 等），编译器自动插入 <code>class_mutex_destructor(&amp;_guard_42)</code> 调用，即 <code>mutex_unlock(&amp;hash_mutex)</code>。</p>
+<h3 id="scoped_guard">scoped_guard 展开<a class="headerlink" href="#scoped_guard" title="Permanent link">&para;</a></h3>
+<p><code>scoped_guard</code> 用于需要限定锁持有范围的场景。<code>i-&gt;lock</code> 必须在调用 <code>request_irq()</code>（可能睡眠）前释放，但 <code>hash_mutex</code> 仍需保持。<code>scoped_guard</code> 通过 for 循环技巧将锁的生命周期限制在紧随的 <code>{}</code> 块内：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="cp">#define __scoped_guard(_name, _label, args...)                          \</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="cp">    for (CLASS(_name, scope)(args);                                     \</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="cp">         __guard_ptr(_name)(&amp;scope) || !__is_cond_ptr(_name);           \</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="cp">         ({ goto _label; }))                                            \</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="cp">        if (0) {                                                        \</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="cp">_label:                                                                 \</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="cp">            break;                                                      \</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="cp">        } else</span>
+</code></pre></div>
+<p>使用时 <code>scoped_guard(spinlock_irq, &amp;i-&gt;lock) { ... }</code> 等价于：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1">// for 循环初始化：获取锁，scope 变量带有 cleanup 属性</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">class_spinlock_irq_t</span><span class="w"> </span><span class="n">scope</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">         </span><span class="n">__attribute__</span><span class="p">((</span><span class="n">cleanup</span><span class="p">(</span><span class="n">class_spinlock_irq_destructor</span><span class="p">)))</span><span class="w"> </span><span class="o">=</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">         </span><span class="n">class_spinlock_irq_constructor</span><span class="p">(</span><span class="o">&amp;</span><span class="n">i</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">     </span><span class="c1">// 条件：锁指针非空（无条件锁始终为真）</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">     </span><span class="n">__guard_ptr</span><span class="p">(</span><span class="n">spinlock_irq</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">scope</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="n">__is_cond_ptr</span><span class="p">(</span><span class="n">spinlock_irq</span><span class="p">);</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">     </span><span class="c1">// 循环体结束后执行：goto _label 跳出循环</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">     </span><span class="p">({</span><span class="w"> </span><span class="k">goto</span><span class="w"> </span><span class="n">_label_42</span><span class="p">;</span><span class="w"> </span><span class="p">}))</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="nl">_label_42</span><span class="p">:</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">        </span><span class="k">break</span><span class="p">;</span><span class="w">  </span><span class="c1">// 永远不会执行，只是 label 的锚点</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">        </span><span class="c1">// 用户的代码块在此</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="cm">/* i-&gt;lock 保护的代码 */</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>执行流程：
+1. <strong>初始化</strong>：构造 scope，获取 spinlock
+2. <strong>条件检查</strong>：无条件锁 <code>!__is_cond_ptr</code> 为真，进入 else 分支
+3. <strong>执行用户代码块</strong>
+4. <strong>循环迭代表达式</strong>：<code>goto _label_42</code> 跳出循环
+5. <strong>scope 离开 for 循环作用域</strong>：触发 <code>__attribute__((cleanup))</code> 析构，释放 spinlock</p>
+<h3 id="_5">为什么高效<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h3>
+<p><strong>1. 零运行时开销</strong></p>
+<p>所有构造函数和析构函数都标记为 <code>__always_inline</code>，编译器将它们完全内联到调用点：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1">// guard(mutex)(&amp;hash_mutex) 编译后等同于：</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">hash_mutex</span><span class="p">);</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1">// ... 函数体 ...</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1">// 编译器在 return 前自动插入：</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">hash_mutex</span><span class="p">);</span>
+</code></pre></div>
+<p>与手写 <code>mutex_lock/unlock</code> 完全一致，没有任何额外函数调用。</p>
+<p><strong>2. 自动匹配所有退出路径</strong></p>
+<p><code>__attribute__((cleanup))</code> 在变量离开作用域时自动触发，覆盖所有退出方式：
+- <code>return</code> 语句
+- <code>goto</code> 跳出
+- <code>break</code> 跳出
+- 函数正常结束</p>
+<p>不需要在每个出口手动写 <code>unlock</code>，消除了遗漏释放锁的人为错误。</p>
+<p><strong>3. 编译期安全</strong></p>
+<p><code>__no_context_analysis</code> 标记告诉编译器不要在析构函数上做上下文分析（避免死锁误报），但锁的获取/释放配对由编译器在代码生成层面保证，比手动配对更可靠。</p>
+<p><strong>4. 与手写锁等价的代码生成</strong></p>
+<p>以 <code>serial_link_irq_chain()</code> 为例，<code>guard(mutex)(&amp;hash_mutex)</code> 生成的汇编代码与手写 <code>mutex_lock(&amp;hash_mutex)</code> + 每个 return 前 <code>mutex_unlock(&amp;hash_mutex)</code> 完全相同——编译器将 guard 变量完全优化掉，只保留 <code>mutex_lock</code> 和 <code>mutex_unlock</code> 调用。</p>
+<h2 id="_6">版本变更总结<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
