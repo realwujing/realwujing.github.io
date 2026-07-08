@@ -201,6 +201,149 @@ static int serial_link_irq_chain(struct uart_8250_port *up)
 }
 ```
 
+## guard/scoped_guard 实现原理
+
+v6 最终使用了 `guard(mutex)` 和 `scoped_guard(spinlock_irq)` 两种 scope-based 锁管理宏。
+它们基于 GCC 的 `__attribute__((cleanup))` 编译器扩展，在变量离开作用域时自动调用析构函数。
+
+### 核心机制：`__attribute__((cleanup))`
+
+```c
+// 当 var 离开作用域时，自动调用 destructor(&var)
+type var __attribute__((cleanup(destructor))) = constructor(args);
+```
+
+这是 C 语言实现 RAII（Resource Acquisition Is Initialization）的基础，无需 C++ 的析构函数。
+
+### DEFINE_LOCK_GUARD_1 展开
+
+以 `guard(mutex)` 为例，mutex 的 guard 在 `include/linux/mutex.h:253` 中定义：
+
+```c
+DEFINE_LOCK_GUARD_1(mutex, struct mutex,
+    mutex_lock(_T->lock),       // lock 语句
+    mutex_unlock(_T->lock))     // unlock 语句
+```
+
+这个宏展开后生成：
+
+```c
+// 1. 定义一个结构体，包含锁指针
+typedef struct {
+    struct mutex *lock;
+} class_mutex_t;
+
+// 2. 构造函数：获取锁，lit = lock 指针
+static __always_inline class_mutex_t
+class_mutex_constructor(struct mutex *lock) {
+    mutex_lock(lock);
+    return (class_mutex_t){ .lock = lock };
+}
+
+// 3. 析构函数：释放锁，inline 展开
+static __always_inline void
+class_mutex_destructor(class_mutex_t *p) {
+    struct mutex *lock = p->lock;
+    mutex_unlock(lock);
+}
+```
+
+### guard(mutex) 展开
+
+```c
+#define guard(_name)  CLASS(_name, __UNIQUE_ID(guard))
+
+// CLASS(mutex, __UNIQUE_ID(guard)) 展开为：
+class_mutex_t __UNIQUE_ID(guard)
+    __attribute__((cleanup(class_mutex_destructor))) =
+    class_mutex_constructor;
+```
+
+使用时 `guard(mutex)(&hash_mutex)` 等价于：
+
+```c
+class_mutex_t _guard_42
+    __attribute__((cleanup(class_mutex_destructor))) =
+    class_mutex_constructor(&hash_mutex);
+```
+
+当 `_guard_42` 离开作用域（函数返回、goto、break 等），编译器自动插入 `class_mutex_destructor(&_guard_42)` 调用，即 `mutex_unlock(&hash_mutex)`。
+
+### scoped_guard 展开
+
+`scoped_guard` 用于需要限定锁持有范围的场景。`i->lock` 必须在调用 `request_irq()`（可能睡眠）前释放，但 `hash_mutex` 仍需保持。`scoped_guard` 通过 for 循环技巧将锁的生命周期限制在紧随的 `{}` 块内：
+
+```c
+#define __scoped_guard(_name, _label, args...)                          \
+    for (CLASS(_name, scope)(args);                                     \
+         __guard_ptr(_name)(&scope) || !__is_cond_ptr(_name);           \
+         ({ goto _label; }))                                            \
+        if (0) {                                                        \
+_label:                                                                 \
+            break;                                                      \
+        } else
+```
+
+使用时 `scoped_guard(spinlock_irq, &i->lock) { ... }` 等价于：
+
+```c
+// for 循环初始化：获取锁，scope 变量带有 cleanup 属性
+for (class_spinlock_irq_t scope
+         __attribute__((cleanup(class_spinlock_irq_destructor))) =
+         class_spinlock_irq_constructor(&i->lock);
+     // 条件：锁指针非空（无条件锁始终为真）
+     __guard_ptr(spinlock_irq)(&scope) || !__is_cond_ptr(spinlock_irq);
+     // 循环体结束后执行：goto _label 跳出循环
+     ({ goto _label_42; }))
+    if (0) {
+_label_42:
+        break;  // 永远不会执行，只是 label 的锚点
+    } else
+        // 用户的代码块在此
+        { /* i->lock 保护的代码 */ }
+```
+
+执行流程：
+1. **初始化**：构造 scope，获取 spinlock
+2. **条件检查**：无条件锁 `!__is_cond_ptr` 为真，进入 else 分支
+3. **执行用户代码块**
+4. **循环迭代表达式**：`goto _label_42` 跳出循环
+5. **scope 离开 for 循环作用域**：触发 `__attribute__((cleanup))` 析构，释放 spinlock
+
+### 为什么高效
+
+**1. 零运行时开销**
+
+所有构造函数和析构函数都标记为 `__always_inline`，编译器将它们完全内联到调用点：
+
+```c
+// guard(mutex)(&hash_mutex) 编译后等同于：
+mutex_lock(&hash_mutex);
+// ... 函数体 ...
+// 编译器在 return 前自动插入：
+mutex_unlock(&hash_mutex);
+```
+
+与手写 `mutex_lock/unlock` 完全一致，没有任何额外函数调用。
+
+**2. 自动匹配所有退出路径**
+
+`__attribute__((cleanup))` 在变量离开作用域时自动触发，覆盖所有退出方式：
+- `return` 语句
+- `goto` 跳出
+- `break` 跳出
+- 函数正常结束
+
+不需要在每个出口手动写 `unlock`，消除了遗漏释放锁的人为错误。
+
+**3. 编译期安全**
+
+`__no_context_analysis` 标记告诉编译器不要在析构函数上做上下文分析（避免死锁误报），但锁的获取/释放配对由编译器在代码生成层面保证，比手动配对更可靠。
+
+**4. 与手写锁等价的代码生成**
+
+以 `serial_link_irq_chain()` 为例，`guard(mutex)(&hash_mutex)` 生成的汇编代码与手写 `mutex_lock(&hash_mutex)` + 每个 return 前 `mutex_unlock(&hash_mutex)` 完全相同——编译器将 guard 变量完全优化掉，只保留 `mutex_lock` 和 `mutex_unlock` 调用。
+
 ## 版本变更总结
 
 | 版本 | 变更 |
